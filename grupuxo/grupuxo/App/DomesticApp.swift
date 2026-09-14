@@ -1,1 +1,10 @@
-// Ponto de entrada futuro do aplicativo e configuração do ciclo de vida SwiftUI.
+import SwiftUI
+
+@main
+struct DomesticApp: App {
+    var body: some Scene {
+        WindowGroup {
+            RootView()
+        }
+    }
+}

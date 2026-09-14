@@ -1,1 +1,7 @@
-// Entidade futura que representa a participação de um usuário em uma casa.
+import Foundation
+
+struct HouseMembership: Identifiable, Hashable, Codable, Sendable {
+    let id: UUID
+    let houseID: House.ID
+    let userID: User.ID
+}

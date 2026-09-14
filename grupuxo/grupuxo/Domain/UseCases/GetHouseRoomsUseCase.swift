@@ -1,1 +1,7 @@
-// Caso de uso futuro para buscar os cômodos pertencentes à casa atual.
+struct GetHouseRoomsUseCase: Sendable {
+    let repository: any RoomRepository
+
+    func callAsFunction(houseID: House.ID) async throws -> [Room] {
+        try await repository.rooms(in: houseID)
+    }
+}

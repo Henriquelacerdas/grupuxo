@@ -1,1 +1,6 @@
-// Contrato futuro para consultar e alterar casas por meio de ações de negócio.
+import Foundation
+
+protocol HouseRepository: Sendable {
+    func house(id: House.ID) async throws -> House
+    func houses(for userID: User.ID) async throws -> [House]
+}

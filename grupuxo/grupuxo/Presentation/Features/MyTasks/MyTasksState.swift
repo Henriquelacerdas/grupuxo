@@ -1,1 +1,7 @@
-// Estados locais futuros de carregamento, conteúdo, vazio e erro de Minhas tarefas.
+enum MyTasksState: Equatable {
+    case idle
+    case loading
+    case content([TaskItem])
+    case empty
+    case failure(String)
+}

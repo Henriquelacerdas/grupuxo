@@ -1,1 +1,12 @@
-// Estado futuro da sessão, incluindo usuário e casa atualmente selecionados.
+import Combine
+
+@MainActor
+final class AppSession: ObservableObject {
+    @Published var currentUser: User
+    @Published var currentHouse: House
+
+    init(currentUser: User, currentHouse: House) {
+        self.currentUser = currentUser
+        self.currentHouse = currentHouse
+    }
+}

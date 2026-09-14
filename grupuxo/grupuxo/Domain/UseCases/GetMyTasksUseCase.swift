@@ -1,1 +1,7 @@
-// Caso de uso futuro para buscar as tarefas visíveis e atribuídas ao usuário atual.
+struct GetMyTasksUseCase: Sendable {
+    let repository: any TaskRepository
+
+    func callAsFunction(userID: User.ID, houseID: House.ID) async throws -> [TaskItem] {
+        try await repository.tasks(for: userID, in: houseID)
+    }
+}

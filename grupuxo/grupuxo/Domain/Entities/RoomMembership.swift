@@ -1,1 +1,7 @@
-// Entidade futura que representa a participação de um usuário em um cômodo.
+import Foundation
+
+struct RoomMembership: Identifiable, Hashable, Codable, Sendable {
+    let id: UUID
+    let roomID: Room.ID
+    let userID: User.ID
+}

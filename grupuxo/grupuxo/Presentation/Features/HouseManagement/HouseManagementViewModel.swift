@@ -1,1 +1,24 @@
-// ViewModel futuro que coordenará consultas e ações da gestão da casa.
+import Combine
+import Foundation
+
+@MainActor
+final class HouseManagementViewModel: ObservableObject {
+    @Published private(set) var state: HouseManagementState = .idle
+    private let getHouseRooms: GetHouseRoomsUseCase
+    private let houseID: House.ID
+
+    init(getHouseRooms: GetHouseRoomsUseCase, houseID: House.ID) {
+        self.getHouseRooms = getHouseRooms
+        self.houseID = houseID
+    }
+
+    func load() async {
+        state = .loading
+        do {
+            let rooms = try await getHouseRooms(houseID: houseID)
+            state = rooms.isEmpty ? .empty : .content(rooms)
+        } catch {
+            state = .failure(error.localizedDescription)
+        }
+    }
+}

@@ -1,1 +1,7 @@
-// Estados locais futuros de carregamento, conteúdo, vazio e erro das tarefas esporádicas.
+enum SporadicTasksState: Equatable {
+    case idle
+    case loading
+    case content([TaskItem])
+    case empty
+    case failure(String)
+}

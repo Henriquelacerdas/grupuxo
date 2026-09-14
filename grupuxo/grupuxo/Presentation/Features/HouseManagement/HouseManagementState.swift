@@ -1,1 +1,7 @@
-// Estados locais futuros de carregamento, conteúdo, vazio e erro da gestão da casa.
+enum HouseManagementState: Equatable {
+    case idle
+    case loading
+    case content([Room])
+    case empty
+    case failure(String)
+}
