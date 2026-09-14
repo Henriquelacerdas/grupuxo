@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A5AC27E930583F00006C8F79 /* ARCHITECTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = A5AC27E730583EE4006C8F79 /* ARCHITECTURE.md */; };
+		A5AC287330585230006C8F79 /* DESCRICAO.md in Resources */ = {isa = PBXBuildFile; fileRef = A5AC287130585225006C8F79 /* DESCRICAO.md */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A5AC27CB3058135D006C8F79 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +32,8 @@
 		A5AC27BD3058135C006C8F79 /* grupuxo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = grupuxo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5AC27CA3058135D006C8F79 /* grupuxoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = grupuxoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5AC27D43058135D006C8F79 /* grupuxoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = grupuxoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5AC27E730583EE4006C8F79 /* ARCHITECTURE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = ARCHITECTURE.md; sourceTree = "<group>"; };
+		A5AC287130585225006C8F79 /* DESCRICAO.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = DESCRICAO.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -75,6 +82,8 @@
 		A5AC27B43058135C006C8F79 = {
 			isa = PBXGroup;
 			children = (
+				A5AC287130585225006C8F79 /* DESCRICAO.md */,
+				A5AC27E730583EE4006C8F79 /* ARCHITECTURE.md */,
 				A5AC27BF3058135C006C8F79 /* grupuxo */,
 				A5AC27CD3058135D006C8F79 /* grupuxoTests */,
 				A5AC27D73058135D006C8F79 /* grupuxoUITests */,
@@ -212,6 +221,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A5AC287330585230006C8F79 /* DESCRICAO.md in Resources */,
+				A5AC27E930583F00006C8F79 /* ARCHITECTURE.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
