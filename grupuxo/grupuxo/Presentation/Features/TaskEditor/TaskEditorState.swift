@@ -1,3 +1,7 @@
+// TODO — Definir um rascunho coerente para cada tipo: atualmente recurring começa
+// com recurrence = .none. Ao alternar o tipo, ajustar recorrência/política e manter
+// nome, descrição, cômodo e esforço. Falhas devem preservar os valores digitados.
+
 import Foundation
 
 struct TaskDraft: Equatable {

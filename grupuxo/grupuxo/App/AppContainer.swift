@@ -1,3 +1,11 @@
+// GUIA — Montar aqui as dependências das próximas entregas.
+// TODO: injetar CreateRoomUseCase e o futuro caso de uso de distribuição/rotação,
+// compartilhando este MockStore. Criar as fábricas dos novos ViewModels.
+// Coordenar atualização semanal ao abrir/retomar o app e após mudanças de
+// participantes/férias. Reprocessar a mesma semana deve ser seguro. Execução com
+// o app fechado exige estratégia futura de agendamento/backend; um timer de View
+// não garante a rotação automática. Calendário e data devem chegar aos calculadores.
+
 @MainActor
 final class AppContainer {
     let store: MockStore

@@ -1,3 +1,9 @@
+// TODO — Conectar escolhas de periodicidade ao draft e enviar contexto de usuário/
+// casa ao caso de uso para validar o cômodo selecionado. Carregar apenas cômodos
+// autorizados. Evitar salvar novamente enquanto .saving ou após sucesso sem edição.
+// TaskEffort hoje limita valores ao intervalo; se houver entrada livre, validar
+// 1...3 antes de construir o valor para informar o erro em vez de corrigir em silêncio.
+
 import Combine
 import Foundation
 

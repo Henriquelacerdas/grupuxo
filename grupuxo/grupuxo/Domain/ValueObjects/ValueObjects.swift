@@ -50,6 +50,9 @@ enum RecurrencePolicy: Hashable, Codable, Sendable {
     case weekly(interval: Int)
 }
 
+// GUIA — Esforço unitário escolhido manualmente: 1, 2 ou 3. O inicializador
+// atual limita valores fora da faixa; manter essa regra consistente na edição
+// e validar também dados decodificados quando houver persistência externa.
 struct TaskEffort: Hashable, Codable, Sendable {
     let points: Int
 
@@ -58,6 +61,8 @@ struct TaskEffort: Hashable, Codable, Sendable {
     }
 }
 
+// GUIA — Carga acumulada da semana: pode ultrapassar 3. Usar este tipo no
+// balanceamento; nunca limitar a soma com TaskEffort.
 struct WeeklyLoad: Hashable, Codable, Sendable {
     let points: Int
 

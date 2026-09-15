@@ -1,3 +1,12 @@
+// GUIA — create hoje salva a definição e uma ocorrência imediata sem responsável.
+// TODO: suportar geração periódica por janela de calendário em fluxo próprio,
+// evitar duplicar a mesma definição/período e preservar ocorrências anteriores.
+// Aplicar decisões da distribuição no mesmo store.update: encerrar atribuição
+// anterior, criar a nova e atualizar status, mantendo uma única atribuição ativa.
+// Validar todo o lote antes de mutar o estado. Para avulsas, manter criação sem
+// responsável e usar claim/release. Reforçar autorização nas mutações ao evoluir
+// o contrato; os mocks devem exercitar as mesmas regras esperadas do backend.
+
 import Foundation
 
 struct MockTaskRepository: TaskRepository {

@@ -1,3 +1,9 @@
+// TODO — Mover a consulta direta de roomRepository para um caso de uso com
+// verificação de acesso ao cômodo, inclusive ao navegar diretamente por ID.
+// Recarregar após manutenção/cadastro de tarefa e mudança da semana. Exibir
+// responsável da rotação quando o domínio oferecer esse resultado; não calculá-lo
+// na ViewModel. A consulta interna continua excluindo avulsas/esporádicas.
+
 import Combine
 import Foundation
 

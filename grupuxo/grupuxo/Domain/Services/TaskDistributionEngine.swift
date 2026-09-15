@@ -1,3 +1,16 @@
+// GUIA — Há uma etapa gulosa: maior esforço primeiro, menor carga e histórico
+// como desempate. Ainda faltam integração com recorrência e busca local.
+// TODO: o caso de uso deve fornecer apenas ocorrências periódicas disponíveis da
+// semana e da política aplicável; excluir avulsas, futuras e moradores em férias.
+// Montar elegíveis por RoomMembership, respeitando acesso e visibilidade da tarefa.
+// Para balancear pessoas do mesmo cômodo, explicitar o escopo de currentLoads:
+// o dicionário atual só possui usuário, não separa carga por cômodo. Preparar os
+// dados por cômodo ou estender o contrato antes de misturar tarefas de vários cômodos.
+// Após a etapa gulosa, tentar realocações/trocas que reduzam a diferença de esforço
+// sem violar elegibilidade. Definir parada e desempates determinísticos em testes.
+// Persistir decisões atomicamente e recalcular quando a elegibilidade mudar;
+// o filtro atual ignora tarefas atribuídas e sozinho não faz essa redistribuição.
+
 import Foundation
 
 struct TaskDistributionDecision: Hashable, Sendable {

@@ -1,3 +1,10 @@
+// GUIA — Tarefa avulsa usa o fluxo de esporádicas já existente: criar pelo editor
+// em Gerenciar casa, aparecer neste card, assumir e depois concluir em Minhas tarefas.
+// TODO: atualizar o card após cadastro/devolução e validar que tarefas de cômodos
+// privados só apareçam para participantes autorizados. Não enviar avulsas para
+// a distribuição periódica. A regra de pulo após conclusão descrita em DESCRICAO.md
+// é uma integração posterior com a distribuição; assumir sozinho não concede pulo.
+
 import Combine
 import Foundation
 

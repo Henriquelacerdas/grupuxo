@@ -1,3 +1,9 @@
+// GUIA — Esta é a entrada para criar cômodo e cadastrar tarefas.
+// TODO: adicionar ação de criação de cômodo e um formulário com nome, visibilidade,
+// participantes e rotação semanal. Encaminhar a ação por callback/rota tipada.
+// Usar ViewModel + caso de uso para salvar e recarregar a lista ao retornar.
+// Manter o card de avulsas/esporádicas separado da lista interna dos cômodos.
+
 import SwiftUI
 
 struct HouseManagementView: View {

@@ -1,3 +1,11 @@
+// GUIA — Cadastro da configuração, não de cada execução da tarefa.
+// Toda tarefa, inclusive avulsa, tem roomID. Recorrência define quando gerar
+// ocorrências; assignmentPolicy define como escolher o responsável.
+// Na entrega atual, avulsa corresponde a .sporadic, recurrence = .none e
+// assignmentPolicy = .selfAssigned. Uma tarefa privada e um cômodo privado são
+// restrições diferentes; preservar ambas nas consultas.
+// Alterar esforço na definição não deve reescrever snapshots de ocorrências passadas.
+
 import Foundation
 
 struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {

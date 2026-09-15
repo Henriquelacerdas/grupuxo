@@ -1,3 +1,10 @@
+// GUIA — O Stepper já permite escolher esforço manualmente de 1 a 3.
+// TODO: adicionar controles de recorrência, hoje ausentes, e apresentar somente
+// políticas compatíveis com o tipo escolhido. Avulsa não tem recorrência e será
+// assumida no card de esporádicas. Manter cômodo obrigatório nos dois tipos.
+// Após .saved, fechar/retornar pelo fluxo de navegação e atualizar as consultas.
+// A View edita o rascunho; regras de cadastro e distribuição ficam no domínio.
+
 import SwiftUI
 
 struct TaskEditorView: View {

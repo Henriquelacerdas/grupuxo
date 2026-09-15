@@ -1,3 +1,9 @@
+// GUIA — Acesso ao cômodo privado e visibilidade da tarefa são duas verificações.
+// TODO: reutilizar essa política em consultas e ações, incluindo criação, com
+// validação adicional de participação na casa. canView não basta para distribuir:
+// montar candidatos com participação no cômodo e excluir férias. Nunca permitir
+// que a distribuição atribua tarefa privada a quem não pode vê-la.
+
 struct TaskEligibilityPolicy: Sendable {
     nonisolated func canView(
         _ definition: TaskDefinition,
