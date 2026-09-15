@@ -37,6 +37,7 @@ struct RootView: View {
             NavigationStack(path: $housePath) {
                 HouseManagementView(
                     viewModel: container.makeHouseManagementViewModel(session: session),
+                    makeTaskEditorViewModel: { container.makeTaskEditorViewModel(roomID: nil, session: session) },
                     onSelectRoom: { housePath.append(.roomDetail($0)) },
                     onSelectSporadicTasks: { housePath.append(.sporadicTasks) }
                 )

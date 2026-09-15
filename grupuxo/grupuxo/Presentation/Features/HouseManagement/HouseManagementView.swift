@@ -9,15 +9,18 @@ import SwiftUI
 struct HouseManagementView: View {
     @StateObject private var viewModel: HouseManagementViewModel
     @State private var isPresentingCreationSheet = false
+    let makeTaskEditorViewModel: () -> TaskEditorViewModel
     let onSelectRoom: (Room.ID) -> Void
     let onSelectSporadicTasks: () -> Void
 
     init(
         viewModel: HouseManagementViewModel,
+        makeTaskEditorViewModel: @escaping () -> TaskEditorViewModel,
         onSelectRoom: @escaping (Room.ID) -> Void,
         onSelectSporadicTasks: @escaping () -> Void
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        self.makeTaskEditorViewModel = makeTaskEditorViewModel
         self.onSelectRoom = onSelectRoom
         self.onSelectSporadicTasks = onSelectSporadicTasks
     }
@@ -31,7 +34,7 @@ struct HouseManagementView: View {
                             .font(.title2)
                             .foregroundStyle(.tint)
 
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
                             Text("Tarefas esporádicas")
                                 .font(.headline)
                             Text("Veja tarefas disponíveis para assumir")
@@ -43,7 +46,7 @@ struct HouseManagementView: View {
                         Image(systemName: "chevron.right")
                             .foregroundStyle(.tertiary)
                     }
-                    .padding(.vertical, 8)
+                    .padding(.vertical, DesignSystem.Spacing.small)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Abrir tarefas esporádicas")
@@ -62,22 +65,7 @@ struct HouseManagementView: View {
             }
         }
         .sheet(isPresented: $isPresentingCreationSheet) {
-            NavigationStack {
-                ContentUnavailableView(
-                    "Adicionar à casa",
-                    systemImage: "plus.circle",
-                    description: Text("O conteúdo deste modal será implementado em breve.")
-                )
-                .navigationTitle("Adicionar")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Fechar") {
-                            isPresentingCreationSheet = false
-                        }
-                    }
-                }
-            }
+            TaskCreationSheetView(viewModel: makeTaskEditorViewModel())
         }
         .task { if viewModel.state == .idle { await viewModel.load() } }
         .refreshable { await viewModel.load() }
