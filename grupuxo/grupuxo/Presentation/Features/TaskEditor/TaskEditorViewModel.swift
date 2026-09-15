@@ -39,12 +39,17 @@ final class TaskEditorViewModel: ObservableObject {
     }
 
     func updateDraft(_ update: (inout TaskDraft) -> Void) {
+        if case .saving = state { return }
         var draft = state.draft
         update(&draft)
         state = .editing(draft)
     }
 
     func save() async {
+        switch state {
+        case .saving, .saved: return
+        case .editing, .failure: break
+        }
         let draft = state.draft
         guard let roomID = draft.roomID else {
             state = .failure(draft, "Selecione um cômodo.")

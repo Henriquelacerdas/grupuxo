@@ -2,9 +2,17 @@ import SwiftUI
 
 struct MyTasksView: View {
     @StateObject private var viewModel: MyTasksViewModel
+    let onSelectNotifications: () -> Void
+    let onSelectProfile: () -> Void
 
-    init(viewModel: MyTasksViewModel) {
+    init(
+        viewModel: MyTasksViewModel,
+        onSelectNotifications: @escaping () -> Void,
+        onSelectProfile: @escaping () -> Void
+    ) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        self.onSelectNotifications = onSelectNotifications
+        self.onSelectProfile = onSelectProfile
     }
 
     var body: some View {
@@ -25,6 +33,12 @@ struct MyTasksView: View {
             }
         }
         .navigationTitle("Minhas tarefas")
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button("Notificações", systemImage: "bell", action: onSelectNotifications)
+                Button("Perfil", systemImage: "person.circle", action: onSelectProfile)
+            }
+        }
         .task { if viewModel.state == .idle { await viewModel.load() } }
         .refreshable { await viewModel.load() }
     }
