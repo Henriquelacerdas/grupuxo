@@ -8,20 +8,18 @@ import SwiftUI
 
 struct HouseManagementView: View {
     @StateObject private var viewModel: HouseManagementViewModel
+    @State private var isPresentingCreationSheet = false
     let onSelectRoom: (Room.ID) -> Void
     let onSelectSporadicTasks: () -> Void
-    let onCreateTask: () -> Void
 
     init(
         viewModel: HouseManagementViewModel,
         onSelectRoom: @escaping (Room.ID) -> Void,
-        onSelectSporadicTasks: @escaping () -> Void,
-        onCreateTask: @escaping () -> Void
+        onSelectSporadicTasks: @escaping () -> Void
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.onSelectRoom = onSelectRoom
         self.onSelectSporadicTasks = onSelectSporadicTasks
-        self.onCreateTask = onCreateTask
     }
 
     var body: some View {
@@ -57,8 +55,28 @@ struct HouseManagementView: View {
         }
         .navigationTitle("Casa")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Criar tarefa", systemImage: "plus", action: onCreateTask)
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Adicionar tarefa", systemImage: "plus") {
+                    isPresentingCreationSheet = true
+                }
+            }
+        }
+        .sheet(isPresented: $isPresentingCreationSheet) {
+            NavigationStack {
+                ContentUnavailableView(
+                    "Adicionar à casa",
+                    systemImage: "plus.circle",
+                    description: Text("O conteúdo deste modal será implementado em breve.")
+                )
+                .navigationTitle("Adicionar")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Fechar") {
+                            isPresentingCreationSheet = false
+                        }
+                    }
+                }
             }
         }
         .task { if viewModel.state == .idle { await viewModel.load() } }

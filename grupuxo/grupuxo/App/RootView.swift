@@ -4,7 +4,9 @@ import SwiftUI
 struct RootView: View {
     private let container: AppContainer
     @StateObject private var session: AppSession
-    @StateObject private var router = AppRouter()
+    @State private var selectedTab: AppTab = .myTasks
+    @State private var tasksPath: [AppRoute] = []
+    @State private var housePath: [AppRoute] = []
 
     init() {
         container = AppContainer()
@@ -17,35 +19,33 @@ struct RootView: View {
     }
 
     var body: some View {
-        NavigationStack(path: $router.path) {
-            TabView(selection: $router.selectedTab) {
-                MyTasksView(viewModel: container.makeMyTasksViewModel(session: session))
-                    .tabItem { Label("Tarefas", systemImage: "checklist") }
-                    .tag(AppTab.myTasks)
-
-                HouseManagementView(
-                    viewModel: container.makeHouseManagementViewModel(session: session),
-                    onSelectRoom: { router.navigate(to: .roomDetail($0)) },
-                    onSelectSporadicTasks: { router.navigate(to: .sporadicTasks) },
-                    onCreateTask: { router.navigate(to: .taskEditor(roomID: nil)) }
+        TabView(selection: $selectedTab) {
+            // Cada aba possui sua própria barra e histórico de navegação.
+            NavigationStack(path: $tasksPath) {
+                MyTasksView(
+                    viewModel: container.makeMyTasksViewModel(session: session),
+                    onSelectNotifications: { tasksPath.append(.notifications) },
+                    onSelectProfile: { tasksPath.append(.settings) }
                 )
-                .tabItem { Label("Casa", systemImage: "house") }
-                .tag(AppTab.house)
-            }
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("Notificações", systemImage: "bell") {
-                        router.navigate(to: .notifications)
-                    }
-
-                    Button("Perfil", systemImage: "person.circle") {
-                        router.navigate(to: .settings)
-                    }
+                .navigationDestination(for: AppRoute.self) { route in
+                    destination(for: route)
                 }
             }
-            .navigationDestination(for: AppRoute.self) { route in
-                destination(for: route)
+            .tabItem { Label("Tarefas", systemImage: "checklist") }
+            .tag(AppTab.myTasks)
+
+            NavigationStack(path: $housePath) {
+                HouseManagementView(
+                    viewModel: container.makeHouseManagementViewModel(session: session),
+                    onSelectRoom: { housePath.append(.roomDetail($0)) },
+                    onSelectSporadicTasks: { housePath.append(.sporadicTasks) }
+                )
+                .navigationDestination(for: AppRoute.self) { route in
+                    destination(for: route)
+                }
             }
+            .tabItem { Label("Casa", systemImage: "house") }
+            .tag(AppTab.house)
         }
     }
 
