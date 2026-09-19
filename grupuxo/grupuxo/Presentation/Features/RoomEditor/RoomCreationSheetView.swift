@@ -35,6 +35,8 @@ struct RoomCreationSheetView: View {
 
                     nameCard
 
+                    visibilityCard
+
                     informationCard
 
                     if case let .failure(_, message) = viewModel.state {
@@ -115,6 +117,8 @@ struct RoomCreationSheetView: View {
         }
     }
 
+    // MARK: - Nome
+
     private var nameCard: some View {
 
         TextField(
@@ -126,36 +130,42 @@ struct RoomCreationSheetView: View {
         .focused($isNameFocused)
         .onSubmit {
 
-            Task {
-                await viewModel.save()
-            }
+            isNameFocused = false
         }
         .accessibilityLabel("Nome do cômodo")
         .padding(DesignSystem.Spacing.large)
         .background(cardBackground)
     }
 
-    private var informationCard: some View {
+    // MARK: - Tipo do cômodo
+
+    private var visibilityCard: some View {
 
         VStack(
             alignment: .leading,
-            spacing: DesignSystem.Spacing.large
+            spacing: DesignSystem.Spacing.medium
         ) {
 
             Label(
-                "Todos os moradores da casa participarão deste cômodo.",
-                systemImage: "person.3"
+                "Tipo do cômodo",
+                systemImage: "lock.shield"
             )
+            .font(.callout.weight(.medium))
 
-            Divider()
+            Picker(
+                "Tipo do cômodo",
+                selection: binding(\.visibility)
+            ) {
 
-            Label(
-                "Rotação semanal",
-                systemImage: "arrow.triangle.2.circlepath"
-            )
+                Text("Comum")
+                    .tag(RoomVisibility.common)
+
+                Text("Privado")
+                    .tag(RoomVisibility.privateRoom)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel("Tipo do cômodo")
         }
-        .font(.callout)
-        .foregroundStyle(.secondary)
         .frame(
             maxWidth: .infinity,
             alignment: .leading
@@ -163,6 +173,80 @@ struct RoomCreationSheetView: View {
         .padding(DesignSystem.Spacing.large)
         .background(cardBackground)
     }
+
+    // MARK: - Informações
+
+    @ViewBuilder
+    private var informationCard: some View {
+
+        switch viewModel.state.draft.visibility {
+
+        case .common:
+
+            VStack(
+                alignment: .leading,
+                spacing: DesignSystem.Spacing.large
+            ) {
+
+                Label(
+                    "Todos os moradores da casa participarão deste cômodo.",
+                    systemImage: "person.3"
+                )
+
+                Divider()
+
+                Label(
+                    "Rotação semanal",
+                    systemImage: "arrow.triangle.2.circlepath"
+                )
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .frame(
+                maxWidth: .infinity,
+                alignment: .leading
+            )
+            .padding(DesignSystem.Spacing.large)
+            .background(cardBackground)
+
+        case .privateRoom:
+
+            VStack(
+                alignment: .leading,
+                spacing: DesignSystem.Spacing.large
+            ) {
+
+                Label(
+                    "Somente você participará deste cômodo inicialmente.",
+                    systemImage: "person"
+                )
+
+                Divider()
+
+                Label(
+                    "Outros moradores poderão solicitar acesso.",
+                    systemImage: "person.badge.plus"
+                )
+
+                Divider()
+
+                Label(
+                    "Não participa da rotação semanal.",
+                    systemImage: "arrow.triangle.2.circlepath"
+                )
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .frame(
+                maxWidth: .infinity,
+                alignment: .leading
+            )
+            .padding(DesignSystem.Spacing.large)
+            .background(cardBackground)
+        }
+    }
+
+    // MARK: - Helpers
 
     private var cardBackground: some View {
 

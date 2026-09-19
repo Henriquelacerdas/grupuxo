@@ -4,9 +4,17 @@
 // diferença nos casos de uso/contratos, sem espalhar filtros nas Views.
 
 struct GetHouseRoomsUseCase: Sendable {
+
     let repository: any RoomRepository
 
-    func callAsFunction(houseID: House.ID) async throws -> [Room] {
-        try await repository.rooms(in: houseID)
+    func callAsFunction(
+        houseID: House.ID,
+        userID: User.ID
+    ) async throws -> [Room] {
+
+        try await repository.rooms(
+            in: houseID,
+            requesting: userID
+        )
     }
 }
