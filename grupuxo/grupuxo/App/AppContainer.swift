@@ -1,11 +1,13 @@
-import Foundation
-
 // Composition root. Future room-management and vacation screens can consume the
 // transactional membership/schedule use cases without constructing services in Views.
 
+import Foundation
+
 @MainActor
 final class AppContainer {
+
     let store: MockStore
+
     let houseRepository: any HouseRepository
     let roomRepository: any RoomRepository
     let taskRepository: any TaskRepository
@@ -28,50 +30,102 @@ final class AppContainer {
         RefreshTaskScheduleUseCase(repository: taskRepository)
     }
 
-    func makeMyTasksViewModel(session: AppSession) -> MyTasksViewModel {
+    func makeMyTasksViewModel(
+        session: AppSession
+    ) -> MyTasksViewModel {
+
         MyTasksViewModel(
-            getMyTasks: GetMyTasksUseCase(repository: taskRepository),
-            completeTask: CompleteTaskUseCase(repository: taskRepository),
+            getMyTasks: GetMyTasksUseCase(
+                repository: taskRepository
+            ),
+            completeTask: CompleteTaskUseCase(
+                repository: taskRepository
+            ),
             userID: session.currentUser.id,
             houseID: session.currentHouse.id
         )
     }
 
-    func makeHouseManagementViewModel(session: AppSession) -> HouseManagementViewModel {
+    func makeHouseManagementViewModel(
+        session: AppSession
+    ) -> HouseManagementViewModel {
+
         HouseManagementViewModel(
-            getHouseRooms: GetHouseRoomsUseCase(repository: roomRepository),
-            houseID: session.currentHouse.id
+            getHouseRooms: GetHouseRoomsUseCase(
+                repository: roomRepository
+            ),
+            houseID: session.currentHouse.id,
+            userID: session.currentUser.id
         )
     }
 
-    func makeRoomDetailViewModel(roomID: Room.ID, session: AppSession) -> RoomDetailViewModel {
+    func makeRoomDetailViewModel(
+        roomID: Room.ID,
+        session: AppSession
+    ) -> RoomDetailViewModel {
+
         RoomDetailViewModel(
             roomRepository: roomRepository,
-            getRoomTasks: GetRoomTasksUseCase(repository: taskRepository),
+            getRoomTasks: GetRoomTasksUseCase(
+                repository: taskRepository
+            ),
             roomID: roomID,
             userID: session.currentUser.id
         )
     }
 
-    func makeSporadicTasksViewModel(session: AppSession) -> SporadicTasksViewModel {
+    func makeSporadicTasksViewModel(
+        session: AppSession
+    ) -> SporadicTasksViewModel {
+
         SporadicTasksViewModel(
-            getTasks: GetSporadicTasksUseCase(repository: taskRepository),
-            claimTask: ClaimSporadicTaskUseCase(repository: taskRepository),
-            releaseTask: ReleaseSporadicTaskUseCase(repository: taskRepository),
+            getTasks: GetSporadicTasksUseCase(
+                repository: taskRepository
+            ),
+            claimTask: ClaimSporadicTaskUseCase(
+                repository: taskRepository
+            ),
+            releaseTask: ReleaseSporadicTaskUseCase(
+                repository: taskRepository
+            ),
             userID: session.currentUser.id,
             houseID: session.currentHouse.id
         )
     }
 
-    func makeTaskEditorViewModel(roomID: Room.ID?, session: AppSession) -> TaskEditorViewModel {
+    func makeTaskEditorViewModel(
+        roomID: Room.ID?,
+        session: AppSession
+    ) -> TaskEditorViewModel {
+
         var draft = TaskDraft()
+
         draft.roomID = roomID
+
         return TaskEditorViewModel(
-            createTask: CreateTaskUseCase(repository: taskRepository),
-            getHouseRooms: GetHouseRoomsUseCase(repository: roomRepository),
+            createTask: CreateTaskUseCase(
+                repository: taskRepository
+            ),
+            getHouseRooms: GetHouseRoomsUseCase(
+                repository: roomRepository
+            ),
             houseID: session.currentHouse.id,
             ownerUserID: session.currentUser.id,
             draft: draft
+        )
+    }
+
+    func makeRoomEditorViewModel(
+        session: AppSession
+    ) -> RoomEditorViewModel {
+
+        RoomEditorViewModel(
+            createRoom: CreateRoomUseCase(
+                roomRepository: roomRepository,
+                houseRepository: houseRepository
+            ),
+            houseID: session.currentHouse.id,
+            creatorUserID: session.currentUser.id
         )
     }
 }

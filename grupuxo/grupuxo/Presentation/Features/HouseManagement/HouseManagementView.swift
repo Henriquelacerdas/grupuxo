@@ -7,42 +7,64 @@
 import SwiftUI
 
 struct HouseManagementView: View {
+
     @StateObject private var viewModel: HouseManagementViewModel
-    @State private var isPresentingCreationSheet = false
+
+    @State private var isPresentingTaskCreationSheet = false
+    @State private var isPresentingRoomCreationSheet = false
+
     let makeTaskEditorViewModel: () -> TaskEditorViewModel
+    let makeRoomEditorViewModel: () -> RoomEditorViewModel
+
     let onSelectRoom: (Room.ID) -> Void
     let onSelectSporadicTasks: () -> Void
 
     init(
         viewModel: HouseManagementViewModel,
         makeTaskEditorViewModel: @escaping () -> TaskEditorViewModel,
+        makeRoomEditorViewModel: @escaping () -> RoomEditorViewModel,
         onSelectRoom: @escaping (Room.ID) -> Void,
         onSelectSporadicTasks: @escaping () -> Void
     ) {
+
         _viewModel = StateObject(wrappedValue: viewModel)
+
         self.makeTaskEditorViewModel = makeTaskEditorViewModel
+        self.makeRoomEditorViewModel = makeRoomEditorViewModel
+
         self.onSelectRoom = onSelectRoom
         self.onSelectSporadicTasks = onSelectSporadicTasks
     }
 
     var body: some View {
+
         List {
+
             Section {
+
                 Button(action: onSelectSporadicTasks) {
+
                     HStack(spacing: DesignSystem.contentSpacing) {
+
                         Image(systemName: "sparkles")
                             .font(.title2)
                             .foregroundStyle(.tint)
 
-                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
+                        VStack(
+                            alignment: .leading,
+                            spacing: DesignSystem.Spacing.extraSmall
+                        ) {
+
                             Text("Tarefas esporádicas")
                                 .font(.headline)
+
                             Text("Veja tarefas disponíveis para assumir")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
 
                         Spacer()
+
                         Image(systemName: "chevron.right")
                             .foregroundStyle(.tertiary)
                     }
@@ -57,39 +79,110 @@ struct HouseManagementView: View {
             }
         }
         .navigationTitle("Casa")
+
         .toolbar {
+
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Adicionar tarefa", systemImage: "plus") {
-                    isPresentingCreationSheet = true
+
+                Menu {
+
+                    Button(
+                        "Adicionar cômodo",
+                        systemImage: "square.grid.2x2"
+                    ) {
+                        isPresentingRoomCreationSheet = true
+                    }
+
+                    Button(
+                        "Adicionar tarefa",
+                        systemImage: "checkmark.circle"
+                    ) {
+                        isPresentingTaskCreationSheet = true
+                    }
+
+                } label: {
+
+                    Label(
+                        "Adicionar",
+                        systemImage: "plus"
+                    )
                 }
             }
         }
-        .sheet(isPresented: $isPresentingCreationSheet) {
-            TaskCreationSheetView(viewModel: makeTaskEditorViewModel())
+
+        .sheet(
+            isPresented: $isPresentingTaskCreationSheet
+        ) {
+
+            TaskCreationSheetView(
+                viewModel: makeTaskEditorViewModel()
+            )
         }
-        .task { if viewModel.state == .idle { await viewModel.load() } }
-        .refreshable { await viewModel.load() }
+
+        .sheet(
+            isPresented: $isPresentingRoomCreationSheet,
+            onDismiss: {
+
+                Task {
+                    await viewModel.load()
+                }
+            }
+        ) {
+
+            RoomCreationSheetView(
+                viewModel: makeRoomEditorViewModel()
+            )
+        }
+
+        .task {
+
+            if viewModel.state == .idle {
+                await viewModel.load()
+            }
+        }
+
+        .refreshable {
+            await viewModel.load()
+        }
     }
 
     @ViewBuilder
     private var roomsContent: some View {
+
         switch viewModel.state {
+
         case .idle, .loading:
+
             HStack {
+
                 Spacer()
+
                 ProgressView("Carregando cômodos…")
+
                 Spacer()
             }
+
         case let .content(rooms):
+
             ForEach(rooms) { room in
-                Button(room.name) { onSelectRoom(room.id) }
+
+                Button(room.name) {
+                    onSelectRoom(room.id)
+                }
             }
+
         case .empty:
+
             Text("Nenhum cômodo cadastrado.")
                 .foregroundStyle(.secondary)
+
         case let .failure(message):
-            Label(message, systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.red)
+
+            Label(
+                message,
+                systemImage: "exclamationmark.triangle"
+            )
+            .foregroundStyle(.red)
         }
     }
 }
