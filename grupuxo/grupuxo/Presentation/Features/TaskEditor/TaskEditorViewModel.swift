@@ -1,6 +1,5 @@
-// TODO — Conectar escolhas de periodicidade ao draft e enviar contexto de usuário/
-// casa ao caso de uso para validar o cômodo selecionado. Carregar apenas cômodos
-// autorizados. Evitar salvar novamente enquanto .saving ou após sucesso sem edição.
+// TODO — Enviar contexto de usuário/casa ao caso de uso para validar autorização
+// de criação e carregar apenas cômodos autorizados.
 // TaskEffort hoje limita valores ao intervalo; se houver entrada livre, validar
 // 1...3 antes de construir o valor para informar o erro em vez de corrigir em silêncio.
 
@@ -40,9 +39,38 @@ final class TaskEditorViewModel: ObservableObject {
 
     func updateDraft(_ update: (inout TaskDraft) -> Void) {
         if case .saving = state { return }
-        var draft = state.draft
+        let previous = state.draft
+        var draft = previous
         update(&draft)
+        // Keep the existing controls coherent; the domain still validates every command.
+        if draft.kind != previous.kind {
+            draft.recurrence = draft.kind == .sporadic
+                ? .none
+                : .recurring(frequency: .weekly, interval: 1)
+            draft.assignmentPolicy = draft.kind == .sporadic ? .selfAssigned : .balancedAutomatically
+        } else if draft.assignmentPolicy != previous.assignmentPolicy {
+            switch draft.assignmentPolicy {
+            case .selfAssigned:
+                draft.kind = .sporadic
+                draft.recurrence = .none
+            case .afterCompletion:
+                draft.kind = .recurring
+                draft.recurrence = .none
+            case .balancedAutomatically, .calendarRotation:
+                draft.kind = .recurring
+                if draft.recurrence == .none {
+                    draft.recurrence = .recurring(frequency: .weekly, interval: 1)
+                }
+            }
+        } else if draft.recurrence != previous.recurrence {
+            draft.kind = draft.recurrence == .none ? .sporadic : .recurring
+            draft.assignmentPolicy = draft.kind == .sporadic ? .selfAssigned : .balancedAutomatically
+        }
         state = .editing(draft)
+    }
+
+    func selectRecurrence(_ recurrence: RecurrencePolicy) {
+        updateDraft { $0.recurrence = recurrence }
     }
 
     func save() async {

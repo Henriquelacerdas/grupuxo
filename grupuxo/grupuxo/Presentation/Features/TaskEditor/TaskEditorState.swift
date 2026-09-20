@@ -1,7 +1,3 @@
-// TODO — Definir um rascunho coerente para cada tipo. Ao alternar o tipo, ajustar
-// recorrência/política e manter
-// nome, descrição, cômodo e esforço. Falhas devem preservar os valores digitados.
-
 import Foundation
 
 struct TaskDraft: Equatable {
@@ -11,7 +7,7 @@ struct TaskDraft: Equatable {
     var effortPoints = 1
     var kind = TaskKind.recurring
     var visibility = TaskVisibility.house
-    var recurrence = RecurrencePolicy.weekly(interval: 1)
+    var recurrence = RecurrencePolicy.recurring(frequency: .weekly, interval: 1)
     var assignmentPolicy = TaskAssignmentPolicy.balancedAutomatically
 }
 

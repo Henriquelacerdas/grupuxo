@@ -70,6 +70,6 @@ enum MockSeed {
     }
 
     private nonisolated static func definition(_ name: String, _ details: String, room: Room, effort: Int, kind: TaskKind = .recurring, policy: TaskAssignmentPolicy, visibility: TaskVisibility = .house) -> TaskDefinition {
-        TaskDefinition(id: UUID(), roomID: room.id, name: name, details: details, effort: TaskEffort(points: effort), kind: kind, visibility: visibility, recurrence: kind == .recurring ? .weekly(interval: 1) : .none, assignmentPolicy: policy, ownerUserID: visibility == .privateTask ? currentUser.id : nil)
+        TaskDefinition(id: UUID(), roomID: room.id, name: name, details: details, effort: TaskEffort(points: effort), kind: kind, visibility: visibility, recurrence: kind == .recurring ? .recurring(frequency: .weekly, interval: 1) : .none, assignmentPolicy: policy, ownerUserID: visibility == .privateTask ? currentUser.id : nil)
     }
 }

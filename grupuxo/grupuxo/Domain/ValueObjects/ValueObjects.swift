@@ -45,9 +45,30 @@ enum RoomAccessRequestStatus: String, Codable, Sendable {
     case cancelled
 }
 
+enum RecurrenceFrequency: String, CaseIterable, Codable, Sendable {
+    case daily
+    case weekly
+    case monthly
+    case yearly
+}
+
 enum RecurrencePolicy: Hashable, Codable, Sendable {
     case none
-    case weekly(interval: Int)
+    case recurring(frequency: RecurrenceFrequency, interval: Int)
+
+    var isRepeating: Bool {
+        if case .recurring = self { return true }
+        return false
+    }
+
+    var hasValidInterval: Bool {
+        switch self {
+        case .none:
+            true
+        case let .recurring(_, interval):
+            interval > 0
+        }
+    }
 }
 
 // GUIA — Esforço unitário escolhido manualmente: 1, 2 ou 3. O inicializador

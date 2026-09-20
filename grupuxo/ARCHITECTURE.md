@@ -2,13 +2,9 @@
 
 ## Visão geral
 
-O projeto utiliza **Clean Architecture**, com **SwiftUI + MVVM**
-na apresentação. Inicialmente, as camadas ficam em pastas de um
-único target.
+O projeto utiliza **Clean Architecture**, com **SwiftUI + MVVM** na apresentação. Inicialmente, as camadas ficam em pastas de um único target.
 
-A primeira entrega utiliza dados mockados e não exige login.
-A arquitetura permite substituir os mocks por integrações reais
-sem alterar as Views ou as regras de domínio.
+A primeira entrega utiliza dados mockados e não exige login. A arquitetura permite substituir os mocks por integrações reais sem alterar as Views ou as regras de domínio. O processamento algorítmico pesado (como a delegação de tarefas) rodará nativamente on-device, otimizado para performance em mobile.
 
 ## Camadas
 
@@ -44,6 +40,11 @@ View → ViewModel → UseCase → Repository → implementação em Data.
       Repositories/
       UseCases/
       Services/
+        TaskDistributionEngine.swift
+        FairnessCalculator.swift
+        HungarianAlgorithm.swift
+        RotationCalculator.swift
+        TaskSchedulingService.swift
       Errors/
 
     Presentation/
@@ -74,111 +75,52 @@ Criar Data/Remote, DTOs e mappers quando houver integração real.
 
 ## Fluxo de produto e navegação
 
-O fluxo de referência começa pela entrada em uma casa. O usuário cria
-uma casa ou informa o código de uma casa existente. Depois de existir
-uma casa ativa na sessão, o aplicativo disponibiliza as seguintes
-áreas:
+O fluxo de referência começa pela entrada em uma casa. O usuário cria uma casa ou informa o código de uma casa existente. Depois de existir uma casa ativa na sessão, o aplicativo disponibiliza as seguintes áreas:
 
-- Minhas tarefas: resumo semanal, tarefas periódicas atribuídas e ações
-  pessoais como concluir, trocar, avaliar ou pular quando aplicável.
-- Gerenciar casa: tarefas esporádicas, cômodos, rotina da casa e criação
-  e manutenção de cômodos e tarefas.
+- Minhas tarefas: resumo semanal, tarefas periódicas atribuídas e ações pessoais como concluir, trocar, avaliar ou pular quando aplicável.
+- Gerenciar casa: tarefas esporádicas, cômodos, rotina da casa e criação e manutenção de cômodos e tarefas.
 - Configurações: dados da casa, perfil, férias e ações de conta.
-- Notificações: histórico dos cômodos, permissões e solicitações de
-  troca de tarefa.
+- Notificações: histórico dos cômodos, permissões e solicitações de troca de tarefa.
 
-Tarefas esporádicas são acessadas por um card dentro de Gerenciar casa.
-Elas não ocupam uma aba própria na barra principal.
+Tarefas esporádicas são acessadas por um card dentro de Gerenciar casa. Elas não ocupam uma aba própria na barra principal.
 
-Criar tarefa é uma ação exclusiva de Gerenciar casa. A aba Minhas
-tarefas apenas consulta tarefas destinadas ao usuário e encaminha ações
-sobre ocorrências existentes. Ela não apresenta botão, menu, atalho ou
-rota de criação.
+Criar tarefa é uma ação exclusiva de Gerenciar casa. A aba Minhas tarefas apenas consulta tarefas destinadas ao usuário e encaminha ações sobre ocorrências existentes. Ela não apresenta botão, menu, atalho ou rota de criação.
 
-O `TaskEditor` pode ser aberto pelo fluxo de criação de Gerenciar casa
-ou pelo fluxo de manutenção de uma tarefa dentro de um cômodo. Quando a
-criação começa sem um cômodo pré-selecionado, o editor consulta os
-cômodos da casa atual e exige a escolha de um `roomID` antes de salvar.
+O `TaskEditor` pode ser aberto pelo fluxo de criação de Gerenciar casa ou pelo fluxo de manutenção de uma tarefa dentro de um cômodo. Quando a criação começa sem um cômodo pré-selecionado, o editor consulta os cômodos da casa atual e exige a escolha de um `roomID` antes de salvar.
 
-As rotas continuam tipadas e transportam somente identificadores. A
-origem das ações deve respeitar o fluxo: uma rota existente não implica
-que qualquer tela tenha permissão para apresentá-la.
+As rotas continuam tipadas e transportam somente identificadores. A origem das ações deve respeitar o fluxo: uma rota existente não implica que qualquer tela tenha permissão para apresentá-la.
 
-Na tela inicial, os atalhos de sino e perfil ficam no canto superior
-direito. Eles navegam, respectivamente, para o histórico de
-notificações e para as configurações do perfil; as telas podem começar
-como estados de indisponibilidade até que seus fluxos sejam
-implementados.
+Na tela inicial, os atalhos de sino e perfil ficam no canto superior direito. Eles navegam, respectivamente, para o histórico de notificações e para as configurações do perfil; as telas podem começar como estados de indisponibilidade até que seus fluxos sejam implementados.
 
 ## Modelos compartilhados
 
-Usar structs para entidades e valores, enums para estados e
-políticas, e IDs estáveis para relacionamentos.
+Usar structs para entidades e valores, enums para estados e políticas, e IDs estáveis para relacionamentos.
 
 | Modelo | Representa |
 | --- | --- |
-| User | Identidade do usuário; e-mail continua opcional para a integração futura |
+| User | Identidade do usuário; e-mail opcional para a integração futura |
 | House | Casa compartilhada, código de acesso e data de criação |
 | HouseMembership | Participação do usuário na casa |
 | Room | Cômodo, incluindo tipo, visibilidade e política de rotação |
-| RoomMembership | Participação do usuário no cômodo |
-| TaskDefinition | Configuração da tarefa, agenda e política de distribuição |
-| TaskOccurrence | Uma execução específica, com estado e snapshot do esforço |
+| RoomMembership | Participação do usuário no cômodo (armazena também o `FairnessDebt`) |
+| TaskDefinition | Configuração central da tarefa (molde rotativo, esforço, agenda) |
+| TaskOccurrence | Instância de execução histórica ou pendente (imutável quanto ao passado) |
 | TaskAssignment | Histórico de responsáveis, com início e término da atribuição |
 | Absence | Período de férias de uma participação na casa |
 | RoomAccessRequest | Pedido e estado de acesso a um cômodo privado |
 
-Não duplicar entidades por tela.
+Não duplicar entidades por tela. Existe uma distinção técnica obrigatória: `TaskDefinition` e `TaskOccurrence`.
 
-`House` guarda `accessCode` e `createdAt`, necessários para entrar em uma
-casa e exibir suas informações. A unicidade e a geração segura do código
-serão responsabilidade da implementação de dados/backend.
+`TaskDefinition` guarda nome, cômodo, esforço, agenda e a fila rotativa. O `houseID` não é duplicado: é obtido pelo `roomID`.
+`TaskOccurrence` guarda uma execução específica (estado, snapshot do esforço na época, responsável atual). A alteração de uma `TaskDefinition` no presente não reescreve os registros de `TaskOccurrence` passados.
 
-`Room` guarda `kind`, `visibility` e `rotationPolicy`. `kind` diferencia
-Casa toda de um cômodo padrão; `visibility` diferencia comum de privado;
-`rotationPolicy` descreve se a responsabilidade do cômodo segue o
-calendário semanal. Casa toda é um cômodo real, não um valor nulo ou uma
-exceção nas tarefas.
+`RoomMembership` armazena o `FairnessDebt` (Saldo de Justiça) do morador naquele cômodo. Quando o morador conclui uma ocorrência de esforço E, seu saldo aumenta em `E - (E/M)` e o saldo dos demais elegíveis daquele cômodo desce `E/M`.
 
-`TaskDefinition` guarda nome, descrição, cômodo, esforço, agenda e
-`assignmentPolicy`. O esforço é limitado ao intervalo de 1 a 3. A
-política de atribuição diferencia distribuição automática equilibrada,
-rotação por calendário, troca após conclusão e tarefa assumida pelo
-próprio morador. O `houseID` não é duplicado na tarefa: ele é obtido pelo
-`roomID`, evitando vínculos contraditórios.
-
-`TaskOccurrence` guarda disponibilidade, prazo, estado, conclusão e
-snapshot do esforço. `TaskAssignment` registra `assignedAt` e `endedAt`;
-somente uma atribuição sem `endedAt` está ativa. Concluir ou devolver uma
-tarefa encerra a atribuição em vez de apagar seu histórico.
-
-`Absence` referencia `HouseMembership`, e não diretamente `User`, porque
-férias afetam a participação da pessoa em uma casa específica. O período
-deve ter início anterior ou igual ao fim.
-
-`RoomAccessRequest` registra solicitante, cômodo, estado, criação e
-resolução do pedido. As permissões para aprovar ou rejeitar permanecem
-abertas e não devem ser inferidas pelo cliente.
-
-`TaskEffort` representa somente o esforço unitário de uma tarefa e fica
-entre 1 e 3. `WeeklyLoad` representa a soma semanal e, portanto, não tem
-limite superior de 3; não reutilizar `TaskEffort` para carga acumulada.
-
-Separar essas responsabilidades permite manter recorrência,
-histórico e carga sem sobrescrever execuções anteriores.
-
-Toda tarefa possui roomID, inclusive esporádicas. A apresentação
-em card separado não altera esse vínculo.
-
-Privacidade é verificada em duas etapas: acesso ao cômodo por
-`RoomMembership` e visibilidade da tarefa. Cômodos privados não aparecem
-na gestão comum para quem não participa; pedidos de entrada usam
-`RoomAccessRequest`.
+Toda tarefa possui roomID, inclusive esporádicas. A apresentação em card separado não altera esse vínculo.
 
 ## Casos de uso e regras
 
-ViewModels acessam o domínio por casos de uso, sem chamar
-repositórios diretamente.
+ViewModels acessam o domínio por casos de uso, sem chamar repositórios diretamente.
 
 Casos de uso iniciais:
 
@@ -191,103 +133,66 @@ Casos de uso iniciais:
 - ClaimSporadicTaskUseCase
 - ReleaseSporadicTaskUseCase
 
-Casos de uso coordenam operações. Regras reutilizáveis ficam em
-serviços como WeeklyLoadCalculator, TaskDistributionEngine,
-RotationCalculator e TaskEligibilityPolicy.
+Casos de uso coordenam operações. Regras matemáticas reutilizáveis ficam em serviços dedicados como `TaskDistributionEngine` e `FairnessCalculator`.
 
-`TaskDistributionEngine` recebe tarefas disponíveis, elegíveis por
-cômodo, carga semanal, ausências e último responsável. A primeira etapa
-é gulosa, priorizando menor carga e usando repetição recente como
-desempate. A busca local deve operar sobre o resultado dessa etapa para
-reduzir a maior diferença de carga sem violar elegibilidade; sua
-estratégia final ainda deve ser coberta por testes antes de substituir
-o comportamento inicial.
+`TaskDistributionEngine` otimiza o custo por usuário e semana, com horizonte de 12 semanas.
+Para criar uma **nova fila rotativa**, ele cria uma matriz bidimensional simulando as próximas 12 semanas. Avalia-se o custo quadrático de colocar cada membro em cada "slot" da fila e utiliza-se o **Algoritmo Húngaro** para extrair a permutação ótima em $O(N^3)$.
+Para **inserção de novos membros**, o motor preserva todas as ocorrências publicadas e testa posições após o cursor da próxima ocorrência ainda não publicada. O ótimo do Húngaro vale para a nova tarefa com as demais fixas; a inserção entre várias tarefas é gulosa.
 
-Calculadores recebem dados e data de referência e devolvem
-resultados. Não acessam interface, banco ou sessão global.
+O contrato detalhado de calendário, amortização do saldo, elegibilidade e limitações está em `ALGORITHM.md`. O cursor avança ao publicar uma ocorrência, nunca ao concluir uma ocorrência de calendário. Tarefas sem calendário publicam somente uma sucessora por conclusão.
 
-Filtros e autorização devem ser centralizados: tarefas privadas
-não podem vazar em consultas, e esporádicas não aparecem na
-listagem interna dos cômodos.
+`TaskSchedulingService` concentra as transições de criação, conclusão, extensão de horizonte e entrada de morador. Recebe o snapshot `TaskSchedulingState`, sem depender de Data. `CreateTaskUseCase`, `CompleteTaskUseCase`, `RefreshTaskScheduleUseCase` e `AddRoomMemberUseCase` são fachadas assíncronas dos comandos transacionais; não fazem leituras independentes antes da gravação.
 
-Não criar protocolos para todo caso de uso sem necessidade.
-Priorizar protocolos nas fronteiras, como repositórios.
+Calculadores recebem arrays primitivos (para otimizar a memória L1 do device) e data de referência, devolvendo resultados determinísticos. Não acessam interface, banco ou sessão global.
 
 ## Repositórios e dados
 
-Os protocolos HouseRepository, RoomRepository e TaskRepository
-ficam em Domain. As implementações ficam em Data.
+Os protocolos HouseRepository, RoomRepository e TaskRepository ficam em Domain. As implementações ficam em Data.
 
-Operações potencialmente externas usam async throws desde os mocks.
-Métodos representam ações de negócio, como concluir, assumir e
-devolver, em vez de expor apenas save/delete genéricos.
+Operações potencialmente externas usam async throws desde os mocks. Métodos representam ações de negócio, como concluir, assumir e devolver, em vez de expor apenas save/delete genéricos.
 
-Todos os repositórios mockados compartilham um único MockStore,
-preferencialmente um actor. MockSeed centraliza os dados iniciais.
+Todos os repositórios mockados compartilham um único `MockStore`, que é um actor. `MockSeed` centraliza dados de demonstração; definições legadas sem agenda materializada não são migradas silenciosamente.
 
-O `MockStore` preserva moradores, casas, participações, cômodos,
-participações em cômodos, definições, ocorrências, histórico de
-atribuições, férias e pedidos de acesso. Consultas de tarefas resolvem a
-casa pelo cômodo e aplicam a elegibilidade antes de devolver dados.
+`TaskRepository.create(_:at:)`, `complete`, `refreshSchedule` e `addMember` executam transições de domínio sobre o mesmo snapshot que será persistido. `MockStore.update` usa cópia e commit após sucesso, com rollback em qualquer erro. O serviço é síncrono dentro da closure do actor, sem suspensão entre validação e commit. Isso evita uma corrida entre ler participantes/carga, calcular o Húngaro e salvar a fila. Uma futura implementação remota deve fornecer transação ou controle otimista de versão equivalente.
 
-Conclusão e atribuição devem ser consistentes e idempotentes:
-repetir uma operação não duplica esforço, responsáveis ou efeitos.
-Assumir uma tarefa cria uma atribuição ativa; devolver ou concluir define
-seu término. Registros históricos não são removidos.
+A alocação do cálculo dentro da transação é uma decisão da implementação Data, não uma transferência da matemática para Data. O serviço continua isolado e testável em Domain. As projeções usam esforço snapshot de ocorrências pendentes atribuídas em todos os cômodos da casa; saldos continuam locais ao cômodo.
 
-No backend futuro, autorização e atomicidade também devem ser
-garantidas pelo servidor. A interface não é a autoridade final
-sobre os dados compartilhados.
+O `MockStore` preserva o ecossistema. Consultas de tarefas resolvem a casa pelo cômodo e aplicam a elegibilidade antes de devolver dados.
 
-DTOs pertencem a Data e são convertidos para entidades de Domain.
+Conclusão e atribuição devem ser consistentes e idempotentes: repetir uma operação não duplica esforço, responsáveis, nem corrompe o cálculo de `FairnessDebt`.
+
+No backend futuro, autorização e atomicidade também devem ser garantidas pelo servidor. A interface não é a autoridade final sobre os dados compartilhados.
 
 ## Apresentação e dependências
 
-ViewModels são @MainActor e recebem casos de uso pelo inicializador.
-Controlam carregamento, conteúdo, estado vazio e erros.
+ViewModels são @MainActor e recebem casos de uso pelo inicializador. Controlam carregamento, conteúdo, estado vazio e erros.
 
-Views renderizam estado e encaminham ações. Não calculam
-distribuição nem acessam repositórios.
+Views renderizam estado e encaminham ações. Não calculam distribuição, projeção de 12 semanas, nem acessam repositórios.
 
-`MyTasksView` não conhece `CreateTaskUseCase` e não recebe callback de
-criação. `HouseManagementView` é a origem da criação e encaminha a ação
-ao roteador. `TaskEditorViewModel` carrega os cômodos por
-`GetHouseRoomsUseCase`, sem acessar mocks ou repositórios concretos.
+Após alterações, recarregar consultas afetadas; atualizar também ao retornar à tela na implementação inicial.
 
-Formulários mantêm rascunhos locais até salvar. Navegação usa
-rotas tipadas com IDs, evitando cópias desatualizadas de entidades.
-
-Após alterações, recarregar consultas afetadas; atualizar também
-ao retornar à tela na implementação inicial.
-
-AppContainer cria e injeta repositórios, serviços e ViewModels.
-AppSession mantém usuário e casa atuais, simulados inicialmente.
-O contexto necessário é passado explicitamente aos casos de uso.
+AppContainer cria e injeta o solucionador Húngaro, motor de distribuição, calculador de justiça, rotação, calendário, serviço de agendamento, repositórios e ViewModels. AppSession mantém usuário e casa atuais. O contexto necessário é passado explicitamente aos casos de uso.
 
 Não usar Singleton.shared para acessar dependências.
 
+Os targets compilam em Swift 6 com concorrência estrita completa. O isolamento padrão é `nonisolated`, pois Domain/Data não pertencem à interface. Views seguem o isolamento do SwiftUI; ViewModels, sessão, roteador e composição usam `@MainActor` explicitamente. O processamento síncrono pesado acontece no actor do store e não precisa de `Task.detached`, outro actor matemático ou tipos `@unchecked Sendable`.
+
+Testes executáveis ficam em `grupuxoTests`, fora do target do aplicativo. Os arquivos em `grupuxo/Tests` são guias históricos, não a suíte executada.
+
 ## Autenticação e perfil
 
-A integração futura com Sign in with Apple fica em Data, atrás
-de um contrato de autenticação definido em Domain.
-
-Não haverá seleção ou edição de foto de perfil. Sign in with Apple
-não disponibiliza a foto do Apple ID; a interface deve funcionar
-sem imagem. Avatar padrão ou iniciais são o fallback recomendado,
-sem tornar photoURL obrigatório no modelo.
+A integração futura com Sign in with Apple fica em Data, atrás de um contrato de autenticação definido em Domain.
+A interface deve funcionar sem imagem. Avatar padrão ou iniciais são o fallback recomendado.
 
 ## Convenções para equipe e IAs
 
 - Tipos e propriedades em inglês; textos da interface em português.
 - Domain não importa SwiftUI nem frameworks de persistência.
 - ViewModels não instanciam repositórios concretos.
-- Regras de negócio não ficam em Views ou ViewModels.
-- Não criar versões próprias de entidades em cada funcionalidade.
-- Não introduzir frameworks, módulos ou abstrações sem necessidade.
-- Testar regras de domínio e contratos relevantes com dados controlados.
+- Regras de negócio, projeção de carga e balanceamento matemático não ficam em Views ou ViewModels.
+- O histórico passado (`TaskOccurrence`) não deve ser corrompido ou apagado ao alterar os dados de uma `TaskDefinition`.
+- Testar regras matemáticas do Algoritmo Húngaro isoladamente no target de testes com matrizes conhecidas.
 - Alterações em contratos compartilhados devem atualizar este guia.
-- Regras de produto ainda abertas não devem ser inventadas no código.
 
 Primeiro fluxo a implementar:
-Gerenciar casa → criar/visualizar cômodo → criar tarefa → atribuir →
-concluir em Minhas tarefas → atualizar as consultas afetadas.
+Gerenciar casa → criar/visualizar cômodo → criar tarefa → calcular Húngaro → gerar ocorrências → concluir em Minhas tarefas → atualizar as consultas afetadas.

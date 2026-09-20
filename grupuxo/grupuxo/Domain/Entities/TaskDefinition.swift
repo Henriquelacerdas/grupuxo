@@ -19,4 +19,9 @@ struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
     var recurrence: RecurrencePolicy
     var assignmentPolicy: TaskAssignmentPolicy
     var ownerUserID: User.ID?
+
+    // Fila estática; cursor da próxima ocorrência ainda não publicada.
+    var rotationQueue: [User.ID] = []
+    var currentRotationIndex: Int = 0
+    var nextScheduledAt: Date? = nil
 }
