@@ -1,10 +1,5 @@
-// GUIA — Montar aqui as dependências das próximas entregas.
-// TODO: injetar CreateRoomUseCase e o futuro caso de uso de distribuição/rotação,
-// compartilhando este MockStore. Criar as fábricas dos novos ViewModels.
-// Coordenar atualização semanal ao abrir/retomar o app e após mudanças de
-// participantes/férias. Reprocessar a mesma semana deve ser seguro. Execução com
-// o app fechado exige estratégia futura de agendamento/backend; um timer de View
-// não garante a rotação automática. Calendário e data devem chegar aos calculadores.
+// Composition root. Future room-management and vacation screens can consume the
+// transactional membership/schedule use cases without constructing services in Views.
 
 import Foundation
 
@@ -17,21 +12,22 @@ final class AppContainer {
     let roomRepository: any RoomRepository
     let taskRepository: any TaskRepository
 
-    init(store: MockStore = MockStore()) {
-
+    init(store: MockStore = MockStore(), calendar: Calendar = Calendar(identifier: .gregorian)) {
         self.store = store
+        houseRepository = MockHouseRepository(store: store)
+        roomRepository = MockRoomRepository(store: store)
+        let distribution = TaskDistributionEngine(optimizer: HungarianAlgorithm())
+        let scheduling = TaskSchedulingService(distribution: distribution, fairness: FairnessCalculator(),
+                                               rotation: RotationCalculator(), calendar: calendar)
+        taskRepository = MockTaskRepository(store: store, scheduling: scheduling)
+    }
 
-        houseRepository = MockHouseRepository(
-            store: store
-        )
+    func makeAddRoomMemberUseCase() -> AddRoomMemberUseCase {
+        AddRoomMemberUseCase(repository: taskRepository)
+    }
 
-        roomRepository = MockRoomRepository(
-            store: store
-        )
-
-        taskRepository = MockTaskRepository(
-            store: store
-        )
+    func makeRefreshTaskScheduleUseCase() -> RefreshTaskScheduleUseCase {
+        RefreshTaskScheduleUseCase(repository: taskRepository)
     }
 
     func makeMyTasksViewModel(

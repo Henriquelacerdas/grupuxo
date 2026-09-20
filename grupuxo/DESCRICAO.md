@@ -55,7 +55,7 @@ Toda tarefa possui:
 - Esforço de 1 a 3.
 - Configuração de periodicidade e distribuição.
 
-O esforço representa carga de trabalho interna. Ele serve para equilibrar responsabilidades e não deve aparecer como pontuação competitiva ou gamificação.
+O esforço representa carga de trabalho interna. Ele serve para equilibrar responsabilidades e não deve aparecer como pontuação competitiva ou gamificação. Existe uma separação estrita entre a **definição da tarefa** (a regra e a fila) e a **ocorrência** (a execução histórica ou pendente).
 
 ### Rotação por calendário
 
@@ -67,39 +67,32 @@ A rotação semanal de cômodos começa na segunda-feira. A ordem de responsáve
 
 Uma tarefa criada sem rotação por calendário só muda de responsável depois que a pessoa responsável a conclui.
 
-A próxima pessoa não deve ser definida apenas por uma fila fixa. O sistema deve considerar a carga semanal atual dos moradores elegíveis.
+A fila inicial considera a carga semanal e o saldo dos moradores elegíveis. Depois, cada conclusão passa ao próximo slot dessa fila estática, mantendo previsibilidade. Só existe uma ocorrência ativa; não são inventadas datas para futuras conclusões.
 
-### Delegação automática
+### Delegação automática e Balanceamento
 
-A delegação automática de tarefas periódicas usa um algoritmo **guloso com busca local**.
+A delegação automática de tarefas periódicas opera localmente (on-device) e utiliza um modelo de **Projeção de Horizonte (Rolling Horizon)** focado no equilíbrio de fases.
 
-O algoritmo deve:
+O algoritmo segue as seguintes premissas:
 
-1. Considerar as tarefas disponíveis, seus esforços e os moradores elegíveis.
-2. Excluir moradores em modo férias.
-3. Calcular a carga da semana atual.
-4. Priorizar quem tem menor carga.
-5. Usar histórico como desempate apenas quando não prejudicar significativamente o equilíbrio.
-6. Realocar ou trocar atribuições quando isso reduzir a diferença de carga entre moradores.
-7. Recalcular a distribuição imediatamente quando moradores, cômodos ou férias alterarem a elegibilidade.
-
-A carga considera esforço atribuído e concluído sem duplicação. Concluir uma tarefa já atribuída não soma novamente seu esforço.
-
-A distribuição busca equilíbrio dentro da semana atual. Ela não cria compensações por semanas anteriores.
+1. **Saldo de Justiça (Fairness Debt):** O histórico não é a soma absoluta de quem trabalhou mais. É baseado na referência do cômodo. Ao concluir uma tarefa de esforço `E` em um cômodo com `M` membros elegíveis, o executor recebe um saldo de `+ (E - (E/M))`, enquanto os demais recebem `- (E/M)`. Pessoas de fora do cômodo não são afetadas.
+2. **Geração da Fila Inicial (Algoritmo Húngaro):** Ao criar uma tarefa, o sistema projeta a carga já agendada da casa para as próximas 12 semanas. Ele simula o custo de colocar cada participante em cada posição (slot) da nova fila rotativa, utilizando uma **função de custo quadrática** (que pune picos de estresse em uma mesma semana). O Algoritmo Húngaro encontra a permutação de menor custo para essa tarefa, mantendo as outras filas fixas. Isso não garante um ótimo global da casa.
+3. **Entrada de Novos Moradores (Busca Gulosa):** Quando um morador entra em um cômodo, as ocorrências *já designadas e pendentes* não sofrem alteração para não quebrar a previsibilidade. O novo morador é testado após o cursor da próxima ocorrência ainda não publicada, preservando a ordem relativa dos antigos. As primeiras 12 semanas podem já estar publicadas; nesse caso sua entrada passa a valer depois dessa janela.
+4. **Atualizações Estruturais:** A otimização global ocorre apenas em eventos estruturais (criação de tarefa e entrada de pessoas; saída ainda precisa de política própria), não reordenando as filas continuamente no dia a dia.
 
 ## Tarefas esporádicas
 
-Tarefas esporádicas são tarefas sem recorrência previsível, como trocar uma resistência ou resolver um problema pontual.
+Tarefas esporádicas são tarefas sem recorrência previsível, como trocar uma resistência ou resolver um problema pontual. São independentes do fluxo algorítmico tradicional.
 
 Elas aparecem no card próprio de Gerenciar casa. Um morador pode criar, visualizar, assumir, concluir ou devolver uma tarefa ao card.
 
-Ao concluir uma tarefa esporádica, a pessoa é automaticamente pulada na próxima tarefa de mesmo esforço que receberia. Ela não escolhe qual tarefa será pulada e não recebe um vale, saldo ou carteira de benefícios.
+Ao concluir uma tarefa esporádica, a pessoa recebe o ajuste de justiça correspondente ao esforço realizado, no cômodo da tarefa. Esse saldo interno influencia futuras otimizações. Não há pulo automático da próxima tarefa de mesmo esforço: isso conflitaria com a preservação das atribuições publicadas e compensaria o mesmo trabalho por dois mecanismos.
 
-Assumir uma tarefa esporádica sem concluí-la não concede esse pulo.
+Assumir ou devolver uma tarefa esporádica sem concluí-la não altera o saldo.
 
 ## Modo férias
 
-O modo férias retira temporariamente um morador das tarefas da semana. Ao ativar ou encerrar férias, a distribuição é recalculada imediatamente.
+Ausências registradas impedem novas atribuições ao morador durante o período. Nesta implementação, seu turno nominal pode ficar sem responsável; filas e atribuições já publicadas não são recalculadas automaticamente. A interface de férias e a regra de redistribuição ainda precisam ser definidas.
 
 O comportamento para uma tarefa que depende de conclusão quando seu responsável entra em férias ou sai da casa ainda deve ser definido.
 
@@ -123,8 +116,8 @@ Widget, Lembretes, troca de tarefas, Siri, NFC, lista de mercado e controle fina
 Ainda precisam ser definidas:
 
 - Backend, banco de dados, sincronização e versão mínima de iOS.
-- Horários, fusos e regras detalhadas de periodicidade e atraso.
+- Fuso persistido por casa e regras de atraso. O mock usa calendário gregoriano, fuso injetado do dispositivo e semanas iniciadas na segunda-feira.
 - Regras para saída de moradores e férias em tarefas pendentes.
-- Exceções para o pulo de tarefas esporádicas.
+- Política de compensação mais imediata, caso necessária, sem crédito duplicado ou quebra de atribuições publicadas.
 - Permissões de edição, exclusão e aprovação de entrada em cômodos privados.
 - Regras detalhadas de coleta e exibição das avaliações.

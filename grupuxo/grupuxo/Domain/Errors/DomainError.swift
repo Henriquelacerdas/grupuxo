@@ -1,7 +1,9 @@
 import Foundation
 
 enum DomainError: Error, LocalizedError, Equatable, Sendable {
-
+    case invalidDistribution
+    case noEligibleMembers
+    case invalidSchedule
     case entityNotFound
     case invalidDateInterval
     case invalidTaskName
@@ -13,7 +15,9 @@ enum DomainError: Error, LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
 
         switch self {
-
+        case .invalidDistribution: "A distribuição de tarefas é inválida."
+        case .noEligibleMembers: "O cômodo não possui participantes elegíveis."
+        case .invalidSchedule: "A periodicidade e a política da tarefa são incompatíveis."
         case .entityNotFound:
             "Item não encontrado."
 
