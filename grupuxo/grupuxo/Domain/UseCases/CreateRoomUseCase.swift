@@ -14,7 +14,9 @@ struct CreateRoomUseCase: Sendable {
 
     func callAsFunction(
         name: String,
-        houseID: House.ID
+        houseID: House.ID,
+        creatorUserID: User.ID,
+        visibility: RoomVisibility
     ) async throws -> Room {
 
         let trimmedName = name.trimmingCharacters(
@@ -31,20 +33,37 @@ struct CreateRoomUseCase: Sendable {
             in: houseID
         )
 
-        guard !memberIDs.isEmpty else {
+        guard memberIDs.contains(creatorUserID) else {
             throw DomainError.invalidRoomParticipants
         }
+
+        let participantIDs: [User.ID]
+
+        switch visibility {
+
+        case .common:
+            participantIDs = memberIDs
+
+        case .privateRoom:
+            participantIDs = [creatorUserID]
+        }
+
+        let rotationPolicy: RoomRotationPolicy =
+            visibility == .common
+            ? .weeklyCalendar
+            : .none
 
         let room = Room(
             id: UUID(),
             houseID: houseID,
             name: trimmedName,
             kind: .standard,
-            visibility: .common,
-            rotationPolicy: .weeklyCalendar
+            visibility: visibility,
+            rotationPolicy: rotationPolicy
         )
 
-        let memberships = memberIDs.map { userID in
+        let memberships = participantIDs.map { userID in
+
             RoomMembership(
                 id: UUID(),
                 roomID: room.id,

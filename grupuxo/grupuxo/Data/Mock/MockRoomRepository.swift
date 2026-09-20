@@ -8,22 +8,88 @@ struct MockRoomRepository: RoomRepository {
 
     let store: MockStore
 
-    func room(id: Room.ID) async throws -> Room {
+    func room(
+        id: Room.ID,
+        requesting userID: User.ID
+    ) async throws -> Room {
 
         try await store.read { state in
 
-            guard let room = state.rooms.first(where: { $0.id == id }) else {
+            guard let room = state.rooms.first(
+                where: { $0.id == id }
+            ) else {
                 throw DomainError.entityNotFound
+            }
+
+            // Confirma que quem está consultando pertence à mesma casa.
+            let isHouseMember = state.houseMemberships.contains {
+                $0.houseID == room.houseID &&
+                $0.userID == userID
+            }
+
+            guard isHouseMember else {
+                throw DomainError.entityNotFound
+            }
+
+            // Cômodos privados só podem ser acessados por participantes.
+            if room.visibility == .privateRoom {
+
+                let isRoomMember = state.roomMemberships.contains {
+                    $0.roomID == room.id &&
+                    $0.userID == userID
+                }
+
+                guard isRoomMember else {
+                    throw DomainError.entityNotFound
+                }
             }
 
             return room
         }
     }
 
-    func rooms(in houseID: House.ID) async throws -> [Room] {
+    func rooms(
+        in houseID: House.ID,
+        requesting userID: User.ID
+    ) async throws -> [Room] {
 
-        await store.read { state in
-            state.rooms.filter { $0.houseID == houseID }
+        try await store.read { state in
+
+            // Confirma que a casa existe.
+            guard state.houses.contains(
+                where: { $0.id == houseID }
+            ) else {
+                throw DomainError.entityNotFound
+            }
+
+            // Confirma que o usuário pertence à casa.
+            let isHouseMember = state.houseMemberships.contains {
+                $0.houseID == houseID &&
+                $0.userID == userID
+            }
+
+            guard isHouseMember else {
+                throw DomainError.entityNotFound
+            }
+
+            return state.rooms.filter { room in
+
+                // Só queremos os cômodos desta casa.
+                guard room.houseID == houseID else {
+                    return false
+                }
+
+                // Cômodos comuns aparecem para todos os moradores da casa.
+                if room.visibility == .common {
+                    return true
+                }
+
+                // Cômodos privados aparecem somente para quem participa.
+                return state.roomMemberships.contains {
+                    $0.roomID == room.id &&
+                    $0.userID == userID
+                }
+            }
         }
     }
 
@@ -35,14 +101,18 @@ struct MockRoomRepository: RoomRepository {
         try await store.update { state in
 
             // 1. Confirma que a casa existe.
-            guard state.houses.contains(where: { $0.id == room.houseID }) else {
+            guard state.houses.contains(
+                where: { $0.id == room.houseID }
+            ) else {
                 throw DomainError.entityNotFound
             }
 
             // 2. Descobre quem realmente é morador dessa casa.
             let houseMemberIDs = Set(
                 state.houseMemberships
-                    .filter { $0.houseID == room.houseID }
+                    .filter {
+                        $0.houseID == room.houseID
+                    }
                     .map(\.userID)
             )
 
@@ -51,28 +121,33 @@ struct MockRoomRepository: RoomRepository {
                 throw DomainError.invalidRoomParticipants
             }
 
-            // 4. Todos os vínculos precisam:
-            // - pertencer ao cômodo que estamos criando;
-            // - apontar para usuários que realmente moram nessa casa.
+            // 4. Todos os participantes precisam:
+            // - estar vinculados ao cômodo criado;
+            // - realmente morar naquela casa.
             let membershipsAreValid = memberships.allSatisfy { membership in
 
                 membership.roomID == room.id &&
-                houseMemberIDs.contains(membership.userID)
+                houseMemberIDs.contains(
+                    membership.userID
+                )
             }
 
             guard membershipsAreValid else {
                 throw DomainError.invalidRoomParticipants
             }
 
-            // 5. Evita criar o mesmo cômodo duas vezes.
-            if let existingRoom = state.rooms.first(where: { $0.id == room.id }) {
+            // 5. Evita criar novamente um cômodo com o mesmo ID.
+            if let existingRoom = state.rooms.first(
+                where: { $0.id == room.id }
+            ) {
                 return existingRoom
             }
 
             // 6. Salva o cômodo.
             state.rooms.append(room)
 
-            // 7. Salva os participantes, evitando vínculos duplicados.
+            // 7. Salva os participantes,
+            // evitando RoomMembership duplicado.
             for membership in memberships {
 
                 let alreadyExists = state.roomMemberships.contains {
@@ -81,7 +156,9 @@ struct MockRoomRepository: RoomRepository {
                 }
 
                 if !alreadyExists {
-                    state.roomMemberships.append(membership)
+                    state.roomMemberships.append(
+                        membership
+                    )
                 }
             }
 
