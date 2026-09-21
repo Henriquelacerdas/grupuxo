@@ -52,7 +52,14 @@ struct TaskCreationSheetView: View {
                                 Picker("Cômodo", selection: binding(\.roomID)) {
                                     Text("Selecionar").tag(Optional<Room.ID>.none)
                                     ForEach(viewModel.rooms) { room in
-                                        Text(room.name).tag(Optional(room.id))
+                                        if viewModel.state.draft.recurrence == .none {
+                                            if room.name == "Casa toda" {
+                                                Text(room.name)
+                                                    .tag(Optional(room.id))
+                                            }
+                                        } else {
+                                            Text(room.name).tag(Optional(room.id))
+                                        }
                                     }
                                 }
                             } label: {
