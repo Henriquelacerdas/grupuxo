@@ -21,12 +21,10 @@ struct MyTasksView: View {
             case .idle, .loading: ProgressView("Carregando tarefas…")
             case let .content(tasks):
                 List(tasks) { item in
-                    TaskRow(item: item)
-                        .swipeActions {
-                            Button("Concluir", systemImage: "checkmark") {
-                                Task { await viewModel.complete(item.occurrence.id) }
-                            }.tint(.green)
-                        }
+                    TaskRow(item: item, canComplete: viewModel.canComplete(item)) {
+                        Task { await viewModel.complete(item.id) }
+                    }
+
                 }
             case .empty: EmptyStateView(title: "Nenhuma tarefa", systemImage: "checklist")
             case let .failure(message): ContentUnavailableView("Não foi possível carregar", systemImage: "exclamationmark.triangle", description: Text(message))
@@ -39,7 +37,13 @@ struct MyTasksView: View {
                 Button("Perfil", systemImage: "person.circle", action: onSelectProfile)
             }
         }
-        .task { if viewModel.state == .idle { await viewModel.load() } }
+        .task { await viewModel.load() }
+        .alert("Não foi possível concluir", isPresented: Binding(
+            get: { viewModel.actionError != nil },
+            set: { if !$0 { viewModel.actionError = nil } }
+        )) {
+            Button("OK") { viewModel.actionError = nil }
+        } message: { Text(viewModel.actionError ?? "") }
         .refreshable { await viewModel.load() }
     }
 }

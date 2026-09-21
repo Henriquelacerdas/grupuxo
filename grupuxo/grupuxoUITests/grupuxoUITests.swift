@@ -23,14 +23,18 @@ final class grupuxoUITests: XCTestCase {
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testResidentsAndRoomCompletionControls() throws {
         let app = XCUIApplication()
         app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
+        app.buttons["Perfil"].tap()
+        for name in ["Marina", "Leo", "Bia", "Rafa"] {
+            XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 5))
+        }
+        app.tabBars.buttons["Casa"].tap()
+        app.buttons["Cozinha"].tap()
+        XCTAssertTrue(app.buttons["Concluir Lavar a louça"].waitForExistence(timeout: 5))
+        app.buttons["Concluir Lavar a louça"].tap()
+        XCTAssertTrue(app.staticTexts["Concluída"].waitForExistence(timeout: 5))
     }
 
     @MainActor

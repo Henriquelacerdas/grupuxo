@@ -22,6 +22,11 @@ final class AppContainer {
         taskRepository = MockTaskRepository(store: store, scheduling: scheduling)
     }
 
+    func makeProfileViewModel(session: AppSession) -> ProfileViewModel {
+        ProfileViewModel(getMembers: GetHouseMembersUseCase(repository: houseRepository),
+                         houseID: session.currentHouse.id, currentUserID: session.currentUser.id)
+    }
+
     func makeAddRoomMemberUseCase() -> AddRoomMemberUseCase {
         AddRoomMemberUseCase(repository: taskRepository)
     }
@@ -69,6 +74,7 @@ final class AppContainer {
             getRoomTasks: GetRoomTasksUseCase(
                 repository: taskRepository
             ),
+            completeTask: CompleteTaskUseCase(repository: taskRepository),
             roomID: roomID,
             userID: session.currentUser.id
         )
@@ -88,6 +94,7 @@ final class AppContainer {
             releaseTask: ReleaseSporadicTaskUseCase(
                 repository: taskRepository
             ),
+            completeTask: CompleteTaskUseCase(repository: taskRepository),
             userID: session.currentUser.id,
             houseID: session.currentHouse.id
         )

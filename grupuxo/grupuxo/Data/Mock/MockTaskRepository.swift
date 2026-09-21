@@ -168,7 +168,9 @@ struct MockTaskRepository: TaskRepository {
         return state.occurrences.compactMap { occurrence in
             guard let definition = definitionByID[occurrence.taskDefinitionID] else { return nil }
             let assignment = state.assignments.first { $0.occurrenceID == occurrence.id && $0.endedAt == nil }
-            return TaskItem(definition: definition, occurrence: occurrence, assignment: assignment)
+            let assigneeID = assignment?.userID ?? occurrence.completedByUserID
+            return TaskItem(definition: definition, occurrence: occurrence, assignment: assignment,
+                            assignee: state.users.first { $0.id == assigneeID })
         }
     }
 }
