@@ -59,7 +59,7 @@ final class AppContainer {
         var draft = TaskDraft()
         draft.roomID = roomID
         return TaskEditorViewModel(
-            createTask: CreateTaskUseCase(repository: taskRepository),
+            createTask: CreateTaskUseCase(repository: taskRepository, roomRepository: roomRepository),
             getHouseRooms: GetHouseRoomsUseCase(repository: roomRepository),
             houseID: session.currentHouse.id,
             ownerUserID: session.currentUser.id,

@@ -9,10 +9,18 @@ import Foundation
 
 struct CreateTaskUseCase: Sendable {
     let repository: any TaskRepository
+    let roomRepository: any RoomRepository
 
     func callAsFunction(definition: TaskDefinition) async throws -> TaskDefinition {
         guard !definition.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw DomainError.invalidTaskName
+        }
+        if definition.kind == .sporadic && definition.recurrence != .none {
+            throw DomainError.invalidTaskKind
+        }
+        let room = try await roomRepository.room(id: definition.roomID)
+            guard room != nil else {
+            throw DomainError.roomNotFound
         }
         return try await repository.create(definition)
     }

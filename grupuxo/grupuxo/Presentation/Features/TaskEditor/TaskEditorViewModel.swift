@@ -42,6 +42,13 @@ final class TaskEditorViewModel: ObservableObject {
         if case .saving = state { return }
         var draft = state.draft
         update(&draft)
+        
+        if draft.recurrence == .none {
+            draft.kind = .sporadic
+        } else {
+            draft.kind = .recurring
+        }
+        
         state = .editing(draft)
     }
 
