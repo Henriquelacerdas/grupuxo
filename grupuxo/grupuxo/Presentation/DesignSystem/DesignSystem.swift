@@ -24,16 +24,63 @@ struct EmptyStateView: View {
     }
 }
 
-struct TaskRow: View {
-    let item: TaskItem
+struct ResidentAvatar: View {
+    let user: User
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
-            Text(item.definition.name).font(.headline)
-            if !item.definition.details.isEmpty {
-                Text(item.definition.details).font(.subheadline).foregroundStyle(.secondary)
+        Text(user.name.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init).joined())
+            .font(.caption.bold())
+            .foregroundStyle(.tint)
+            .frame(width: 36, height: 36)
+            .background(.tint.opacity(0.12), in: Circle())
+            .accessibilityHidden(true)
+    }
+}
+
+struct TaskRow: View {
+    let item: TaskItem
+    var canComplete = false
+    var onComplete: () -> Void = {}
+
+    var body: some View {
+        HStack(alignment: .top, spacing: DesignSystem.Spacing.small) {
+            Button(action: onComplete) {
+                Image(systemName: item.occurrence.isCompleted ? "checkmark.square.fill" : "square")
+                    .font(.title2)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.borderless)
+            .disabled(!canComplete || item.occurrence.isCompleted)
+            .accessibilityLabel("Concluir \(item.definition.name)")
+            .accessibilityValue(item.occurrence.isCompleted ? "Concluída" : "Pendente")
+
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
+                Text(item.definition.name).font(.headline)
+                    .strikethrough(item.occurrence.isCompleted)
+                if !item.definition.details.isEmpty {
+                    Text(item.definition.details).font(.subheadline).foregroundStyle(.secondary)
+                }
+                if let user = item.assignee {
+                    HStack {
+                        ResidentAvatar(user: user)
+                        Text(user.name).font(.subheadline)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Responsável: \(user.name)")
+                } else {
+                    Label("Sem responsável", systemImage: "person.crop.circle.badge.questionmark")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                if let dueAt = item.occurrence.dueAt {
+                    Text("Prazo: \(dueAt.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text("Sem prazo").font(.caption).foregroundStyle(.secondary)
+                }
+                if item.occurrence.isCompleted {
+                    Text("Concluída").font(.caption).foregroundStyle(.secondary)
+                }
             }
         }
-        .accessibilityElement(children: .combine)
     }
 }

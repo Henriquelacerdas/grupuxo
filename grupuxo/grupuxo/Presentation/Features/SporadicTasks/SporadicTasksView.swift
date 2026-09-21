@@ -13,11 +13,13 @@ struct SporadicTasksView: View {
             case .idle, .loading: ProgressView("Carregando tarefas…")
             case let .content(tasks):
                 List(tasks) { item in
-                    TaskRow(item: item)
+                    TaskRow(item: item, canComplete: viewModel.canComplete(item)) {
+                        Task { await viewModel.complete(item.id) }
+                    }
                         .swipeActions {
-                            if item.assignment == nil {
+                            if !item.occurrence.isCompleted && item.assignment == nil {
                                 Button("Assumir") { Task { await viewModel.claim(item.id) } }.tint(.blue)
-                            } else {
+                            } else if viewModel.canComplete(item) {
                                 Button("Devolver") { Task { await viewModel.release(item.id) } }.tint(.orange)
                             }
                         }
@@ -27,7 +29,13 @@ struct SporadicTasksView: View {
             }
         }
         .navigationTitle("Esporádicas")
-        .task { if viewModel.state == .idle { await viewModel.load() } }
+        .task { await viewModel.load() }
+        .alert("Não foi possível concluir", isPresented: Binding(
+            get: { viewModel.actionError != nil },
+            set: { if !$0 { viewModel.actionError = nil } }
+        )) {
+            Button("OK") { viewModel.actionError = nil }
+        } message: { Text(viewModel.actionError ?? "") }
         .refreshable { await viewModel.load() }
     }
 }

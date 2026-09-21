@@ -174,14 +174,7 @@ struct RootView: View {
 
         case .settings:
 
-            ContentUnavailableView(
-                "Configurações",
-                systemImage: "person.circle",
-                description: Text(
-                    "Esta área será implementada em breve."
-                )
-            )
-            .navigationTitle("Perfil")
+            ProfileView(viewModel: container.makeProfileViewModel(session: session))
         }
     }
 }

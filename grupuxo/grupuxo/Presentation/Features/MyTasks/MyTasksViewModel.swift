@@ -3,6 +3,8 @@ import Foundation
 
 @MainActor
 final class MyTasksViewModel: ObservableObject {
+    @Published var actionError: String?
+    @Published private(set) var isCompleting = false
     @Published private(set) var state: MyTasksState = .idle
     private let getMyTasks: GetMyTasksUseCase
     private let completeTask: CompleteTaskUseCase
@@ -26,12 +28,20 @@ final class MyTasksViewModel: ObservableObject {
         }
     }
 
+    func canComplete(_ item: TaskItem) -> Bool {
+        !isCompleting && !item.occurrence.isCompleted
+            && item.assignment?.userID == userID && item.occurrence.availableAt <= .now
+    }
+
     func complete(_ occurrenceID: TaskOccurrence.ID) async {
+        guard !isCompleting else { return }
+        isCompleting = true
+        defer { isCompleting = false }
         do {
             try await completeTask(occurrenceID: occurrenceID, userID: userID)
             await load()
         } catch {
-            state = .failure(error.localizedDescription)
+            actionError = error.localizedDescription
         }
     }
 }

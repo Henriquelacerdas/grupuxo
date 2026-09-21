@@ -422,3 +422,59 @@ struct SchedulingTests {
     }
 
 }
+
+@MainActor
+struct TaskListPresentationTests {
+    @Test func deadlinesSortAscendingWithUndatedTasksLast() async throws {
+        var seed = MockSeed.make()
+        let roomID = MockSeed.kitchen.id
+        let definition = seed.definitions.first { $0.roomID == roomID }!
+        let dates: [Date?] = [nil, Date(timeIntervalSince1970: 300), Date(timeIntervalSince1970: 100)]
+        seed.occurrences = dates.map {
+            TaskOccurrence(id: UUID(), taskDefinitionID: definition.id, availableAt: .distantPast,
+                           dueAt: $0, status: .available, completedAt: nil, completedByUserID: nil,
+                           effortSnapshot: definition.effort)
+        }
+        let container = AppContainer(store: MockStore(state: seed))
+        let tasks = try await GetRoomTasksUseCase(repository: container.taskRepository)(
+            roomID: roomID, userID: MockSeed.currentUser.id)
+        #expect(tasks.map(\.occurrence.dueAt) == [dates[2], dates[1], nil])
+    }
+
+    @Test func completionKeepsResidentAndUpdatesRoomState() async throws {
+        let container = AppContainer()
+        let session = AppSession(currentUser: MockSeed.currentUser, currentHouse: MockSeed.house)
+        let model = container.makeRoomDetailViewModel(roomID: MockSeed.kitchen.id, session: session)
+        await model.load()
+        guard case let .content(content) = model.state,
+              let item = content.tasks.first(where: { $0.assignment?.userID == MockSeed.currentUser.id }) else {
+            Issue.record("Missing assigned task")
+            return
+        }
+        #expect(item.assignee == MockSeed.currentUser)
+        #expect(model.canComplete(item))
+        await model.complete(item.id)
+        #expect(model.actionError == nil)
+        guard case let .content(updated) = model.state,
+              let completed = updated.tasks.first(where: { $0.id == item.id }) else {
+            Issue.record("Missing completed task")
+            return
+        }
+        #expect(completed.occurrence.isCompleted)
+        #expect(completed.assignee == MockSeed.currentUser)
+        #expect(!model.canComplete(completed))
+    }
+
+    @Test func profileLoadsAllResidentsAndRejectsOutsiders() async throws {
+        let container = AppContainer()
+        let useCase = GetHouseMembersUseCase(repository: container.houseRepository)
+        let members = try await useCase(houseID: MockSeed.house.id, userID: MockSeed.currentUser.id)
+        #expect(Set(members.map(\.id)) == Set(MockSeed.users.map(\.id)))
+        do {
+            _ = try await useCase(houseID: MockSeed.house.id, userID: UUID())
+            Issue.record("An outsider could read the resident list")
+        } catch {
+            #expect(error as? DomainError == .taskUnavailable)
+        }
+    }
+}
