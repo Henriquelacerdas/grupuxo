@@ -1,27 +1,38 @@
-// TODO — Completar a validação além do nome: cômodo existente na casa ativa,
-// acesso do solicitante e combinação coerente de tipo, recorrência e distribuição.
-// Receber o contexto necessário pelo caso de uso, sem consultar sessão global.
-// Para periódicas, coordenar geração das ocorrências e distribuição em caso de uso
-// próprio; para avulsas, disponibilizar uma ocorrência sem responsável no card.
-// Salvar novamente a mesma operação não deve gerar ocorrências duplicadas.
-
 import Foundation
 
 struct CreateTaskUseCase: Sendable {
     let repository: any TaskRepository
     let roomRepository: any RoomRepository
 
-    func callAsFunction(definition: TaskDefinition) async throws -> TaskDefinition {
+    func callAsFunction(definition: TaskDefinition, date: Date = .now) async throws -> TaskDefinition {
         guard !definition.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw DomainError.invalidTaskName
         }
-        if definition.kind == .sporadic && definition.recurrence != .none {
-            throw DomainError.invalidTaskKind
+//        if definition.kind == .sporadic && definition.recurrence != .none {
+//            throw DomainError.invalidTaskKind
+//        }
+//        let room = try await roomRepository.room(id: definition.roomID)
+//            guard room != nil else {
+//            throw DomainError.roomNotFound
+//        }
+//        return try await repository.create(definition)
+
+        guard definition.recurrence.hasValidInterval else {
+            throw DomainError.invalidSchedule
         }
-        let room = try await roomRepository.room(id: definition.roomID)
-            guard room != nil else {
-            throw DomainError.roomNotFound
+        switch definition.kind {
+        case .sporadic:
+            guard definition.recurrence == .none,
+                  definition.assignmentPolicy == .selfAssigned else {
+                throw DomainError.invalidSchedule
+            }
+        case .recurring:
+            guard definition.assignmentPolicy != .selfAssigned,
+                  definition.assignmentPolicy == .afterCompletion || definition.recurrence.isRepeating else {
+                throw DomainError.invalidSchedule
+            }
         }
-        return try await repository.create(definition)
+        // Repository commits the domain plan against the same snapshot used for optimization.
+        return try await repository.create(definition, at: date)
     }
 }

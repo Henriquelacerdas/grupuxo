@@ -6,6 +6,7 @@ struct TaskCreationSheetView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var focusedField: Field?
     @StateObject private var viewModel: TaskEditorViewModel
+    @State private var recurrenceSheet: RecurrenceSheet?
 
     private enum Field: Hashable {
         case title, details
@@ -33,10 +34,7 @@ struct TaskCreationSheetView: View {
                             systemImage: "arrow.triangle.2.circlepath"
                         ) {
                             Menu {
-                                Picker("Repetição", selection: binding(\.recurrence)) {
-                                    Text("Semanalmente").tag(RecurrencePolicy.weekly(interval: 1))
-                                    Text("Sem repetição").tag(RecurrencePolicy.none)
-                                }
+                                recurrenceMenu
                             } label: {
                                 rowValue(recurrenceName)
                             }
@@ -111,6 +109,15 @@ struct TaskCreationSheetView: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(isSaving)
+        .sheet(item: $recurrenceSheet) { sheet in
+            switch sheet {
+            case let .custom(recurrence):
+                CustomRecurrenceSheet(
+                    viewModel: viewModel,
+                    initialRecurrence: recurrence
+                )
+            }
+        }
         .task { await viewModel.loadRooms() }
         .onChange(of: viewModel.state) { _, state in
             if case .saved = state { dismiss() }
@@ -200,6 +207,28 @@ struct TaskCreationSheetView: View {
         }
     }
 
+    private var recurrenceMenu: some View {
+        Group {
+            recurrenceMenuButton("Diariamente", recurrence: .recurring(frequency: .daily, interval: 1))
+            recurrenceMenuButton("Semanalmente", recurrence: .recurring(frequency: .weekly, interval: 1))
+            recurrenceMenuButton("Quinzenalmente", recurrence: .recurring(frequency: .weekly, interval: 2))
+            recurrenceMenuButton("Mensalmente", recurrence: .recurring(frequency: .monthly, interval: 1))
+            recurrenceMenuButton("A cada 3 meses", recurrence: .recurring(frequency: .monthly, interval: 3))
+            recurrenceMenuButton("A cada 6 meses", recurrence: .recurring(frequency: .monthly, interval: 6))
+            recurrenceMenuButton("Anualmente", recurrence: .recurring(frequency: .yearly, interval: 1))
+            Divider()
+            Button("Personalizado") {
+                recurrenceSheet = .custom(viewModel.state.draft.recurrence)
+            }
+        }
+    }
+
+    private func recurrenceMenuButton(_ title: String, recurrence: RecurrencePolicy) -> some View {
+        Button(title) {
+            viewModel.selectRecurrence(recurrence)
+        }
+    }
+
     private func adaptiveRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         let layout = dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: DesignSystem.Spacing.small))
@@ -234,7 +263,8 @@ struct TaskCreationSheetView: View {
     private var recurrenceName: String {
         switch viewModel.state.draft.recurrence {
         case .none: "Sem repetição"
-        case .weekly: "Semanalmente"
+        case let .recurring(frequency, interval):
+            RecurrencePresentation.name(for: frequency, interval: interval)
         }
     }
 
@@ -248,5 +278,128 @@ struct TaskCreationSheetView: View {
             get: { viewModel.state.draft[keyPath: keyPath] },
             set: { value in viewModel.updateDraft { $0[keyPath: keyPath] = value } }
         )
+    }
+
+    private enum RecurrenceSheet: Identifiable {
+        case custom(RecurrencePolicy)
+
+        var id: String { "custom" }
+    }
+}
+
+private struct CustomRecurrenceSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var viewModel: TaskEditorViewModel
+    @State private var frequency: RecurrenceFrequency
+    @State private var interval: Int
+
+    init(viewModel: TaskEditorViewModel, initialRecurrence: RecurrencePolicy) {
+        self.viewModel = viewModel
+        switch initialRecurrence {
+        case let .recurring(frequency, interval):
+            _frequency = State(initialValue: frequency)
+            _interval = State(initialValue: max(interval, 1))
+        case .none:
+            _frequency = State(initialValue: .weekly)
+            _interval = State(initialValue: 1)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("Frequência", selection: $frequency) {
+                        ForEach(RecurrenceFrequency.allCases, id: \.self) { frequency in
+                            Text(RecurrencePresentation.frequencyName(for: frequency)).tag(frequency)
+                        }
+                    }
+
+                    Stepper(value: $interval, in: 1...999) {
+                        HStack {
+                            Text("A cada")
+                            Spacer()
+                            Text(interval.formatted())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .accessibilityValue("\(interval) \(RecurrencePresentation.unitName(for: frequency, interval: interval))")
+                }
+
+                Section {
+                    Text(recurrenceSummary)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Personalizado")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar", systemImage: "xmark") { dismiss() }
+                        .labelStyle(.iconOnly)
+                        .accessibilityLabel("Cancelar recorrência personalizada")
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Concluir", systemImage: "checkmark") {
+                        viewModel.selectRecurrence(.recurring(frequency: frequency, interval: interval))
+                        dismiss()
+                    }
+                    .labelStyle(.iconOnly)
+                    .accessibilityLabel("Concluir recorrência personalizada")
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var recurrenceSummary: String {
+        RecurrencePresentation.summary(for: frequency, interval: interval)
+    }
+}
+
+private enum RecurrencePresentation {
+    static func name(for frequency: RecurrenceFrequency, interval: Int) -> String {
+        switch (frequency, interval) {
+        case (.daily, 1): "Diariamente"
+        case (.weekly, 1): "Semanalmente"
+        case (.weekly, 2): "Quinzenalmente"
+        case (.monthly, 1): "Mensalmente"
+        case (.monthly, 3): "A cada 3 meses"
+        case (.monthly, 6): "A cada 6 meses"
+        case (.yearly, 1): "Anualmente"
+        default: "A cada \(interval) \(unitName(for: frequency, interval: interval))"
+        }
+    }
+
+    static func frequencyName(for frequency: RecurrenceFrequency) -> String {
+        switch frequency {
+        case .daily: "Diariamente"
+        case .weekly: "Semanalmente"
+        case .monthly: "Mensalmente"
+        case .yearly: "Anualmente"
+        }
+    }
+
+    static func summary(for frequency: RecurrenceFrequency, interval: Int) -> String {
+        if interval == 1 {
+            switch frequency {
+            case .daily: return "A tarefa ocorrerá todos os dias."
+            case .weekly: return "A tarefa ocorrerá toda semana."
+            case .monthly: return "A tarefa ocorrerá todo mês."
+            case .yearly: return "A tarefa ocorrerá todo ano."
+            }
+        }
+        return "A tarefa ocorrerá a cada \(interval) \(unitName(for: frequency, interval: interval))."
+    }
+
+    static func unitName(for frequency: RecurrenceFrequency, interval: Int) -> String {
+        switch frequency {
+        case .daily: interval == 1 ? "dia" : "dias"
+        case .weekly: interval == 1 ? "semana" : "semanas"
+        case .monthly: interval == 1 ? "mês" : "meses"
+        case .yearly: interval == 1 ? "ano" : "anos"
+        }
     }
 }

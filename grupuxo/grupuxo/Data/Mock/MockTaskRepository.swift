@@ -1,20 +1,21 @@
-// GUIA — create hoje salva a definição e uma ocorrência imediata sem responsável.
-// TODO: suportar geração periódica por janela de calendário em fluxo próprio,
-// evitar duplicar a mesma definição/período e preservar ocorrências anteriores.
-// Aplicar decisões da distribuição no mesmo store.update: encerrar atribuição
-// anterior, criar a nova e atualizar status, mantendo uma única atribuição ativa.
-// Validar todo o lote antes de mutar o estado. Para avulsas, manter criação sem
-// responsável e usar claim/release. Reforçar autorização nas mutações ao evoluir
-// o contrato; os mocks devem exercitar as mesmas regras esperadas do backend.
-
 import Foundation
 
 struct MockTaskRepository: TaskRepository {
     let store: MockStore
-    private let eligibilityPolicy = TaskEligibilityPolicy()
+    let scheduling: TaskSchedulingService
+    let eligibilityPolicy: TaskEligibilityPolicy
+
+    init(store: MockStore, scheduling: TaskSchedulingService,
+         eligibilityPolicy: TaskEligibilityPolicy = TaskEligibilityPolicy()) {
+        self.store = store
+        self.scheduling = scheduling
+        self.eligibilityPolicy = eligibilityPolicy
+    }
 
     func tasks(for userID: User.ID, in houseID: House.ID) async throws -> [TaskItem] {
-        await store.read { state in
+        try await refreshSchedule(in: houseID, at: .now)
+        return await store.read { state in
+            guard state.houseMemberships.contains(where: { $0.houseID == houseID && $0.userID == userID }) else { return [] }
             let roomsByID = Dictionary(uniqueKeysWithValues: state.rooms.map { ($0.id, $0) })
             return items(from: state).filter { item in
                 guard let room = roomsByID[item.definition.roomID] else { return false }
@@ -25,6 +26,8 @@ struct MockTaskRepository: TaskRepository {
                         userID: userID,
                         roomMemberships: state.roomMemberships
                     )
+                    && item.occurrence.availableAt <= Date.now
+                    && !item.occurrence.isCompleted
                     && (item.assignment?.userID == userID || item.definition.ownerUserID == userID)
             }
         }
@@ -32,7 +35,8 @@ struct MockTaskRepository: TaskRepository {
 
     func tasks(in roomID: Room.ID, requesting userID: User.ID) async throws -> [TaskItem] {
         await store.read { state in
-            guard let room = state.rooms.first(where: { $0.id == roomID }) else { return [] }
+            guard let room = state.rooms.first(where: { $0.id == roomID }),
+                  state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }) else { return [] }
             return items(from: state).filter {
                 $0.definition.roomID == roomID
                     && $0.definition.kind != .sporadic
@@ -47,7 +51,9 @@ struct MockTaskRepository: TaskRepository {
     }
 
     func sporadicTasks(in houseID: House.ID, requesting userID: User.ID) async throws -> [TaskItem] {
-        await store.read { state in
+        try await refreshSchedule(in: houseID, at: .now)
+        return await store.read { state in
+            guard state.houseMemberships.contains(where: { $0.houseID == houseID && $0.userID == userID }) else { return [] }
             let roomsByID = Dictionary(uniqueKeysWithValues: state.rooms.map { ($0.id, $0) })
             return items(from: state).filter {
                 guard let room = roomsByID[$0.definition.roomID] else { return false }
@@ -63,44 +69,39 @@ struct MockTaskRepository: TaskRepository {
         }
     }
 
-    func create(_ definition: TaskDefinition) async throws -> TaskDefinition {
+    func create(_ definition: TaskDefinition, at date: Date) async throws -> TaskDefinition {
         try await store.update { state in
-            guard state.rooms.contains(where: { $0.id == definition.roomID }) else {
-                throw DomainError.entityNotFound
+            var schedule = state.schedule
+            if let room = schedule.rooms.first(where: { $0.id == definition.roomID }) {
+                try scheduling.refresh(houseID: room.houseID, at: date, state: &schedule)
             }
-            if !state.definitions.contains(where: { $0.id == definition.id }) {
-                state.definitions.append(definition)
-                state.occurrences.append(
-                    TaskOccurrence(
-                        id: UUID(),
-                        taskDefinitionID: definition.id,
-                        availableAt: .now,
-                        dueAt: nil,
-                        status: .available,
-                        completedAt: nil,
-                        completedByUserID: nil,
-                        effortSnapshot: definition.effort
-                    )
-                )
-            }
-            return definition
+            let created = try scheduling.create(definition, at: date, state: &schedule)
+            state.schedule = schedule
+            return created
         }
     }
 
     func complete(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date) async throws {
         try await store.update { state in
-            guard let index = state.occurrences.firstIndex(where: { $0.id == occurrenceID }) else {
-                throw DomainError.entityNotFound
-            }
-            guard !state.occurrences[index].isCompleted else { return }
-            state.occurrences[index].status = .completed
-            state.occurrences[index].completedAt = date
-            state.occurrences[index].completedByUserID = userID
-            for assignmentIndex in state.assignments.indices
-            where state.assignments[assignmentIndex].occurrenceID == occurrenceID
-                && state.assignments[assignmentIndex].endedAt == nil {
-                state.assignments[assignmentIndex].endedAt = date
-            }
+            var schedule = state.schedule
+            try scheduling.complete(occurrenceID: occurrenceID, by: userID, at: date, state: &schedule)
+            state.schedule = schedule
+        }
+    }
+
+    func refreshSchedule(in houseID: House.ID, at date: Date) async throws {
+        try await store.update { state in
+            var schedule = state.schedule
+            try scheduling.refresh(houseID: houseID, at: date, state: &schedule)
+            state.schedule = schedule
+        }
+    }
+
+    func addMember(userID: User.ID, to roomID: Room.ID, at date: Date) async throws {
+        try await store.update { state in
+            var schedule = state.schedule
+            try scheduling.addMember(userID: userID, roomID: roomID, at: date, state: &schedule)
+            state.schedule = schedule
         }
     }
 
@@ -110,6 +111,14 @@ struct MockTaskRepository: TaskRepository {
                   let definition = state.definitions.first(where: { $0.id == occurrence.taskDefinitionID }),
                   let room = state.rooms.first(where: { $0.id == definition.roomID }) else {
                 throw DomainError.entityNotFound
+            }
+            guard state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }),
+                  state.roomMemberships.contains(where: { $0.roomID == room.id && $0.userID == userID }),
+                  !state.absences.contains(where: { absence in
+                      absence.startsAt <= date && date < absence.endsAt
+                          && state.houseMemberships.contains(where: { $0.id == absence.membershipID && $0.userID == userID })
+                  }), occurrence.availableAt <= date, !occurrence.isCompleted else {
+                throw DomainError.taskUnavailable
             }
             let currentAssignment = state.assignments.first {
                 $0.occurrenceID == occurrenceID && $0.endedAt == nil
@@ -141,6 +150,11 @@ struct MockTaskRepository: TaskRepository {
             guard let assignmentIndex = state.assignments.firstIndex(where: {
                 $0.occurrenceID == occurrenceID && $0.userID == userID && $0.endedAt == nil
             }) else { return }
+            guard let occurrence = state.occurrences.first(where: { $0.id == occurrenceID }),
+                  !occurrence.isCompleted,
+                  state.definitions.contains(where: { $0.id == occurrence.taskDefinitionID && $0.kind == .sporadic }) else {
+                throw DomainError.taskUnavailable
+            }
             state.assignments[assignmentIndex].endedAt = .now
             guard let occurrenceIndex = state.occurrences.firstIndex(where: { $0.id == occurrenceID }) else {
                 throw DomainError.entityNotFound
@@ -154,7 +168,9 @@ struct MockTaskRepository: TaskRepository {
         return state.occurrences.compactMap { occurrence in
             guard let definition = definitionByID[occurrence.taskDefinitionID] else { return nil }
             let assignment = state.assignments.first { $0.occurrenceID == occurrence.id && $0.endedAt == nil }
-            return TaskItem(definition: definition, occurrence: occurrence, assignment: assignment)
+            let assigneeID = assignment?.userID ?? occurrence.completedByUserID
+            return TaskItem(definition: definition, occurrence: occurrence, assignment: assignment,
+                            assignee: state.users.first { $0.id == assigneeID })
         }
     }
 }

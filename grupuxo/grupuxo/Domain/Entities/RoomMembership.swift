@@ -10,4 +10,8 @@ struct RoomMembership: Identifiable, Hashable, Codable, Sendable {
     let id: UUID
     let roomID: Room.ID
     let userID: User.ID
+
+    // Saldo de Justiça (Fairness Debt) para o balanceamento matemático.
+    // Positivo: Trabalhou mais que a média. Negativo: Trabalhou menos.
+    var fairnessDebt: Double = 0.0
 }

@@ -10,17 +10,21 @@ import Foundation
 
 @MainActor
 final class SporadicTasksViewModel: ObservableObject {
+    @Published var actionError: String?
+    @Published private(set) var isCompleting = false
     @Published private(set) var state: SporadicTasksState = .idle
     private let getTasks: GetSporadicTasksUseCase
     private let claimTask: ClaimSporadicTaskUseCase
     private let releaseTask: ReleaseSporadicTaskUseCase
+    private let completeTask: CompleteTaskUseCase
     private let userID: User.ID
     private let houseID: House.ID
 
-    init(getTasks: GetSporadicTasksUseCase, claimTask: ClaimSporadicTaskUseCase, releaseTask: ReleaseSporadicTaskUseCase, userID: User.ID, houseID: House.ID) {
+    init(getTasks: GetSporadicTasksUseCase, claimTask: ClaimSporadicTaskUseCase, releaseTask: ReleaseSporadicTaskUseCase, completeTask: CompleteTaskUseCase, userID: User.ID, houseID: House.ID) {
         self.getTasks = getTasks
         self.claimTask = claimTask
         self.releaseTask = releaseTask
+        self.completeTask = completeTask
         self.userID = userID
         self.houseID = houseID
     }
@@ -44,6 +48,22 @@ final class SporadicTasksViewModel: ObservableObject {
             await load()
         } catch {
             state = .failure(error.localizedDescription)
+        }
+    }
+    func canComplete(_ item: TaskItem) -> Bool {
+        !isCompleting && !item.occurrence.isCompleted
+            && item.assignment?.userID == userID && item.occurrence.availableAt <= .now
+    }
+
+    func complete(_ occurrenceID: TaskOccurrence.ID) async {
+        guard !isCompleting else { return }
+        isCompleting = true
+        defer { isCompleting = false }
+        do {
+            try await completeTask(occurrenceID: occurrenceID, userID: userID)
+            await load()
+        } catch {
+            actionError = error.localizedDescription
         }
     }
 }

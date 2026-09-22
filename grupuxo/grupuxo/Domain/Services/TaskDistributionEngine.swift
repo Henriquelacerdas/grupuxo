@@ -1,67 +1,109 @@
-// GUIA — Há uma etapa gulosa: maior esforço primeiro, menor carga e histórico
-// como desempate. Ainda faltam integração com recorrência e busca local.
-// TODO: o caso de uso deve fornecer apenas ocorrências periódicas disponíveis da
-// semana e da política aplicável; excluir avulsas, futuras e moradores em férias.
-// Montar elegíveis por RoomMembership, respeitando acesso e visibilidade da tarefa.
-// Para balancear pessoas do mesmo cômodo, explicitar o escopo de currentLoads:
-// o dicionário atual só possui usuário, não separa carga por cômodo. Preparar os
-// dados por cômodo ou estender o contrato antes de misturar tarefas de vários cômodos.
-// Após a etapa gulosa, tentar realocações/trocas que reduzam a diferença de esforço
-// sem violar elegibilidade. Definir parada e desempates determinísticos em testes.
-// Persistir decisões atomicamente e recalcular quando a elegibilidade mudar;
-// o filtro atual ignora tarefas atribuídas e sozinho não faz essa redistribuição.
-
 import Foundation
 
-struct TaskDistributionDecision: Hashable, Sendable {
-    let occurrenceID: TaskOccurrence.ID
-    let userID: User.ID
+/// A single resident/week bucket. No entities or UUID allocation inside cost loops.
+struct ProjectedWeek: Sendable {
+    var load: Double = 0
+    var level1: Double = 0
+    var level2: Double = 0
+    var level3: Double = 0
+
+    mutating func add(effort: Int) {
+        load += Double(effort)
+        switch effort {
+        case 1: level1 += 1
+        case 2: level2 += 1
+        default: level3 += 1
+        }
+    }
+
+    func cost(debt: Double) -> Double {
+        let adjusted = load + debt
+        return adjusted * adjusted + 0.5 * (level1 * level1 + level2 * level2 + level3 * level3)
+    }
 }
 
 struct TaskDistributionEngine: Sendable {
-    func distribute(
-        tasks: [TaskItem],
-        eligibleUserIDsByRoom: [Room.ID: [User.ID]],
-        currentLoads: [User.ID: WeeklyLoad],
-        absentUserIDs: Set<User.ID>,
-        previousAssigneeByTask: [TaskDefinition.ID: User.ID]
-    ) -> [TaskDistributionDecision] {
-        var projectedLoads = currentLoads.mapValues(\.points)
-        var decisions: [TaskDistributionDecision] = []
+    let optimizer: HungarianAlgorithm
 
-        let orderedTasks = tasks
-            .filter { item in
-                let hasNoAssignment = item.assignment.map { _ in false } ?? true
-                return !item.occurrence.isCompleted && hasNoAssignment
+    init(optimizer: HungarianAlgorithm = HungarianAlgorithm()) { self.optimizer = optimizer }
+
+    /// weeks lists the week index of each chronological occurrence (duplicates allowed).
+    func generateInitialQueue(
+        taskEffort: Int,
+        participants: [User.ID],
+        occurrenceWeeks: [Int],
+        projection: [User.ID: [ProjectedWeek]],
+        debts: [User.ID: Double]
+    ) throws -> [User.ID] {
+        try validate(effort: taskEffort, queue: participants, weeks: occurrenceWeeks,
+                     projection: projection, debts: debts)
+        guard !participants.isEmpty else { throw DomainError.noEligibleMembers }
+        let count = participants.count
+        let matrix = participants.map { user in
+            (0..<count).map { slot in
+                var weeks = projection[user] ?? Array(repeating: ProjectedWeek(), count: 12)
+                for index in occurrenceWeeks.indices where index % count == slot {
+                    weeks[occurrenceWeeks[index]].add(effort: taskEffort)
+                }
+                return weeks.reduce(0) { $0 + $1.cost(debt: debts[user, default: 0] / 12) }
             }
-            .sorted { $0.occurrence.effortSnapshot.points > $1.occurrence.effortSnapshot.points }
-
-        for task in orderedTasks {
-            let candidates = (eligibleUserIDsByRoom[task.definition.roomID] ?? [])
-                .filter { !absentUserIDs.contains($0) }
-            guard let selectedUserID = candidates.min(by: { lhs, rhs in
-                let lhsKey = candidateKey(
-                    userID: lhs,
-                    load: projectedLoads[lhs, default: 0],
-                    previousUserID: previousAssigneeByTask[task.definition.id]
-                )
-                let rhsKey = candidateKey(
-                    userID: rhs,
-                    load: projectedLoads[rhs, default: 0],
-                    previousUserID: previousAssigneeByTask[task.definition.id]
-                )
-                return lhsKey < rhsKey
-            }) else { continue }
-
-            decisions.append(TaskDistributionDecision(occurrenceID: task.id, userID: selectedUserID))
-            projectedLoads[selectedUserID, default: 0] += task.occurrence.effortSnapshot.points
         }
-
-        return decisions
+        let assignment = try optimizer.solve(matrix: matrix)
+        var queue = participants
+        for row in participants.indices { queue[assignment[row]] = participants[row] }
+        return queue
     }
 
-    private func candidateKey(userID: User.ID, load: Int, previousUserID: User.ID?) -> String {
-        let repetitionPenalty = userID == previousUserID ? 1 : 0
-        return String(format: "%08d-%d-%@", load, repetitionPenalty, userID.uuidString)
+    /// The cursor points to the first UNPUBLISHED slot. Published occurrences are never inputs to mutate.
+    func insertNewMember(
+        newUser: User.ID,
+        currentQueue: [User.ID],
+        currentRotationIndex: Int,
+        taskEffort: Int,
+        occurrenceWeeks: [Int],
+        projection: [User.ID: [ProjectedWeek]],
+        debts: [User.ID: Double]
+    ) throws -> [User.ID] {
+        try validate(effort: taskEffort, queue: currentQueue, weeks: occurrenceWeeks,
+                     projection: projection, debts: debts)
+        guard !currentQueue.contains(newUser) else { return currentQueue }
+        guard !currentQueue.isEmpty else { return [newUser] }
+        guard currentQueue.indices.contains(currentRotationIndex) else { throw DomainError.invalidDistribution }
+        var bestQueue = currentQueue
+        var minimum = Double.infinity
+        // Preserve the next resident too; every candidate keeps the old members' relative order.
+        for position in (currentRotationIndex + 1)...currentQueue.count {
+            var candidate = currentQueue
+            candidate.insert(newUser, at: position)
+            var grid = projection
+            for user in candidate where grid[user] == nil {
+                grid[user] = Array(repeating: ProjectedWeek(), count: 12)
+            }
+            for (offset, week) in occurrenceWeeks.enumerated() {
+                let user = candidate[(currentRotationIndex + offset) % candidate.count]
+                grid[user]![week].add(effort: taskEffort)
+            }
+            let cost = candidate.reduce(0.0) { total, user in
+                total + grid[user]!.reduce(0) { $0 + $1.cost(debt: debts[user, default: 0] / 12) }
+            }
+            guard cost.isFinite else { throw DomainError.invalidDistribution }
+            if cost < minimum { minimum = cost; bestQueue = candidate }
+        }
+        return bestQueue
+    }
+
+    private func validate(effort: Int, queue: [User.ID], weeks: [Int],
+                          projection: [User.ID: [ProjectedWeek]], debts: [User.ID: Double]) throws {
+        guard (1...3).contains(effort), Set(queue).count == queue.count,
+              weeks.allSatisfy({ (0..<12).contains($0) }),
+              debts.values.allSatisfy(\.isFinite),
+              projection.values.allSatisfy({ weeks in
+                  weeks.count == 12 && weeks.allSatisfy {
+                      $0.load.isFinite && $0.load >= 0
+                          && $0.level1.isFinite && $0.level1 >= 0
+                          && $0.level2.isFinite && $0.level2 >= 0
+                          && $0.level3.isFinite && $0.level3 >= 0
+                  }
+              }) else { throw DomainError.invalidDistribution }
     }
 }
