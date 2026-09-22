@@ -7,6 +7,8 @@ struct TaskCreationSheetView: View {
     @FocusState private var focusedField: Field?
     @StateObject private var viewModel: TaskEditorViewModel
     @State private var recurrenceSheet: RecurrenceSheet?
+    
+    @State private var urgency: Bool = false
 
     private enum Field: Hashable {
         case title, details
@@ -29,17 +31,42 @@ struct TaskCreationSheetView: View {
                     titleCard
 
                     VStack(spacing: DesignSystem.Spacing.medium) {
-                        selectionRow(
-                            title: "Repetição",
-                            systemImage: "arrow.triangle.2.circlepath"
-                        ) {
-                            Menu {
-                                recurrenceMenu
-                            } label: {
-                                rowValue(recurrenceName)
+                        VStack(spacing: 0) {
+                            Toggle(isOn: $urgency) {
+                                Label {
+                                    Text("Urgência")
+                                        .font(.callout.weight(.medium))
+                                    if !dynamicTypeSize.isAccessibilitySize { Spacer() }
+                                } icon: {
+                                    Image(systemName: "dot.radiowaves.left.and.right")
+                                }
                             }
-                            .accessibilityLabel("Repetição")
-                            .accessibilityValue(recurrenceName)
+                        }
+                        .padding(.horizontal, DesignSystem.Spacing.large)
+                        .padding(.vertical, DesignSystem.Spacing.extraSmall)
+                        .frame(minHeight: Layout.rowMinimumHeight)
+                        .background(cardBackground)
+                        .accessibilityElement(children: .contain)
+                        .onChange(of: urgency) { _, isUrgent in
+                            if isUrgent {
+                                viewModel.selectRecurrence(.none)
+                            }
+                            
+                        }
+                        
+                        if !urgency {
+                            selectionRow(
+                                title: "Repetição",
+                                systemImage: "arrow.triangle.2.circlepath"
+                            ) {
+                                Menu {
+                                    recurrenceMenu
+                                } label: {
+                                    rowValue(recurrenceName)
+                                }
+                                .accessibilityLabel("Repetição")
+                                .accessibilityValue(recurrenceName)
+                            }
                         }
 
                         selectionRow(
@@ -50,14 +77,7 @@ struct TaskCreationSheetView: View {
                                 Picker("Cômodo", selection: binding(\.roomID)) {
                                     Text("Selecionar").tag(Optional<Room.ID>.none)
                                     ForEach(viewModel.rooms) { room in
-                                        if viewModel.state.draft.recurrence == .none {
-                                            if room.name == "Casa toda" {
-                                                Text(room.name)
-                                                    .tag(Optional(room.id))
-                                            }
-                                        } else {
-                                            Text(room.name).tag(Optional(room.id))
-                                        }
+                                        Text(room.name).tag(Optional(room.id))
                                     }
                                 }
                             } label: {
