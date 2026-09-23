@@ -7,6 +7,7 @@ protocol TaskRepository: Sendable {
     func create(_ definition: TaskDefinition, at date: Date) async throws -> TaskDefinition
     func refreshSchedule(in houseID: House.ID, at date: Date) async throws
     func addMember(userID: User.ID, to roomID: Room.ID, at date: Date) async throws
+    func removeMember(userID: User.ID, from roomID: Room.ID, at date: Date) async throws
     func complete(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date) async throws
     func claim(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date) async throws
     func release(occurrenceID: TaskOccurrence.ID, by userID: User.ID) async throws

@@ -12,7 +12,7 @@ struct TaskEligibilityPolicy: Sendable {
         roomMemberships: [RoomMembership]
     ) -> Bool {
         let canAccessRoom = room.visibility == .common
-            || roomMemberships.contains { $0.roomID == room.id && $0.userID == userID }
+            || roomMemberships.contains { $0.roomID == room.id && $0.userID == userID && $0.isCurrent }
         let canAccessTask = definition.visibility == .house || definition.ownerUserID == userID
         return canAccessRoom && canAccessTask
     }

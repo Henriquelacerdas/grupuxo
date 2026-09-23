@@ -49,7 +49,7 @@ final class TaskEditorViewModel: ObservableObject {
         let previous = state.draft
         var draft = previous
         update(&draft)
-        
+
         // Keep the existing controls coherent; the domain still validates every command.
         if draft.kind != previous.kind {
             draft.recurrence = draft.kind == .sporadic

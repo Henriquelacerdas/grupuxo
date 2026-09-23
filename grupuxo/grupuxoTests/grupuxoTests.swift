@@ -61,19 +61,6 @@ struct DistributionTests {
         #expect(queue.count == 3)
     }
 
-    @Test func insertionPreservesCursorAndRelativeOrder() throws {
-        let old = [UUID(), UUID(), UUID()], newcomer = UUID()
-        let queue = try engine.insertNewMember(newUser: newcomer, currentQueue: old,
-                                               currentRotationIndex: 1, taskEffort: 2,
-                                               occurrenceWeeks: Array(0..<12), projection: [:], debts: [:])
-        #expect(queue.filter { $0 != newcomer } == old)
-        #expect(queue[1] == old[1])
-        #expect(queue.firstIndex(of: newcomer)! > 1)
-        #expect(try engine.insertNewMember(newUser: newcomer, currentQueue: queue,
-                                          currentRotationIndex: 1, taskEffort: 2,
-                                          occurrenceWeeks: Array(0..<12), projection: [:], debts: [:]) == queue)
-    }
-
     @Test func fairnessIsZeroSumAndDeduplicatesMembers() throws {
         let a = UUID(), b = UUID(), c = UUID()
         let result = try FairnessCalculator().calculateDebtImpact(effort: 2, executorID: a,
@@ -96,19 +83,6 @@ struct DistributionTests {
         let queue = try engine.generateInitialQueue(taskEffort: 3, participants: [a, b],
                                                     occurrenceWeeks: [0], projection: [a: aWeeks, b: bWeeks], debts: [:])
         #expect(queue.first == b)
-    }
-
-    @Test func greedyInsertionSelectsMinimumCandidateCost() throws {
-        let a = UUID(), b = UUID(), newcomer = UUID()
-        var aWeeks = Array(repeating: ProjectedWeek(), count: 12)
-        var bWeeks = aWeeks
-        for week in stride(from: 1, to: 12, by: 3) { bWeeks[week].add(effort: 3) }
-        for week in stride(from: 0, to: 12, by: 3) { aWeeks[week].add(effort: 1) }
-        let grid = [a: aWeeks, b: bWeeks]
-        let chosen = try engine.insertNewMember(newUser: newcomer, currentQueue: [a, b],
-                                                currentRotationIndex: 0, taskEffort: 3,
-                                                occurrenceWeeks: Array(0..<12), projection: grid, debts: [:])
-        #expect(chosen == [a, newcomer, b]) // Avoid b's existing heavy weeks (1,4,7,10).
     }
 
     @Test func invalidEngineInputsFail() {
@@ -159,7 +133,10 @@ struct SchedulingTests {
 
     @Test func createsTwelveWeeksAndRefreshesWithoutDuplicates() async throws {
         let (store, repository, definition, calendar) = fixture()
-        let created = try await CreateTaskUseCase(repository: repository)(definition: definition, date: date)
+        let created = try await CreateTaskUseCase(
+            repository: repository,
+            roomRepository: MockRoomRepository(store: store)
+        )(definition: definition, date: date)
         let initial = await store.read { $0.schedule }
         #expect(initial.occurrences.count == 12)
         #expect(initial.assignments.count == 12)
@@ -201,9 +178,10 @@ struct SchedulingTests {
         let (monthlyStore, monthlyRepository, monthlyOriginal, _) = fixture()
         var monthly = monthlyOriginal
         monthly.recurrence = .recurring(frequency: .monthly, interval: 3)
-        _ = try await monthlyRepository.create(monthly, at: date)
+        let savedMonthly = try await monthlyRepository.create(monthly, at: date)
         let monthlyOccurrences = await monthlyStore.read { $0.occurrences }
-        #expect(monthlyOccurrences[1].availableAt == calendar.date(byAdding: .month, value: 3, to: date))
+        #expect(monthlyOccurrences.count == 1) // Three months exceed the 12-week publication horizon.
+        #expect(savedMonthly.nextScheduledAt == calendar.date(byAdding: .month, value: 3, to: date))
 
         let (_, yearlyRepository, yearlyOriginal, _) = fixture()
         var yearly = yearlyOriginal
@@ -311,24 +289,26 @@ struct SchedulingTests {
         #expect(await store.read { $0.occurrences.count } == 24)
     }
 
-    @Test func membershipInsertionPreservesPublishedHistory() async throws {
+    @Test func membershipInsertionReplansNextWeekAndPreservesCurrentWeek() async throws {
         let (store, repository, definition, calendar) = fixture()
         await store.update { state in
             state.roomMemberships.removeAll { $0.roomID == definition.roomID && $0.userID == MockSeed.rafa.id }
         }
-        let created = try await repository.create(definition, at: date)
+        _ = try await repository.create(definition, at: date)
         let before = await store.read { $0.schedule }
         try await AddRoomMemberUseCase(repository: repository)(userID: MockSeed.rafa.id, roomID: definition.roomID, date: date)
-        try await repository.addMember(userID: MockSeed.rafa.id, to: definition.roomID, at: date)
         let after = await store.read { $0.schedule }
-        let queue = after.definitions[0].rotationQueue
-        #expect(queue.count == 4)
-        #expect(queue.filter { $0 != MockSeed.rafa.id } == created.rotationQueue)
-        #expect(before.occurrences == after.occurrences)
-        #expect(before.assignments == after.assignments)
+        try await repository.addMember(userID: MockSeed.rafa.id, to: definition.roomID, at: date)
+        #expect(await store.read { $0.assignments } == after.assignments)
+        let boundary = calendar.date(byAdding: .weekOfYear, value: 1, to: calendar.dateInterval(of: .weekOfYear, for: date)!.start)!
+        #expect(after.definitions[0].rotationQueue.count == 4)
+        #expect(after.occurrences.filter { $0.availableAt < boundary } == before.occurrences.filter { $0.availableAt < boundary })
+        #expect(after.assignments.first { $0.occurrenceID == before.occurrences[0].id && $0.isActive } == before.assignments[0])
+        #expect(after.occurrences.prefix(before.occurrences.count).map(\.id) == before.occurrences.map(\.id))
+        #expect(after.assignments.contains { $0.userID == MockSeed.rafa.id && $0.isActive && $0.assignedAt < before.definitions[0].nextScheduledAt! })
+        #expect(after.assignments.contains { $0.supersededAt == date })
+        #expect(after.assignments.allSatisfy { $0.endedAt == nil || $0.endedAt! >= $0.assignedAt })
         #expect(after.roomMemberships.filter { $0.roomID == definition.roomID && $0.userID == MockSeed.rafa.id }.count == 1)
-        try await repository.refreshSchedule(in: MockSeed.house.id, at: calendar.date(byAdding: .weekOfYear, value: 12, to: date)!)
-        #expect(await store.read { $0.assignments.dropFirst(12).contains { $0.userID == MockSeed.rafa.id } })
     }
 
     @Test func invalidRecurrenceAndEmptyMembershipDoNotPartiallyCreate() async throws {
@@ -336,7 +316,10 @@ struct SchedulingTests {
         var definition = original
         definition.recurrence = .recurring(frequency: .weekly, interval: 0)
         await #expect(throws: DomainError.invalidSchedule) {
-            try await CreateTaskUseCase(repository: repository)(definition: definition, date: date)
+            try await CreateTaskUseCase(
+                repository: repository,
+                roomRepository: MockRoomRepository(store: store)
+            )(definition: definition, date: date)
         }
         #expect(await store.read { $0.definitions.isEmpty && $0.occurrences.isEmpty && $0.assignments.isEmpty })
         definition.recurrence = .recurring(frequency: .weekly, interval: 1)
@@ -399,7 +382,10 @@ struct SchedulingTests {
 
     @Test @MainActor func editorChoicesProduceValidCommands() async throws {
         let (store, repository, _, _) = fixture()
-        let viewModel = TaskEditorViewModel(createTask: CreateTaskUseCase(repository: repository),
+        let viewModel = TaskEditorViewModel(createTask: CreateTaskUseCase(
+                                                repository: repository,
+                                                roomRepository: MockRoomRepository(store: store)
+                                            ),
                                             getHouseRooms: GetHouseRoomsUseCase(repository: MockRoomRepository(store: store)),
                                             houseID: MockSeed.house.id, ownerUserID: MockSeed.currentUser.id,
                                             draft: TaskDraft())

@@ -7,7 +7,7 @@ struct TaskCreationSheetView: View {
     @FocusState private var focusedField: Field?
     @StateObject private var viewModel: TaskEditorViewModel
     @State private var recurrenceSheet: RecurrenceSheet?
-    
+
     @State private var urgency: Bool = false
 
     private enum Field: Hashable {
@@ -51,9 +51,9 @@ struct TaskCreationSheetView: View {
                             if isUrgent {
                                 viewModel.selectRecurrence(.none)
                             }
-                            
+
                         }
-                        
+
                         if !urgency {
                             selectionRow(
                                 title: "Repetição",
