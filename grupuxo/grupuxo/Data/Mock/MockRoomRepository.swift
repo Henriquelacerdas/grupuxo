@@ -36,7 +36,7 @@ struct MockRoomRepository: RoomRepository {
 
                 let isRoomMember = state.roomMemberships.contains {
                     $0.roomID == room.id &&
-                    $0.userID == userID
+                    $0.userID == userID && $0.isCurrent
                 }
 
                 guard isRoomMember else {
@@ -87,7 +87,7 @@ struct MockRoomRepository: RoomRepository {
                 // Cômodos privados aparecem somente para quem participa.
                 return state.roomMemberships.contains {
                     $0.roomID == room.id &&
-                    $0.userID == userID
+                    $0.userID == userID && $0.isCurrent
                 }
             }
         }

@@ -114,7 +114,7 @@ Não duplicar entidades por tela. Existe uma distinção técnica obrigatória: 
 `TaskDefinition` guarda nome, cômodo, esforço, agenda e a fila rotativa. O `houseID` não é duplicado: é obtido pelo `roomID`.
 `TaskOccurrence` guarda uma execução específica (estado, snapshot do esforço na época, responsável atual). A alteração de uma `TaskDefinition` no presente não reescreve os registros de `TaskOccurrence` passados.
 
-`RoomMembership` armazena o `FairnessDebt` (Saldo de Justiça) do morador naquele cômodo. Quando o morador conclui uma ocorrência de esforço E, seu saldo aumenta em `E - (E/M)` e o saldo dos demais elegíveis daquele cômodo desce `E/M`.
+`RoomMembership` mantém acesso atual (`leftAt`), histórico de participação na rotação (`rotationChanges`) e o `FairnessDebt` (Saldo de Justiça) do morador naquele cômodo. Quando o morador conclui uma ocorrência de esforço E, seu saldo aumenta em `E - (E/M)` e o saldo dos demais elegíveis daquele cômodo desce `E/M`.
 
 Toda tarefa possui roomID, inclusive esporádicas. A apresentação em card separado não altera esse vínculo.
 
@@ -137,11 +137,11 @@ Casos de uso coordenam operações. Regras matemáticas reutilizáveis ficam em 
 
 `TaskDistributionEngine` otimiza o custo por usuário e semana, com horizonte de 12 semanas.
 Para criar uma **nova fila rotativa**, ele cria uma matriz bidimensional simulando as próximas 12 semanas. Avalia-se o custo quadrático de colocar cada membro em cada "slot" da fila e utiliza-se o **Algoritmo Húngaro** para extrair a permutação ótima em $O(N^3)$.
-Para **inserção de novos membros**, o motor preserva todas as ocorrências publicadas e testa posições após o cursor da próxima ocorrência ainda não publicada. O ótimo do Húngaro vale para a nova tarefa com as demais fixas; a inserção entre várias tarefas é gulosa.
+Para **entrada e saída de participantes**, `HouseQueueOptimizer` reotimiza as filas da casa a partir da próxima segunda-feira, incluindo ocorrências futuras já publicadas. Executa Húngaro lexicográfico por fila, com duas configurações iniciais e até 20 passagens de melhoria por configuração. Prioriza esforço semanal, concentração de dificuldades, saldo e estabilidade. Preserva a semana atual, atrasados e concluídos; o ótimo de cada matriz não implica ótimo global da casa.
 
-O contrato detalhado de calendário, amortização do saldo, elegibilidade e limitações está em `ALGORITHM.md`. O cursor avança ao publicar uma ocorrência, nunca ao concluir uma ocorrência de calendário. Tarefas sem calendário publicam somente uma sucessora por conclusão.
+O contrato detalhado de calendário, amortização do saldo, elegibilidade e limitações está em `ALGORITHM.md`. `TaskAssignment.supersededAt` preserva o histórico dos planos futuros substituídos. `TaskDefinition.pendingRotation` controla a vigência de filas por conclusão. Vínculos são mantidos na saída para conservar o saldo; consultas filtram acesso atual e liberam somente as pendências atribuídas ao ex-participante. Filas vazias produzem ocorrências sem responsável. O cursor avança ao publicar uma ocorrência, nunca ao concluir uma ocorrência de calendário. Tarefas sem calendário publicam somente uma sucessora por conclusão.
 
-`TaskSchedulingService` concentra as transições de criação, conclusão, extensão de horizonte e entrada de morador. Recebe o snapshot `TaskSchedulingState`, sem depender de Data. `CreateTaskUseCase`, `CompleteTaskUseCase`, `RefreshTaskScheduleUseCase` e `AddRoomMemberUseCase` são fachadas assíncronas dos comandos transacionais; não fazem leituras independentes antes da gravação.
+`TaskSchedulingService` concentra as transições de criação, conclusão, extensão de horizonte, entrada e saída de participantes. Recebe o snapshot `TaskSchedulingState`, sem depender de Data. `CreateTaskUseCase`, `CompleteTaskUseCase`, `RefreshTaskScheduleUseCase`, `AddRoomMemberUseCase` e `RemoveRoomMemberUseCase` são fachadas assíncronas dos comandos transacionais; não fazem leituras independentes antes da gravação.
 
 Calculadores recebem arrays primitivos (para otimizar a memória L1 do device) e data de referência, devolvendo resultados determinísticos. Não acessam interface, banco ou sessão global.
 
@@ -153,7 +153,7 @@ Operações potencialmente externas usam async throws desde os mocks. Métodos r
 
 Todos os repositórios mockados compartilham um único `MockStore`, que é um actor. `MockSeed` centraliza dados de demonstração; definições legadas sem agenda materializada não são migradas silenciosamente.
 
-`TaskRepository.create(_:at:)`, `complete`, `refreshSchedule` e `addMember` executam transições de domínio sobre o mesmo snapshot que será persistido. `MockStore.update` usa cópia e commit após sucesso, com rollback em qualquer erro. O serviço é síncrono dentro da closure do actor, sem suspensão entre validação e commit. Isso evita uma corrida entre ler participantes/carga, calcular o Húngaro e salvar a fila. Uma futura implementação remota deve fornecer transação ou controle otimista de versão equivalente.
+`TaskRepository.create(_:at:)`, `complete`, `refreshSchedule`, `addMember` e `removeMember` executam transições de domínio sobre o mesmo snapshot que será persistido. `MockStore.update` usa cópia e commit após sucesso, com rollback em qualquer erro. O serviço é síncrono dentro da closure do actor, sem suspensão entre validação e commit. Isso evita uma corrida entre ler participantes/carga, calcular o Húngaro e salvar a fila. Uma futura implementação remota deve fornecer transação ou controle otimista de versão equivalente.
 
 A alocação do cálculo dentro da transação é uma decisão da implementação Data, não uma transferência da matemática para Data. O serviço continua isolado e testável em Domain. As projeções usam esforço snapshot de ocorrências pendentes atribuídas em todos os cômodos da casa; saldos continuam locais ao cômodo.
 

@@ -77,8 +77,8 @@ O algoritmo segue as seguintes premissas:
 
 1. **Saldo de Justiça (Fairness Debt):** O histórico não é a soma absoluta de quem trabalhou mais. É baseado na referência do cômodo. Ao concluir uma tarefa de esforço `E` em um cômodo com `M` membros elegíveis, o executor recebe um saldo de `+ (E - (E/M))`, enquanto os demais recebem `- (E/M)`. Pessoas de fora do cômodo não são afetadas.
 2. **Geração da Fila Inicial (Algoritmo Húngaro):** Ao criar uma tarefa, o sistema projeta a carga já agendada da casa para as próximas 12 semanas. Ele simula o custo de colocar cada participante em cada posição (slot) da nova fila rotativa, utilizando uma **função de custo quadrática** (que pune picos de estresse em uma mesma semana). O Algoritmo Húngaro encontra a permutação de menor custo para essa tarefa, mantendo as outras filas fixas. Isso não garante um ótimo global da casa.
-3. **Entrada de Novos Moradores (Busca Gulosa):** Quando um morador entra em um cômodo, as ocorrências *já designadas e pendentes* não sofrem alteração para não quebrar a previsibilidade. O novo morador é testado após o cursor da próxima ocorrência ainda não publicada, preservando a ordem relativa dos antigos. As primeiras 12 semanas podem já estar publicadas; nesse caso sua entrada passa a valer depois dessa janela.
-4. **Atualizações Estruturais:** A otimização global ocorre apenas em eventos estruturais (criação de tarefa e entrada de pessoas; saída ainda precisa de política própria), não reordenando as filas continuamente no dia a dia.
+3. **Entrada e Saída de Participantes:** A nova composição das filas vale na segunda-feira imediatamente seguinte. O sistema reequilibra tarefas futuras de toda a casa, respeitando os participantes de cada cômodo e a privacidade. Pode mudar atribuições já publicadas a partir dessa data; preserva a semana atual, atrasados e concluídos. Entrar na fila não garante tarefa já na primeira semana. Quem sai continua podendo concluir suas pendências preservadas.
+4. **Atualizações Estruturais:** Entradas e saídas disparam busca de melhoria entre as filas da casa, priorizando igualdade de esforço semanal. A busca não garante ótimo global nem reordena continuamente o cotidiano. Cômodos vazios mantêm tarefas sem responsável; reentradas preservam o saldo. Filas por conclusão mudam na mesma vigência, sem inventar datas para futuras conclusões.
 
 ## Tarefas esporádicas
 
@@ -117,7 +117,7 @@ Ainda precisam ser definidas:
 
 - Backend, banco de dados, sincronização e versão mínima de iOS.
 - Fuso persistido por casa e regras de atraso. O mock usa calendário gregoriano, fuso injetado do dispositivo e semanas iniciadas na segunda-feira.
-- Regras para saída de moradores e férias em tarefas pendentes.
+- Regras para saída da casa e redistribuição em férias; saída de cômodo segue a política de vigência semanal acima.
 - Política de compensação mais imediata, caso necessária, sem crédito duplicado ou quebra de atribuições publicadas.
 - Permissões de edição, exclusão e aprovação de entrada em cômodos privados.
 - Regras detalhadas de coleta e exibição das avaliações.

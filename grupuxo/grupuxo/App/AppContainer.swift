@@ -31,6 +31,10 @@ final class AppContainer {
         AddRoomMemberUseCase(repository: taskRepository)
     }
 
+    func makeRemoveRoomMemberUseCase() -> RemoveRoomMemberUseCase {
+        RemoveRoomMemberUseCase(repository: taskRepository)
+    }
+
     func makeRefreshTaskScheduleUseCase() -> RefreshTaskScheduleUseCase {
         RefreshTaskScheduleUseCase(repository: taskRepository)
     }

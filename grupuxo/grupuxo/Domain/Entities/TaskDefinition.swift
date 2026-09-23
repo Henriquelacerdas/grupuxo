@@ -24,4 +24,10 @@ struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
     var rotationQueue: [User.ID] = []
     var currentRotationIndex: Int = 0
     var nextScheduledAt: Date? = nil
+    var pendingRotation: PendingRotation? = nil
+}
+
+struct PendingRotation: Hashable, Codable, Sendable {
+    let effectiveAt: Date
+    let queue: [User.ID]
 }
