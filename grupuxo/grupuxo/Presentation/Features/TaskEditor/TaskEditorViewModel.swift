@@ -8,17 +8,11 @@ import Foundation
 
 @MainActor
 final class TaskEditorViewModel: ObservableObject {
-
     @Published private(set) var state: TaskEditorState
-
     @Published private(set) var rooms: [Room] = []
-
     private let createTask: CreateTaskUseCase
-
     private let getHouseRooms: GetHouseRoomsUseCase
-
     private let houseID: House.ID
-
     private let ownerUserID: User.ID
 
     init(
@@ -30,27 +24,19 @@ final class TaskEditorViewModel: ObservableObject {
     ) {
 
         self.createTask = createTask
-
         self.getHouseRooms = getHouseRooms
-
         self.houseID = houseID
-
         self.ownerUserID = ownerUserID
-
         state = .editing(draft)
     }
 
     func loadRooms() async {
-
         do {
-
             rooms = try await getHouseRooms(
                 houseID: houseID,
                 userID: ownerUserID
             )
-
         } catch {
-
             state = .failure(
                 state.draft,
                 error.localizedDescription
@@ -63,6 +49,7 @@ final class TaskEditorViewModel: ObservableObject {
         let previous = state.draft
         var draft = previous
         update(&draft)
+
         // Keep the existing controls coherent; the domain still validates every command.
         if draft.kind != previous.kind {
             draft.recurrence = draft.kind == .sporadic
@@ -95,53 +82,35 @@ final class TaskEditorViewModel: ObservableObject {
     }
 
     func save() async {
-
         switch state {
-
         case .saving, .saved:
             return
-
         case .editing, .failure:
             break
         }
-
         let draft = state.draft
-
         guard let roomID = draft.roomID else {
-
             state = .failure(
                 draft,
                 "Selecione um cômodo."
             )
-
             return
         }
-
         state = .saving(draft)
 
         let definition = TaskDefinition(
-
             id: UUID(),
-
             roomID: roomID,
-
             name: draft.name,
-
             details: draft.details,
-
             effort: TaskEffort(
                 points: draft.effortPoints
             ),
-
             kind: draft.kind,
-
             visibility: draft.visibility,
-
             recurrence: draft.recurrence,
-
             assignmentPolicy:
                 draft.assignmentPolicy,
-
             ownerUserID:
                 draft.visibility == .privateTask
                 ? ownerUserID
@@ -149,15 +118,12 @@ final class TaskEditorViewModel: ObservableObject {
         )
 
         do {
-
             state = .saved(
                 try await createTask(
                     definition: definition
                 )
             )
-
         } catch {
-
             state = .failure(
                 draft,
                 error.localizedDescription

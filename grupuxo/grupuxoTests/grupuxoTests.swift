@@ -133,7 +133,10 @@ struct SchedulingTests {
 
     @Test func createsTwelveWeeksAndRefreshesWithoutDuplicates() async throws {
         let (store, repository, definition, calendar) = fixture()
-        let created = try await CreateTaskUseCase(repository: repository)(definition: definition, date: date)
+        let created = try await CreateTaskUseCase(
+            repository: repository,
+            roomRepository: MockRoomRepository(store: store)
+        )(definition: definition, date: date)
         let initial = await store.read { $0.schedule }
         #expect(initial.occurrences.count == 12)
         #expect(initial.assignments.count == 12)
@@ -313,7 +316,10 @@ struct SchedulingTests {
         var definition = original
         definition.recurrence = .recurring(frequency: .weekly, interval: 0)
         await #expect(throws: DomainError.invalidSchedule) {
-            try await CreateTaskUseCase(repository: repository)(definition: definition, date: date)
+            try await CreateTaskUseCase(
+                repository: repository,
+                roomRepository: MockRoomRepository(store: store)
+            )(definition: definition, date: date)
         }
         #expect(await store.read { $0.definitions.isEmpty && $0.occurrences.isEmpty && $0.assignments.isEmpty })
         definition.recurrence = .recurring(frequency: .weekly, interval: 1)
@@ -376,7 +382,10 @@ struct SchedulingTests {
 
     @Test @MainActor func editorChoicesProduceValidCommands() async throws {
         let (store, repository, _, _) = fixture()
-        let viewModel = TaskEditorViewModel(createTask: CreateTaskUseCase(repository: repository),
+        let viewModel = TaskEditorViewModel(createTask: CreateTaskUseCase(
+                                                repository: repository,
+                                                roomRepository: MockRoomRepository(store: store)
+                                            ),
                                             getHouseRooms: GetHouseRoomsUseCase(repository: MockRoomRepository(store: store)),
                                             houseID: MockSeed.house.id, ownerUserID: MockSeed.currentUser.id,
                                             draft: TaskDraft())

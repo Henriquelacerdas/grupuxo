@@ -115,7 +115,8 @@ final class AppContainer {
 
         return TaskEditorViewModel(
             createTask: CreateTaskUseCase(
-                repository: taskRepository
+                repository: taskRepository,
+                roomRepository: roomRepository
             ),
             getHouseRooms: GetHouseRoomsUseCase(
                 repository: roomRepository
