@@ -1,168 +1,77 @@
-// TODO — Implementar criação de Room e RoomMembership no mesmo store.update,
-// validando tudo antes de alterar o estado. Repetir a mesma criação por ID não
-// deve duplicar cômodos ou vínculos. O mock deve permitir criar e consultar sem backend.
-// ATENÇÃO: hoje as consultas filtram apenas ID/casa e não protegem cômodos privados.
-// Ao receber o usuário no contrato, aplicar autorização antes de devolver dados;
-// ocultar um item na View não protege a consulta direta por ID.
+import Foundation
+
 struct MockRoomRepository: RoomRepository {
-
     let store: MockStore
+    var scheduling = TaskSchedulingService(calendar: Calendar(identifier: .gregorian))
 
-    func room(
-        id: Room.ID,
-        requesting userID: User.ID
-    ) async throws -> Room {
-
+    func room(id: Room.ID, requesting userID: User.ID) async throws -> Room {
         try await store.read { state in
-
-            guard let room = state.rooms.first(
-                where: { $0.id == id }
-            ) else {
+            guard let room = state.rooms.first(where: { $0.id == id }),
+                  state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }) else {
                 throw DomainError.entityNotFound
             }
-
-            // Confirma que quem está consultando pertence à mesma casa.
-            let isHouseMember = state.houseMemberships.contains {
-                $0.houseID == room.houseID &&
-                $0.userID == userID
-            }
-
-            guard isHouseMember else {
-                throw DomainError.entityNotFound
-            }
-
-            // Cômodos privados só podem ser acessados por participantes.
-            if room.visibility == .privateRoom {
-
-                let isRoomMember = state.roomMemberships.contains {
-                    $0.roomID == room.id &&
-                    $0.userID == userID && $0.isCurrent
-                }
-
-                guard isRoomMember else {
-                    throw DomainError.entityNotFound
-                }
-            }
-
-            return room
+            return visibleRoom(room, userID: userID, state: state)
         }
     }
 
-    func rooms(
-        in houseID: House.ID,
-        requesting userID: User.ID
-    ) async throws -> [Room] {
-
+    func rooms(in houseID: House.ID, requesting userID: User.ID) async throws -> [Room] {
         try await store.read { state in
-
-            // Confirma que a casa existe.
-            guard state.houses.contains(
-                where: { $0.id == houseID }
-            ) else {
-                throw DomainError.entityNotFound
-            }
-
-            // Confirma que o usuário pertence à casa.
-            let isHouseMember = state.houseMemberships.contains {
-                $0.houseID == houseID &&
-                $0.userID == userID
-            }
-
-            guard isHouseMember else {
-                throw DomainError.entityNotFound
-            }
-
-            return state.rooms.filter { room in
-
-                // Só queremos os cômodos desta casa.
-                guard room.houseID == houseID else {
-                    return false
-                }
-
-                // Cômodos comuns aparecem para todos os moradores da casa.
-                if room.visibility == .common {
-                    return true
-                }
-
-                // Cômodos privados aparecem somente para quem participa.
-                return state.roomMemberships.contains {
-                    $0.roomID == room.id &&
-                    $0.userID == userID && $0.isCurrent
-                }
-            }
+            guard state.houseMemberships.contains(where: { $0.houseID == houseID && $0.userID == userID }) else { throw DomainError.entityNotFound }
+            return state.rooms.filter { $0.houseID == houseID }.map { visibleRoom($0, userID: userID, state: state) }
         }
     }
 
-    func create(
-        _ room: Room,
-        memberships: [RoomMembership]
-    ) async throws -> Room {
-
+    func participation(in roomID: Room.ID, requesting userID: User.ID, at date: Date) async throws -> RoomParticipation {
         try await store.update { state in
-
-            // 1. Confirma que a casa existe.
-            guard state.houses.contains(
-                where: { $0.id == room.houseID }
-            ) else {
-                throw DomainError.entityNotFound
+            guard let room = state.rooms.first(where: { $0.id == roomID }),
+                  state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }) else { throw DomainError.entityNotFound }
+            var schedule = state.schedule
+            try scheduling.initializeRooms(houseID: room.houseID, at: date, state: &schedule)
+            state.schedule = schedule
+            let updated = state.rooms.first { $0.id == roomID }!
+            let members = state.roomMemberships.filter { $0.roomID == roomID && $0.isCurrent }
+            let isMember = members.contains { $0.userID == userID }
+            let period = try scheduling.periodIndex(room: updated, date: date)
+            let start = try scheduling.addingWeeks(period * updated.periodicity.intervalWeeks, to: updated.calendarAnchor!)
+            let end = try scheduling.addingWeeks(updated.periodicity.intervalWeeks, to: start)
+            var names: [String] = []
+            if isMember, let version = updated.scheduleVersions.last(where: { $0.effectiveAt <= date }), !version.queue.isEmpty {
+                for role in 0..<version.responsibleCount {
+                    let slot = (period - version.periodIndex) * version.responsibleCount + role
+                    let user = version.queue[slot % version.queue.count]
+                    if let name = state.users.first(where: { $0.id == user })?.name { names.append(name) }
+                }
             }
+            return RoomParticipation(room: visibleRoom(updated, userID: userID, state: state), isMember: isMember, memberCount: isMember ? members.count : 0,
+                responsibleNames: names, periodStart: start, periodEnd: end)
+        }
+    }
 
-            // 2. Descobre quem realmente é morador dessa casa.
-            let houseMemberIDs = Set(
-                state.houseMemberships
-                    .filter {
-                        $0.houseID == room.houseID
-                    }
-                    .map(\.userID)
-            )
+    private func visibleRoom(_ room: Room, userID: User.ID, state: MockStore.State) -> Room {
+        var result = room
+        if !state.roomMemberships.contains(where: { $0.roomID == room.id && $0.userID == userID && $0.isCurrent }) {
+            // Schedule versions contain task IDs and must not cross the access boundary.
+            result.scheduleVersions = []
+        }
+        return result
+    }
 
-            // 3. Um cômodo precisa ter pelo menos um participante.
-            guard !memberships.isEmpty else {
-                throw DomainError.invalidRoomParticipants
-            }
-
-            // 4. Todos os participantes precisam:
-            // - estar vinculados ao cômodo criado;
-            // - realmente morar naquela casa.
-            let membershipsAreValid = memberships.allSatisfy { membership in
-
-                membership.roomID == room.id &&
-                houseMemberIDs.contains(
-                    membership.userID
-                )
-            }
-
-            guard membershipsAreValid else {
-                throw DomainError.invalidRoomParticipants
-            }
-
-            // 5. Evita criar novamente um cômodo com o mesmo ID.
-            if let existingRoom = state.rooms.first(
-                where: { $0.id == room.id }
-            ) {
-                return existingRoom
-            }
-
-            // 6. Salva o cômodo.
+    func create(_ room: Room, memberships: [RoomMembership]) async throws -> Room {
+        try await store.update { state in
+            let users = Set(state.houseMemberships.filter { $0.houseID == room.houseID }.map(\.userID))
+            let participants = Set(memberships.map(\.userID))
+            guard state.houses.contains(where: { $0.id == room.houseID }), !participants.isEmpty, participants.count == memberships.count,
+                  participants.isSubset(of: users), memberships.allSatisfy({ $0.roomID == room.id && $0.isCurrent }),
+                  room.visibility != .common || participants == users,
+                  !room.representsWholeHouse || room.visibility == .common else { throw DomainError.invalidRoomParticipants }
+            guard room.periodicity.isValid, room.responsibleCount > 0 else { throw DomainError.invalidSchedule }
+            if let existing = state.rooms.first(where: { $0.id == room.id }) { return existing }
             state.rooms.append(room)
-
-            // 7. Salva os participantes,
-            // evitando RoomMembership duplicado.
-            for membership in memberships {
-
-                let alreadyExists = state.roomMemberships.contains {
-                    $0.roomID == membership.roomID &&
-                    $0.userID == membership.userID
-                }
-
-                if !alreadyExists {
-                    state.roomMemberships.append(
-                        membership
-                    )
-                }
-            }
-
-            return room
+            state.roomMemberships.append(contentsOf: memberships)
+            var schedule = state.schedule
+            try scheduling.initializeRooms(houseID: room.houseID, at: room.calendarAnchor ?? .now, state: &schedule)
+            state.schedule = schedule
+            return state.rooms.first { $0.id == room.id }!
         }
     }
 }

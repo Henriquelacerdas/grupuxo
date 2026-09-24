@@ -123,10 +123,11 @@ struct SchedulingTests {
         calendar.minimumDaysInFirstWeek = 4
         var state = MockSeed.make()
         state.definitions = []; state.occurrences = []; state.assignments = []
+        for i in state.rooms.indices { state.rooms[i].periodicity.executionsPerPeriod = 2; state.rooms[i].calendarAnchor = nil; state.rooms[i].scheduleVersions = [] }
         let store = MockStore(state: state)
         let repository = MockTaskRepository(store: store, scheduling: TaskSchedulingService(calendar: calendar))
         let definition = TaskDefinition(id: UUID(), roomID: MockSeed.kitchen.id, name: "Limpar", details: "",
-                                        effort: TaskEffort(points: 3), kind: .recurring, visibility: .house,
+                                        effort: TaskEffort(points: 3), kind: .recurring,
                                         recurrence: .recurring(frequency: .weekly, interval: 1), assignmentPolicy: .calendarRotation)
         return (store, repository, definition, calendar)
     }
@@ -136,7 +137,7 @@ struct SchedulingTests {
         let created = try await CreateTaskUseCase(
             repository: repository,
             roomRepository: MockRoomRepository(store: store)
-        )(definition: definition, date: date)
+        )(definition: definition, requestedBy: MockSeed.currentUser.id, date: date)
         let initial = await store.read { $0.schedule }
         #expect(initial.occurrences.count == 12)
         #expect(initial.assignments.count == 12)
@@ -153,7 +154,7 @@ struct SchedulingTests {
         #expect(Array(final.occurrences.prefix(12)) == initial.occurrences)
         #expect(Set(final.occurrences.map(\.availableAt)).count == 17)
         #expect(final.definitions[0].currentRotationIndex == 1)
-        let repeatCreate = try await repository.create(definition, at: future)
+        let repeatCreate = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: future)
         #expect(repeatCreate == final.definitions[0])
     }
 
@@ -162,7 +163,7 @@ struct SchedulingTests {
             let (store, repository, original, _) = fixture()
             var definition = original
             definition.recurrence = .recurring(frequency: .weekly, interval: interval)
-            _ = try await repository.create(definition, at: date)
+            _ = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
             #expect(await store.read { $0.occurrences.count } == count)
         }
     }
@@ -171,14 +172,14 @@ struct SchedulingTests {
         let (dailyStore, dailyRepository, original, calendar) = fixture()
         var daily = original
         daily.recurrence = .recurring(frequency: .daily, interval: 2)
-        _ = try await dailyRepository.create(daily, at: date)
+        _ = try await dailyRepository.create(daily, requestedBy: MockSeed.currentUser.id, at: date)
         let dailyOccurrences = await dailyStore.read { $0.occurrences }
         #expect(dailyOccurrences[1].availableAt == calendar.date(byAdding: .day, value: 2, to: date))
 
         let (monthlyStore, monthlyRepository, monthlyOriginal, _) = fixture()
         var monthly = monthlyOriginal
         monthly.recurrence = .recurring(frequency: .monthly, interval: 3)
-        let savedMonthly = try await monthlyRepository.create(monthly, at: date)
+        let savedMonthly = try await monthlyRepository.create(monthly, requestedBy: MockSeed.currentUser.id, at: date)
         let monthlyOccurrences = await monthlyStore.read { $0.occurrences }
         #expect(monthlyOccurrences.count == 1) // Three months exceed the 12-week publication horizon.
         #expect(savedMonthly.nextScheduledAt == calendar.date(byAdding: .month, value: 3, to: date))
@@ -186,13 +187,13 @@ struct SchedulingTests {
         let (_, yearlyRepository, yearlyOriginal, _) = fixture()
         var yearly = yearlyOriginal
         yearly.recurrence = .recurring(frequency: .yearly, interval: 1)
-        let savedYearly = try await yearlyRepository.create(yearly, at: date)
+        let savedYearly = try await yearlyRepository.create(yearly, requestedBy: MockSeed.currentUser.id, at: date)
         #expect(savedYearly.nextScheduledAt == calendar.date(byAdding: .year, value: 1, to: date))
     }
 
     @Test func concurrentCompletionIsAtomicAndUsesSnapshot() async throws {
         let (store, repository, definition, _) = fixture()
-        _ = try await repository.create(definition, at: date)
+        _ = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
         let first = await store.read { $0.assignments[0] }
         await store.update { $0.definitions[0].effort = TaskEffort(points: 1) }
         try await withThrowingTaskGroup(of: Void.self) { group in
@@ -213,7 +214,7 @@ struct SchedulingTests {
 
     @Test func unauthorizedAndFutureCompletionsDoNotMutate() async throws {
         let (store, repository, definition, _) = fixture()
-        _ = try await repository.create(definition, at: date)
+        _ = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
         let before = await store.read { $0.schedule }
         let first = before.assignments[0]
         await #expect(throws: DomainError.taskUnavailable) {
@@ -246,7 +247,7 @@ struct SchedulingTests {
         let (store, repository, original, _) = fixture()
         var definition = original
         definition.assignmentPolicy = .afterCompletion
-        let saved = try await repository.create(definition, at: date)
+        let saved = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
         let initial = await store.read { $0.schedule }
         #expect(initial.occurrences.count == 1)
         #expect(saved.recurrence == .none)
@@ -265,7 +266,7 @@ struct SchedulingTests {
         let (store, repository, original, _) = fixture()
         var definition = original
         definition.kind = .sporadic; definition.recurrence = .none; definition.assignmentPolicy = .selfAssigned
-        _ = try await repository.create(definition, at: date)
+        _ = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
         let occurrence = await store.read { $0.occurrences[0] }
         try await repository.claim(occurrenceID: occurrence.id, by: MockSeed.currentUser.id, at: date)
         try await repository.claim(occurrenceID: occurrence.id, by: MockSeed.currentUser.id, at: date)
@@ -280,10 +281,10 @@ struct SchedulingTests {
     @Test func concurrentCreatesSeeCommittedHouseLoad() async throws {
         let (store, repository, definition, _) = fixture()
         let second = TaskDefinition(id: UUID(), roomID: definition.roomID, name: "Segunda", details: "",
-                                    effort: definition.effort, kind: .recurring, visibility: .house,
+                                    effort: definition.effort, kind: .recurring,
                                     recurrence: definition.recurrence, assignmentPolicy: definition.assignmentPolicy)
-        async let a = repository.create(definition, at: date)
-        async let b = repository.create(second, at: date)
+        async let a = repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
+        async let b = repository.create(second, requestedBy: MockSeed.currentUser.id, at: date)
         let (firstSaved, secondSaved) = try await (a, b)
         #expect(firstSaved.rotationQueue[0] != secondSaved.rotationQueue[0])
         #expect(await store.read { $0.occurrences.count } == 24)
@@ -294,7 +295,7 @@ struct SchedulingTests {
         await store.update { state in
             state.roomMemberships.removeAll { $0.roomID == definition.roomID && $0.userID == MockSeed.rafa.id }
         }
-        _ = try await repository.create(definition, at: date)
+        _ = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
         let before = await store.read { $0.schedule }
         try await AddRoomMemberUseCase(repository: repository)(userID: MockSeed.rafa.id, roomID: definition.roomID, date: date)
         let after = await store.read { $0.schedule }
@@ -319,23 +320,21 @@ struct SchedulingTests {
             try await CreateTaskUseCase(
                 repository: repository,
                 roomRepository: MockRoomRepository(store: store)
-            )(definition: definition, date: date)
+            )(definition: definition, requestedBy: MockSeed.currentUser.id, date: date)
         }
         #expect(await store.read { $0.definitions.isEmpty && $0.occurrences.isEmpty && $0.assignments.isEmpty })
         definition.recurrence = .recurring(frequency: .weekly, interval: 1)
         await store.update { $0.roomMemberships.removeAll { $0.roomID == original.roomID } }
-        await #expect(throws: DomainError.noEligibleMembers) { try await repository.create(definition, at: date) }
+        await #expect(throws: DomainError.taskUnavailable) { try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date) }
         #expect(await store.read { $0.definitions.isEmpty && $0.occurrences.isEmpty && $0.assignments.isEmpty })
     }
 
-    @Test func privateTaskOnlyAssignsOwner() async throws {
-        let (store, repository, original, _) = fixture()
-        var definition = original
-        definition.visibility = .privateTask
-        definition.ownerUserID = MockSeed.currentUser.id
-        let created = try await repository.create(definition, at: date)
-        #expect(created.rotationQueue == [MockSeed.currentUser.id])
-        #expect(await store.read { $0.assignments.allSatisfy { $0.userID == MockSeed.currentUser.id } })
+    @Test func taskCreationRequiresRoomMembership() async throws {
+        let (store, repository, definition, _) = fixture()
+        await store.update { $0.roomMemberships.removeAll { $0.roomID == definition.roomID && $0.userID == MockSeed.currentUser.id } }
+        await #expect(throws: DomainError.taskUnavailable) {
+            try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
+        }
     }
     @Test func calendarSurvivesDaylightSavingBoundary() async throws {
         var calendar = Calendar(identifier: .gregorian)
@@ -343,7 +342,7 @@ struct SchedulingTests {
         let first = calendar.date(from: DateComponents(year: 2026, month: 10, day: 26))!
         let (store, _, definition, _) = fixture()
         let repository = MockTaskRepository(store: store, scheduling: TaskSchedulingService(calendar: calendar))
-        _ = try await repository.create(definition, at: first)
+        _ = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: first)
         let occurrences = await store.read { $0.occurrences }
         #expect(occurrences[1].availableAt.timeIntervalSince(first) == 169 * 3600)
         #expect(occurrences.allSatisfy { calendar.component(.hour, from: $0.availableAt) == 0 })
@@ -352,7 +351,7 @@ struct SchedulingTests {
 
     @Test func absenceIsExcludedFromCompletionDebt() async throws {
         let (store, repository, definition, _) = fixture()
-        _ = try await repository.create(definition, at: date)
+        _ = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
         let first = await store.read { $0.assignments[0] }
         let absent = await store.read { $0.houseMemberships.first { $0.userID != first.userID }! }
         let absence = try Absence(id: UUID(), membershipID: absent.id,
@@ -367,7 +366,7 @@ struct SchedulingTests {
 
     @Test func duplicateMembershipRollsBackCompletion() async throws {
         let (store, repository, definition, _) = fixture()
-        _ = try await repository.create(definition, at: date)
+        _ = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
         let first = await store.read { $0.assignments[0] }
         await store.update { $0.roomMemberships.append(RoomMembership(id: UUID(), roomID: definition.roomID, userID: first.userID)) }
         let before = await store.read { $0.schedule }
@@ -387,7 +386,7 @@ struct SchedulingTests {
                                                 roomRepository: MockRoomRepository(store: store)
                                             ),
                                             getHouseRooms: GetHouseRoomsUseCase(repository: MockRoomRepository(store: store)),
-                                            houseID: MockSeed.house.id, ownerUserID: MockSeed.currentUser.id,
+                                            houseID: MockSeed.house.id, requestingUserID: MockSeed.currentUser.id,
                                             draft: TaskDraft())
         viewModel.updateDraft { $0.name = "Avulsa"; $0.roomID = MockSeed.kitchen.id }
         viewModel.selectRecurrence(.recurring(frequency: .monthly, interval: 3))
@@ -429,15 +428,21 @@ struct TaskListPresentationTests {
 
     @Test func completionKeepsResidentAndUpdatesRoomState() async throws {
         let container = AppContainer()
-        let session = AppSession(currentUser: MockSeed.currentUser, currentHouse: MockSeed.house)
+        let user = try await container.store.read { state in
+            let ids = Set(state.definitions.filter { $0.roomID == MockSeed.kitchen.id }.map(\.id))
+            let occurrence = try #require(state.occurrences.first { ids.contains($0.taskDefinitionID) && $0.availableAt <= .now })
+            let owner = try #require(state.assignments.first { $0.occurrenceID == occurrence.id && $0.isActive }?.userID)
+            return try #require(state.users.first { $0.id == owner })
+        }
+        let session = AppSession(currentUser: user, currentHouse: MockSeed.house)
         let model = container.makeRoomDetailViewModel(roomID: MockSeed.kitchen.id, session: session)
         await model.load()
         guard case let .content(content) = model.state,
-              let item = content.tasks.first(where: { $0.assignment?.userID == MockSeed.currentUser.id }) else {
+              let item = content.tasks.first(where: { $0.assignment?.userID == user.id && $0.occurrence.availableAt <= .now }) else {
             Issue.record("Missing assigned task")
             return
         }
-        #expect(item.assignee == MockSeed.currentUser)
+        #expect(item.assignee == user)
         #expect(model.canComplete(item))
         await model.complete(item.id)
         #expect(model.actionError == nil)
@@ -447,7 +452,7 @@ struct TaskListPresentationTests {
             return
         }
         #expect(completed.occurrence.isCompleted)
-        #expect(completed.assignee == MockSeed.currentUser)
+        #expect(completed.assignee == user)
         #expect(!model.canComplete(completed))
     }
 

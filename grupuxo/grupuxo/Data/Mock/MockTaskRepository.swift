@@ -20,7 +20,7 @@ struct MockTaskRepository: TaskRepository {
             return items(from: state).filter { item in
                 guard let room = roomsByID[item.definition.roomID] else { return false }
                 return room.houseID == houseID
-                    && (item.assignment?.userID == userID || eligibilityPolicy.canView(
+                    && (retained(item, userID: userID, state: state) || eligibilityPolicy.canView(
                         item.definition,
                         room: room,
                         userID: userID,
@@ -28,7 +28,7 @@ struct MockTaskRepository: TaskRepository {
                     ))
                     && item.occurrence.availableAt <= Date.now
                     && !item.occurrence.isCompleted
-                    && (item.assignment?.userID == userID || item.definition.ownerUserID == userID)
+                    && (item.assignment?.userID == userID)
             }
         }
     }
@@ -40,7 +40,7 @@ struct MockTaskRepository: TaskRepository {
             return items(from: state).filter {
                 $0.definition.roomID == roomID
                     && $0.definition.kind != .sporadic
-                    && ($0.assignment?.userID == userID || eligibilityPolicy.canView(
+                    && (retained($0, userID: userID, state: state) || eligibilityPolicy.canView(
                         $0.definition,
                         room: room,
                         userID: userID,
@@ -59,7 +59,7 @@ struct MockTaskRepository: TaskRepository {
                 guard let room = roomsByID[$0.definition.roomID] else { return false }
                 return room.houseID == houseID
                     && $0.definition.kind == .sporadic
-                    && ($0.assignment?.userID == userID || eligibilityPolicy.canView(
+                    && (retained($0, userID: userID, state: state) || eligibilityPolicy.canView(
                         $0.definition,
                         room: room,
                         userID: userID,
@@ -69,12 +69,15 @@ struct MockTaskRepository: TaskRepository {
         }
     }
 
-    func create(_ definition: TaskDefinition, at date: Date) async throws -> TaskDefinition {
+    func create(_ definition: TaskDefinition, requestedBy userID: User.ID, at date: Date) async throws -> TaskDefinition {
         try await store.update { state in
             var schedule = state.schedule
             if let room = schedule.rooms.first(where: { $0.id == definition.roomID }) {
                 try scheduling.refresh(houseID: room.houseID, at: date, state: &schedule)
             }
+            guard let room = state.rooms.first(where: { $0.id == definition.roomID }),
+                  state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }),
+                  state.roomMemberships.contains(where: { $0.roomID == room.id && $0.userID == userID && $0.isCurrent }) else { throw DomainError.taskUnavailable }
             let created = try scheduling.create(definition, at: date, state: &schedule)
             state.schedule = schedule
             return created
@@ -105,10 +108,10 @@ struct MockTaskRepository: TaskRepository {
         }
     }
 
-    func removeMember(userID: User.ID, from roomID: Room.ID, at date: Date) async throws {
+    func removeMember(userID: User.ID, from roomID: Room.ID, at date: Date, confirmDeletion: Bool = false) async throws {
         try await store.update { state in
             var schedule = state.schedule
-            try scheduling.removeMember(userID: userID, roomID: roomID, at: date, state: &schedule)
+            try scheduling.removeMember(userID: userID, roomID: roomID, at: date, confirmDeletion: confirmDeletion, state: &schedule)
             state.schedule = schedule
         }
     }
@@ -163,12 +166,23 @@ struct MockTaskRepository: TaskRepository {
                   state.definitions.contains(where: { $0.id == occurrence.taskDefinitionID && $0.kind == .sporadic }) else {
                 throw DomainError.taskUnavailable
             }
+            guard let definition = state.definitions.first(where: { $0.id == occurrence.taskDefinitionID }),
+                  let room = state.rooms.first(where: { $0.id == definition.roomID }),
+                  state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }) else { throw DomainError.taskUnavailable }
             state.assignments[assignmentIndex].endedAt = .now
             guard let occurrenceIndex = state.occurrences.firstIndex(where: { $0.id == occurrenceID }) else {
                 throw DomainError.entityNotFound
             }
             state.occurrences[occurrenceIndex].status = .available
         }
+    }
+
+    private func retained(_ item: TaskItem, userID: User.ID, state: MockStore.State) -> Bool {
+        !item.occurrence.isCompleted && item.assignment?.userID == userID
+            && state.roomMemberships.contains {
+                $0.roomID == item.definition.roomID && $0.userID == userID && !$0.isCurrent
+                    && $0.rotationChanges?.contains(where: { !$0.participates && item.occurrence.availableAt < $0.effectiveAt }) == true
+            }
     }
 
     nonisolated private func items(from state: MockStore.State) -> [TaskItem] {

@@ -35,8 +35,12 @@ struct TaskSchedulingService: Sendable {
         guard !input.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw DomainError.invalidTaskName
         }
-        _ = try room(for: input, state: state)
+        let target = try room(for: input, state: state)
+        try initializeRooms(houseID: target.houseID, at: date, state: &state)
         var definition = input
+        let linked = isRoomLinked(definition, state: state)
+        if linked { definition.calendarAnchor = try room(for: definition, state: state).calendarAnchor }
+        else if case .weekly = definition.recurrence { definition.calendarAnchor = try weekStart(date) }
         definition.rotationQueue = []
         definition.currentRotationIndex = 0
         definition.nextScheduledAt = nil
@@ -58,9 +62,11 @@ struct TaskSchedulingService: Sendable {
             }
             let participants = try members(for: definition, at: date, state: state, includeAbsent: true)
             let start = try weekStart(date)
+            let firstDate = definition.calendarAnchor != nil && definition.recurrence.weeklyPeriodicity != nil
+                ? try firstWeeklyDate(onOrAfter: date, definition: definition) : date
             let dates = definition.assignmentPolicy == .afterCompletion
-                ? [date] : try scheduledDates(from: date, definition: definition, end: addingWeeks(12, to: start))
-            definition.rotationQueue = try distribution.generateInitialQueue(
+                ? [date] : try scheduledDates(from: firstDate, definition: definition, end: addingWeeks(12, to: start))
+            definition.rotationQueue = linked ? [] : try distribution.generateInitialQueue(
                 taskEffort: definition.effort.points, participants: participants,
                 occurrenceWeeks: try dates.map { try weekIndex($0, start: start) },
                 projection: try projection(houseID: room(for: definition, state: state).houseID, start: start, state: state),
@@ -69,13 +75,20 @@ struct TaskSchedulingService: Sendable {
             if definition.assignmentPolicy == .afterCompletion {
                 try publish(definition: &definition, at: date, dueAt: nil, state: &state)
             } else {
-                definition.nextScheduledAt = date
+                definition.nextScheduledAt = definition.calendarAnchor != nil
+                    ? try firstWeeklyDate(onOrAfter: date, definition: definition) : date
+                if linked {
+                    state.definitions.append(definition)
+                    try configureRoom(roomID: definition.roomID, boundary: date, state: &state)
+                    state.definitions.removeAll { $0.id == definition.id }
+                }
                 try extend(definition: &definition, through: addingWeeks(12, to: start), state: &state)
             }
         }
         state.definitions.append(definition)
         let houseID = try room(for: definition, state: state).houseID
         let roomIDs = Set(state.rooms.filter { $0.houseID == houseID }.map(\.id))
+        if linked { try rebalance(houseID: houseID, boundary: date, at: date, state: &state) }
         if let boundary = state.roomMemberships.filter({ roomIDs.contains($0.roomID) })
             .flatMap({ $0.rotationChanges ?? [] }).map(\.effectiveAt).filter({ $0 > date }).min() {
             try rebalance(houseID: houseID, boundary: boundary, at: date, state: &state)
@@ -139,6 +152,7 @@ struct TaskSchedulingService: Sendable {
 
     /// Extends published schedules without completing, rotating, or editing older occurrences.
     func refresh(houseID: House.ID, at date: Date, state: inout TaskSchedulingState) throws {
+        try initializeRooms(houseID: houseID, at: date, state: &state)
         let end = try addingWeeks(12, to: weekStart(date))
         let roomIDs = Set(state.rooms.filter { $0.houseID == houseID }.map(\.id))
         for i in state.definitions.indices where roomIDs.contains(state.definitions[i].roomID) {
@@ -170,15 +184,15 @@ struct TaskSchedulingService: Sendable {
         }
     }
 
-    func addMember(userID: User.ID, roomID: Room.ID, at date: Date, state: inout TaskSchedulingState) throws {
-        try changeMember(userID: userID, roomID: roomID, joining: true, at: date, state: &state)
+    func addMember(userID: User.ID, roomID: Room.ID, at date: Date, replan: Bool = true, state: inout TaskSchedulingState) throws {
+        try changeMember(userID: userID, roomID: roomID, joining: true, at: date, replan: replan, state: &state)
     }
 
-    func removeMember(userID: User.ID, roomID: Room.ID, at date: Date, state: inout TaskSchedulingState) throws {
-        try changeMember(userID: userID, roomID: roomID, joining: false, at: date, state: &state)
+    func removeMember(userID: User.ID, roomID: Room.ID, at date: Date, confirmDeletion: Bool = false, houseChange: Bool = false, replan: Bool = true, state: inout TaskSchedulingState) throws {
+        try changeMember(userID: userID, roomID: roomID, joining: false, at: date, confirmDeletion: confirmDeletion, houseChange: houseChange, replan: replan, state: &state)
     }
 
-    private func changeMember(userID: User.ID, roomID: Room.ID, joining: Bool, at date: Date,
+    func changeMember(userID: User.ID, roomID: Room.ID, joining: Bool, at date: Date, confirmDeletion: Bool = false, houseChange: Bool = false, replan: Bool = true,
                               state: inout TaskSchedulingState) throws {
         guard let room = state.rooms.first(where: { $0.id == roomID }),
               state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }) else {
@@ -188,6 +202,16 @@ struct TaskSchedulingService: Sendable {
         let existing = state.roomMemberships.firstIndex { $0.roomID == roomID && $0.userID == userID }
         if let existing, state.roomMemberships[existing].isCurrent == joining { return }
         if existing == nil && !joining { return }
+        if !joining {
+            guard houseChange || !room.representsWholeHouse else { throw DomainError.wholeHouseProtected }
+            let count = state.roomMemberships.filter { $0.roomID == roomID && $0.isCurrent }.count
+            if count == 1 && !room.representsWholeHouse {
+                guard confirmDeletion else { throw DomainError.deletionConfirmationRequired }
+                deleteRoom(roomID, state: &state)
+                if replan { try rebalance(houseID: room.houseID, boundary: addingWeeks(1, to: weekStart(date)), at: date, state: &state) }
+                return
+            }
+        }
         // Materialize the old calendar before changing membership, including missed weeks.
         try refresh(houseID: room.houseID, at: date, state: &state)
         let boundary = try addingWeeks(1, to: weekStart(date))
@@ -204,14 +228,18 @@ struct TaskSchedulingService: Sendable {
         changes.removeAll { $0.effectiveAt >= boundary }
         changes.append(RotationParticipationChange(effectiveAt: boundary, participates: joining))
         state.roomMemberships[index].rotationChanges = changes
-        try rebalance(houseID: room.houseID, boundary: boundary, at: date, state: &state)
+        if !joining && !houseChange, let i = state.rooms.firstIndex(where: { $0.id == roomID }) {
+            state.rooms[i].visibility = .privateRoom
+        }
+        if replan { try rebalance(houseID: room.houseID, boundary: boundary, at: date, state: &state) }
     }
 
     /// Replans existing future executions, retaining their identity and effort snapshot.
-    private func rebalance(houseID: House.ID, boundary: Date, at date: Date,
+    func rebalance(houseID: House.ID, boundary: Date, at date: Date,
                            state: inout TaskSchedulingState) throws {
         let roomIDs = Set(state.rooms.filter { $0.houseID == houseID }.map(\.id))
-        let end = try addingWeeks(12, to: boundary)
+        let forecastStart = try weekStart(boundary)
+        let end = try addingWeeks(12, to: forecastStart)
         let indices = state.definitions.indices.filter {
             roomIDs.contains(state.definitions[$0].roomID) && state.definitions[$0].kind == .recurring
                 && state.definitions[$0].assignmentPolicy != .selfAssigned
@@ -219,8 +247,22 @@ struct TaskSchedulingService: Sendable {
         var calendarIndices: [Int] = []
         var forecasts: [QueueForecast] = []
         var occurrenceIndices: [[Int]] = []
+        try initializeRooms(houseID: houseID, at: date, state: &state)
+        for id in roomIDs.sorted(by: { $0.uuidString < $1.uuidString }) {
+            try configureRoom(roomID: id, boundary: boundary, state: &state)
+        }
         for i in indices {
             var definition = state.definitions[i]
+            if isRoomLinked(definition, state: state) {
+                if definition.nextScheduledAt == nil {
+                    definition.calendarAnchor = try room(for: definition, state: state).calendarAnchor
+                    definition.nextScheduledAt = try firstWeeklyDate(onOrAfter: boundary, definition: definition)
+                }
+                try extend(definition: &definition, through: end, state: &state)
+                definition.rotationQueue = []
+                state.definitions[i] = definition
+                continue
+            }
             let participants = try members(for: definition, at: boundary, state: state, includeAbsent: true)
             if definition.assignmentPolicy == .afterCompletion {
                 activatePending(definition: &definition, at: date)
@@ -250,7 +292,7 @@ struct TaskSchedulingService: Sendable {
             }
             let turns = try occurrences.filter { state.occurrences[$0].availableAt < end }.map { j in
                 let occurrence = state.occurrences[j]
-                return QueueForecast.Turn(week: try weekIndex(occurrence.availableAt, start: boundary),
+                return QueueForecast.Turn(week: try weekIndex(occurrence.availableAt, start: forecastStart),
                     effort: occurrence.effortSnapshot.points,
                     eligible: Set(try members(for: definition, at: occurrence.availableAt, state: state)),
                     incumbent: state.assignments.first { $0.occurrenceID == occurrence.id && $0.isActive }?.userID)
@@ -260,10 +302,40 @@ struct TaskSchedulingService: Sendable {
             occurrenceIndices.append(occurrences)
             state.definitions[i] = definition
         }
+        let independentCount = forecasts.count
+        let groupedRooms = state.rooms.indices.filter { roomIDs.contains(state.rooms[$0].id) }
+            .sorted { state.rooms[$0].id.uuidString < state.rooms[$1].id.uuidString }
+        var groupedOccurrences: [[Int]] = []
+        for ri in groupedRooms {
+            let room = state.rooms[ri]
+            guard let version = room.scheduleVersions.last(where: { $0.effectiveAt <= boundary }) else { throw DomainError.invalidSchedule }
+            let ids = Set(state.definitions.filter { $0.roomID == room.id && isRoomLinked($0, state: state) }.map(\.id))
+            let occurrences = state.occurrences.indices.filter {
+                ids.contains(state.occurrences[$0].taskDefinitionID) && !state.occurrences[$0].isCompleted && state.occurrences[$0].availableAt >= boundary
+            }.sorted {
+                let a = state.occurrences[$0], b = state.occurrences[$1]
+                return a.availableAt == b.availableAt ? a.taskDefinitionID.uuidString < b.taskDefinitionID.uuidString : a.availableAt < b.availableAt
+            }
+            let turns = try occurrences.filter { state.occurrences[$0].availableAt < end }.map { j in
+                let o = state.occurrences[j]
+                let d = state.definitions.first { $0.id == o.taskDefinitionID }!
+                return QueueForecast.Turn(week: try weekIndex(o.availableAt, start: forecastStart), effort: o.effortSnapshot.points,
+                    eligible: Set(try members(for: d, at: o.availableAt, state: state)),
+                    incumbent: state.assignments.first { $0.occurrenceID == o.id && $0.isActive }?.userID,
+                    slot: try roomSlot(room: room, version: version, taskID: d.id, date: o.availableAt))
+            }
+            let period = try periodIndex(room: room, date: boundary)
+            let periodStart = try addingWeeks(period * room.periodicity.intervalWeeks, to: room.calendarAnchor!)
+            let preserveCurrent = boundary == date && state.occurrences.contains {
+                ids.contains($0.taskDefinitionID) && $0.availableAt >= periodStart && $0.availableAt < boundary
+            }
+            forecasts.append(QueueForecast(participants: version.queue, turns: turns, isFixed: preserveCurrent, existingQueue: version.queue))
+            groupedOccurrences.append(occurrences)
+        }
         var fixedState = state
-        let replanned = Set(calendarIndices.map { state.definitions[$0].id })
+        let replanned = Set(indices.filter { state.definitions[$0].assignmentPolicy != .afterCompletion }.map { state.definitions[$0].id })
         fixedState.occurrences.removeAll { replanned.contains($0.taskDefinitionID) && $0.availableAt >= boundary && !$0.isCompleted }
-        let fixed = try projection(houseID: houseID, start: boundary, state: fixedState)
+        let fixed = try projection(houseID: houseID, start: forecastStart, state: fixedState)
         var houseDebts: [User.ID: Double] = [:]
         for roomID in roomIDs.sorted(by: { $0.uuidString < $1.uuidString }) {
             for (user, value) in try debts(for: roomID, state: state) { houseDebts[user, default: 0] += value }
@@ -282,9 +354,20 @@ struct TaskSchedulingService: Sendable {
             }
             state.definitions[i].currentRotationIndex = queue.isEmpty ? 0 : occurrenceIndices[position].count % queue.count
         }
+        for (offset, ri) in groupedRooms.enumerated() {
+            let queue = queues[independentCount + offset]
+            let vi = state.rooms[ri].scheduleVersions.lastIndex { $0.effectiveAt <= boundary }!
+            state.rooms[ri].scheduleVersions[vi].queue = queue
+            for j in groupedOccurrences[offset] {
+                let o = state.occurrences[j]
+                let d = state.definitions.first { $0.id == o.taskDefinitionID }!
+                let owner = try roomOwner(definition: d, date: o.availableAt, state: state)
+                replaceAssignment(occurrenceIndex: j, userID: owner, at: date, state: &state)
+            }
+        }
     }
 
-    private func normalizedQueue(_ definition: TaskDefinition) throws -> [User.ID] {
+    func normalizedQueue(_ definition: TaskDefinition) throws -> [User.ID] {
         guard !definition.rotationQueue.isEmpty else { return [] }
         guard definition.rotationQueue.indices.contains(definition.currentRotationIndex),
               Set(definition.rotationQueue).count == definition.rotationQueue.count else {
@@ -294,14 +377,14 @@ struct TaskSchedulingService: Sendable {
         return Array(definition.rotationQueue[cursor...] + definition.rotationQueue[..<cursor])
     }
 
-    private func activatePending(definition: inout TaskDefinition, at date: Date) {
+    func activatePending(definition: inout TaskDefinition, at date: Date) {
         guard let pending = definition.pendingRotation, pending.effectiveAt <= date else { return }
         definition.rotationQueue = pending.queue
         definition.currentRotationIndex = 0
         definition.pendingRotation = nil
     }
 
-    private func replaceAssignment(occurrenceIndex: Int, userID: User.ID?, at date: Date,
+    func replaceAssignment(occurrenceIndex: Int, userID: User.ID?, at date: Date,
                                    state: inout TaskSchedulingState) {
         let occurrence = state.occurrences[occurrenceIndex]
         let active = state.assignments.indices.filter { state.assignments[$0].occurrenceID == occurrence.id && state.assignments[$0].isActive }
@@ -314,7 +397,7 @@ struct TaskSchedulingService: Sendable {
         state.occurrences[occurrenceIndex].status = userID == nil ? .available : .assigned
     }
 
-    private func extend(definition: inout TaskDefinition, through end: Date, state: inout TaskSchedulingState) throws {
+    func extend(definition: inout TaskDefinition, through end: Date, state: inout TaskSchedulingState) throws {
         guard let first = definition.nextScheduledAt else { return }
         let dates = try scheduledDates(from: first, definition: definition, end: end)
         for date in dates {
@@ -324,8 +407,13 @@ struct TaskSchedulingService: Sendable {
         }
     }
 
-    private func publish(definition: inout TaskDefinition, at date: Date, dueAt: Date?,
+    func publish(definition: inout TaskDefinition, at date: Date, dueAt: Date?,
                          state: inout TaskSchedulingState) throws {
+        if isRoomLinked(definition, state: state) {
+            appendOccurrence(definition: definition, date: date, dueAt: dueAt,
+                userID: try roomOwner(definition: definition, date: date, state: state), state: &state)
+            return
+        }
         activatePending(definition: &definition, at: date)
         if definition.rotationQueue.isEmpty {
             appendOccurrence(definition: definition, date: date, dueAt: dueAt, userID: nil, state: &state)
@@ -340,7 +428,7 @@ struct TaskSchedulingService: Sendable {
         definition.currentRotationIndex = try rotation.advance(index: definition.currentRotationIndex, queue: definition.rotationQueue)
     }
 
-    private func appendOccurrence(definition: TaskDefinition, date: Date, dueAt: Date?, userID: User.ID?,
+    func appendOccurrence(definition: TaskDefinition, date: Date, dueAt: Date?, userID: User.ID?,
                                   state: inout TaskSchedulingState) {
         let occurrence = TaskOccurrence(id: UUID(), taskDefinitionID: definition.id, availableAt: date,
                                         dueAt: dueAt, status: userID == nil ? .available : .assigned,
@@ -352,7 +440,7 @@ struct TaskSchedulingService: Sendable {
         }
     }
 
-    private func members(for definition: TaskDefinition, at date: Date?, state: TaskSchedulingState, includeAbsent: Bool = false, useCurrentMembership: Bool = false) throws -> [User.ID] {
+    func members(for definition: TaskDefinition, at date: Date?, state: TaskSchedulingState, includeAbsent: Bool = false, useCurrentMembership: Bool = false) throws -> [User.ID] {
         let houseID = try room(for: definition, state: state).houseID
         let houseMembers = state.houseMemberships.filter { $0.houseID == houseID }
         let houseUsers = Set(houseMembers.map(\.userID))
@@ -364,11 +452,10 @@ struct TaskSchedulingService: Sendable {
         return Set(state.roomMemberships.filter {
             $0.roomID == definition.roomID && houseUsers.contains($0.userID) && !absent.contains($0.userID)
                 && (useCurrentMembership || date == nil ? $0.isCurrent : $0.participates(at: date!))
-                && (definition.visibility == .house || definition.ownerUserID == $0.userID)
         }.map(\.userID)).sorted { $0.uuidString < $1.uuidString }
     }
 
-    private func debts(for roomID: Room.ID, state: TaskSchedulingState) throws -> [User.ID: Double] {
+    func debts(for roomID: Room.ID, state: TaskSchedulingState) throws -> [User.ID: Double] {
         var result: [User.ID: Double] = [:]
         for membership in state.roomMemberships where membership.roomID == roomID {
             guard result[membership.userID] == nil, membership.fairnessDebt.isFinite else {
@@ -379,12 +466,12 @@ struct TaskSchedulingService: Sendable {
         return result
     }
 
-    private func room(for definition: TaskDefinition, state: TaskSchedulingState) throws -> Room {
+    func room(for definition: TaskDefinition, state: TaskSchedulingState) throws -> Room {
         guard let room = state.rooms.first(where: { $0.id == definition.roomID }) else { throw DomainError.entityNotFound }
         return room
     }
 
-    private func projection(houseID: House.ID, start: Date, state: TaskSchedulingState) throws -> [User.ID: [ProjectedWeek]] {
+    func projection(houseID: House.ID, start: Date, state: TaskSchedulingState) throws -> [User.ID: [ProjectedWeek]] {
         let roomIDs = Set(state.rooms.filter { $0.houseID == houseID }.map(\.id))
         let definitionIDs = Set(state.definitions.filter { roomIDs.contains($0.roomID) }.map(\.id))
         let end = try addingWeeks(12, to: start)
@@ -406,7 +493,10 @@ struct TaskSchedulingService: Sendable {
         return result
     }
 
-    private func nextDate(after date: Date, definition: TaskDefinition) throws -> Date {
+    func nextDate(after date: Date, definition: TaskDefinition) throws -> Date {
+        if definition.calendarAnchor != nil && definition.recurrence.weeklyPeriodicity != nil {
+            return try firstWeeklyDate(onOrAfter: adding(.day, 1, to: calendar.startOfDay(for: date)), definition: definition)
+        }
         guard case let .recurring(frequency, interval) = definition.recurrence,
               interval > 0 else {
             throw DomainError.invalidSchedule
@@ -424,7 +514,7 @@ struct TaskSchedulingService: Sendable {
         }
     }
 
-    private func scheduledDates(from first: Date, definition: TaskDefinition, end: Date) throws -> [Date] {
+    func scheduledDates(from first: Date, definition: TaskDefinition, end: Date) throws -> [Date] {
         var dates: [Date] = []
         var date = first
         while date < end {
@@ -436,24 +526,24 @@ struct TaskSchedulingService: Sendable {
         return dates
     }
 
-    private func weekStart(_ date: Date) throws -> Date {
+    func weekStart(_ date: Date) throws -> Date {
         guard let start = calendar.dateInterval(of: .weekOfYear, for: date)?.start else { throw DomainError.invalidDateInterval }
         return start
     }
 
-    private func addingWeeks(_ count: Int, to date: Date) throws -> Date {
+    func addingWeeks(_ count: Int, to date: Date) throws -> Date {
         guard let result = calendar.date(byAdding: .weekOfYear, value: count, to: date) else { throw DomainError.invalidDateInterval }
         return result
     }
 
-    private func adding(_ component: Calendar.Component, _ count: Int, to date: Date) throws -> Date {
+    func adding(_ component: Calendar.Component, _ count: Int, to date: Date) throws -> Date {
         guard let result = calendar.date(byAdding: component, value: count, to: date) else {
             throw DomainError.invalidDateInterval
         }
         return result
     }
 
-    private func weekIndex(_ date: Date, start: Date) throws -> Int {
+    func weekIndex(_ date: Date, start: Date) throws -> Int {
         guard let week = calendar.dateComponents([.weekOfYear], from: start, to: try weekStart(date)).weekOfYear,
               (0..<12).contains(week) else { throw DomainError.invalidDateInterval }
         return week

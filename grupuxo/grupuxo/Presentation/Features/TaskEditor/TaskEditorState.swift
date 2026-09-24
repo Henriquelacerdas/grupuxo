@@ -6,7 +6,6 @@ struct TaskDraft: Equatable {
     var roomID: Room.ID?
     var effortPoints = 1
     var kind = TaskKind.recurring
-    var visibility = TaskVisibility.house
     var recurrence = RecurrencePolicy.recurring(frequency: .weekly, interval: 1)
     var assignmentPolicy = TaskAssignmentPolicy.balancedAutomatically
 }
@@ -27,7 +26,6 @@ enum TaskEditorState: Equatable {
                 roomID: definition.roomID,
                 effortPoints: definition.effort.points,
                 kind: definition.kind,
-                visibility: definition.visibility,
                 recurrence: definition.recurrence,
                 assignmentPolicy: definition.assignmentPolicy
             )

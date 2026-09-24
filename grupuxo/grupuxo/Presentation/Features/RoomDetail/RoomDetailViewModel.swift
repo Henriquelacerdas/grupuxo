@@ -8,7 +8,13 @@ final class RoomDetailViewModel: ObservableObject {
     @Published private(set) var isCompleting = false
     @Published private(set) var state: RoomDetailState = .idle
 
-    private let roomRepository: any RoomRepository
+    @Published private(set) var participation: RoomParticipation?
+    @Published private(set) var isChangingMembership = false
+    @Published private(set) var wasDeleted = false
+    @Published var confirmsDeletion = false
+    private let getParticipation: GetRoomParticipationUseCase
+    private let addMember: AddRoomMemberUseCase
+    private let removeMember: RemoveRoomMemberUseCase
     private let getRoomTasks: GetRoomTasksUseCase
 
     private let roomID: Room.ID
@@ -16,13 +22,17 @@ final class RoomDetailViewModel: ObservableObject {
     private let userID: User.ID
 
     init(
-        roomRepository: any RoomRepository,
+        getParticipation: GetRoomParticipationUseCase,
+        addMember: AddRoomMemberUseCase,
+        removeMember: RemoveRoomMemberUseCase,
         getRoomTasks: GetRoomTasksUseCase,
         completeTask: CompleteTaskUseCase,
         roomID: Room.ID,
         userID: User.ID
     ) {
-        self.roomRepository = roomRepository
+        self.getParticipation = getParticipation
+        self.addMember = addMember
+        self.removeMember = removeMember
         self.getRoomTasks = getRoomTasks
         self.roomID = roomID
         self.completeTask = completeTask
@@ -35,10 +45,8 @@ final class RoomDetailViewModel: ObservableObject {
 
         do {
 
-            async let room = roomRepository.room(
-                id: roomID,
-                requesting: userID
-            )
+            let participation = try await getParticipation(roomID: roomID, userID: userID)
+            self.participation = participation
 
             async let tasks = getRoomTasks(
                 roomID: roomID,
@@ -46,7 +54,7 @@ final class RoomDetailViewModel: ObservableObject {
             )
 
             let content = try await RoomDetailContent(
-                room: room,
+                room: participation.room,
                 tasks: tasks
             )
 
@@ -61,6 +69,30 @@ final class RoomDetailViewModel: ObservableObject {
             )
         }
     }
+    func join() async {
+        guard !isChangingMembership else { return }
+        isChangingMembership = true
+        defer { isChangingMembership = false }
+        do {
+            try await addMember(userID: userID, roomID: roomID)
+            await load()
+        } catch { actionError = error.localizedDescription }
+    }
+
+    func leave(confirmDeletion: Bool = false) async {
+        guard !isChangingMembership else { return }
+        if participation?.memberCount == 1 && !confirmDeletion { confirmsDeletion = true; return }
+        isChangingMembership = true
+        defer { isChangingMembership = false }
+        do {
+            try await removeMember(userID: userID, roomID: roomID, confirmDeletion: confirmDeletion)
+            do { _ = try await getParticipation(roomID: roomID, userID: userID) }
+            catch DomainError.entityNotFound { wasDeleted = true; return }
+            await load()
+        } catch DomainError.deletionConfirmationRequired { confirmsDeletion = true }
+        catch { actionError = error.localizedDescription }
+    }
+
     func canComplete(_ item: TaskItem) -> Bool {
         !isCompleting && !item.occurrence.isCompleted
             && item.assignment?.userID == userID && item.occurrence.availableAt <= .now

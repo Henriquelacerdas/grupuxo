@@ -1,10 +1,4 @@
-import Foundation
+// This source file remains registered in the Xcode project for compatibility.
+// Private rooms now allow direct entry; the access-request domain model was removed.
 
-struct RoomAccessRequest: Identifiable, Hashable, Codable, Sendable {
-    let id: UUID
-    let roomID: Room.ID
-    let requesterID: User.ID
-    var status: RoomAccessRequestStatus
-    let requestedAt: Date
-    var resolvedAt: Date?
-}
+import Foundation

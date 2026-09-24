@@ -5,10 +5,6 @@ enum TaskKind: String, Codable, Sendable, CaseIterable {
     case sporadic
 }
 
-enum TaskVisibility: String, Codable, Sendable, CaseIterable {
-    case house
-    case privateTask
-}
 
 enum RoomKind: String, Codable, Sendable, CaseIterable {
     case wholeHouse
@@ -20,10 +16,6 @@ enum RoomVisibility: String, Codable, Sendable, CaseIterable {
     case privateRoom
 }
 
-enum RoomRotationPolicy: String, Codable, Sendable, CaseIterable {
-    case none
-    case weeklyCalendar
-}
 
 enum TaskAssignmentPolicy: String, Codable, Sendable, CaseIterable {
     case balancedAutomatically
@@ -38,12 +30,6 @@ enum TaskOccurrenceStatus: String, Codable, Sendable {
     case completed
 }
 
-enum RoomAccessRequestStatus: String, Codable, Sendable {
-    case pending
-    case approved
-    case rejected
-    case cancelled
-}
 
 enum RecurrenceFrequency: String, CaseIterable, Codable, Sendable {
     case daily
@@ -55,10 +41,10 @@ enum RecurrenceFrequency: String, CaseIterable, Codable, Sendable {
 enum RecurrencePolicy: Hashable, Codable, Sendable {
     case none
     case recurring(frequency: RecurrenceFrequency, interval: Int)
+    case weekly(WeeklyPeriodicity)
 
     var isRepeating: Bool {
-        if case .recurring = self { return true }
-        return false
+        self != .none
     }
 
     var hasValidInterval: Bool {
@@ -67,6 +53,8 @@ enum RecurrencePolicy: Hashable, Codable, Sendable {
             true
         case let .recurring(_, interval):
             interval > 0
+        case let .weekly(value):
+            value.isValid
         }
     }
 }
@@ -100,5 +88,26 @@ struct DateIntervalValue: Hashable, Codable, Sendable {
         guard start <= end else { throw DomainError.invalidDateInterval }
         self.start = start
         self.end = end
+    }
+}
+
+/// Exact execution count and period length; fractions are deliberately not reduced.
+struct WeeklyPeriodicity: Hashable, Codable, Sendable {
+    var executionsPerPeriod: Int = 1
+    var intervalWeeks: Int = 1
+    var isValid: Bool {
+        intervalWeeks > 0 && intervalWeeks <= Int.max / 7
+            && executionsPerPeriod > 0 && executionsPerPeriod <= intervalWeeks * 7
+    }
+    var label: String { "\(executionsPerPeriod) vez(es) a cada \(intervalWeeks) semana(s)" }
+}
+
+extension RecurrencePolicy {
+    var weeklyPeriodicity: WeeklyPeriodicity? {
+        switch self {
+        case let .weekly(value): value
+        case let .recurring(.weekly, interval): WeeklyPeriodicity(intervalWeeks: interval)
+        default: nil
+        }
     }
 }

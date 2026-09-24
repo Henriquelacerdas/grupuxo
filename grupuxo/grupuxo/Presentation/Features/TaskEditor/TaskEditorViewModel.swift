@@ -1,8 +1,3 @@
-// TODO — Enviar contexto de usuário/casa ao caso de uso para validar autorização
-// de criação e carregar apenas cômodos autorizados.
-// TaskEffort hoje limita valores ao intervalo; se houver entrada livre, validar
-// 1...3 antes de construir o valor para informar o erro em vez de corrigir em silêncio.
-
 import Combine
 import Foundation
 
@@ -13,20 +8,20 @@ final class TaskEditorViewModel: ObservableObject {
     private let createTask: CreateTaskUseCase
     private let getHouseRooms: GetHouseRoomsUseCase
     private let houseID: House.ID
-    private let ownerUserID: User.ID
+    private let requestingUserID: User.ID
 
     init(
         createTask: CreateTaskUseCase,
         getHouseRooms: GetHouseRoomsUseCase,
         houseID: House.ID,
-        ownerUserID: User.ID,
+        requestingUserID: User.ID,
         draft: TaskDraft
     ) {
 
         self.createTask = createTask
         self.getHouseRooms = getHouseRooms
         self.houseID = houseID
-        self.ownerUserID = ownerUserID
+        self.requestingUserID = requestingUserID
         state = .editing(draft)
     }
 
@@ -34,7 +29,8 @@ final class TaskEditorViewModel: ObservableObject {
         do {
             rooms = try await getHouseRooms(
                 houseID: houseID,
-                userID: ownerUserID
+                userID: requestingUserID,
+                participatingOnly: true
             )
         } catch {
             state = .failure(
@@ -77,6 +73,11 @@ final class TaskEditorViewModel: ObservableObject {
         state = .editing(draft)
     }
 
+    func useRoomPeriodicity() {
+        guard let room = rooms.first(where: { $0.id == state.draft.roomID }) else { return }
+        selectRecurrence(.weekly(room.periodicity))
+    }
+
     func selectRecurrence(_ recurrence: RecurrencePolicy) {
         updateDraft { $0.recurrence = recurrence }
     }
@@ -107,20 +108,15 @@ final class TaskEditorViewModel: ObservableObject {
                 points: draft.effortPoints
             ),
             kind: draft.kind,
-            visibility: draft.visibility,
             recurrence: draft.recurrence,
             assignmentPolicy:
-                draft.assignmentPolicy,
-            ownerUserID:
-                draft.visibility == .privateTask
-                ? ownerUserID
-                : nil
+                draft.assignmentPolicy
         )
 
         do {
             state = .saved(
                 try await createTask(
-                    definition: definition
+                    definition: definition, requestedBy: requestingUserID
                 )
             )
         } catch {

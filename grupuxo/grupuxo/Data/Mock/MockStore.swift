@@ -9,7 +9,6 @@ actor MockStore {
         var occurrences: [TaskOccurrence]
         var assignments: [TaskAssignment]
         var absences: [Absence]
-        var roomAccessRequests: [RoomAccessRequest]
 
         var schedule: TaskSchedulingState {
             get {

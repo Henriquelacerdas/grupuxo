@@ -13,6 +13,26 @@ final class RoomEditorViewModel: ObservableObject {
 
     @Published private(set) var state: RoomEditorState
 
+    @Published private(set) var residents: [User] = []
+    @Published private(set) var residentsError: String?
+    @Published private(set) var isLoadingResidents = false
+    private let getMembers: GetHouseMembersUseCase?
+
+    var canSave: Bool {
+        !state.draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func isCreator(_ userID: User.ID) -> Bool { userID == creatorUserID }
+
+    func loadResidents() async {
+        guard let getMembers else { return }
+        isLoadingResidents = true
+        residentsError = nil
+        defer { isLoadingResidents = false }
+        do { residents = try await getMembers(houseID: houseID, userID: creatorUserID) }
+        catch { residentsError = error.localizedDescription }
+    }
+
     private let createRoom: CreateRoomUseCase
 
     private let houseID: House.ID
@@ -22,12 +42,16 @@ final class RoomEditorViewModel: ObservableObject {
         createRoom: CreateRoomUseCase,
         houseID: House.ID,
         creatorUserID: User.ID,
-        draft: RoomDraft = RoomDraft()
+        draft: RoomDraft = RoomDraft(),
+        getMembers: GetHouseMembersUseCase? = nil
     ) {
 
         self.createRoom = createRoom
         self.houseID = houseID
         self.creatorUserID = creatorUserID
+        self.getMembers = getMembers
+        var draft = draft
+        draft.selectedParticipantIDs.insert(creatorUserID)
         self.state = .editing(draft)
     }
 
@@ -42,6 +66,7 @@ final class RoomEditorViewModel: ObservableObject {
         var draft = state.draft
 
         update(&draft)
+        draft.periodicity.executionsPerPeriod = min(draft.periodicity.executionsPerPeriod, draft.periodicity.intervalWeeks * 7)
 
         state = .editing(draft)
     }
@@ -67,7 +92,11 @@ final class RoomEditorViewModel: ObservableObject {
                 name: draft.name,
                 houseID: houseID,
                 creatorUserID: creatorUserID,
-                visibility: draft.visibility
+                visibility: draft.visibility,
+                periodicity: draft.periodicity,
+                responsibleCount: draft.responsibleCount,
+                appearance: draft.appearance,
+                selectedParticipantIDs: draft.selectedParticipantIDs
             )
 
             state = .saved(room)

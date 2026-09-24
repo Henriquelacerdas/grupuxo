@@ -7,6 +7,7 @@ import Foundation
 final class AppContainer {
 
     let store: MockStore
+    private let calendar: Calendar
 
     let houseRepository: any HouseRepository
     let roomRepository: any RoomRepository
@@ -14,16 +15,19 @@ final class AppContainer {
 
     init(store: MockStore = MockStore(), calendar: Calendar = Calendar(identifier: .gregorian)) {
         self.store = store
-        houseRepository = MockHouseRepository(store: store)
-        roomRepository = MockRoomRepository(store: store)
+        self.calendar = calendar
+        roomRepository = MockRoomRepository(store: store, scheduling: TaskSchedulingService(calendar: calendar))
         let distribution = TaskDistributionEngine(optimizer: HungarianAlgorithm())
         let scheduling = TaskSchedulingService(distribution: distribution, fairness: FairnessCalculator(),
                                                rotation: RotationCalculator(), calendar: calendar)
+        houseRepository = MockHouseRepository(store: store, scheduling: scheduling)
         taskRepository = MockTaskRepository(store: store, scheduling: scheduling)
     }
 
     func makeProfileViewModel(session: AppSession) -> ProfileViewModel {
         ProfileViewModel(getMembers: GetHouseMembersUseCase(repository: houseRepository),
+                         addMember: AddHouseMemberUseCase(repository: houseRepository),
+                         removeMember: RemoveHouseMemberUseCase(repository: houseRepository),
                          houseID: session.currentHouse.id, currentUserID: session.currentUser.id)
     }
 
@@ -74,7 +78,9 @@ final class AppContainer {
     ) -> RoomDetailViewModel {
 
         RoomDetailViewModel(
-            roomRepository: roomRepository,
+            getParticipation: GetRoomParticipationUseCase(repository: roomRepository),
+            addMember: makeAddRoomMemberUseCase(),
+            removeMember: makeRemoveRoomMemberUseCase(),
             getRoomTasks: GetRoomTasksUseCase(
                 repository: taskRepository
             ),
@@ -122,7 +128,7 @@ final class AppContainer {
                 repository: roomRepository
             ),
             houseID: session.currentHouse.id,
-            ownerUserID: session.currentUser.id,
+            requestingUserID: session.currentUser.id,
             draft: draft
         )
     }
@@ -134,10 +140,12 @@ final class AppContainer {
         RoomEditorViewModel(
             createRoom: CreateRoomUseCase(
                 roomRepository: roomRepository,
-                houseRepository: houseRepository
+                houseRepository: houseRepository,
+                calendar: calendar
             ),
             houseID: session.currentHouse.id,
-            creatorUserID: session.currentUser.id
+            creatorUserID: session.currentUser.id,
+            getMembers: GetHouseMembersUseCase(repository: houseRepository)
         )
     }
 }

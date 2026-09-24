@@ -3,7 +3,7 @@
 // • Editor: cômodo pré-selecionado ou obrigatório, esforço manual de 1 a 3,
 //   alternância periódica/avulsa, salvar em andamento, sucesso e falha.
 // • Listas: carregamento, conteúdo, vazio, erro e recarga após salvar/retomar.
-// • Acesso: dados privados não chegam ao estado de quem não participa.
+// • Acesso: existência do cômodo é pública na casa; tarefas e escala são restritas aos participantes.
 // Conferir inclusão destes arquivos no target de testes antes de adicionar @Test.
 
 // Testes futuros dos ViewModels e de seus estados observáveis na apresentação.

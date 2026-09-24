@@ -11,12 +11,18 @@ struct CreateRoomUseCase: Sendable {
 
     let roomRepository: any RoomRepository
     let houseRepository: any HouseRepository
+    var calendar: Calendar = Calendar(identifier: .gregorian)
 
     func callAsFunction(
         name: String,
         houseID: House.ID,
         creatorUserID: User.ID,
-        visibility: RoomVisibility
+        visibility: RoomVisibility,
+        periodicity: WeeklyPeriodicity = WeeklyPeriodicity(),
+        responsibleCount: Int = 1,
+        appearance: RoomAppearance = RoomAppearance(),
+        selectedParticipantIDs: Set<User.ID>? = nil,
+        date: Date = .now
     ) async throws -> Room {
 
         let trimmedName = name.trimmingCharacters(
@@ -45,21 +51,25 @@ struct CreateRoomUseCase: Sendable {
             participantIDs = memberIDs
 
         case .privateRoom:
-            participantIDs = [creatorUserID]
+            let selected = selectedParticipantIDs ?? [creatorUserID]
+            guard selected.contains(creatorUserID), selected.isSubset(of: Set(memberIDs)) else {
+                throw DomainError.invalidRoomParticipants
+            }
+            participantIDs = memberIDs.filter { selected.contains($0) }
         }
 
-        let rotationPolicy: RoomRotationPolicy =
-            visibility == .common
-            ? .weeklyCalendar
-            : .none
-
+        guard periodicity.isValid, responsibleCount > 0 else { throw DomainError.invalidSchedule }
+        let scheduler = TaskSchedulingService(calendar: calendar)
         let room = Room(
             id: UUID(),
             houseID: houseID,
             name: trimmedName,
             kind: .standard,
             visibility: visibility,
-            rotationPolicy: rotationPolicy
+            periodicity: periodicity,
+            responsibleCount: responsibleCount,
+            calendarAnchor: try scheduler.weekStart(date),
+            appearance: appearance
         )
 
         let memberships = participantIDs.map { userID in
