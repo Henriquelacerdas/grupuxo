@@ -4,6 +4,8 @@
 //
 //  Created by Giovanna Spigariol on 18/09/26.
 //
+//
+
 
 import Foundation
 
@@ -16,6 +18,7 @@ struct CreateRoomUseCase: Sendable {
         name: String,
         houseID: House.ID,
         creatorUserID: User.ID,
+        category: RoomCategory = .other,
         visibility: RoomVisibility
     ) async throws -> Room {
 
@@ -58,6 +61,7 @@ struct CreateRoomUseCase: Sendable {
             houseID: houseID,
             name: trimmedName,
             kind: .standard,
+            category: category,
             visibility: visibility,
             rotationPolicy: rotationPolicy
         )

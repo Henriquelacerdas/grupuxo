@@ -24,6 +24,16 @@ enum RoomRotationPolicy: String, Codable, Sendable, CaseIterable {
     case none
     case weeklyCalendar
 }
+enum RoomCategory: String, Codable, Sendable, CaseIterable {
+    case kitchen
+    case bathroom
+    case bedroom
+    case livingRoom
+    case laundry
+    case office
+    case outdoor
+    case other
+}
 
 enum TaskAssignmentPolicy: String, Codable, Sendable, CaseIterable {
     case balancedAutomatically

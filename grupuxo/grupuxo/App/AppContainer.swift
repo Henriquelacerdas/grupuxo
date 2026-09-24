@@ -1,42 +1,78 @@
 // Composition root. Future room-management and vacation screens can consume the
 // transactional membership/schedule use cases without constructing services in Views.
-
 import Foundation
 
 @MainActor
 final class AppContainer {
 
     let store: MockStore
-
     let houseRepository: any HouseRepository
     let roomRepository: any RoomRepository
     let taskRepository: any TaskRepository
 
-    init(store: MockStore = MockStore(), calendar: Calendar = Calendar(identifier: .gregorian)) {
+    init(
+        store: MockStore = MockStore(),
+        calendar: Calendar = Calendar(identifier: .gregorian)
+    ) {
         self.store = store
-        houseRepository = MockHouseRepository(store: store)
-        roomRepository = MockRoomRepository(store: store)
-        let distribution = TaskDistributionEngine(optimizer: HungarianAlgorithm())
-        let scheduling = TaskSchedulingService(distribution: distribution, fairness: FairnessCalculator(),
-                                               rotation: RotationCalculator(), calendar: calendar)
-        taskRepository = MockTaskRepository(store: store, scheduling: scheduling)
+
+        houseRepository = MockHouseRepository(
+            store: store
+        )
+
+        roomRepository = MockRoomRepository(
+            store: store
+        )
+
+        let distribution = TaskDistributionEngine(
+            optimizer: HungarianAlgorithm()
+        )
+
+        let scheduling = TaskSchedulingService(
+            distribution: distribution,
+            fairness: FairnessCalculator(),
+            rotation: RotationCalculator(),
+            calendar: calendar
+        )
+
+        taskRepository = MockTaskRepository(
+            store: store,
+            scheduling: scheduling
+        )
     }
 
-    func makeProfileViewModel(session: AppSession) -> ProfileViewModel {
-        ProfileViewModel(getMembers: GetHouseMembersUseCase(repository: houseRepository),
-                         houseID: session.currentHouse.id, currentUserID: session.currentUser.id)
+    func makeProfileViewModel(
+        session: AppSession
+    ) -> ProfileViewModel {
+
+        ProfileViewModel(
+            getMembers: GetHouseMembersUseCase(
+                repository: houseRepository
+            ),
+            houseID: session.currentHouse.id,
+            currentUserID: session.currentUser.id
+        )
     }
 
     func makeAddRoomMemberUseCase() -> AddRoomMemberUseCase {
-        AddRoomMemberUseCase(repository: taskRepository)
+
+        AddRoomMemberUseCase(
+            repository: taskRepository
+        )
     }
 
     func makeRemoveRoomMemberUseCase() -> RemoveRoomMemberUseCase {
-        RemoveRoomMemberUseCase(repository: taskRepository)
+
+        RemoveRoomMemberUseCase(
+            repository: taskRepository
+        )
     }
 
     func makeRefreshTaskScheduleUseCase() -> RefreshTaskScheduleUseCase {
-        RefreshTaskScheduleUseCase(repository: taskRepository)
+
+        RefreshTaskScheduleUseCase(
+            repository: taskRepository
+        )
     }
 
     func makeMyTasksViewModel(
@@ -47,9 +83,11 @@ final class AppContainer {
             getMyTasks: GetMyTasksUseCase(
                 repository: taskRepository
             ),
+
             completeTask: CompleteTaskUseCase(
                 repository: taskRepository
             ),
+
             userID: session.currentUser.id,
             houseID: session.currentHouse.id
         )
@@ -63,6 +101,7 @@ final class AppContainer {
             getHouseRooms: GetHouseRoomsUseCase(
                 repository: roomRepository
             ),
+
             houseID: session.currentHouse.id,
             userID: session.currentUser.id
         )
@@ -75,10 +114,19 @@ final class AppContainer {
 
         RoomDetailViewModel(
             roomRepository: roomRepository,
+
             getRoomTasks: GetRoomTasksUseCase(
                 repository: taskRepository
             ),
-            completeTask: CompleteTaskUseCase(repository: taskRepository),
+
+            getTaskSuggestions: GetTaskSuggestionsUseCase(
+                catalog: TaskSuggestionCatalog()
+            ),
+
+            completeTask: CompleteTaskUseCase(
+                repository: taskRepository
+            ),
+
             roomID: roomID,
             userID: session.currentUser.id
         )
@@ -92,17 +140,25 @@ final class AppContainer {
             getTasks: GetSporadicTasksUseCase(
                 repository: taskRepository
             ),
+
             claimTask: ClaimSporadicTaskUseCase(
                 repository: taskRepository
             ),
+
             releaseTask: ReleaseSporadicTaskUseCase(
                 repository: taskRepository
             ),
-            completeTask: CompleteTaskUseCase(repository: taskRepository),
+
+            completeTask: CompleteTaskUseCase(
+                repository: taskRepository
+            ),
+
             userID: session.currentUser.id,
             houseID: session.currentHouse.id
         )
     }
+
+    // MARK: - Criar tarefa normal
 
     func makeTaskEditorViewModel(
         roomID: Room.ID?,
@@ -110,7 +166,6 @@ final class AppContainer {
     ) -> TaskEditorViewModel {
 
         var draft = TaskDraft()
-
         draft.roomID = roomID
 
         return TaskEditorViewModel(
@@ -118,9 +173,43 @@ final class AppContainer {
                 repository: taskRepository,
                 roomRepository: roomRepository
             ),
+
             getHouseRooms: GetHouseRoomsUseCase(
                 repository: roomRepository
             ),
+
+            houseID: session.currentHouse.id,
+            ownerUserID: session.currentUser.id,
+            draft: draft
+        )
+    }
+
+    // MARK: - Criar tarefa a partir de sugestão
+
+    func makeTaskEditorViewModel(
+        roomID: Room.ID,
+        suggestion: TaskSuggestion,
+        session: AppSession
+    ) -> TaskEditorViewModel {
+
+        var draft = TaskDraft()
+
+        draft.roomID = roomID
+        draft.name = suggestion.name
+        draft.details = suggestion.details
+        draft.effortPoints = suggestion.effort.points
+        draft.sourceSuggestionID = suggestion.id
+
+        return TaskEditorViewModel(
+            createTask: CreateTaskUseCase(
+                repository: taskRepository,
+                roomRepository: roomRepository
+            ),
+
+            getHouseRooms: GetHouseRoomsUseCase(
+                repository: roomRepository
+            ),
+
             houseID: session.currentHouse.id,
             ownerUserID: session.currentUser.id,
             draft: draft
@@ -136,6 +225,7 @@ final class AppContainer {
                 roomRepository: roomRepository,
                 houseRepository: houseRepository
             ),
+
             houseID: session.currentHouse.id,
             creatorUserID: session.currentUser.id
         )

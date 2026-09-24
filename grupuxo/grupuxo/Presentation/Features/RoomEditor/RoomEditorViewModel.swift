@@ -67,9 +67,9 @@ final class RoomEditorViewModel: ObservableObject {
                 name: draft.name,
                 houseID: houseID,
                 creatorUserID: creatorUserID,
+                category: draft.category,
                 visibility: draft.visibility
             )
-
             state = .saved(room)
 
         } catch {
