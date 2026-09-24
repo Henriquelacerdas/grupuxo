@@ -26,7 +26,7 @@ struct RoomCreationSheetView: View {
             Form {
                 Section {
                     VStack(spacing: 20) {
-                        RoomIconView(appearance: viewModel.state.draft.appearance)
+                        RoomIconView(icon: viewModel.state.draft.icon, color: viewModel.state.draft.color)
                         TextField("Nome do Cômodo", text: binding(\.name))
                             .multilineTextAlignment(.center)
                             .font(.title3.bold())
@@ -82,16 +82,16 @@ struct RoomCreationSheetView: View {
         .onChange(of: viewModel.state) { _, state in
             if case .saved = state { dismiss() }
         }
-        .sensoryFeedback(.selection, trigger: viewModel.state.draft.appearance)
+        .sensoryFeedback(.selection, trigger: viewModel.state.draft.icon)
     }
 
     private var colorSection: some View {
         Section("Cor") {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(RoomColor.allCases, id: \.self) { color in
-                    let selected = viewModel.state.draft.appearance.color == color
+                    let selected = viewModel.state.draft.color == color
                     Button {
-                        viewModel.updateDraft { $0.appearance.color = color }
+                        viewModel.updateDraft { $0.color = color }
                     } label: {
                         Circle().fill(color.tint)
                             .frame(width: 44, height: 44)
@@ -115,9 +115,9 @@ struct RoomCreationSheetView: View {
         Section("Ícone") {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(icons, id: \.symbol) { icon in
-                    let selected = viewModel.state.draft.appearance.icon == icon.symbol
+                    let selected = viewModel.state.draft.icon == icon.symbol
                     Button {
-                        viewModel.updateDraft { $0.appearance.icon = icon.symbol }
+                        viewModel.updateDraft { $0.icon = icon.symbol }
                     } label: {
                         Image(systemName: icon.symbol)
                             .font(.system(size: 20, weight: selected ? .bold : .regular))

@@ -19,7 +19,8 @@ struct RoomAppearanceTests {
         #expect(model.residents.count == members.count)
         model.updateDraft {
             $0.name = "  Quarto azul  "
-            $0.appearance = RoomAppearance(icon: "bed.double.fill", color: .purple)
+            $0.icon = "bed.double.fill"
+            $0.color = .purple
             $0.visibility = .privateRoom
             $0.selectedParticipantIDs.insert(second.id)
         }
@@ -30,7 +31,8 @@ struct RoomAppearanceTests {
         }
         let stored = try await container.roomRepository.room(id: room.id, requesting: creator.id)
         #expect(stored.name == "Quarto azul")
-        #expect(stored.appearance == RoomAppearance(icon: "bed.double.fill", color: .purple))
+        #expect(stored.icon == "bed.double.fill")
+        #expect(stored.color == .purple)
         let participation = try await container.roomRepository.participation(in: room.id, requesting: second.id, at: .now)
         #expect(participation.isMember)
         #expect(participation.memberCount == 2)
@@ -52,12 +54,21 @@ struct RoomAppearanceTests {
         #expect(info.isMember)
     }
 
-    @Test func olderRoomsDecodeWithoutAppearance() throws {
+    @Test func olderRoomsDecodeWithLegacyAppearance() throws {
         let data = try JSONEncoder().encode(MockSeed.kitchen)
         var json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        json.removeValue(forKey: "appearance")
+        json.removeValue(forKey: "icon")
+        json.removeValue(forKey: "color")
+        json["appearance"] = ["icon": "bed.double.fill", "color": "purple"]
         let decoded = try JSONDecoder().decode(Room.self, from: JSONSerialization.data(withJSONObject: json))
-        #expect(decoded.appearance == nil)
+        #expect(decoded.icon == "bed.double.fill")
+        #expect(decoded.color == .purple)
         #expect(decoded.name == MockSeed.kitchen.name)
+    }
+
+    @Test func mockedRoomsHaveDistinctIconsAndColors() {
+        let rooms = MockSeed.rooms
+        #expect(Set(rooms.map(\.icon)).count == rooms.count)
+        #expect(Set(rooms.map(\.color)).count == rooms.count)
     }
 }

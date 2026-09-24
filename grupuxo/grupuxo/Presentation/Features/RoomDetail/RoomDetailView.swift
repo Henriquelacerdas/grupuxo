@@ -11,7 +11,7 @@ struct RoomDetailView: View {
             if let info = viewModel.participation {
                 Section("Cômodo") {
                     HStack(spacing: DesignSystem.contentSpacing) {
-                        RoomIconView(appearance: info.room.appearance ?? RoomAppearance(), size: 40)
+                        RoomIconView(icon: info.room.icon, color: info.room.color, size: 40)
                         Text(info.room.name).font(.headline)
                     }
                     Text(info.room.periodicity.label)

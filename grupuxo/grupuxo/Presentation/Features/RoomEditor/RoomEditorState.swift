@@ -10,7 +10,8 @@ import Foundation
 struct RoomDraft: Equatable {
 
     var name = ""
-    var appearance = RoomAppearance()
+    var icon = "house.fill"
+    var color: RoomColor = .blue
     var selectedParticipantIDs: Set<User.ID> = []
     var periodicity = WeeklyPeriodicity()
     var responsibleCount = 1
@@ -42,7 +43,8 @@ enum RoomEditorState: Equatable {
 
             return RoomDraft(
                 name: room.name,
-                appearance: room.appearance ?? RoomAppearance(),
+                icon: room.icon,
+                color: room.color,
                 periodicity: room.periodicity,
                 responsibleCount: room.responsibleCount,
                 visibility: room.visibility

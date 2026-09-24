@@ -31,16 +31,17 @@ extension RoomColor {
 }
 
 struct RoomIconView: View {
-    let appearance: RoomAppearance
+    let icon: String
+    let color: RoomColor
     var size: CGFloat = 85
 
     var body: some View {
-        Image(systemName: appearance.icon)
+        Image(systemName: icon)
             .font(.system(size: size * 0.47, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
-            .background(appearance.color.tint.gradient, in: Circle())
-            .shadow(color: appearance.color.tint.opacity(0.3), radius: 5, y: 3)
+            .background(color.tint.gradient, in: Circle())
+            .shadow(color: color.tint.opacity(0.3), radius: 5, y: 3)
             .accessibilityHidden(true)
     }
 }

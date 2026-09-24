@@ -13,14 +13,16 @@ enum MockSeed {
         houseID: house.id,
         name: "Casa toda",
         kind: .wholeHouse,
-        visibility: .common
+        visibility: .common,
+        icon: "house.fill",
+        color: .blue
     )
 
-    nonisolated static let kitchen = Room(id: UUID(), houseID: house.id, name: "Cozinha", kind: .standard, visibility: .common)
-    nonisolated static let bathroom = Room(id: UUID(), houseID: house.id, name: "Banheiro", kind: .standard, visibility: .common)
-    nonisolated static let livingRoom = Room(id: UUID(), houseID: house.id, name: "Sala", kind: .standard, visibility: .common)
-    nonisolated static let laundry = Room(id: UUID(), houseID: house.id, name: "Lavanderia", kind: .standard, visibility: .common)
-    nonisolated static let privateOffice = Room(id: UUID(), houseID: house.id, name: "Escritório privado", kind: .standard, visibility: .privateRoom)
+    nonisolated static let kitchen = Room(id: UUID(), houseID: house.id, name: "Cozinha", kind: .standard, visibility: .common, icon: "refrigerator.fill", color: .orange)
+    nonisolated static let bathroom = Room(id: UUID(), houseID: house.id, name: "Banheiro", kind: .standard, visibility: .common, icon: "shower.fill", color: .purple)
+    nonisolated static let livingRoom = Room(id: UUID(), houseID: house.id, name: "Sala", kind: .standard, visibility: .common, icon: "sofa.fill", color: .green)
+    nonisolated static let laundry = Room(id: UUID(), houseID: house.id, name: "Lavanderia", kind: .standard, visibility: .common, icon: "washer.fill", color: .pink)
+    nonisolated static let privateOffice = Room(id: UUID(), houseID: house.id, name: "Escritório privado", kind: .standard, visibility: .privateRoom, icon: "display", color: .brown)
     nonisolated static let rooms = [wholeHouseRoom, kitchen, bathroom, livingRoom, laundry, privateOffice]
 
     nonisolated static func make() -> MockStore.State {

@@ -34,11 +34,11 @@ struct TaskCreationSheetView: View {
                         VStack(spacing: 0) {
                             Toggle(isOn: $urgency) {
                                 Label {
-                                    Text("Urgência")
+                                    Text("Tarefa Única")
                                         .font(.callout.weight(.medium))
                                     if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                                 } icon: {
-                                    Image(systemName: "dot.radiowaves.left.and.right")
+                                    Image(systemName: "flag")
                                 }
                             }
                         }

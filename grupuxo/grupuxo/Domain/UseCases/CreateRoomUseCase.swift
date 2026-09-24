@@ -20,7 +20,8 @@ struct CreateRoomUseCase: Sendable {
         visibility: RoomVisibility,
         periodicity: WeeklyPeriodicity = WeeklyPeriodicity(),
         responsibleCount: Int = 1,
-        appearance: RoomAppearance = RoomAppearance(),
+        icon: String = "house.fill",
+        color: RoomColor = .blue,
         selectedParticipantIDs: Set<User.ID>? = nil,
         date: Date = .now
     ) async throws -> Room {
@@ -69,7 +70,8 @@ struct CreateRoomUseCase: Sendable {
             periodicity: periodicity,
             responsibleCount: responsibleCount,
             calendarAnchor: try scheduler.weekStart(date),
-            appearance: appearance
+            icon: icon,
+            color: color
         )
 
         let memberships = participantIDs.map { userID in

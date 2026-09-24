@@ -95,7 +95,8 @@ final class RoomEditorViewModel: ObservableObject {
                 visibility: draft.visibility,
                 periodicity: draft.periodicity,
                 responsibleCount: draft.responsibleCount,
-                appearance: draft.appearance,
+                icon: draft.icon,
+                color: draft.color,
                 selectedParticipantIDs: draft.selectedParticipantIDs
             )
 

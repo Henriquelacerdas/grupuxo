@@ -80,7 +80,7 @@ struct HouseManagementView: View {
                 Button {
                     isPresentingRoomCreationSheet = true
                 } label: {
-                    Image(systemName: "folder.badge.plus")
+                    Image(systemName: "square.grid.2x2")
                 }
                 .accessibilityLabel("Adicionar cômodo")
                 .accessibilityIdentifier("createRoom")
@@ -150,7 +150,7 @@ struct HouseManagementView: View {
                     onSelectRoom(room.id)
                 } label: {
                     HStack(spacing: DesignSystem.contentSpacing) {
-                        RoomIconView(appearance: room.appearance ?? RoomAppearance(), size: 40)
+                        RoomIconView(icon: room.icon, color: room.color, size: 40)
                         Text(room.name)
                             .foregroundStyle(.primary)
                     }
