@@ -10,15 +10,11 @@ import Foundation
 final class TaskEditorViewModel: ObservableObject {
 
     @Published private(set) var state: TaskEditorState
-
     @Published private(set) var rooms: [Room] = []
 
     private let createTask: CreateTaskUseCase
-
     private let getHouseRooms: GetHouseRoomsUseCase
-
     private let houseID: House.ID
-
     private let ownerUserID: User.ID
 
     init(
@@ -30,11 +26,8 @@ final class TaskEditorViewModel: ObservableObject {
     ) {
 
         self.createTask = createTask
-
         self.getHouseRooms = getHouseRooms
-
         self.houseID = houseID
-
         self.ownerUserID = ownerUserID
 
         state = .editing(draft)
@@ -58,40 +51,87 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 
-    func updateDraft(_ update: (inout TaskDraft) -> Void) {
-        if case .saving = state { return }
+    func updateDraft(
+        _ update: (inout TaskDraft) -> Void
+    ) {
+
+        if case .saving = state {
+            return
+        }
+
         let previous = state.draft
         var draft = previous
+
         update(&draft)
-        // Keep the existing controls coherent; the domain still validates every command.
+
+        // Mantém os controles existentes coerentes.
+        // O domínio continua validando cada comando.
         if draft.kind != previous.kind {
-            draft.recurrence = draft.kind == .sporadic
+
+            draft.recurrence =
+                draft.kind == .sporadic
                 ? .none
-                : .recurring(frequency: .weekly, interval: 1)
-            draft.assignmentPolicy = draft.kind == .sporadic ? .selfAssigned : .balancedAutomatically
+                : .recurring(
+                    frequency: .weekly,
+                    interval: 1
+                )
+
+            draft.assignmentPolicy =
+                draft.kind == .sporadic
+                ? .selfAssigned
+                : .balancedAutomatically
+
         } else if draft.assignmentPolicy != previous.assignmentPolicy {
+
             switch draft.assignmentPolicy {
+
             case .selfAssigned:
+
                 draft.kind = .sporadic
                 draft.recurrence = .none
+
             case .afterCompletion:
+
                 draft.kind = .recurring
                 draft.recurrence = .none
-            case .balancedAutomatically, .calendarRotation:
+
+            case .balancedAutomatically,
+                 .calendarRotation:
+
                 draft.kind = .recurring
+
                 if draft.recurrence == .none {
-                    draft.recurrence = .recurring(frequency: .weekly, interval: 1)
+
+                    draft.recurrence = .recurring(
+                        frequency: .weekly,
+                        interval: 1
+                    )
                 }
             }
+
         } else if draft.recurrence != previous.recurrence {
-            draft.kind = draft.recurrence == .none ? .sporadic : .recurring
-            draft.assignmentPolicy = draft.kind == .sporadic ? .selfAssigned : .balancedAutomatically
+
+            draft.kind =
+                draft.recurrence == .none
+                ? .sporadic
+                : .recurring
+
+            draft.assignmentPolicy =
+                draft.kind == .sporadic
+                ? .selfAssigned
+                : .balancedAutomatically
         }
+
         state = .editing(draft)
     }
 
-    func selectRecurrence(_ recurrence: RecurrencePolicy) {
-        updateDraft { $0.recurrence = recurrence }
+    func selectRecurrence(
+        _ recurrence: RecurrencePolicy
+    ) {
+
+        updateDraft {
+            $0.recurrence = recurrence
+        }
     }
 
     func save() async {
@@ -120,13 +160,9 @@ final class TaskEditorViewModel: ObservableObject {
         state = .saving(draft)
 
         let definition = TaskDefinition(
-
             id: UUID(),
-
             roomID: roomID,
-
             name: draft.name,
-
             details: draft.details,
 
             effort: TaskEffort(
@@ -134,18 +170,17 @@ final class TaskEditorViewModel: ObservableObject {
             ),
 
             kind: draft.kind,
-
             visibility: draft.visibility,
-
             recurrence: draft.recurrence,
-
-            assignmentPolicy:
-                draft.assignmentPolicy,
+            assignmentPolicy: draft.assignmentPolicy,
 
             ownerUserID:
                 draft.visibility == .privateTask
                 ? ownerUserID
-                : nil
+                : nil,
+
+            sourceSuggestionID:
+                draft.sourceSuggestionID
         )
 
         do {

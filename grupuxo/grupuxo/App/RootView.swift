@@ -139,7 +139,17 @@ struct RootView: View {
                     container.makeRoomDetailViewModel(
                         roomID: roomID,
                         session: session
+                    ),
+
+                makeSuggestionEditorViewModel: {
+                    suggestion in
+
+                    container.makeTaskEditorViewModel(
+                        roomID: roomID,
+                        suggestion: suggestion,
+                        session: session
                     )
+                }
             )
 
         case .sporadicTasks:

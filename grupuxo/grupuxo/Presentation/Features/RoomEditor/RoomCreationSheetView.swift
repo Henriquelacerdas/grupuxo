@@ -10,7 +10,6 @@ import SwiftUI
 struct RoomCreationSheetView: View {
 
     @Environment(\.dismiss) private var dismiss
-
     @FocusState private var isNameFocused: Bool
 
     @StateObject private var viewModel: RoomEditorViewModel
@@ -34,6 +33,8 @@ struct RoomCreationSheetView: View {
                 ) {
 
                     nameCard
+
+                    categoryCard
 
                     visibilityCard
 
@@ -129,7 +130,6 @@ struct RoomCreationSheetView: View {
         .submitLabel(.done)
         .focused($isNameFocused)
         .onSubmit {
-
             isNameFocused = false
         }
         .accessibilityLabel("Nome do cômodo")
@@ -137,7 +137,63 @@ struct RoomCreationSheetView: View {
         .background(cardBackground)
     }
 
-    // MARK: - Tipo do cômodo
+    // MARK: - Categoria
+
+    private var categoryCard: some View {
+
+        HStack(
+            spacing: DesignSystem.Spacing.large
+        ) {
+
+            Label(
+                "Tipo de cômodo",
+                systemImage: "square.grid.2x2"
+            )
+            .font(.callout.weight(.medium))
+
+            Spacer()
+
+            Picker(
+                "Tipo de cômodo",
+                selection: binding(\.category)
+            ) {
+
+                Text("Cozinha")
+                    .tag(RoomCategory.kitchen)
+
+                Text("Banheiro")
+                    .tag(RoomCategory.bathroom)
+
+                Text("Quarto")
+                    .tag(RoomCategory.bedroom)
+
+                Text("Sala")
+                    .tag(RoomCategory.livingRoom)
+
+                Text("Lavanderia")
+                    .tag(RoomCategory.laundry)
+
+                Text("Escritório")
+                    .tag(RoomCategory.office)
+
+                Text("Área externa")
+                    .tag(RoomCategory.outdoor)
+
+                Text("Outro")
+                    .tag(RoomCategory.other)
+            }
+            .pickerStyle(.menu)
+            .accessibilityLabel("Tipo de cômodo")
+        }
+        .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+        )
+        .padding(DesignSystem.Spacing.large)
+        .background(cardBackground)
+    }
+
+    // MARK: - Acesso
 
     private var visibilityCard: some View {
 
@@ -147,13 +203,13 @@ struct RoomCreationSheetView: View {
         ) {
 
             Label(
-                "Tipo do cômodo",
+                "Acesso ao cômodo",
                 systemImage: "lock.shield"
             )
             .font(.callout.weight(.medium))
 
             Picker(
-                "Tipo do cômodo",
+                "Acesso ao cômodo",
                 selection: binding(\.visibility)
             ) {
 
@@ -164,7 +220,7 @@ struct RoomCreationSheetView: View {
                     .tag(RoomVisibility.privateRoom)
             }
             .pickerStyle(.segmented)
-            .accessibilityLabel("Tipo do cômodo")
+            .accessibilityLabel("Acesso ao cômodo")
         }
         .frame(
             maxWidth: .infinity,

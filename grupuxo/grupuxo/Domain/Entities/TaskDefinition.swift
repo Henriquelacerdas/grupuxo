@@ -9,19 +9,33 @@
 import Foundation
 
 struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
+
     let id: UUID
+
     var roomID: Room.ID
+
     var name: String
+
     var details: String
+
     var effort: TaskEffort
+
     var kind: TaskKind
+
     var visibility: TaskVisibility
+
     var recurrence: RecurrencePolicy
+
     var assignmentPolicy: TaskAssignmentPolicy
+
     var ownerUserID: User.ID?
+
+    var sourceSuggestionID: String? = nil
 
     // Fila estática; cursor da próxima ocorrência ainda não publicada.
     var rotationQueue: [User.ID] = []
+
     var currentRotationIndex: Int = 0
+
     var nextScheduledAt: Date? = nil
 }

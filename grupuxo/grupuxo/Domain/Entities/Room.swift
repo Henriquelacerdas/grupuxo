@@ -13,8 +13,11 @@ struct Room: Identifiable, Hashable, Codable, Sendable {
     let houseID: House.ID
     var name: String
     var kind: RoomKind
+    var category: RoomCategory = .other
     var visibility: RoomVisibility
     var rotationPolicy: RoomRotationPolicy
 
-    nonisolated var representsWholeHouse: Bool { kind == .wholeHouse }
+    nonisolated var representsWholeHouse: Bool {
+        kind == .wholeHouse
+    }
 }
