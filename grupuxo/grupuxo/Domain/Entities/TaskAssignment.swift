@@ -7,5 +7,7 @@ struct TaskAssignment: Identifiable, Hashable, Codable, Sendable {
     let assignedAt: Date
     var endedAt: Date?
 
-    nonisolated var isActive: Bool { endedAt == nil }
+    // Cancels a published future plan without inventing a negative execution interval.
+    var supersededAt: Date? = nil
+    nonisolated var isActive: Bool { endedAt == nil && supersededAt == nil }
 }

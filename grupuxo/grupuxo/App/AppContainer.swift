@@ -1,6 +1,5 @@
 // Composition root. Future room-management and vacation screens can consume the
 // transactional membership/schedule use cases without constructing services in Views.
-
 import Foundation
 
 @MainActor
@@ -15,7 +14,6 @@ final class AppContainer {
         store: MockStore = MockStore(),
         calendar: Calendar = Calendar(identifier: .gregorian)
     ) {
-
         self.store = store
 
         houseRepository = MockHouseRepository(
@@ -59,6 +57,13 @@ final class AppContainer {
     func makeAddRoomMemberUseCase() -> AddRoomMemberUseCase {
 
         AddRoomMemberUseCase(
+            repository: taskRepository
+        )
+    }
+
+    func makeRemoveRoomMemberUseCase() -> RemoveRoomMemberUseCase {
+
+        RemoveRoomMemberUseCase(
             repository: taskRepository
         )
     }
@@ -161,12 +166,12 @@ final class AppContainer {
     ) -> TaskEditorViewModel {
 
         var draft = TaskDraft()
-
         draft.roomID = roomID
 
         return TaskEditorViewModel(
             createTask: CreateTaskUseCase(
-                repository: taskRepository
+                repository: taskRepository,
+                roomRepository: roomRepository
             ),
 
             getHouseRooms: GetHouseRoomsUseCase(
@@ -197,7 +202,8 @@ final class AppContainer {
 
         return TaskEditorViewModel(
             createTask: CreateTaskUseCase(
-                repository: taskRepository
+                repository: taskRepository,
+                roomRepository: roomRepository
             ),
 
             getHouseRooms: GetHouseRoomsUseCase(

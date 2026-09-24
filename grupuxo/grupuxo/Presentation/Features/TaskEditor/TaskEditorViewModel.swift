@@ -3,6 +3,11 @@
 // TaskEffort hoje limita valores ao intervalo; se houver entrada livre, validar
 // 1...3 antes de construir o valor para informar o erro em vez de corrigir em silêncio.
 
+// TODO — Enviar contexto de usuário/casa ao caso de uso para validar autorização
+// de criação e carregar apenas cômodos autorizados.
+// TaskEffort hoje limita valores ao intervalo; se houver entrada livre, validar
+// 1...3 antes de construir o valor para informar o erro em vez de corrigir em silêncio.
+
 import Combine
 import Foundation
 
@@ -24,12 +29,10 @@ final class TaskEditorViewModel: ObservableObject {
         ownerUserID: User.ID,
         draft: TaskDraft
     ) {
-
         self.createTask = createTask
         self.getHouseRooms = getHouseRooms
         self.houseID = houseID
         self.ownerUserID = ownerUserID
-
         state = .editing(draft)
     }
 
@@ -64,8 +67,7 @@ final class TaskEditorViewModel: ObservableObject {
 
         update(&draft)
 
-        // Mantém os controles existentes coerentes.
-        // O domínio continua validando cada comando.
+    
         if draft.kind != previous.kind {
 
             draft.recurrence =
