@@ -17,7 +17,6 @@ final class TaskEditorViewModel: ObservableObject {
         requestingUserID: User.ID,
         draft: TaskDraft
     ) {
-
         self.createTask = createTask
         self.getHouseRooms = getHouseRooms
         self.houseID = houseID
@@ -28,15 +27,10 @@ final class TaskEditorViewModel: ObservableObject {
     func loadRooms() async {
         do {
             rooms = try await getHouseRooms(
-                houseID: houseID,
-                userID: requestingUserID,
-                participatingOnly: true
+                houseID: houseID, userID: requestingUserID, participatingOnly: true
             )
         } catch {
-            state = .failure(
-                state.draft,
-                error.localizedDescription
-            )
+            state = .failure(state.draft, error.localizedDescription)
         }
     }
 
@@ -46,11 +40,9 @@ final class TaskEditorViewModel: ObservableObject {
         var draft = previous
         update(&draft)
 
-        // Keep the existing controls coherent; the domain still validates every command.
         if draft.kind != previous.kind {
             draft.recurrence = draft.kind == .sporadic
-                ? .none
-                : .recurring(frequency: .weekly, interval: 1)
+                ? .none : .recurring(frequency: .weekly, interval: 1)
             draft.assignmentPolicy = draft.kind == .sporadic ? .selfAssigned : .balancedAutomatically
         } else if draft.assignmentPolicy != previous.assignmentPolicy {
             switch draft.assignmentPolicy {
@@ -84,46 +76,25 @@ final class TaskEditorViewModel: ObservableObject {
 
     func save() async {
         switch state {
-        case .saving, .saved:
-            return
-        case .editing, .failure:
-            break
+        case .saving, .saved: return
+        case .editing, .failure: break
         }
         let draft = state.draft
         guard let roomID = draft.roomID else {
-            state = .failure(
-                draft,
-                "Selecione um cômodo."
-            )
+            state = .failure(draft, "Selecione um cômodo.")
             return
         }
         state = .saving(draft)
-
         let definition = TaskDefinition(
-            id: UUID(),
-            roomID: roomID,
-            name: draft.name,
-            details: draft.details,
-            effort: TaskEffort(
-                points: draft.effortPoints
-            ),
-            kind: draft.kind,
-            recurrence: draft.recurrence,
-            assignmentPolicy:
-                draft.assignmentPolicy
+            id: UUID(), roomID: roomID, name: draft.name, details: draft.details,
+            effort: TaskEffort(points: draft.effortPoints), kind: draft.kind,
+            recurrence: draft.recurrence, assignmentPolicy: draft.assignmentPolicy,
+            sourceSuggestionID: draft.sourceSuggestionID
         )
-
         do {
-            state = .saved(
-                try await createTask(
-                    definition: definition, requestedBy: requestingUserID
-                )
-            )
+            state = .saved(try await createTask(definition: definition, requestedBy: requestingUserID))
         } catch {
-            state = .failure(
-                draft,
-                error.localizedDescription
-            )
+            state = .failure(draft, error.localizedDescription)
         }
     }
 }

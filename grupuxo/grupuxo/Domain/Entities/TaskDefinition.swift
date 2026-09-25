@@ -9,8 +9,7 @@ struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
     var kind: TaskKind
     var recurrence: RecurrencePolicy
     var assignmentPolicy: TaskAssignmentPolicy
-
-    // Fila estática; cursor da próxima ocorrência ainda não publicada.
+    var sourceSuggestionID: String? = nil
     var rotationQueue: [User.ID] = []
     var currentRotationIndex: Int = 0
     var nextScheduledAt: Date? = nil

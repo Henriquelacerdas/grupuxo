@@ -1,28 +1,37 @@
 import Foundation
 
 enum MockSeed {
-    // Quatro moradores tornam visíveis a rotação e o balanceamento de esforço.
     nonisolated static let currentUser = User(id: UUID(), name: "Marina", email: "marina@grupuxo.local")
     nonisolated static let leo = User(id: UUID(), name: "Leo", email: "leo@grupuxo.local")
     nonisolated static let bia = User(id: UUID(), name: "Bia", email: "bia@grupuxo.local")
     nonisolated static let rafa = User(id: UUID(), name: "Rafa", email: "rafa@grupuxo.local")
     nonisolated static let users = [currentUser, leo, bia, rafa]
     nonisolated static let house = House(id: UUID(), name: "Nossa casa", accessCode: "GRUPUXO", createdAt: .now)
-    nonisolated static let wholeHouseRoom = Room(
-        id: UUID(),
-        houseID: house.id,
-        name: "Casa toda",
-        kind: .wholeHouse,
-        visibility: .common,
-        icon: "house.fill",
-        color: .blue
-    )
 
-    nonisolated static let kitchen = Room(id: UUID(), houseID: house.id, name: "Cozinha", kind: .standard, visibility: .common, icon: "refrigerator.fill", color: .orange)
-    nonisolated static let bathroom = Room(id: UUID(), houseID: house.id, name: "Banheiro", kind: .standard, visibility: .common, icon: "shower.fill", color: .purple)
-    nonisolated static let livingRoom = Room(id: UUID(), houseID: house.id, name: "Sala", kind: .standard, visibility: .common, icon: "sofa.fill", color: .green)
-    nonisolated static let laundry = Room(id: UUID(), houseID: house.id, name: "Lavanderia", kind: .standard, visibility: .common, icon: "washer.fill", color: .pink)
-    nonisolated static let privateOffice = Room(id: UUID(), houseID: house.id, name: "Escritório privado", kind: .standard, visibility: .privateRoom, icon: "display", color: .brown)
+    nonisolated static let wholeHouseRoom = Room(
+        id: UUID(), houseID: house.id, name: "Casa toda", kind: .wholeHouse,
+        category: .other, visibility: .common, icon: "house.fill", color: .blue
+    )
+    nonisolated static let kitchen = Room(
+        id: UUID(), houseID: house.id, name: "Cozinha", kind: .standard,
+        category: .kitchen, visibility: .common, icon: "refrigerator.fill", color: .orange
+    )
+    nonisolated static let bathroom = Room(
+        id: UUID(), houseID: house.id, name: "Banheiro", kind: .standard,
+        category: .bathroom, visibility: .common, icon: "shower.fill", color: .purple
+    )
+    nonisolated static let livingRoom = Room(
+        id: UUID(), houseID: house.id, name: "Sala", kind: .standard,
+        category: .livingRoom, visibility: .common, icon: "sofa.fill", color: .green
+    )
+    nonisolated static let laundry = Room(
+        id: UUID(), houseID: house.id, name: "Lavanderia", kind: .standard,
+        category: .laundry, visibility: .common, icon: "washer.fill", color: .pink
+    )
+    nonisolated static let privateOffice = Room(
+        id: UUID(), houseID: house.id, name: "Escritório privado", kind: .standard,
+        category: .office, visibility: .privateRoom, icon: "display", color: .brown
+    )
     nonisolated static let rooms = [wholeHouseRoom, kitchen, bathroom, livingRoom, laundry, privateOffice]
 
     nonisolated static func make() -> MockStore.State {
@@ -31,7 +40,9 @@ enum MockSeed {
         let commonMemberships = seededRooms.filter { $0.visibility == .common }.flatMap { room in
             users.map { RoomMembership(id: UUID(), roomID: room.id, userID: $0.id) }
         }
-        let privateMemberships = [currentUser, bia].map { RoomMembership(id: UUID(), roomID: privateOffice.id, userID: $0.id) }
+        let privateMemberships = [currentUser, bia].map {
+            RoomMembership(id: UUID(), roomID: privateOffice.id, userID: $0.id)
+        }
         let definitions = [
             definition("Lavar a louça", "Limpar pia e escorredor", room: kitchen, effort: 2, policy: .balancedAutomatically),
             definition("Limpar bancada", "Passar pano e retirar migalhas", room: kitchen, effort: 1, policy: .afterCompletion),
@@ -44,18 +55,11 @@ enum MockSeed {
             definition("Trocar a lâmpada da sala", "Tarefa avulsa de manutenção", room: livingRoom, effort: 2, kind: .sporadic, policy: .selfAssigned)
         ]
         var state = MockStore.State(
-            users: users,
-            houses: [house],
-            houseMemberships: memberships,
-            rooms: seededRooms,
-            roomMemberships: commonMemberships + privateMemberships,
-            definitions: [],
-            occurrences: [],
-            assignments: [],
-            absences: []
+            users: users, houses: [house], houseMemberships: memberships, rooms: seededRooms,
+            roomMemberships: commonMemberships + privateMemberships, definitions: [], occurrences: [],
+            assignments: [], absences: []
         )
         let scheduling = TaskSchedulingService(calendar: Calendar(identifier: .gregorian))
-        // Demo data follows the same planner and invariants as user-created data.
         do {
             let start = try scheduling.weekStart(.now)
             var schedule = state.schedule
@@ -63,10 +67,17 @@ enum MockSeed {
             state.schedule = schedule
         } catch { preconditionFailure("Invalid demo schedule: \(error)") }
         return state
-
     }
 
-    private nonisolated static func definition(_ name: String, _ details: String, room: Room, effort: Int, kind: TaskKind = .recurring, policy: TaskAssignmentPolicy) -> TaskDefinition {
-        TaskDefinition(id: UUID(), roomID: room.id, name: name, details: details, effort: TaskEffort(points: effort), kind: kind, recurrence: kind == .recurring ? .recurring(frequency: .weekly, interval: 1) : .none, assignmentPolicy: policy)
+    private nonisolated static func definition(
+        _ name: String, _ details: String, room: Room, effort: Int,
+        kind: TaskKind = .recurring, policy: TaskAssignmentPolicy
+    ) -> TaskDefinition {
+        TaskDefinition(
+            id: UUID(), roomID: room.id, name: name, details: details,
+            effort: TaskEffort(points: effort), kind: kind,
+            recurrence: kind == .recurring ? .recurring(frequency: .weekly, interval: 1) : .none,
+            assignmentPolicy: policy
+        )
     }
 }

@@ -42,14 +42,14 @@ struct RoomCreationSheetView: View {
                     .padding(.vertical, 10)
                     .listRowBackground(Color.clear)
                 }
+                categorySection
                 colorSection
                 iconSection
                 routineSection
                 privacySection
                 if case let .failure(_, message) = viewModel.state {
                     Section {
-                        Label(message, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.red)
+                        Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
                     }
                 }
             }
@@ -85,14 +85,28 @@ struct RoomCreationSheetView: View {
         .sensoryFeedback(.selection, trigger: viewModel.state.draft.icon)
     }
 
+    private var categorySection: some View {
+        Section("Tipo de cômodo") {
+            Picker("Categoria", selection: binding(\.category)) {
+                Text("Cozinha").tag(RoomCategory.kitchen)
+                Text("Banheiro").tag(RoomCategory.bathroom)
+                Text("Quarto").tag(RoomCategory.bedroom)
+                Text("Sala").tag(RoomCategory.livingRoom)
+                Text("Lavanderia").tag(RoomCategory.laundry)
+                Text("Escritório").tag(RoomCategory.office)
+                Text("Área externa").tag(RoomCategory.outdoor)
+                Text("Outro").tag(RoomCategory.other)
+            }
+            .accessibilityLabel("Tipo de cômodo")
+        }
+    }
+
     private var colorSection: some View {
         Section("Cor") {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(RoomColor.allCases, id: \.self) { color in
                     let selected = viewModel.state.draft.color == color
-                    Button {
-                        viewModel.updateDraft { $0.color = color }
-                    } label: {
+                    Button { viewModel.updateDraft { $0.color = color } } label: {
                         Circle().fill(color.tint)
                             .frame(width: 44, height: 44)
                             .overlay {
@@ -116,9 +130,7 @@ struct RoomCreationSheetView: View {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(icons, id: \.symbol) { icon in
                     let selected = viewModel.state.draft.icon == icon.symbol
-                    Button {
-                        viewModel.updateDraft { $0.icon = icon.symbol }
-                    } label: {
+                    Button { viewModel.updateDraft { $0.icon = icon.symbol } } label: {
                         Image(systemName: icon.symbol)
                             .font(.system(size: 20, weight: selected ? .bold : .regular))
                             .foregroundStyle(selected ? .primary : .secondary)
@@ -137,7 +149,10 @@ struct RoomCreationSheetView: View {
 
     private var routineSection: some View {
         Section("Rotina de Limpeza") {
-            Stepper(value: binding(\.periodicity.executionsPerPeriod), in: 1...min(14, viewModel.state.draft.periodicity.intervalWeeks * 7)) {
+            Stepper(
+                value: binding(\.periodicity.executionsPerPeriod),
+                in: 1...min(14, viewModel.state.draft.periodicity.intervalWeeks * 7)
+            ) {
                 let count = viewModel.state.draft.periodicity.executionsPerPeriod
                 Text("Limpar: **\(count == 1 ? "1 vez" : "\(count) vezes")**")
             }
@@ -166,8 +181,7 @@ struct RoomCreationSheetView: View {
                     HStack {
                         Text("Moradores Responsáveis")
                         Spacer()
-                        Text("\(viewModel.state.draft.selectedParticipantIDs.count)")
-                            .foregroundStyle(.secondary)
+                        Text("\(viewModel.state.draft.selectedParticipantIDs.count)").foregroundStyle(.secondary)
                     }
                 }
             }

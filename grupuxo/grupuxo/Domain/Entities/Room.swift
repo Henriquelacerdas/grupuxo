@@ -5,6 +5,7 @@ struct Room: Identifiable, Hashable, Codable, Sendable {
     let houseID: House.ID
     var name: String
     var kind: RoomKind
+    var category: RoomCategory = .other
     var visibility: RoomVisibility
     var periodicity = WeeklyPeriodicity()
     var responsibleCount = 1
@@ -16,7 +17,7 @@ struct Room: Identifiable, Hashable, Codable, Sendable {
     nonisolated var representsWholeHouse: Bool { kind == .wholeHouse }
 
     private enum CodingKeys: String, CodingKey {
-        case id, houseID, name, kind, visibility, periodicity, responsibleCount
+        case id, houseID, name, kind, category, visibility, periodicity, responsibleCount
         case calendarAnchor, scheduleVersions, icon, color, appearance
     }
 
@@ -25,6 +26,7 @@ struct Room: Identifiable, Hashable, Codable, Sendable {
         houseID: House.ID,
         name: String,
         kind: RoomKind,
+        category: RoomCategory = .other,
         visibility: RoomVisibility,
         periodicity: WeeklyPeriodicity = WeeklyPeriodicity(),
         responsibleCount: Int = 1,
@@ -37,6 +39,7 @@ struct Room: Identifiable, Hashable, Codable, Sendable {
         self.houseID = houseID
         self.name = name
         self.kind = kind
+        self.category = category
         self.visibility = visibility
         self.periodicity = periodicity
         self.responsibleCount = responsibleCount
@@ -52,6 +55,7 @@ struct Room: Identifiable, Hashable, Codable, Sendable {
         houseID = try values.decode(House.ID.self, forKey: .houseID)
         name = try values.decode(String.self, forKey: .name)
         kind = try values.decode(RoomKind.self, forKey: .kind)
+        category = try values.decodeIfPresent(RoomCategory.self, forKey: .category) ?? .other
         visibility = try values.decode(RoomVisibility.self, forKey: .visibility)
         periodicity = try values.decodeIfPresent(WeeklyPeriodicity.self, forKey: .periodicity) ?? WeeklyPeriodicity()
         responsibleCount = try values.decodeIfPresent(Int.self, forKey: .responsibleCount) ?? 1
@@ -68,6 +72,7 @@ struct Room: Identifiable, Hashable, Codable, Sendable {
         try values.encode(houseID, forKey: .houseID)
         try values.encode(name, forKey: .name)
         try values.encode(kind, forKey: .kind)
+        try values.encode(category, forKey: .category)
         try values.encode(visibility, forKey: .visibility)
         try values.encode(periodicity, forKey: .periodicity)
         try values.encode(responsibleCount, forKey: .responsibleCount)
@@ -78,7 +83,6 @@ struct Room: Identifiable, Hashable, Codable, Sendable {
     }
 }
 
-/// Each version preserves the phase and greedy task blocks used when it was published.
 struct RoomScheduleVersion: Hashable, Codable, Sendable {
     var effectiveAt: Date
     var queue: [User.ID]
