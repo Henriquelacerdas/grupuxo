@@ -8,6 +8,8 @@ struct TaskOccurrence: Identifiable, Hashable, Codable, Sendable {
     var status: TaskOccurrenceStatus
     var completedAt: Date?
     var completedByUserID: User.ID?
+    var completionDebtImpacts: [User.ID: Double]? = nil
+    var didPublishSuccessor: Bool? = nil
     let effortSnapshot: TaskEffort
 
     nonisolated var isCompleted: Bool { status == .completed }

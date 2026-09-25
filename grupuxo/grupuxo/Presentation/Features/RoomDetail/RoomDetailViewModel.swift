@@ -94,16 +94,19 @@ final class RoomDetailViewModel: ObservableObject {
     }
 
     func canComplete(_ item: TaskItem) -> Bool {
-        !isCompleting && !item.occurrence.isCompleted
+        !isCompleting
             && item.assignment?.userID == userID && item.occurrence.availableAt <= .now
     }
 
     func complete(_ occurrenceID: TaskOccurrence.ID) async {
         guard !isCompleting else { return }
+        guard case let .content(content) = state,
+              let item = content.tasks.first(where: { $0.id == occurrenceID }),
+              canComplete(item) else { return }
         isCompleting = true
         defer { isCompleting = false }
         do {
-            try await completeTask(occurrenceID: occurrenceID, userID: userID)
+            try await completeTask(occurrenceID: occurrenceID, userID: userID, isCompleted: !item.occurrence.isCompleted)
             await load()
         } catch { actionError = error.localizedDescription }
     }

@@ -24,6 +24,77 @@ struct MembershipSchedulingTests {
             kind: .recurring, recurrence: .recurring(frequency: .weekly, interval: 1), assignmentPolicy: policy)
     }
 
+    @Test func completionCanBeUndoneWithoutDuplicatingEffortOrSuccessors() throws {
+        for policy in [TaskAssignmentPolicy.calendarRotation, .afterCompletion] {
+            var state = state()
+            _ = try service.create(definition(policy: policy), at: date, state: &state)
+            let original = state.occurrences[0]
+            let owner = state.assignments.first { $0.occurrenceID == original.id && $0.isActive }!.userID
+            let debts = state.roomMemberships.map(\.fairnessDebt)
+            try service.complete(occurrenceID: original.id, by: owner, at: date, state: &state)
+            let completedDebts = state.roomMemberships.map(\.fairnessDebt)
+            let count = state.occurrences.count
+            #expect(throws: DomainError.taskUnavailable) {
+                try service.reopen(occurrenceID: original.id, by: UUID(), state: &state)
+            }
+            try service.reopen(occurrenceID: original.id, by: owner, state: &state)
+            #expect(state.roomMemberships.map(\.fairnessDebt) == debts)
+            #expect(state.occurrences[0].status == .assigned)
+            #expect(state.occurrences[0].completedAt == nil)
+            #expect(state.occurrences[0].completedByUserID == nil)
+            #expect(state.assignments.contains { $0.occurrenceID == original.id && $0.userID == owner && $0.isActive })
+            try service.complete(occurrenceID: original.id, by: owner, at: date, state: &state)
+            #expect(state.roomMemberships.map(\.fairnessDebt) == completedDebts)
+            #expect(state.occurrences.count == count)
+        }
+    }
+
+    @Test @MainActor func myTasksKeepsCompletedTasksLastAndAllowsUndo() async throws {
+        let store = MockStore()
+        let repository = MockTaskRepository(store: store, scheduling: service)
+        let seed = MockSeed.make()
+        let user = seed.users[0].id
+        let house = seed.houses[0].id
+        let viewModel = MyTasksViewModel(getMyTasks: GetMyTasksUseCase(repository: repository),
+                                        completeTask: CompleteTaskUseCase(repository: repository),
+                                        userID: user, houseID: house)
+        await viewModel.load()
+        guard case let .content(tasks) = viewModel.state,
+              let item = tasks.first(where: { viewModel.canComplete($0) && !$0.occurrence.isCompleted }) else {
+            Issue.record("Expected an assigned task"); return
+        }
+        await viewModel.complete(item.id)
+        #expect(viewModel.actionError == nil)
+        guard case let .content(completed) = viewModel.state,
+              let retained = completed.first(where: { $0.id == item.id }) else {
+            Issue.record("Completed task disappeared"); return
+        }
+        #expect(retained.occurrence.isCompleted)
+        #expect(viewModel.canComplete(retained))
+        #expect(completed.suffix(from: completed.firstIndex(where: { $0.occurrence.isCompleted })!).allSatisfy { $0.occurrence.isCompleted })
+        await viewModel.complete(item.id)
+        #expect(viewModel.actionError == nil)
+        let reloaded = try await repository.tasks(for: user, in: house)
+        #expect(reloaded.first { $0.id == item.id }?.occurrence.isCompleted == false)
+        let roomModel = AppContainer(store: store, calendar: calendar).makeRoomDetailViewModel(
+            roomID: item.definition.roomID,
+            session: AppSession(currentUser: seed.users[0], currentHouse: seed.houses[0]))
+        await roomModel.load()
+        await roomModel.complete(item.id)
+        #expect(roomModel.actionError == nil)
+        guard case let .content(roomContent) = roomModel.state,
+              let roomItem = roomContent.tasks.first(where: { $0.id == item.id }) else {
+            Issue.record("Task missing from room"); return
+        }
+        #expect(roomItem.occurrence.isCompleted)
+        #expect(roomModel.canComplete(roomItem))
+        #expect(roomContent.tasks.filter { $0.assignment?.userID != user }.allSatisfy { !roomModel.canComplete($0) })
+        await roomModel.complete(item.id)
+        #expect(roomModel.actionError == nil)
+        let roomTasks = try await repository.tasks(in: item.definition.roomID, requesting: user)
+        #expect(roomTasks.first { $0.id == item.id }?.occurrence.isCompleted == false)
+    }
+
     @Test func departureRetainsPendingCompletionAndReentryKeepsDebt() throws {
         var state = state()
         let task = try service.create(definition(), at: date, state: &state)

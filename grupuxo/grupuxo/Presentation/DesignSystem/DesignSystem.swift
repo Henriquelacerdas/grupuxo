@@ -50,8 +50,8 @@ struct TaskRow: View {
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.borderless)
-            .disabled(!canComplete || item.occurrence.isCompleted)
-            .accessibilityLabel("Concluir \(item.definition.name)")
+            .disabled(!canComplete)
+            .accessibilityLabel(item.occurrence.isCompleted ? "Desmarcar conclusão de \(item.definition.name)" : "Concluir \(item.definition.name)")
             .accessibilityValue(item.occurrence.isCompleted ? "Concluída" : "Pendente")
 
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {

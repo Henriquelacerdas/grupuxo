@@ -130,13 +130,15 @@ struct TaskSchedulingService: Sendable {
             guard updated.isFinite else { throw DomainError.invalidDistribution }
             state.roomMemberships[i].fairnessDebt = updated
         }
+        state.occurrences[index].completionDebtImpacts = impacts
         state.occurrences[index].status = .completed
         state.occurrences[index].completedAt = date
         state.occurrences[index].completedByUserID = userID
         for i in state.assignments.indices where state.assignments[i].occurrenceID == occurrenceID && state.assignments[i].isActive {
             state.assignments[i].endedAt = date
         }
-        if definition.kind == .recurring && definition.assignmentPolicy == .afterCompletion {
+        if definition.kind == .recurring && definition.assignmentPolicy == .afterCompletion
+            && occurrence.didPublishSuccessor != true {
             activatePending(definition: &definition, at: date)
             // Legacy seed definitions have no queue. Establish it once, preserving the executor's turn.
             if definition.rotationQueue.isEmpty {
@@ -146,8 +148,35 @@ struct TaskSchedulingService: Sendable {
                 } else { definition.currentRotationIndex = 0 }
             }
             try publish(definition: &definition, at: date, dueAt: nil, state: &state)
+            state.occurrences[index].didPublishSuccessor = true
             state.definitions[definitionIndex] = definition
         }
+    }
+
+    func reopen(occurrenceID: TaskOccurrence.ID, by userID: User.ID,
+                state: inout TaskSchedulingState) throws {
+        guard let index = state.occurrences.firstIndex(where: { $0.id == occurrenceID }),
+              let definition = state.definitions.first(where: { $0.id == state.occurrences[index].taskDefinitionID }) else {
+            throw DomainError.entityNotFound
+        }
+        let occurrence = state.occurrences[index]
+        let houseID = try room(for: definition, state: state).houseID
+        guard occurrence.isCompleted, occurrence.completedByUserID == userID,
+              state.houseMemberships.contains(where: { $0.houseID == houseID && $0.userID == userID }),
+              let assignmentIndex = state.assignments.lastIndex(where: {
+                  $0.occurrenceID == occurrenceID && $0.userID == userID
+                      && $0.supersededAt == nil && $0.endedAt == occurrence.completedAt
+              }) else { throw DomainError.taskUnavailable }
+        // Reverse the recorded impact, even if room membership changed since completion.
+        for i in state.roomMemberships.indices where state.roomMemberships[i].roomID == definition.roomID {
+            state.roomMemberships[i].fairnessDebt -= occurrence.completionDebtImpacts?[state.roomMemberships[i].userID] ?? 0
+        }
+        state.occurrences[index].status = .assigned
+        state.occurrences[index].completedAt = nil
+        state.occurrences[index].completedByUserID = nil
+        state.occurrences[index].completionDebtImpacts = nil
+        state.assignments[assignmentIndex].endedAt = nil
+        // Keep already published turns; completing again must not publish another successor.
     }
 
     /// Extends published schedules without completing, rotating, or editing older occurrences.
