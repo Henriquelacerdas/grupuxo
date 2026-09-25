@@ -6,9 +6,12 @@ import Foundation
 final class AppContainer {
 
     let store: MockStore
+
     let houseRepository: any HouseRepository
     let roomRepository: any RoomRepository
     let taskRepository: any TaskRepository
+    let taskSwapRepository: any TaskSwapRepository
+    let notificationRepository: any NotificationRepository
 
     init(
         store: MockStore = MockStore(),
@@ -39,12 +42,19 @@ final class AppContainer {
             store: store,
             scheduling: scheduling
         )
+
+        taskSwapRepository = MockTaskSwapRepository(
+            store: store
+        )
+
+        notificationRepository = MockNotificationRepository(
+            store: store
+        )
     }
 
     func makeProfileViewModel(
         session: AppSession
     ) -> ProfileViewModel {
-
         ProfileViewModel(
             getMembers: GetHouseMembersUseCase(
                 repository: houseRepository
@@ -55,21 +65,18 @@ final class AppContainer {
     }
 
     func makeAddRoomMemberUseCase() -> AddRoomMemberUseCase {
-
         AddRoomMemberUseCase(
             repository: taskRepository
         )
     }
 
     func makeRemoveRoomMemberUseCase() -> RemoveRoomMemberUseCase {
-
         RemoveRoomMemberUseCase(
             repository: taskRepository
         )
     }
 
     func makeRefreshTaskScheduleUseCase() -> RefreshTaskScheduleUseCase {
-
         RefreshTaskScheduleUseCase(
             repository: taskRepository
         )
@@ -78,16 +85,13 @@ final class AppContainer {
     func makeMyTasksViewModel(
         session: AppSession
     ) -> MyTasksViewModel {
-
         MyTasksViewModel(
             getMyTasks: GetMyTasksUseCase(
                 repository: taskRepository
             ),
-
             completeTask: CompleteTaskUseCase(
                 repository: taskRepository
             ),
-
             userID: session.currentUser.id,
             houseID: session.currentHouse.id
         )
@@ -96,12 +100,10 @@ final class AppContainer {
     func makeHouseManagementViewModel(
         session: AppSession
     ) -> HouseManagementViewModel {
-
         HouseManagementViewModel(
             getHouseRooms: GetHouseRoomsUseCase(
                 repository: roomRepository
             ),
-
             houseID: session.currentHouse.id,
             userID: session.currentUser.id
         )
@@ -111,22 +113,17 @@ final class AppContainer {
         roomID: Room.ID,
         session: AppSession
     ) -> RoomDetailViewModel {
-
         RoomDetailViewModel(
             roomRepository: roomRepository,
-
             getRoomTasks: GetRoomTasksUseCase(
                 repository: taskRepository
             ),
-
             getTaskSuggestions: GetTaskSuggestionsUseCase(
                 catalog: TaskSuggestionCatalog()
             ),
-
             completeTask: CompleteTaskUseCase(
                 repository: taskRepository
             ),
-
             roomID: roomID,
             userID: session.currentUser.id
         )
@@ -135,24 +132,19 @@ final class AppContainer {
     func makeSporadicTasksViewModel(
         session: AppSession
     ) -> SporadicTasksViewModel {
-
         SporadicTasksViewModel(
             getTasks: GetSporadicTasksUseCase(
                 repository: taskRepository
             ),
-
             claimTask: ClaimSporadicTaskUseCase(
                 repository: taskRepository
             ),
-
             releaseTask: ReleaseSporadicTaskUseCase(
                 repository: taskRepository
             ),
-
             completeTask: CompleteTaskUseCase(
                 repository: taskRepository
             ),
-
             userID: session.currentUser.id,
             houseID: session.currentHouse.id
         )
@@ -164,7 +156,6 @@ final class AppContainer {
         roomID: Room.ID?,
         session: AppSession
     ) -> TaskEditorViewModel {
-
         var draft = TaskDraft()
         draft.roomID = roomID
 
@@ -173,11 +164,9 @@ final class AppContainer {
                 repository: taskRepository,
                 roomRepository: roomRepository
             ),
-
             getHouseRooms: GetHouseRoomsUseCase(
                 repository: roomRepository
             ),
-
             houseID: session.currentHouse.id,
             ownerUserID: session.currentUser.id,
             draft: draft
@@ -191,7 +180,6 @@ final class AppContainer {
         suggestion: TaskSuggestion,
         session: AppSession
     ) -> TaskEditorViewModel {
-
         var draft = TaskDraft()
 
         draft.roomID = roomID
@@ -205,11 +193,9 @@ final class AppContainer {
                 repository: taskRepository,
                 roomRepository: roomRepository
             ),
-
             getHouseRooms: GetHouseRoomsUseCase(
                 repository: roomRepository
             ),
-
             houseID: session.currentHouse.id,
             ownerUserID: session.currentUser.id,
             draft: draft
@@ -219,15 +205,35 @@ final class AppContainer {
     func makeRoomEditorViewModel(
         session: AppSession
     ) -> RoomEditorViewModel {
-
         RoomEditorViewModel(
             createRoom: CreateRoomUseCase(
                 roomRepository: roomRepository,
                 houseRepository: houseRepository
             ),
-
             houseID: session.currentHouse.id,
             creatorUserID: session.currentUser.id
+        )
+    }
+
+    // MARK: - Troca de tarefas
+
+    func makeTaskSwapViewModel(
+        offeredOccurrenceID: TaskOccurrence.ID,
+        session: AppSession
+    ) -> TaskSwapViewModel {
+        TaskSwapViewModel(
+            getMyTasks: GetMyTasksUseCase(
+                repository: taskRepository
+            ),
+            getCandidates: GetTaskSwapCandidatesUseCase(
+                repository: taskSwapRepository
+            ),
+            createRequest: CreateTaskSwapRequestUseCase(
+                repository: taskSwapRepository
+            ),
+            userID: session.currentUser.id,
+            houseID: session.currentHouse.id,
+            offeredOccurrenceID: offeredOccurrenceID
         )
     }
 }

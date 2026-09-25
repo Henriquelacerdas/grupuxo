@@ -8,13 +8,10 @@ struct RootView: View {
     @StateObject private var session: AppSession
 
     @State private var selectedTab: AppTab = .myTasks
-
     @State private var tasksPath: [AppRoute] = []
-
     @State private var housePath: [AppRoute] = []
 
     init() {
-
         container = AppContainer()
 
         _session = StateObject(
@@ -25,8 +22,10 @@ struct RootView: View {
         )
     }
 
-    init(container: AppContainer, session: AppSession) {
-
+    init(
+        container: AppContainer,
+        session: AppSession
+    ) {
         self.container = container
 
         _session = StateObject(
@@ -45,36 +44,40 @@ struct RootView: View {
                     viewModel: container.makeMyTasksViewModel(
                         session: session
                     ),
+
+                    onRequestSwap: { occurrenceID in
+                        tasksPath.append(
+                            .taskSwap(
+                                offeredOccurrenceID: occurrenceID
+                            )
+                        )
+                    },
+
                     onSelectNotifications: {
                         tasksPath.append(.notifications)
                     },
+
                     onSelectProfile: {
                         tasksPath.append(.settings)
                     }
                 )
-
                 .navigationDestination(
                     for: AppRoute.self
                 ) { route in
-
                     destination(for: route)
                 }
             }
-
             .tabItem {
                 Label(
                     "Tarefas",
                     systemImage: "checklist"
                 )
             }
-
             .tag(AppTab.myTasks)
-
 
             NavigationStack(path: $housePath) {
 
                 HouseManagementView(
-
                     viewModel:
                         container.makeHouseManagementViewModel(
                             session: session
@@ -105,22 +108,18 @@ struct RootView: View {
                         )
                     }
                 )
-
                 .navigationDestination(
                     for: AppRoute.self
                 ) { route in
-
                     destination(for: route)
                 }
             }
-
             .tabItem {
                 Label(
                     "Casa",
                     systemImage: "house"
                 )
             }
-
             .tag(AppTab.house)
         }
     }
@@ -171,6 +170,16 @@ struct RootView: View {
                     )
             )
 
+        case let .taskSwap(offeredOccurrenceID):
+
+            TaskSwapView(
+                viewModel:
+                    container.makeTaskSwapViewModel(
+                        offeredOccurrenceID: offeredOccurrenceID,
+                        session: session
+                    )
+            )
+
         case .notifications:
 
             ContentUnavailableView(
@@ -180,11 +189,18 @@ struct RootView: View {
                     "Esta área será implementada em breve."
                 )
             )
-            .navigationTitle("Notificações")
+            .navigationTitle(
+                "Notificações"
+            )
 
         case .settings:
 
-            ProfileView(viewModel: container.makeProfileViewModel(session: session))
+            ProfileView(
+                viewModel:
+                    container.makeProfileViewModel(
+                        session: session
+                    )
+            )
         }
     }
 }

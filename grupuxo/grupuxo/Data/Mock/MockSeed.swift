@@ -111,9 +111,9 @@ enum MockSeed {
     ]
 
     nonisolated static func make() -> MockStore.State {
-
+        
         let seededRooms = rooms
-
+        
         let memberships = users.map {
             HouseMembership(
                 id: UUID(),
@@ -121,11 +121,11 @@ enum MockSeed {
                 userID: $0.id
             )
         }
-
+        
         let commonMemberships = seededRooms
             .filter { $0.visibility == .common }
             .flatMap { room in
-
+                
                 users.map {
                     RoomMembership(
                         id: UUID(),
@@ -134,7 +134,7 @@ enum MockSeed {
                     )
                 }
             }
-
+        
         let privateMemberships = [
             currentUser,
             bia
@@ -145,9 +145,9 @@ enum MockSeed {
                 userID: $0.id
             )
         }
-
+        
         let definitions = [
-
+            
             definition(
                 "Lavar a louça",
                 "Limpar pia e escorredor",
@@ -155,7 +155,7 @@ enum MockSeed {
                 effort: 2,
                 policy: .balancedAutomatically
             ),
-
+            
             definition(
                 "Limpar bancada",
                 "Passar pano e retirar migalhas",
@@ -163,7 +163,7 @@ enum MockSeed {
                 effort: 1,
                 policy: .afterCompletion
             ),
-
+            
             definition(
                 "Higienizar o banheiro",
                 "Vaso, pia e espelho",
@@ -171,7 +171,7 @@ enum MockSeed {
                 effort: 3,
                 policy: .calendarRotation
             ),
-
+            
             definition(
                 "Repor papel higiênico",
                 "Conferir o armário",
@@ -179,7 +179,7 @@ enum MockSeed {
                 effort: 1,
                 policy: .balancedAutomatically
             ),
-
+            
             definition(
                 "Aspirar a sala",
                 "Incluindo embaixo do sofá",
@@ -187,7 +187,7 @@ enum MockSeed {
                 effort: 2,
                 policy: .calendarRotation
             ),
-
+            
             definition(
                 "Tirar o lixo",
                 "Separar recicláveis",
@@ -195,7 +195,7 @@ enum MockSeed {
                 effort: 1,
                 policy: .balancedAutomatically
             ),
-
+            
             definition(
                 "Lavar roupas de cama",
                 "Trocar e lavar os lençóis",
@@ -203,7 +203,7 @@ enum MockSeed {
                 effort: 2,
                 policy: .afterCompletion
             ),
-
+            
             definition(
                 "Organizar documentos",
                 "Tarefa do escritório privado",
@@ -212,7 +212,7 @@ enum MockSeed {
                 policy: .selfAssigned,
                 visibility: .privateTask
             ),
-
+            
             definition(
                 "Trocar a lâmpada da sala",
                 "Tarefa avulsa de manutenção",
@@ -222,9 +222,9 @@ enum MockSeed {
                 policy: .selfAssigned
             )
         ]
-
+        
         let occurrences = definitions.enumerated().map { index, item in
-
+            
             TaskOccurrence(
                 id: UUID(),
                 taskDefinitionID: item.id,
@@ -232,17 +232,17 @@ enum MockSeed {
                     TimeInterval(-index * 3600)
                 ),
                 dueAt: item.kind == .recurring
-                    ? .now.addingTimeInterval(7 * 86_400)
-                    : nil,
+                ? .now.addingTimeInterval(7 * 86_400)
+                : nil,
                 status: .available,
                 completedAt: nil,
                 completedByUserID: nil,
                 effortSnapshot: item.effort
             )
         }
-
+        
         let assignments = [
-
+            
             TaskAssignment(
                 id: UUID(),
                 occurrenceID: occurrences[0].id,
@@ -250,7 +250,7 @@ enum MockSeed {
                 assignedAt: .now,
                 endedAt: nil
             ),
-
+            
             TaskAssignment(
                 id: UUID(),
                 occurrenceID: occurrences[2].id,
@@ -258,7 +258,7 @@ enum MockSeed {
                 assignedAt: .now,
                 endedAt: nil
             ),
-
+            
             TaskAssignment(
                 id: UUID(),
                 occurrenceID: occurrences[4].id,
@@ -266,7 +266,7 @@ enum MockSeed {
                 assignedAt: .now,
                 endedAt: nil
             ),
-
+            
             TaskAssignment(
                 id: UUID(),
                 occurrenceID: occurrences[5].id,
@@ -275,11 +275,11 @@ enum MockSeed {
                 endedAt: nil
             )
         ]
-
+        
         var seededOccurrences = occurrences
-
+        
         for assignment in assignments {
-
+            
             if let index = seededOccurrences.firstIndex(
                 where: {
                     $0.id == assignment.occurrenceID
@@ -288,7 +288,7 @@ enum MockSeed {
                 seededOccurrences[index].status = .assigned
             }
         }
-
+        
         return MockStore.State(
             users: users,
             houses: [house],
@@ -299,7 +299,9 @@ enum MockSeed {
             occurrences: seededOccurrences,
             assignments: assignments,
             absences: [],
-            roomAccessRequests: []
+            roomAccessRequests: [],
+            taskSwapRequests: [],
+            notifications: []
         )
     }
 
