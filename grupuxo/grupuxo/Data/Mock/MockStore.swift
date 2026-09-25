@@ -10,12 +10,22 @@ actor MockStore {
         var assignments: [TaskAssignment]
         var absences: [Absence]
 
+        var taskSwapRequests: [TaskSwapRequest]
+        var notifications: [AppNotification]
+
         var schedule: TaskSchedulingState {
             get {
-                TaskSchedulingState(rooms: rooms, houseMemberships: houseMemberships,
-                                    roomMemberships: roomMemberships, definitions: definitions,
-                                    occurrences: occurrences, assignments: assignments, absences: absences)
+                TaskSchedulingState(
+                    rooms: rooms,
+                    houseMemberships: houseMemberships,
+                    roomMemberships: roomMemberships,
+                    definitions: definitions,
+                    occurrences: occurrences,
+                    assignments: assignments,
+                    absences: absences
+                )
             }
+
             set {
                 rooms = newValue.rooms
                 houseMemberships = newValue.houseMemberships

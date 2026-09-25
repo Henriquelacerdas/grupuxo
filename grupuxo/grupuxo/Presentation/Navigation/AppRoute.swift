@@ -7,6 +7,7 @@ enum AppRoute: Hashable {
     case roomDetail(Room.ID)
     case sporadicTasks
     case taskEditor(roomID: Room.ID?)
+    case taskSwap(offeredOccurrenceID: TaskOccurrence.ID)
     case notifications
     case settings
 }
