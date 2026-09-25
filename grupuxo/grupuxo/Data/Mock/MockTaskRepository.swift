@@ -27,7 +27,6 @@ struct MockTaskRepository: TaskRepository {
                         roomMemberships: state.roomMemberships
                     ))
                     && item.occurrence.availableAt <= Date.now
-                    && !item.occurrence.isCompleted
                     && (item.assignment?.userID == userID)
             }
         }
@@ -88,6 +87,14 @@ struct MockTaskRepository: TaskRepository {
         try await store.update { state in
             var schedule = state.schedule
             try scheduling.complete(occurrenceID: occurrenceID, by: userID, at: date, state: &schedule)
+            state.schedule = schedule
+        }
+    }
+
+    func reopen(occurrenceID: TaskOccurrence.ID, by userID: User.ID) async throws {
+        try await store.update { state in
+            var schedule = state.schedule
+            try scheduling.reopen(occurrenceID: occurrenceID, by: userID, state: &schedule)
             state.schedule = schedule
         }
     }
@@ -178,7 +185,7 @@ struct MockTaskRepository: TaskRepository {
     }
 
     private func retained(_ item: TaskItem, userID: User.ID, state: MockStore.State) -> Bool {
-        !item.occurrence.isCompleted && item.assignment?.userID == userID
+        item.assignment?.userID == userID
             && state.roomMemberships.contains {
                 $0.roomID == item.definition.roomID && $0.userID == userID && !$0.isCurrent
                     && $0.rotationChanges?.contains(where: { !$0.participates && item.occurrence.availableAt < $0.effectiveAt }) == true
@@ -190,6 +197,10 @@ struct MockTaskRepository: TaskRepository {
         return state.occurrences.compactMap { occurrence in
             guard let definition = definitionByID[occurrence.taskDefinitionID] else { return nil }
             let assignment = state.assignments.first { $0.occurrenceID == occurrence.id && $0.isActive }
+                ?? (occurrence.isCompleted ? state.assignments.last {
+                    $0.occurrenceID == occurrence.id && $0.userID == occurrence.completedByUserID
+                        && $0.supersededAt == nil && $0.endedAt == occurrence.completedAt
+                } : nil)
             let assigneeID = assignment?.userID ?? occurrence.completedByUserID
             return TaskItem(definition: definition, occurrence: occurrence, assignment: assignment,
                             assignee: state.users.first { $0.id == assigneeID })

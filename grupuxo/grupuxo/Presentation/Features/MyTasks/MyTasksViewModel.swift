@@ -26,8 +26,8 @@ final class MyTasksViewModel: ObservableObject {
         self.houseID = houseID
     }
 
-    func load() async {
-        state = .loading
+    func load(showLoading: Bool = true) async {
+        if showLoading { state = .loading }
 
         do {
             let tasks = try await getMyTasks(
@@ -51,7 +51,6 @@ final class MyTasksViewModel: ObservableObject {
     ) -> Bool {
 
         !isCompleting
-            && !item.occurrence.isCompleted
             && item.assignment?.userID == userID
             && item.occurrence.availableAt <= .now
     }
@@ -78,6 +77,9 @@ final class MyTasksViewModel: ObservableObject {
             return
         }
 
+        guard case let .content(tasks) = state,
+              let item = tasks.first(where: { $0.id == occurrenceID }),
+              canComplete(item) else { return }
         isCompleting = true
 
         defer {
@@ -87,10 +89,11 @@ final class MyTasksViewModel: ObservableObject {
         do {
             try await completeTask(
                 occurrenceID: occurrenceID,
-                userID: userID
+                userID: userID,
+                isCompleted: !item.occurrence.isCompleted
             )
 
-            await load()
+            await load(showLoading: false)
 
         } catch {
             actionError = error.localizedDescription

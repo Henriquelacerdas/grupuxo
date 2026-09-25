@@ -96,7 +96,7 @@ struct MyTasksView: View {
             await viewModel.load()
         }
         .alert(
-            "Não foi possível concluir",
+            "Não foi possível atualizar a tarefa",
             isPresented: Binding(
                 get: {
                     viewModel.actionError != nil
