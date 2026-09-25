@@ -16,11 +16,12 @@ struct MembershipSchedulingTests {
     func state() -> TaskSchedulingState {
         var state = MockSeed.make().schedule
         state.definitions = []; state.occurrences = []; state.assignments = []
+        for i in state.rooms.indices { state.rooms[i].periodicity.executionsPerPeriod = 2; state.rooms[i].calendarAnchor = nil; state.rooms[i].scheduleVersions = [] }
         return state
     }
     func definition(roomID: UUID = MockSeed.kitchen.id, policy: TaskAssignmentPolicy = .calendarRotation) -> TaskDefinition {
         TaskDefinition(id: UUID(), roomID: roomID, name: "Limpar", details: "", effort: TaskEffort(points: 3),
-            kind: .recurring, visibility: .house, recurrence: .recurring(frequency: .weekly, interval: 1), assignmentPolicy: policy)
+            kind: .recurring, recurrence: .recurring(frequency: .weekly, interval: 1), assignmentPolicy: policy)
     }
 
     @Test func departureRetainsPendingCompletionAndReentryKeepsDebt() throws {
@@ -43,47 +44,29 @@ struct MembershipSchedulingTests {
         #expect(rejoined.participates(at: calendar.date(byAdding: .weekOfYear, value: 1, to: boundary)!))
     }
 
-    @Test func emptyRoomSuspendsAndResumesWithoutDuplicateOccurrences() throws {
+    @Test func lastDepartureRequiresConfirmationAndDeletesTasks() throws {
         var state = state()
         let user = MockSeed.currentUser.id
         state.roomMemberships.removeAll { $0.roomID == MockSeed.kitchen.id && $0.userID != user }
         _ = try service.create(definition(), at: date, state: &state)
-        try service.removeMember(userID: user, roomID: MockSeed.kitchen.id, at: date, state: &state)
-        #expect(state.definitions[0].rotationQueue.isEmpty)
-        #expect(state.occurrences.filter { $0.availableAt >= boundary }.allSatisfy { $0.status == .available })
-        let originalIDs = Set(state.occurrences.map(\.id))
-        try service.addMember(userID: user, roomID: MockSeed.kitchen.id, at: date, state: &state)
-        #expect(Set(state.occurrences.map(\.id)) == originalIDs)
-        #expect(state.occurrences.allSatisfy { $0.status == .assigned })
-        #expect(state.roomMemberships.filter { $0.roomID == MockSeed.kitchen.id }.count == 1)
-        let next = calendar.date(byAdding: .weekOfYear, value: 20, to: boundary)!
-        try service.refresh(houseID: MockSeed.house.id, at: next, state: &state)
-        let after = state.occurrences
-        try service.refresh(houseID: MockSeed.house.id, at: next, state: &state)
-        #expect(state.occurrences == after)
-        #expect(Set(state.occurrences.map(\.availableAt)).count == state.occurrences.count)
+        #expect(throws: DomainError.deletionConfirmationRequired) {
+            try service.removeMember(userID: user, roomID: MockSeed.kitchen.id, at: date, state: &state)
+        }
+        try service.removeMember(userID: user, roomID: MockSeed.kitchen.id, at: date, confirmDeletion: true, state: &state)
+        #expect(state.definitions.isEmpty && state.occurrences.isEmpty && state.assignments.isEmpty)
+        #expect(!state.rooms.contains { $0.id == MockSeed.kitchen.id })
     }
 
-    @Test func completionQueueActivatesOnlyAtBoundaryAndEmptyQueueResumes() throws {
+    @Test func completionQueueChangesAtBoundary() throws {
         var state = state()
-        let user = MockSeed.currentUser.id
-        state.roomMemberships.removeAll { $0.roomID == MockSeed.kitchen.id && $0.userID != user }
-        _ = try service.create(definition(policy: .afterCompletion), at: date, state: &state)
-        try service.removeMember(userID: user, roomID: MockSeed.kitchen.id, at: date, state: &state)
-        #expect(state.definitions[0].rotationQueue == [user])
-        #expect(state.definitions[0].pendingRotation?.queue == [])
-        try service.complete(occurrenceID: state.occurrences[0].id, by: user, at: date, state: &state)
-        #expect(state.assignments.last?.userID == user)
-        try service.complete(occurrenceID: state.occurrences[1].id, by: user, at: boundary, state: &state)
-        #expect(state.occurrences.count == 3)
-        #expect(state.occurrences.last?.status == .available)
-        try service.addMember(userID: user, roomID: MockSeed.kitchen.id, at: boundary, state: &state)
-        #expect(state.occurrences.last?.status == .available)
-        let next = calendar.date(byAdding: .weekOfYear, value: 1, to: boundary)!
-        try service.refresh(houseID: MockSeed.house.id, at: next, state: &state)
-        #expect(state.occurrences.count == 3)
-        #expect(state.occurrences.last?.status == .assigned)
-        #expect(state.assignments.last?.assignedAt == next)
+        let task = try service.create(definition(policy: .afterCompletion), at: date, state: &state)
+        let owner = state.assignments[0].userID
+        try service.removeMember(userID: owner, roomID: task.roomID, at: date, state: &state)
+        #expect(state.definitions[0].rotationQueue.contains(owner))
+        #expect(state.definitions[0].pendingRotation?.queue.contains(owner) == false)
+        try service.complete(occurrenceID: state.occurrences[0].id, by: owner, at: boundary, state: &state)
+        #expect(state.assignments.last?.userID != owner)
+        #expect(state.occurrences.count == 2)
     }
 
     @Test @MainActor func privateRoomDepartureExposesOnlyRetainedTasks() async throws {
@@ -91,7 +74,7 @@ struct MembershipSchedulingTests {
         seed.schedule = state()
         let store = MockStore(state: seed)
         let repository = MockTaskRepository(store: store, scheduling: service)
-        let task = try await repository.create(definition(roomID: MockSeed.privateOffice.id), at: date)
+        let task = try await repository.create(definition(roomID: MockSeed.privateOffice.id), requestedBy: MockSeed.currentUser.id, at: date)
         let owner = await store.read { $0.assignments[0].userID }
         let remove = AppContainer(store: store, calendar: calendar).makeRemoveRoomMemberUseCase()
         try await remove(userID: owner, roomID: task.roomID, date: date)
@@ -99,20 +82,8 @@ struct MembershipSchedulingTests {
         #expect(visible.count == 1)
         #expect(visible[0].assignment?.userID == owner)
         let rooms = try await MockRoomRepository(store: store).rooms(in: MockSeed.house.id, requesting: owner)
-        #expect(!rooms.contains { $0.id == task.roomID })
+        #expect(rooms.contains { $0.id == task.roomID })
         try await repository.complete(occurrenceID: visible[0].id, by: owner, at: boundary)
-    }
-
-    @Test func privateOwnerDepartureDoesNotAssignOtherResidents() throws {
-        var state = state()
-        var task = definition()
-        task.visibility = .privateTask
-        task.ownerUserID = MockSeed.currentUser.id
-        _ = try service.create(task, at: date, state: &state)
-        try service.removeMember(userID: MockSeed.currentUser.id, roomID: task.roomID, at: date, state: &state)
-        #expect(state.definitions[0].rotationQueue.isEmpty)
-        #expect(state.assignments.filter(\.isActive).count == 1)
-        #expect(state.occurrences.filter { $0.availableAt >= boundary }.allSatisfy { $0.status == .available })
     }
 
     @Test func weeklyBoundaryUsesCalendarEvenAcrossDST() throws {
@@ -142,7 +113,7 @@ struct MembershipSchedulingTests {
         seed.schedule = state()
         let store = MockStore(state: seed)
         let repository = MockTaskRepository(store: store, scheduling: service)
-        let task = try await repository.create(definition(), at: date)
+        let task = try await repository.create(definition(), requestedBy: MockSeed.currentUser.id, at: date)
         let user = MockSeed.rafa.id
         try await withThrowingTaskGroup(of: Void.self) { group in
             for _ in 0..<5 { group.addTask { try await repository.removeMember(userID: user, from: task.roomID, at: date) } }
@@ -209,7 +180,7 @@ struct MembershipSchedulingTests {
         task.kind = .sporadic
         task.recurrence = .none
         task.assignmentPolicy = .selfAssigned
-        _ = try await repository.create(task, at: date)
+        _ = try await repository.create(task, requestedBy: MockSeed.currentUser.id, at: date)
         try await repository.addMember(userID: user, to: task.roomID, at: date)
         let occurrence = await store.read { $0.occurrences[0] }
         try await repository.claim(occurrenceID: occurrence.id, by: user, at: date)

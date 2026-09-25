@@ -1,15 +1,15 @@
-// Composition root. Future room-management and vacation screens can consume the
-// transactional membership/schedule use cases without constructing services in Views.
 import Foundation
 
 @MainActor
 final class AppContainer {
 
     let store: MockStore
+    private let calendar: Calendar
 
     let houseRepository: any HouseRepository
     let roomRepository: any RoomRepository
     let taskRepository: any TaskRepository
+
     let taskSwapRepository: any TaskSwapRepository
     let notificationRepository: any NotificationRepository
 
@@ -18,24 +18,25 @@ final class AppContainer {
         calendar: Calendar = Calendar(identifier: .gregorian)
     ) {
         self.store = store
-
-        houseRepository = MockHouseRepository(
-            store: store
-        )
-
-        roomRepository = MockRoomRepository(
-            store: store
-        )
-
-        let distribution = TaskDistributionEngine(
-            optimizer: HungarianAlgorithm()
-        )
+        self.calendar = calendar
 
         let scheduling = TaskSchedulingService(
-            distribution: distribution,
+            distribution: TaskDistributionEngine(
+                optimizer: HungarianAlgorithm()
+            ),
             fairness: FairnessCalculator(),
             rotation: RotationCalculator(),
             calendar: calendar
+        )
+
+        roomRepository = MockRoomRepository(
+            store: store,
+            scheduling: scheduling
+        )
+
+        houseRepository = MockHouseRepository(
+            store: store,
+            scheduling: scheduling
         )
 
         taskRepository = MockTaskRepository(
@@ -57,6 +58,12 @@ final class AppContainer {
     ) -> ProfileViewModel {
         ProfileViewModel(
             getMembers: GetHouseMembersUseCase(
+                repository: houseRepository
+            ),
+            addMember: AddHouseMemberUseCase(
+                repository: houseRepository
+            ),
+            removeMember: RemoveHouseMemberUseCase(
                 repository: houseRepository
             ),
             houseID: session.currentHouse.id,
@@ -114,7 +121,11 @@ final class AppContainer {
         session: AppSession
     ) -> RoomDetailViewModel {
         RoomDetailViewModel(
-            roomRepository: roomRepository,
+            getParticipation: GetRoomParticipationUseCase(
+                repository: roomRepository
+            ),
+            addMember: makeAddRoomMemberUseCase(),
+            removeMember: makeRemoveRoomMemberUseCase(),
             getRoomTasks: GetRoomTasksUseCase(
                 repository: taskRepository
             ),
@@ -150,8 +161,6 @@ final class AppContainer {
         )
     }
 
-    // MARK: - Criar tarefa normal
-
     func makeTaskEditorViewModel(
         roomID: Room.ID?,
         session: AppSession
@@ -159,21 +168,11 @@ final class AppContainer {
         var draft = TaskDraft()
         draft.roomID = roomID
 
-        return TaskEditorViewModel(
-            createTask: CreateTaskUseCase(
-                repository: taskRepository,
-                roomRepository: roomRepository
-            ),
-            getHouseRooms: GetHouseRoomsUseCase(
-                repository: roomRepository
-            ),
-            houseID: session.currentHouse.id,
-            ownerUserID: session.currentUser.id,
-            draft: draft
+        return makeTaskEditorViewModel(
+            draft: draft,
+            session: session
         )
     }
-
-    // MARK: - Criar tarefa a partir de sugestão
 
     func makeTaskEditorViewModel(
         roomID: Room.ID,
@@ -188,7 +187,17 @@ final class AppContainer {
         draft.effortPoints = suggestion.effort.points
         draft.sourceSuggestionID = suggestion.id
 
-        return TaskEditorViewModel(
+        return makeTaskEditorViewModel(
+            draft: draft,
+            session: session
+        )
+    }
+
+    private func makeTaskEditorViewModel(
+        draft: TaskDraft,
+        session: AppSession
+    ) -> TaskEditorViewModel {
+        TaskEditorViewModel(
             createTask: CreateTaskUseCase(
                 repository: taskRepository,
                 roomRepository: roomRepository
@@ -197,7 +206,7 @@ final class AppContainer {
                 repository: roomRepository
             ),
             houseID: session.currentHouse.id,
-            ownerUserID: session.currentUser.id,
+            requestingUserID: session.currentUser.id,
             draft: draft
         )
     }
@@ -208,10 +217,14 @@ final class AppContainer {
         RoomEditorViewModel(
             createRoom: CreateRoomUseCase(
                 roomRepository: roomRepository,
-                houseRepository: houseRepository
+                houseRepository: houseRepository,
+                calendar: calendar
             ),
             houseID: session.currentHouse.id,
-            creatorUserID: session.currentUser.id
+            creatorUserID: session.currentUser.id,
+            getMembers: GetHouseMembersUseCase(
+                repository: houseRepository
+            )
         )
     }
 

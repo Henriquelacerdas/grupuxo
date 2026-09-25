@@ -77,9 +77,11 @@ struct QueueForecast: Sendable {
         let effort: Int
         let eligible: Set<User.ID>
         let incumbent: User.ID?
+        var slot: Int? = nil
     }
     let participants: [User.ID]
     let turns: [Turn]
+    var isFixed: Bool = false
     let existingQueue: [User.ID] // Starts at the first replanned occurrence.
 }
 
@@ -95,14 +97,14 @@ struct HouseQueueOptimizer: Sendable {
         }), debts.values.allSatisfy(\.isFinite), tasks.allSatisfy({ task in
             Set(task.participants).count == task.participants.count
                 && Set(task.existingQueue).count == task.existingQueue.count && task.turns.allSatisfy {
-                (0..<12).contains($0.week) && (1...3).contains($0.effort)
+                (0..<12).contains($0.week) && (1...3).contains($0.effort) && ($0.slot ?? 0) >= 0
             }
         }) else { throw DomainError.invalidDistribution }
         let adapted = tasks.map { task in
             let retained = task.existingQueue.filter { task.participants.contains($0) }
             return retained + task.participants.filter { !retained.contains($0) }.sorted { $0.uuidString < $1.uuidString }
         }
-        let rebuilt = tasks.map { $0.participants.sorted { $0.uuidString < $1.uuidString } }
+        let rebuilt = tasks.enumerated().map { i, task in task.isFixed ? adapted[i] : task.participants.sorted { $0.uuidString < $1.uuidString } }
         var best = adapted
         var bestCost = try score(tasks, queues: best, fixed: fixed, debts: debts)
         for initial in [adapted, rebuilt] {
@@ -110,7 +112,7 @@ struct HouseQueueOptimizer: Sendable {
             var cost = try score(tasks, queues: queues, fixed: fixed, debts: debts)
             for _ in 0..<20 {
                 var improved = false
-                for index in tasks.indices where !tasks[index].participants.isEmpty {
+                for index in tasks.indices where !tasks[index].participants.isEmpty && !tasks[index].isFixed {
                     var base = fixed
                     for other in tasks.indices where other != index { add(tasks[other], queue: queues[other], to: &base) }
                     let task = tasks[index]
@@ -119,7 +121,7 @@ struct HouseQueueOptimizer: Sendable {
                         users.indices.map { slot in
                             var weeks = base[user] ?? Array(repeating: ProjectedWeek(), count: 12)
                             var changes = 0.0
-                            for turnIndex in task.turns.indices where turnIndex % users.count == slot {
+                            for turnIndex in task.turns.indices where (task.turns[turnIndex].slot ?? turnIndex) % users.count == slot {
                                 let turn = task.turns[turnIndex]
                                 let owner = turn.eligible.contains(user) ? user : nil
                                 if owner != nil { weeks[turn.week].add(effort: turn.effort) }
@@ -151,7 +153,7 @@ struct HouseQueueOptimizer: Sendable {
             add(tasks[i], queue: queues[i], to: &grid)
             for j in tasks[i].turns.indices {
                 let turn = tasks[i].turns[j]
-                let nominal = queues[i].isEmpty ? nil : queues[i][j % queues[i].count]
+                let nominal = queues[i].isEmpty ? nil : queues[i][(turn.slot ?? j) % queues[i].count]
                 let owner = nominal.flatMap { turn.eligible.contains($0) ? $0 : nil }
                 if owner != turn.incumbent { result.changes += 1 }
             }
@@ -166,7 +168,7 @@ struct HouseQueueOptimizer: Sendable {
     private func add(_ task: QueueForecast, queue: [User.ID], to grid: inout Grid) {
         guard !queue.isEmpty else { return }
         for (i, turn) in task.turns.enumerated() {
-            let user = queue[i % queue.count]
+            let user = queue[(turn.slot ?? i) % queue.count]
             guard turn.eligible.contains(user) else { continue }
             var weeks = grid[user] ?? Array(repeating: ProjectedWeek(), count: 12)
             weeks[turn.week].add(effort: turn.effort)

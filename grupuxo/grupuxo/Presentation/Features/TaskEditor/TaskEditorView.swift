@@ -1,10 +1,3 @@
-// GUIA — O Stepper já permite escolher esforço manualmente de 1 a 3.
-// TODO: adicionar controles de recorrência, hoje ausentes, e apresentar somente
-// políticas compatíveis com o tipo escolhido. Avulsa não tem recorrência e será
-// assumida no card de esporádicas. Manter cômodo obrigatório nos dois tipos.
-// Após .saved, fechar/retornar pelo fluxo de navegação e atualizar as consultas.
-// A View edita o rascunho; regras de cadastro e distribuição ficam no domínio.
-
 import SwiftUI
 
 struct TaskEditorView: View {
@@ -27,10 +20,7 @@ struct TaskEditorView: View {
                 Text("Recorrente").tag(TaskKind.recurring)
                 Text("Esporádica").tag(TaskKind.sporadic)
             }
-            Picker("Visibilidade", selection: binding(\.visibility)) {
-                Text("Casa").tag(TaskVisibility.house)
-                Text("Privada").tag(TaskVisibility.privateTask)
-            }
+
             Picker("Distribuição", selection: binding(\.assignmentPolicy)) {
                 Text("Equilibrar automaticamente").tag(TaskAssignmentPolicy.balancedAutomatically)
                 Text("Rotação por calendário").tag(TaskAssignmentPolicy.calendarRotation)

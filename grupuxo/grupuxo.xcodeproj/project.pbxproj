@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 100;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -71,24 +71,18 @@
 /* Begin PBXFrameworksBuildPhase section */
 		A5AC27BA3058135C006C8F79 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A5AC27C73058135D006C8F79 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A5AC27D13058135D006C8F79 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -129,14 +123,10 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			fileSystemSynchronizedGroups = (
 				A5AC27BF3058135C006C8F79 /* grupuxo */,
 			);
 			name = grupuxo;
-			packageProductDependencies = (
-			);
 			productName = grupuxo;
 			productReference = A5AC27BD3058135C006C8F79 /* grupuxo.app */;
 			productType = "com.apple.product-type.application";
@@ -158,8 +148,6 @@
 				A5AC27CD3058135D006C8F79 /* grupuxoTests */,
 			);
 			name = grupuxoTests;
-			packageProductDependencies = (
-			);
 			productName = grupuxoTests;
 			productReference = A5AC27CA3058135D006C8F79 /* grupuxoTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -181,8 +169,6 @@
 				A5AC27D73058135D006C8F79 /* grupuxoUITests */,
 			);
 			name = grupuxoUITests;
-			packageProductDependencies = (
-			);
 			productName = grupuxoUITests;
 			productReference = A5AC27D43058135D006C8F79 /* grupuxoUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -219,7 +205,7 @@
 			);
 			mainGroup = A5AC27B43058135C006C8F79;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
+			preferredProjectObjectVersion = 100;
 			productRefGroup = A5AC27BE3058135C006C8F79 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -234,50 +220,38 @@
 /* Begin PBXResourcesBuildPhase section */
 		A5AC27BB3058135C006C8F79 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 				A5AC287330585230006C8F79 /* DESCRICAO.md in Resources */,
 				A5AC27E930583F00006C8F79 /* ARCHITECTURE.md in Resources */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A5AC27C83058135D006C8F79 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A5AC27D23058135D006C8F79 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A5AC27B93058135C006C8F79 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A5AC27C63058135D006C8F79 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A5AC27D03058135D006C8F79 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -295,7 +269,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		A5AC27DC3058135D006C8F79 /* Debug */ = {
+		A5AC27DC3058135D006C8F79 /* Debug configuration for PBXProject "grupuxo" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -358,7 +332,7 @@
 			};
 			name = Debug;
 		};
-		A5AC27DD3058135D006C8F79 /* Release */ = {
+		A5AC27DD3058135D006C8F79 /* Release configuration for PBXProject "grupuxo" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -414,7 +388,7 @@
 			};
 			name = Release;
 		};
-		A5AC27DF3058135D006C8F79 /* Debug */ = {
+		A5AC27DF3058135D006C8F79 /* Debug configuration for PBXNativeTarget "grupuxo" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -452,7 +426,7 @@
 			};
 			name = Debug;
 		};
-		A5AC27E03058135D006C8F79 /* Release */ = {
+		A5AC27E03058135D006C8F79 /* Release configuration for PBXNativeTarget "grupuxo" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -490,7 +464,7 @@
 			};
 			name = Release;
 		};
-		A5AC27E23058135D006C8F79 /* Debug */ = {
+		A5AC27E23058135D006C8F79 /* Debug configuration for PBXNativeTarget "grupuxoTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -512,7 +486,7 @@
 			};
 			name = Debug;
 		};
-		A5AC27E33058135D006C8F79 /* Release */ = {
+		A5AC27E33058135D006C8F79 /* Release configuration for PBXNativeTarget "grupuxoTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -534,7 +508,7 @@
 			};
 			name = Release;
 		};
-		A5AC27E53058135D006C8F79 /* Debug */ = {
+		A5AC27E53058135D006C8F79 /* Debug configuration for PBXNativeTarget "grupuxoUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -554,7 +528,7 @@
 			};
 			name = Debug;
 		};
-		A5AC27E63058135D006C8F79 /* Release */ = {
+		A5AC27E63058135D006C8F79 /* Release configuration for PBXNativeTarget "grupuxoUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -580,37 +554,33 @@
 		A5AC27B83058135C006C8F79 /* Build configuration list for PBXProject "grupuxo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A5AC27DC3058135D006C8F79 /* Debug */,
-				A5AC27DD3058135D006C8F79 /* Release */,
+				A5AC27DC3058135D006C8F79 /* Debug configuration for PBXProject "grupuxo" */,
+				A5AC27DD3058135D006C8F79 /* Release configuration for PBXProject "grupuxo" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		A5AC27DE3058135D006C8F79 /* Build configuration list for PBXNativeTarget "grupuxo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A5AC27DF3058135D006C8F79 /* Debug */,
-				A5AC27E03058135D006C8F79 /* Release */,
+				A5AC27DF3058135D006C8F79 /* Debug configuration for PBXNativeTarget "grupuxo" */,
+				A5AC27E03058135D006C8F79 /* Release configuration for PBXNativeTarget "grupuxo" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		A5AC27E13058135D006C8F79 /* Build configuration list for PBXNativeTarget "grupuxoTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A5AC27E23058135D006C8F79 /* Debug */,
-				A5AC27E33058135D006C8F79 /* Release */,
+				A5AC27E23058135D006C8F79 /* Debug configuration for PBXNativeTarget "grupuxoTests" */,
+				A5AC27E33058135D006C8F79 /* Release configuration for PBXNativeTarget "grupuxoTests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		A5AC27E43058135D006C8F79 /* Build configuration list for PBXNativeTarget "grupuxoUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A5AC27E53058135D006C8F79 /* Debug */,
-				A5AC27E63058135D006C8F79 /* Release */,
+				A5AC27E53058135D006C8F79 /* Debug configuration for PBXNativeTarget "grupuxoUITests" */,
+				A5AC27E63058135D006C8F79 /* Release configuration for PBXNativeTarget "grupuxoUITests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */

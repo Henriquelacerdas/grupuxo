@@ -1,9 +1,3 @@
-// GUIA — Esta é a entrada para criar cômodo e cadastrar tarefas.
-// TODO: adicionar ação de criação de cômodo e um formulário com nome, visibilidade,
-// participantes e rotação semanal. Encaminhar a ação por callback/rota tipada.
-// Usar ViewModel + caso de uso para salvar e recarregar a lista ao retornar.
-// Manter o card de avulsas/esporádicas separado da lista interna dos cômodos.
-
 import SwiftUI
 
 struct HouseManagementView: View {
@@ -82,31 +76,19 @@ struct HouseManagementView: View {
 
         .toolbar {
 
-            ToolbarItem(placement: .topBarTrailing) {
-
-                Menu {
-
-                    Button(
-                        "Adicionar cômodo",
-                        systemImage: "square.grid.2x2"
-                    ) {
-                        isPresentingRoomCreationSheet = true
-                    }
-
-                    Button(
-                        "Adicionar tarefa",
-                        systemImage: "checkmark.circle"
-                    ) {
-                        isPresentingTaskCreationSheet = true
-                    }
-
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    isPresentingRoomCreationSheet = true
                 } label: {
-
-                    Label(
-                        "Adicionar",
-                        systemImage: "plus"
-                    )
+                    Image(systemName: "square.grid.2x2")
                 }
+                .accessibilityLabel("Adicionar cômodo")
+                .accessibilityIdentifier("createRoom")
+
+                Button("Adicionar tarefa", systemImage: "plus") {
+                    isPresentingTaskCreationSheet = true
+                }
+                .accessibilityIdentifier("createTask")
             }
         }
 
@@ -136,9 +118,7 @@ struct HouseManagementView: View {
 
         .task {
 
-            if viewModel.state == .idle {
-                await viewModel.load()
-            }
+            await viewModel.load()
         }
 
         .refreshable {
@@ -166,9 +146,16 @@ struct HouseManagementView: View {
 
             ForEach(rooms) { room in
 
-                Button(room.name) {
+                Button {
                     onSelectRoom(room.id)
+                } label: {
+                    HStack(spacing: DesignSystem.contentSpacing) {
+                        RoomIconView(icon: room.icon, color: room.color, size: 40)
+                        Text(room.name)
+                            .foregroundStyle(.primary)
+                    }
                 }
+                .accessibilityLabel(room.name)
             }
 
         case .empty:

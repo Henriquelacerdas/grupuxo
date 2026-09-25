@@ -34,11 +34,11 @@ struct TaskCreationSheetView: View {
                         VStack(spacing: 0) {
                             Toggle(isOn: $urgency) {
                                 Label {
-                                    Text("Urgência")
+                                    Text("Tarefa Única")
                                         .font(.callout.weight(.medium))
                                     if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                                 } icon: {
-                                    Image(systemName: "dot.radiowaves.left.and.right")
+                                    Image(systemName: "flag")
                                 }
                             }
                         }
@@ -229,6 +229,8 @@ struct TaskCreationSheetView: View {
 
     private var recurrenceMenu: some View {
         Group {
+            Button("Mesma periodicidade do cômodo") { viewModel.useRoomPeriodicity() }
+                .disabled(viewModel.state.draft.roomID == nil)
             recurrenceMenuButton("Diariamente", recurrence: .recurring(frequency: .daily, interval: 1))
             recurrenceMenuButton("Semanalmente", recurrence: .recurring(frequency: .weekly, interval: 1))
             recurrenceMenuButton("Quinzenalmente", recurrence: .recurring(frequency: .weekly, interval: 2))
@@ -283,6 +285,8 @@ struct TaskCreationSheetView: View {
     private var recurrenceName: String {
         switch viewModel.state.draft.recurrence {
         case .none: "Sem repetição"
+        case let .weekly(value):
+            value.label
         case let .recurring(frequency, interval):
             RecurrencePresentation.name(for: frequency, interval: interval)
         }
@@ -312,10 +316,15 @@ private struct CustomRecurrenceSheet: View {
     @ObservedObject var viewModel: TaskEditorViewModel
     @State private var frequency: RecurrenceFrequency
     @State private var interval: Int
+    @State private var executions: Int
 
     init(viewModel: TaskEditorViewModel, initialRecurrence: RecurrencePolicy) {
         self.viewModel = viewModel
+        _executions = State(initialValue: initialRecurrence.weeklyPeriodicity?.executionsPerPeriod ?? 1)
         switch initialRecurrence {
+        case let .weekly(value):
+            _frequency = State(initialValue: .weekly)
+            _interval = State(initialValue: value.intervalWeeks)
         case let .recurring(frequency, interval):
             _frequency = State(initialValue: frequency)
             _interval = State(initialValue: max(interval, 1))
@@ -335,6 +344,9 @@ private struct CustomRecurrenceSheet: View {
                         }
                     }
 
+                    if frequency == .weekly {
+                        Stepper("Execuções: \(executions)", value: $executions, in: 1...max(1, interval * 7))
+                    }
                     Stepper(value: $interval, in: 1...999) {
                         HStack {
                             Text("A cada")
@@ -362,7 +374,7 @@ private struct CustomRecurrenceSheet: View {
 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Concluir", systemImage: "checkmark") {
-                        viewModel.selectRecurrence(.recurring(frequency: frequency, interval: interval))
+                        viewModel.selectRecurrence(frequency == .weekly ? .weekly(WeeklyPeriodicity(executionsPerPeriod: executions, intervalWeeks: interval)) : .recurring(frequency: frequency, interval: interval))
                         dismiss()
                     }
                     .labelStyle(.iconOnly)

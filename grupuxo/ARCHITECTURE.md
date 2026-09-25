@@ -101,13 +101,12 @@ Usar structs para entidades e valores, enums para estados e políticas, e IDs es
 | User | Identidade do usuário; e-mail opcional para a integração futura |
 | House | Casa compartilhada, código de acesso e data de criação |
 | HouseMembership | Participação do usuário na casa |
-| Room | Cômodo, incluindo tipo, visibilidade e política de rotação |
+| Room | Cômodo, visibilidade, periodicidade semanal, quantidade de responsáveis e versões da escala |
 | RoomMembership | Participação do usuário no cômodo (armazena também o `FairnessDebt`) |
 | TaskDefinition | Configuração central da tarefa (molde rotativo, esforço, agenda) |
 | TaskOccurrence | Instância de execução histórica ou pendente (imutável quanto ao passado) |
 | TaskAssignment | Histórico de responsáveis, com início e término da atribuição |
 | Absence | Período de férias de uma participação na casa |
-| RoomAccessRequest | Pedido e estado de acesso a um cômodo privado |
 
 Não duplicar entidades por tela. Existe uma distinção técnica obrigatória: `TaskDefinition` e `TaskOccurrence`.
 
@@ -139,7 +138,7 @@ Casos de uso coordenam operações. Regras matemáticas reutilizáveis ficam em 
 Para criar uma **nova fila rotativa**, ele cria uma matriz bidimensional simulando as próximas 12 semanas. Avalia-se o custo quadrático de colocar cada membro em cada "slot" da fila e utiliza-se o **Algoritmo Húngaro** para extrair a permutação ótima em $O(N^3)$.
 Para **entrada e saída de participantes**, `HouseQueueOptimizer` reotimiza as filas da casa a partir da próxima segunda-feira, incluindo ocorrências futuras já publicadas. Executa Húngaro lexicográfico por fila, com duas configurações iniciais e até 20 passagens de melhoria por configuração. Prioriza esforço semanal, concentração de dificuldades, saldo e estabilidade. Preserva a semana atual, atrasados e concluídos; o ótimo de cada matriz não implica ótimo global da casa.
 
-O contrato detalhado de calendário, amortização do saldo, elegibilidade e limitações está em `ALGORITHM.md`. `TaskAssignment.supersededAt` preserva o histórico dos planos futuros substituídos. `TaskDefinition.pendingRotation` controla a vigência de filas por conclusão. Vínculos são mantidos na saída para conservar o saldo; consultas filtram acesso atual e liberam somente as pendências atribuídas ao ex-participante. Filas vazias produzem ocorrências sem responsável. O cursor avança ao publicar uma ocorrência, nunca ao concluir uma ocorrência de calendário. Tarefas sem calendário publicam somente uma sucessora por conclusão.
+O contrato detalhado de calendário, amortização do saldo, elegibilidade e limitações está em `ALGORITHM.md`. `TaskAssignment.supersededAt` preserva o histórico dos planos futuros substituídos. `TaskDefinition.pendingRotation` controla a vigência de filas por conclusão. Vínculos são mantidos na saída para conservar o saldo; consultas filtram acesso atual e liberam somente as pendências atribuídas ao ex-participante. Ausências podem deixar posições sem responsável; a última saída exclui cômodo e tarefas mediante confirmação. Casa toda não permite essa saída. O cursor avança ao publicar uma ocorrência, nunca ao concluir uma ocorrência de calendário. Tarefas sem calendário publicam somente uma sucessora por conclusão.
 
 `TaskSchedulingService` concentra as transições de criação, conclusão, extensão de horizonte, entrada e saída de participantes. Recebe o snapshot `TaskSchedulingState`, sem depender de Data. `CreateTaskUseCase`, `CompleteTaskUseCase`, `RefreshTaskScheduleUseCase`, `AddRoomMemberUseCase` e `RemoveRoomMemberUseCase` são fachadas assíncronas dos comandos transacionais; não fazem leituras independentes antes da gravação.
 
@@ -151,9 +150,9 @@ Os protocolos HouseRepository, RoomRepository e TaskRepository ficam em Domain. 
 
 Operações potencialmente externas usam async throws desde os mocks. Métodos representam ações de negócio, como concluir, assumir e devolver, em vez de expor apenas save/delete genéricos.
 
-Todos os repositórios mockados compartilham um único `MockStore`, que é um actor. `MockSeed` centraliza dados de demonstração; definições legadas sem agenda materializada não são migradas silenciosamente.
+Todos os repositórios mockados compartilham um único `MockStore`, que é um actor. `MockSeed` gera os dados de demonstração usando o mesmo planejador dos comandos reais. Não há migração de persistência remota.
 
-`TaskRepository.create(_:at:)`, `complete`, `refreshSchedule`, `addMember` e `removeMember` executam transições de domínio sobre o mesmo snapshot que será persistido. `MockStore.update` usa cópia e commit após sucesso, com rollback em qualquer erro. O serviço é síncrono dentro da closure do actor, sem suspensão entre validação e commit. Isso evita uma corrida entre ler participantes/carga, calcular o Húngaro e salvar a fila. Uma futura implementação remota deve fornecer transação ou controle otimista de versão equivalente.
+`TaskRepository.create(_:requestedBy:at:)`, `complete`, `refreshSchedule`, `addMember` e `removeMember` executam transições de domínio sobre o mesmo snapshot que será persistido. `MockStore.update` usa cópia e commit após sucesso, com rollback em qualquer erro. O serviço é síncrono dentro da closure do actor, sem suspensão entre validação e commit. Isso evita uma corrida entre ler participantes/carga, calcular o Húngaro e salvar a fila. Uma futura implementação remota deve fornecer transação ou controle otimista de versão equivalente.
 
 A alocação do cálculo dentro da transação é uma decisão da implementação Data, não uma transferência da matemática para Data. O serviço continua isolado e testável em Domain. As projeções usam esforço snapshot de ocorrências pendentes atribuídas em todos os cômodos da casa; saldos continuam locais ao cômodo.
 
@@ -190,9 +189,19 @@ A interface deve funcionar sem imagem. Avatar padrão ou iniciais são o fallbac
 - Domain não importa SwiftUI nem frameworks de persistência.
 - ViewModels não instanciam repositórios concretos.
 - Regras de negócio, projeção de carga e balanceamento matemático não ficam em Views ou ViewModels.
-- O histórico passado (`TaskOccurrence`) não deve ser corrompido ou apagado ao alterar os dados de uma `TaskDefinition`.
+- Alterar uma definição não modifica seu histórico. A exceção destrutiva é excluir cômodo e tarefas mediante confirmação da última saída.
 - Testar regras matemáticas do Algoritmo Húngaro isoladamente no target de testes com matrizes conhecidas.
 - Alterações em contratos compartilhados devem atualizar este guia.
 
 Primeiro fluxo a implementar:
 Gerenciar casa → criar/visualizar cômodo → criar tarefa → calcular Húngaro → gerar ocorrências → concluir em Minhas tarefas → atualizar as consultas afetadas.
+
+## Participação e escala de cômodos
+
+`RoomScheduling` estende o serviço de domínio com calendários em semanas, blocos gulosos e versões da escala. `WeeklyPeriodicity` representa n execuções em x semanas. `RoomScheduleVersion` preserva fila, posições das tarefas e vigência. Tarefas de periodicidade idêntica usam a escala do cômodo; as demais continuam independentes. `HouseQueueOptimizer` recebe contribuições agregadas por slot, sem romper a restrição de responsáveis.
+
+`GetRoomParticipationUseCase` expõe dados de apresentação, responsáveis atuais e período. `GetHouseRoomsUseCase` lista todos os cômodos ou apenas os participantes para o editor. Repositórios omitem versões da escala de cômodos privados para não participantes e aplicam autorização às consultas e ações de tarefas. Não há privacidade individual de tarefas nem pedidos de entrada.
+
+`CreateRoomUseCase` recebe periodicidade e quantidade de responsáveis. A criação valida a composição completa dos comuns. `AddRoomMemberUseCase` permite entrada livre; `RemoveRoomMemberUseCase` recebe confirmação explícita para a última saída. A exclusão em cascata inclui vínculos e histórico. A interface usa alerta nativo com Cancelar e Sair e excluir.
+
+`AddHouseMemberUseCase` inclui novos moradores em todos os comuns. `RemoveHouseMemberUseCase` remove todos os vínculos atuais e exige confirmação caso privados sejam esvaziados. Repositórios executam essas alterações e um único replanejamento em uma transação. Casa toda permanece comum e sem saída individual.

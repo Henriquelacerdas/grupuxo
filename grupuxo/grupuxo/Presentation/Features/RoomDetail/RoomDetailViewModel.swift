@@ -3,126 +3,108 @@ import Foundation
 
 @MainActor
 final class RoomDetailViewModel: ObservableObject {
-
     @Published var actionError: String?
     @Published private(set) var isCompleting = false
     @Published private(set) var state: RoomDetailState = .idle
     @Published private(set) var suggestions: [TaskSuggestion] = []
+    @Published private(set) var participation: RoomParticipation?
+    @Published private(set) var isChangingMembership = false
+    @Published private(set) var wasDeleted = false
+    @Published var confirmsDeletion = false
 
-    private let roomRepository: any RoomRepository
+    private let getParticipation: GetRoomParticipationUseCase
+    private let addMember: AddRoomMemberUseCase
+    private let removeMember: RemoveRoomMemberUseCase
     private let getRoomTasks: GetRoomTasksUseCase
     private let getTaskSuggestions: GetTaskSuggestionsUseCase
-    private let roomID: Room.ID
     private let completeTask: CompleteTaskUseCase
+    private let roomID: Room.ID
     private let userID: User.ID
 
     init(
-        roomRepository: any RoomRepository,
+        getParticipation: GetRoomParticipationUseCase,
+        addMember: AddRoomMemberUseCase,
+        removeMember: RemoveRoomMemberUseCase,
         getRoomTasks: GetRoomTasksUseCase,
         getTaskSuggestions: GetTaskSuggestionsUseCase,
         completeTask: CompleteTaskUseCase,
         roomID: Room.ID,
         userID: User.ID
     ) {
-        self.roomRepository = roomRepository
+        self.getParticipation = getParticipation
+        self.addMember = addMember
+        self.removeMember = removeMember
         self.getRoomTasks = getRoomTasks
         self.getTaskSuggestions = getTaskSuggestions
-        self.roomID = roomID
         self.completeTask = completeTask
+        self.roomID = roomID
         self.userID = userID
     }
 
     func load() async {
-
         state = .loading
-
         do {
-
-            async let roomRequest = roomRepository.room(
-                id: roomID,
-                requesting: userID
-            )
-
-            async let tasksRequest = getRoomTasks(
-                roomID: roomID,
-                userID: userID
-            )
-
-            let (room, tasks) = try await (
-                roomRequest,
-                tasksRequest
-            )
-
-            let usedSuggestionIDs = Set(
-                tasks.compactMap {
-                    $0.definition.sourceSuggestionID
+            let participation = try await getParticipation(roomID: roomID, userID: userID)
+            self.participation = participation
+            let tasks = try await getRoomTasks(roomID: roomID, userID: userID)
+            let usedSuggestionIDs = Set(tasks.compactMap(\.definition.sourceSuggestionID))
+            suggestions = participation.isMember
+                ? getTaskSuggestions(category: participation.room.category).filter {
+                    !usedSuggestionIDs.contains($0.id)
                 }
-            )
-
-            suggestions = getTaskSuggestions(
-                category: room.category
-            )
-            .filter { suggestion in
-                !usedSuggestionIDs.contains(
-                    suggestion.id
-                )
-            }
-
-            let content = RoomDetailContent(
-                room: room,
-                tasks: tasks
-            )
-
-            state = tasks.isEmpty
-                ? .empty(room)
-                : .content(content)
-
+                : []
+            let content = RoomDetailContent(room: participation.room, tasks: tasks)
+            state = tasks.isEmpty ? .empty(content.room) : .content(content)
         } catch {
-
             suggestions = []
-
-            state = .failure(
-                error.localizedDescription
-            )
+            state = .failure(error.localizedDescription)
         }
     }
 
-    func canComplete(
-        _ item: TaskItem
-    ) -> Bool {
-
-        !isCompleting
-            && !item.occurrence.isCompleted
-            && item.assignment?.userID == userID
-            && item.occurrence.availableAt <= .now
+    func join() async {
+        guard !isChangingMembership else { return }
+        isChangingMembership = true
+        defer { isChangingMembership = false }
+        do {
+            try await addMember(userID: userID, roomID: roomID)
+            await load()
+        } catch { actionError = error.localizedDescription }
     }
 
-    func complete(
-        _ occurrenceID: TaskOccurrence.ID
-    ) async {
-
-        guard !isCompleting else {
+    func leave(confirmDeletion: Bool = false) async {
+        guard !isChangingMembership else { return }
+        if participation?.memberCount == 1 && !confirmDeletion {
+            confirmsDeletion = true
             return
         }
-
-        isCompleting = true
-
-        defer {
-            isCompleting = false
-        }
-
+        isChangingMembership = true
+        defer { isChangingMembership = false }
         do {
-
-            try await completeTask(
-                occurrenceID: occurrenceID,
-                userID: userID
+            try await removeMember(
+                userID: userID, roomID: roomID, confirmDeletion: confirmDeletion
             )
-
+            do { _ = try await getParticipation(roomID: roomID, userID: userID) }
+            catch DomainError.entityNotFound { wasDeleted = true; return }
             await load()
-
+        } catch DomainError.deletionConfirmationRequired {
+            confirmsDeletion = true
         } catch {
-
             actionError = error.localizedDescription
         }
+    }
+
+    func canComplete(_ item: TaskItem) -> Bool {
+        !isCompleting && !item.occurrence.isCompleted
+            && item.assignment?.userID == userID && item.occurrence.availableAt <= .now
+    }
+
+    func complete(_ occurrenceID: TaskOccurrence.ID) async {
+        guard !isCompleting else { return }
+        isCompleting = true
+        defer { isCompleting = false }
+        do {
+            try await completeTask(occurrenceID: occurrenceID, userID: userID)
+            await load()
+        } catch { actionError = error.localizedDescription }
     }
 }
