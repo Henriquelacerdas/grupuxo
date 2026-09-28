@@ -67,6 +67,9 @@ struct TaskRow: View {
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel("Responsável: \(user.name)")
+                } else if let user = item.suggestedAssignee {
+                    Text("Morador sugerido: \(user.name)")
+                        .font(.subheadline).foregroundStyle(.secondary)
                 } else {
                     Label("Sem responsável", systemImage: "person.crop.circle.badge.questionmark")
                         .font(.subheadline).foregroundStyle(.secondary)

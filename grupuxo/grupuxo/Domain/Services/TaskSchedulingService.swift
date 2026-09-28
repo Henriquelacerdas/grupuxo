@@ -522,6 +522,23 @@ struct TaskSchedulingService: Sendable {
         return result
     }
 
+    func suggestedResident(roomID: Room.ID, at date: Date, state: TaskSchedulingState) throws -> User.ID? {
+        guard let room = state.rooms.first(where: { $0.id == roomID }) else { throw DomainError.entityNotFound }
+        let houseMembers = Set(state.houseMemberships.filter { $0.houseID == room.houseID }.map(\.userID))
+        let candidates = Set(state.roomMemberships.filter {
+            $0.roomID == roomID && $0.isCurrent && houseMembers.contains($0.userID)
+        }.map(\.userID))
+        guard !candidates.isEmpty else { return nil }
+
+        let weeklyLoads = try projection(houseID: room.houseID, start: weekStart(date), state: state)
+        return candidates.min { left, right in
+            let leftLoad = weeklyLoads[left]?.first?.load ?? 0
+            let rightLoad = weeklyLoads[right]?.first?.load ?? 0
+            if leftLoad != rightLoad { return leftLoad < rightLoad }
+            return left.uuidString < right.uuidString
+        }
+    }
+
     func nextDate(after date: Date, definition: TaskDefinition) throws -> Date {
         if definition.calendarAnchor != nil && definition.recurrence.weeklyPeriodicity != nil {
             return try firstWeeklyDate(onOrAfter: adding(.day, 1, to: calendar.startOfDay(for: date)), definition: definition)
