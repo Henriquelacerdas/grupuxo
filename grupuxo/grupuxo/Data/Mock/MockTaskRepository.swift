@@ -49,12 +49,14 @@ struct MockTaskRepository: TaskRepository {
         }
     }
 
+    /// Current-week effort is house-wide, matching the scheduling projection. Candidates
+    /// are restricted to current residents of the task's room because the task is room-bound.
     func sporadicTasks(in houseID: House.ID, requesting userID: User.ID) async throws -> [TaskItem] {
         try await refreshSchedule(in: houseID, at: .now)
-        return await store.read { state in
+        return try await store.read { state in
             guard state.houseMemberships.contains(where: { $0.houseID == houseID && $0.userID == userID }) else { return [] }
             let roomsByID = Dictionary(uniqueKeysWithValues: state.rooms.map { ($0.id, $0) })
-            return items(from: state).filter {
+            let tasks = items(from: state).filter {
                 guard let room = roomsByID[$0.definition.roomID] else { return false }
                 return room.houseID == houseID
                     && $0.definition.kind == .sporadic
@@ -64,6 +66,21 @@ struct MockTaskRepository: TaskRepository {
                         userID: userID,
                         roomMemberships: state.roomMemberships
                     ))
+            }
+            var suggestionsByRoom: [Room.ID: User] = [:]
+            for roomID in Set(tasks.filter { $0.assignment == nil && !$0.occurrence.isCompleted }
+                .map { $0.definition.roomID }) {
+                guard let suggestedID = try scheduling.suggestedResident(
+                    roomID: roomID, at: .now, state: state.schedule
+                ), let suggestedUser = state.users.first(where: { $0.id == suggestedID }) else { continue }
+                suggestionsByRoom[roomID] = suggestedUser
+            }
+            return tasks.map { item in
+                guard item.assignment == nil, !item.occurrence.isCompleted,
+                      let suggestedUser = suggestionsByRoom[item.definition.roomID] else { return item }
+                return TaskItem(definition: item.definition, occurrence: item.occurrence,
+                                assignment: item.assignment, assignee: item.assignee,
+                                suggestedAssignee: suggestedUser)
             }
         }
     }

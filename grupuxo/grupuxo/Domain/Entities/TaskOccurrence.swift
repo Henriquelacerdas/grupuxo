@@ -20,6 +20,7 @@ struct TaskItem: Identifiable, Hashable, Sendable {
     let occurrence: TaskOccurrence
     let assignment: TaskAssignment?
     var assignee: User? = nil
+    var suggestedAssignee: User? = nil
 
     var id: TaskOccurrence.ID { occurrence.id }
 }
