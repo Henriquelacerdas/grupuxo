@@ -76,7 +76,7 @@ struct RoomCreationSheetView: View {
             }
         }
         .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
+        .presentationDragIndicator(.hidden)
         .interactiveDismissDisabled(isSaving)
         .task { await viewModel.loadResidents() }
         .onChange(of: viewModel.state) { _, state in

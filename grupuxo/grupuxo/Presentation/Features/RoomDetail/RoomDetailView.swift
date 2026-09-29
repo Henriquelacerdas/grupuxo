@@ -80,6 +80,7 @@ struct RoomDetailView: View {
         .refreshable { await viewModel.load() }
         .sheet(item: $selectedSuggestion, onDismiss: { Task { await viewModel.load() } }) { suggestion in
             TaskCreationSheetView(viewModel: makeSuggestionEditorViewModel(suggestion))
+                .presentationDragIndicator(.hidden)
         }
         .onChange(of: viewModel.wasDeleted) { _, deleted in if deleted { dismiss() } }
         .alert("Sair e excluir cômodo?", isPresented: $viewModel.confirmsDeletion) {

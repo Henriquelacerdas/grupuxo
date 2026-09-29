@@ -32,7 +32,17 @@ enum RecurrencePolicy: Hashable, Codable, Sendable {
 
 struct TaskEffort: Hashable, Codable, Sendable {
     let points: Int
-    nonisolated init(points: Int) { self.points = min(max(points, 1), 3) }
+    nonisolated init(points: Int) {
+        self.points = min(max(points, TaskEffortLevel.light.rawValue), TaskEffortLevel.intense.rawValue)
+    }
+}
+
+enum TaskEffortLevel: Int, CaseIterable, Sendable, Identifiable {
+    case light = 1
+    case medium
+    case intense
+
+    var id: Int { rawValue }
 }
 
 struct WeeklyLoad: Hashable, Codable, Sendable {
