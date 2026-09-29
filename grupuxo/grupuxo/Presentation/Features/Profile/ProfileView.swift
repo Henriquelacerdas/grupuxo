@@ -171,6 +171,7 @@ struct ProfileView: View {
                 .interactiveDismissDisabled(viewModel.isSaving)
                 .task { nameFocused = true }
             }
+            .presentationDragIndicator(.hidden)
         }
         .alert("Remover morador?", isPresented: Binding(
             get: { memberToRemove != nil },
