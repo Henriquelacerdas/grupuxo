@@ -42,7 +42,6 @@ struct RoomCreationSheetView: View {
                     .padding(.vertical, 10)
                     .listRowBackground(Color.clear)
                 }
-                categorySection
                 colorSection
                 iconSection
                 routineSection
@@ -59,16 +58,19 @@ struct RoomCreationSheetView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancelar") { dismiss() }.disabled(isSaving)
+                    Button("Cancelar", systemImage: "xmark") { dismiss() }
+                        .labelStyle(.iconOnly)
+                        .disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     if isSaving {
                         ProgressView("Criando cômodo")
                     } else {
-                        Button("Criar") {
+                        Button("Criar cômodo", systemImage: "checkmark") {
                             isNameFocused = false
                             Task { await viewModel.save() }
                         }
+                        .labelStyle(.iconOnly)
                         .disabled(!viewModel.canSave)
                         .accessibilityIdentifier("saveRoom")
                     }
@@ -83,22 +85,6 @@ struct RoomCreationSheetView: View {
             if case .saved = state { dismiss() }
         }
         .sensoryFeedback(.selection, trigger: viewModel.state.draft.icon)
-    }
-
-    private var categorySection: some View {
-        Section("Tipo de cômodo") {
-            Picker("Categoria", selection: binding(\.category)) {
-                Text("Cozinha").tag(RoomCategory.kitchen)
-                Text("Banheiro").tag(RoomCategory.bathroom)
-                Text("Quarto").tag(RoomCategory.bedroom)
-                Text("Sala").tag(RoomCategory.livingRoom)
-                Text("Lavanderia").tag(RoomCategory.laundry)
-                Text("Escritório").tag(RoomCategory.office)
-                Text("Área externa").tag(RoomCategory.outdoor)
-                Text("Outro").tag(RoomCategory.other)
-            }
-            .accessibilityLabel("Tipo de cômodo")
-        }
     }
 
     private var colorSection: some View {
@@ -162,8 +148,15 @@ struct RoomCreationSheetView: View {
                 }
             }
             .tint(.secondary)
-            Stepper(value: binding(\.responsibleCount), in: 1...10) {
+            Stepper(value: binding(\.responsibleCount), in: 1...viewModel.maximumResponsibleCount) {
                 Text("Responsáveis por turno: **\(viewModel.state.draft.responsibleCount)**")
+            }
+            .disabled(viewModel.isLoadingResidents || viewModel.residents.isEmpty)
+            if viewModel.isLoadingResidents {
+                ProgressView("Carregando moradores…")
+            } else if let error = viewModel.residentsError {
+                Text(error).foregroundStyle(.secondary)
+                Button("Tentar novamente") { Task { await viewModel.loadResidents() } }
             }
         }
     }
