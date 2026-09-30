@@ -1,21 +1,44 @@
 # grupuxo
 
-Aplicativo iOS para distribuir tarefas domésticas, considerando esforço semanal e participação nos cômodos.
+App iOS (SwiftUI) que distribui tarefas domésticas entre moradores de casas compartilhadas e repúblicas, equilibrando o esforço semanal e respeitando a participação de cada um nos cômodos.
 
-- [Descrição do produto](grupuxo/DESCRICAO.md)
-- [Arquitetura](grupuxo/ARCHITECTURE.md)
-- [Algoritmo e política de entrada/saída](grupuxo/ALGORITHM.md)
+**Estado atual:** dados mockados, sem login, backend ou sincronização. Todas as regras de distribuição rodam no dispositivo. Integração com o WhatsApp dos moradores está planejada e ainda não implementada.
 
-Cômodos comuns incluem todos os moradores. Cômodos privados são visíveis para a casa, têm entrada livre e restringem tarefas aos participantes. Sair de um cômodo comum o torna privado; a última saída exige confirmação e exclui o cômodo e suas tarefas. Casa toda permanece comum e não permite saída individual.
+## Funcionalidades
 
-Cada cômodo repete n execuções a cada x semanas e tem uma quantidade configurável de responsáveis. Tarefas de mesma periodicidade compartilham essa escala: distribuição gulosa entre responsáveis e ordenação pelo Húngaro respeitam o vínculo. Entradas e saídas reequilibram a casa a partir da próxima segunda-feira, preservando pendências anteriores e seu acesso específico. A persistência usa repositórios mockados; os fluxos estão disponíveis na interface.
+- **Minhas tarefas:** tarefas atribuídas ao usuário, conclusão e pedido de troca com outro morador.
+- **Gerenciar casa:** cômodos (comuns e privados), criação/edição de tarefas, sugestões de tarefas por tipo de cômodo e card de tarefas esporádicas.
+- **Distribuição automática:** rotação por calendário ou por conclusão, com fila otimizada pelo Algoritmo Húngaro e saldo de justiça.
+- **Entrada e saída** de moradores na casa e nos cômodos, com reequilíbrio a partir da próxima segunda-feira.
+- **Notificações** (trocas de tarefa) e **Configurações** (moradores da casa).
+
+## Documentação
+
+| Documento | Conteúdo |
+| --- | --- |
+| [docs/PRODUTO.md](docs/PRODUTO.md) | Regras de produto: casa, cômodos, tarefas, férias, avaliação, roadmap |
+| [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Camadas, estrutura de pastas, navegação, repositórios, concorrência, convenções |
+| [docs/ALGORITMO.md](docs/ALGORITMO.md) | Contrato matemático da distribuição: custo, Húngaro, calendário, invariantes |
+| [CLAUDE.md](CLAUDE.md) | Guia rápido para IAs e novos desenvolvedores |
+
+## Rodando
+
+Requisitos: Xcode com o SDK e o runtime iOS 26.5 (deployment target do app: iOS 26.5, Swift 6).
+
+1. Abra `grupuxo/grupuxo.xcodeproj`.
+2. Selecione o scheme `grupuxo` e um simulador iPhone.
+3. Execute (⌘R). Os dados de demonstração são gerados na inicialização por `MockSeed`.
 
 ## Testes
-
-Com Xcode e o runtime iOS 26.5 instalados:
 
 ```sh
 xcodebuild test -project grupuxo/grupuxo.xcodeproj -scheme grupuxo \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
   -only-testing:grupuxoTests
 ```
+
+A suíte executável fica em `grupuxo/grupuxoTests`.
+
+## Roadmap
+
+Ver "Roadmap e decisões abertas" em [docs/PRODUTO.md](docs/PRODUTO.md).

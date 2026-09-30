@@ -1,4 +1,25 @@
-# Distribuição de tarefas on-device
+# Algoritmo de distribuição de tarefas (on-device)
+
+Contrato matemático e de consistência da distribuição. Regras de produto em [PRODUTO.md](PRODUTO.md); camadas e transações em [ARQUITETURA.md](ARQUITETURA.md). Código em `Domain/Services/`.
+
+## Resumo
+
+- **Modelo:** filas rotativas estáticas; cada participante aparece uma vez por ciclo.
+- **Custo:** carga semanal ao quadrado (pune picos) + concentração por nível de esforço + saldo amortizado, num horizonte de 12 semanas.
+- **Otimização:** Algoritmo Húngaro por fila (O(K³)); na casa, busca local lexicográfica com até 20 passagens. Sem garantia de ótimo global.
+- **Vigência:** mudanças de participantes valem na segunda-feira imediatamente seguinte.
+- **Justiça:** saldo por cômodo (`E − E/M` ao executor, `−E/M` aos demais), amortizado por 12 no custo.
+- **Determinismo:** mesmos dados e calendário produzem o mesmo resultado; empates por UUID/índice.
+
+## Glossário
+
+| Termo | Significado |
+| --- | --- |
+| Slot | Posição na fila rotativa; ocorrências `slot, slot+K, slot+2K…` |
+| Horizonte | 12 semanas projetadas a partir da vigência |
+| Escala do cômodo | Períodos de n execuções em x semanas, com bloco guloso de tarefas por posição |
+| Publicar | Materializar uma `TaskOccurrence` com atribuição |
+| Vigência | Segunda-feira a partir da qual a nova composição vale |
 
 ## Objetivo e limites matemáticos
 
@@ -61,6 +82,18 @@ Para `K` pessoas, cada coluna é uma posição da fila. A linha do usuário e a 
 
 A matriz é construída em O(K² × (H+P)), com `H=12` semanas e `P` ocorrências da tarefa. Os loops manipulam números e pequenos buffers. UUIDs de ocorrências e atribuições só são criados na publicação, fora da otimização.
 
+## Escala compartilhada do cômodo
+
+`WeeklyPeriodicity` guarda `executionsPerPeriod = n` e `intervalWeeks = x`, positivos, com n ≤ 7x. O período é ancorado em segunda-feira; as datas usam componentes de calendário e deslocamentos floor(i × 7x / n). A igualdade compara n e x exatamente: 2/2 não equivale a 1/1. A modalidade semanal antiga equivale a n = 1.
+
+`Room` guarda âncora, periodicidade, quantidade desejada e `RoomScheduleVersion`. Cada versão contém vigência, fila, quantidade efetiva, índice do período e o mapa tarefa → posição responsável. Os nomes avançam pela quantidade efetiva ao trocar de período. Mudanças de participantes criam versões na segunda-feira imediatamente seguinte e podem interromper o período atual sem mudar a âncora.
+
+O guloso ordena tarefas vinculadas por esforço decrescente e UUID. Aloca cada uma na posição com menor soma de esforço, depois menor quantidade de tarefas e menor índice. Os blocos são definidos antes de associar nomes; todas as execuções da tarefa no período seguem sua posição. Tarefas vinculadas não consomem cursores individuais.
+
+`QueueForecast.Turn.slot` identifica a posição do bloco na fila do cômodo. Várias tarefas e execuções podem contribuir para o mesmo slot. Isso mantém o custo separável por usuário/posição para o Húngaro. A busca considera filas de cômodos junto às independentes e preserva o vínculo estrutural. Na criação durante um período com execuções anteriores, a fila do cômodo fica fixa para preservar os responsáveis atuais.
+
+O horizonte continua sendo 12 semanas. A busca compara esforço, dificuldade, saldo e alterações lexicograficamente. Matrizes têm solução ótima individual; o conjunto continua sendo uma busca local, sem garantia de ótimo global. Os períodos futuros publicados além do horizonte seguem a mesma fila e as mesmas versões.
+
 ## Calendário versus conclusão
 
 - `.calendarRotation` e `.balancedAutomatically` exigem recorrência com intervalo positivo (diária, semanal, mensal ou anual); usam o mesmo planejador de fases.
@@ -103,6 +136,14 @@ A saída do último participante exige confirmação e exclui o cômodo, suas de
 
 Definições legadas atingidas pelo replanejamento são inicializadas a partir da recorrência e da última ocorrência conhecida, mantendo as ocorrências antigas. Sem ocorrência anterior, o calendário começa na vigência. Tarefas legadas `.selfAssigned` continuam fora das filas automáticas.
 
+## Acesso e invariantes de participação
+
+Cômodos comuns têm exatamente todos os moradores atuais. Casa toda é sempre comum e protegida contra saída individual. Uma saída de outro cômodo comum o torna privado imediatamente; saídas da casa não mudam a visibilidade dos comuns restantes.
+
+Moradores veem dados básicos dos privados, mas as versões da escala (que contêm IDs de tarefas) são removidas das respostas para não participantes. Listagens de tarefas e comandos exigem vínculo atual, salvo leitura/conclusão das próprias pendências anteriores à vigência da saída. Essa exceção depende de continuar morando na casa e não autoriza novas tarefas.
+
+A criação recebe o solicitante explicitamente. Assumir uma tarefa exige participação atual. A confirmação da última saída é um argumento obrigatório para permitir exclusão; a ausência de confirmação lança erro antes da mutação. Mudanças de moradores da casa verificam a mesma condição para privados que serão esvaziados.
+
 ## Atomicidade, concorrência e limites de produto
 
 Os serviços são valores `Sendable`, sem acesso a Data, SwiftUI, relógio global ou banco. `TaskSchedulingService` recebe um `TaskSchedulingState` por valor e executa a transição sincronamente. IDs de novos registros são gerados apenas quando necessários; decisões matemáticas são determinísticas para os mesmos dados e calendário.
@@ -124,23 +165,3 @@ xcodebuild test -project grupuxo/grupuxo.xcodeproj -scheme grupuxo \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
   -only-testing:grupuxoTests
 ```
-
-## Escala compartilhada do cômodo
-
-`WeeklyPeriodicity` guarda `executionsPerPeriod = n` e `intervalWeeks = x`, positivos, com n ≤ 7x. O período é ancorado em segunda-feira; as datas usam componentes de calendário e deslocamentos floor(i × 7x / n). A igualdade compara n e x exatamente: 2/2 não equivale a 1/1. A modalidade semanal antiga equivale a n = 1.
-
-`Room` guarda âncora, periodicidade, quantidade desejada e `RoomScheduleVersion`. Cada versão contém vigência, fila, quantidade efetiva, índice do período e o mapa tarefa → posição responsável. Os nomes avançam pela quantidade efetiva ao trocar de período. Mudanças de participantes criam versões na segunda-feira imediatamente seguinte e podem interromper o período atual sem mudar a âncora.
-
-O guloso ordena tarefas vinculadas por esforço decrescente e UUID. Aloca cada uma na posição com menor soma de esforço, depois menor quantidade de tarefas e menor índice. Os blocos são definidos antes de associar nomes; todas as execuções da tarefa no período seguem sua posição. Tarefas vinculadas não consomem cursores individuais.
-
-`QueueForecast.Turn.slot` identifica a posição do bloco na fila do cômodo. Várias tarefas e execuções podem contribuir para o mesmo slot. Isso mantém o custo separável por usuário/posição para o Húngaro. A busca considera filas de cômodos junto às independentes e preserva o vínculo estrutural. Na criação durante um período com execuções anteriores, a fila do cômodo fica fixa para preservar os responsáveis atuais.
-
-O horizonte continua sendo 12 semanas. A busca compara esforço, dificuldade, saldo e alterações lexicograficamente. Matrizes têm solução ótima individual; o conjunto continua sendo uma busca local, sem garantia de ótimo global. Os períodos futuros publicados além do horizonte seguem a mesma fila e as mesmas versões.
-
-## Acesso e invariantes de participação
-
-Cômodos comuns têm exatamente todos os moradores atuais. Casa toda é sempre comum e protegida contra saída individual. Uma saída de outro cômodo comum o torna privado imediatamente; saídas da casa não mudam a visibilidade dos comuns restantes.
-
-Moradores veem dados básicos dos privados, mas as versões da escala (que contêm IDs de tarefas) são removidas das respostas para não participantes. Listagens de tarefas e comandos exigem vínculo atual, salvo leitura/conclusão das próprias pendências anteriores à vigência da saída. Essa exceção depende de continuar morando na casa e não autoriza novas tarefas.
-
-A criação recebe o solicitante explicitamente. Assumir uma tarefa exige participação atual. A confirmação da última saída é um argumento obrigatório para permitir exclusão; a ausência de confirmação lança erro antes da mutação. Mudanças de moradores da casa verificam a mesma condição para privados que serão esvaziados.
