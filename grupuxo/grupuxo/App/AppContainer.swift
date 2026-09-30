@@ -1,4 +1,5 @@
 import Foundation
+import GrupuxoDomain
 
 @MainActor
 final class AppContainer {

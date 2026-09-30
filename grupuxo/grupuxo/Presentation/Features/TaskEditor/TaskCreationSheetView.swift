@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import GrupuxoDomain
 
 private extension TaskEffortLevel {
     var title: String {

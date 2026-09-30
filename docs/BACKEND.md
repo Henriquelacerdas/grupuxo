@@ -64,7 +64,7 @@ O webhook nunca chama o LLM diretamente. A Meta reenvia o evento se não receber
 
 ### Estrutura de código
 
-O `Domain/` do app já não importa SwiftUI nem persistência, então vira um pacote local:
+O `Domain/` do app não importa SwiftUI nem persistência, então virou um pacote local (✅ feito):
 
 ```
 grupuxo/
@@ -277,7 +277,7 @@ Para o produto:
 
 ## 13. Ordem de entrega sugerida
 
-1. Extrair `GrupuxoDomain` como Swift Package; o app continua funcionando com o mock.
+1. ✅ **Feito:** `GrupuxoDomain` extraído como Swift Package (`grupuxo/Packages/GrupuxoDomain`); o app continua funcionando com o mock.
 2. Esquema PostgreSQL, repositórios de persistência e testes contra o mesmo conjunto de cenários do mock.
 3. Lambda `api` e autenticação; `Data/Remote` no app (trocar mocks em `AppContainer`).
 4. Vínculo do número (`wa.me`) e tela no Perfil.

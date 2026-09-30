@@ -1,6 +1,6 @@
 # Algoritmo de distribuição de tarefas (on-device)
 
-Contrato matemático e de consistência da distribuição. Regras de produto em [PRODUTO.md](PRODUTO.md); camadas e transações em [ARQUITETURA.md](ARQUITETURA.md). Código em `Domain/Services/`.
+Contrato matemático e de consistência da distribuição. Regras de produto em [PRODUTO.md](PRODUTO.md); camadas e transações em [ARQUITETURA.md](ARQUITETURA.md). Código em `Packages/GrupuxoDomain/Sources/GrupuxoDomain/Services/`.
 
 ## Resumo
 

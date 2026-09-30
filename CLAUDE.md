@@ -1,16 +1,16 @@
 # grupuxo — guia para IAs e devs
 
-App iOS SwiftUI de distribuição de tarefas domésticas. Leia [docs/ARQUITETURA.md](docs/ARQUITETURA.md) antes de mudar contratos e [docs/ALGORITMO.md](docs/ALGORITMO.md) antes de tocar em `Domain/Services`.
+App iOS SwiftUI de distribuição de tarefas domésticas. Leia [docs/ARQUITETURA.md](docs/ARQUITETURA.md) antes de mudar contratos e [docs/ALGORITMO.md](docs/ALGORITMO.md) antes de tocar em `Services/` do pacote de domínio.
 
 ## Mapa rápido
 
-Código em `grupuxo/grupuxo/` (Xcode project em `grupuxo/grupuxo.xcodeproj`):
+Código em `grupuxo/grupuxo/` (Xcode project em `grupuxo/grupuxo.xcodeproj`). O domínio vive no Swift Package local `grupuxo/Packages/GrupuxoDomain` (`Sources/GrupuxoDomain/`), importado pelo app com `import GrupuxoDomain`:
 
 - `App/` composição (`AppContainer`), sessão, `RootView`.
-- `Domain/` entidades, value objects, repositórios (protocolos), use cases, services (algoritmos). Sem SwiftUI.
+- `Packages/GrupuxoDomain` entidades, value objects, repositórios (protocolos), use cases, services (algoritmos). Só `Foundation`, sem SwiftUI. API pública: tipo novo consumido pelo app precisa de `public` e `init` público explícito.
 - `Data/Mock/` repositórios mockados sobre um único `MockStore` (actor) e `MockSeed`.
 - `Presentation/` `Features/<Nome>/{State,View,ViewModel}`, `Navigation/`, `DesignSystem/`.
-- Testes: `grupuxo/grupuxoTests` (executados). `grupuxo/grupuxo/Tests/` são guias históricos, não rodam.
+- Testes: `grupuxo/grupuxoTests` (app + Mock) e `Packages/GrupuxoDomain/Tests` (domínio puro, `swift test`). Ambos executados. `grupuxo/grupuxo/Tests/` são guias históricos, não rodam.
 
 Fluxo: View → ViewModel → UseCase → Repository → Data.
 
@@ -33,4 +33,7 @@ Fluxo: View → ViewModel → UseCase → Repository → Data.
 xcodebuild test -project grupuxo/grupuxo.xcodeproj -scheme grupuxo \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
   -only-testing:grupuxoTests
+
+# domínio puro
+swift test --package-path grupuxo/Packages/GrupuxoDomain
 ```

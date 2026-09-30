@@ -1,4 +1,5 @@
 import SwiftUI
+import GrupuxoDomain
 
 extension RoomColor {
     var tint: Color {

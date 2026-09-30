@@ -1,4 +1,5 @@
 import Combine
+import GrupuxoDomain
 
 @MainActor
 final class AppSession: ObservableObject {

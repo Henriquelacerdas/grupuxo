@@ -2,9 +2,9 @@
 
 ## Visão geral
 
-Clean Architecture com SwiftUI + MVVM na apresentação, em um único target (camadas como pastas). Swift 6 com concorrência estrita; deployment target iOS 26.5.
+Clean Architecture com SwiftUI + MVVM na apresentação, com o domínio num Swift Package local (`Packages/GrupuxoDomain`) e Data/Presentation/App no target do app (camadas como pastas). Swift 6 com concorrência estrita; deployment target iOS 26.5.
 
-Hoje tudo roda sobre repositórios mockados e sem login. Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio. A distribuição de tarefas roda on-device.
+Hoje tudo roda sobre repositórios mockados e sem login. O domínio é um pacote separado para poder ser reutilizado por um backend em Swift (ver [BACKEND.md](BACKEND.md)). Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio. A distribuição de tarefas roda on-device.
 
 | Camada | Responsabilidade | Depende de |
 | --- | --- | --- |
@@ -17,11 +17,11 @@ Fluxo de uma ação: View → ViewModel → UseCase → Repository → implement
 
 ## Estrutura de pastas
 
-Base: `grupuxo/grupuxo/`.
+App: `grupuxo/grupuxo/`. Domínio: `grupuxo/Packages/GrupuxoDomain/Sources/GrupuxoDomain/` (importado com `import GrupuxoDomain`).
 
 ```
 App/            DomesticApp, AppContainer, AppSession, RootView
-Domain/
+GrupuxoDomain (pacote)/
   Entities/     User, House, HouseMembership, Room, RoomMembership, RoomAccessRequest,
                 TaskDefinition, TaskOccurrence, TaskAssignment, TaskSuggestion,
                 TaskSwapRequest, AppNotification, Absence
@@ -38,7 +38,7 @@ Presentation/
   DesignSystem/ DesignSystem, RoomIconView
 ```
 
-Testes executáveis: `grupuxo/grupuxoTests` (target separado). `grupuxo/grupuxo/Tests/` contém apenas guias históricos e não roda. Quando houver `Data/Remote`, criar DTOs e mappers ali.
+Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable import GrupuxoDomain`) e `Packages/GrupuxoDomain/Tests` (domínio puro: Húngaro, motor, justiça; `swift test`). `grupuxo/grupuxo/Tests/` contém apenas guias históricos e não roda. Quando houver `Data/Remote`, criar DTOs e mappers ali.
 
 ### Serviços de domínio
 
@@ -140,7 +140,7 @@ Conclusão e atribuição são idempotentes: repetir não duplica esforço, resp
 ## Convenções
 
 - Tipos e propriedades em inglês; textos de interface em português.
-- Domain não importa SwiftUI nem frameworks de persistência.
+- Domain (pacote) importa só `Foundation`; nada de SwiftUI nem persistência. O que o app consome é `public` (structs com `init` público explícito).
 - ViewModels não instanciam repositórios concretos; sem `Singleton.shared`.
 - Regras de negócio e balanceamento não ficam em Views/ViewModels.
 - Testar o Húngaro isoladamente, com matrizes de resposta conhecida.
