@@ -2,7 +2,7 @@
 
 App iOS (SwiftUI) que distribui tarefas domésticas entre moradores de casas compartilhadas e repúblicas, equilibrando o esforço semanal e respeitando a participação de cada um nos cômodos.
 
-**Estado atual:** dados mockados, sem login, backend ou sincronização. Todas as regras de distribuição rodam no dispositivo. Integração com o WhatsApp dos moradores está planejada e ainda não implementada.
+**Estado atual:** o app tem login (Amazon Cognito via Amplify, e-mail/senha e Sign in with Apple), mas os dados continuam mockados, sem backend de dados nem sincronização. Todas as regras de distribuição rodam no dispositivo. O login ainda é só uma porta de entrada: o morador exibido vem do `MockSeed`, não da conta autenticada. A integração com o WhatsApp está em construção em `backend/` (webhook, worker e contratos, sem banco nem AWS ainda), conforme [docs/BACKEND.md](docs/BACKEND.md).
 
 ## Funcionalidades
 
@@ -19,6 +19,7 @@ App iOS (SwiftUI) que distribui tarefas domésticas entre moradores de casas com
 | [docs/PRODUTO.md](docs/PRODUTO.md) | Regras de produto: casa, cômodos, tarefas, férias, avaliação, roadmap |
 | [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Camadas, estrutura de pastas, navegação, repositórios, concorrência, convenções |
 | [docs/ALGORITMO.md](docs/ALGORITMO.md) | Contrato matemático da distribuição: custo, Húngaro, calendário, invariantes |
+| [docs/BACKEND.md](docs/BACKEND.md) | Backend AWS, banco PostgreSQL, WhatsApp, autenticação e estado da implementação em `backend/` |
 | [CLAUDE.md](CLAUDE.md) | Guia rápido para IAs e novos desenvolvedores |
 
 ## Rodando
@@ -37,7 +38,19 @@ xcodebuild test -project grupuxo/grupuxo.xcodeproj -scheme grupuxo \
   -only-testing:grupuxoTests
 ```
 
-A suíte executável fica em `grupuxo/grupuxoTests`.
+A suíte do app fica em `grupuxo/grupuxoTests`. Domínio puro e backend rodam com SwiftPM:
+
+```sh
+swift test --package-path grupuxo/Packages/GrupuxoDomain
+swift test --package-path backend
+```
+
+Para conferir que domínio e backend compilam em Linux (destino das Lambdas), com Docker:
+
+```sh
+docker build -f backend/Dockerfile -t grupuxo-backend .
+docker run --rm grupuxo-backend
+```
 
 ## Roadmap
 

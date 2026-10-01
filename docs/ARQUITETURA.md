@@ -4,7 +4,7 @@
 
 Clean Architecture com SwiftUI + MVVM na apresentação, com o domínio num Swift Package local (`Packages/GrupuxoDomain`) e Data/Presentation/App no target do app (camadas como pastas). Swift 6 com concorrência estrita; deployment target iOS 26.5.
 
-Hoje tudo roda sobre repositórios mockados e sem login. O domínio é um pacote separado para poder ser reutilizado por um backend em Swift (ver [BACKEND.md](BACKEND.md)). Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio. A distribuição de tarefas roda on-device.
+Hoje os dados rodam sobre repositórios mockados. O login (Cognito via Amplify) existe, mas só controla o acesso à interface: a sessão (`AppSession`) ainda usa o usuário do `MockSeed`. O domínio é um pacote separado, reutilizado pelo backend em Swift em `backend/` (ver [BACKEND.md](BACKEND.md)). Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio. A distribuição de tarefas roda on-device.
 
 | Camada | Responsabilidade | Depende de |
 | --- | --- | --- |
@@ -31,14 +31,16 @@ GrupuxoDomain (pacote)/
   Services/     algoritmos e políticas (ver abaixo)
   Errors/       DomainError
 Data/Mock/      MockStore (actor), MockSeed, Mock{House,Room,Task,TaskSwap,Notification}Repository
+Data/Auth/      AuthService (Amplify/Cognito: login, cadastro, confirmação, Apple, sessão)
 Presentation/
   Features/     MyTasks, HouseManagement, RoomDetail, RoomEditor, TaskEditor,
                 SporadicTasks, TaskSwap, Profile   (cada uma: State + View + ViewModel)
+                Auth (LoginView, SignUpView, ConfirmSignUpView; sem ViewModel, usam AuthService)
   Navigation/   AppRoute, AppRouter
   DesignSystem/ DesignSystem, RoomIconView
 ```
 
-Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable import GrupuxoDomain`) e `Packages/GrupuxoDomain/Tests` (domínio puro: Húngaro, motor, justiça; `swift test`). `grupuxo/grupuxo/Tests/` contém apenas guias históricos e não roda. Quando houver `Data/Remote`, criar DTOs e mappers ali.
+Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable import GrupuxoDomain`) e `Packages/GrupuxoDomain/Tests` (domínio puro: Húngaro, motor, justiça; `swift test`). `backend/Tests` cobre webhook (assinatura, verificação, filtragem), worker (idempotência, vínculo) e o contrato dos ports (`swift test --package-path backend`). `grupuxo/grupuxo/Tests/` contém apenas guias históricos e não roda. Quando houver `Data/Remote`, criar DTOs e mappers ali.
 
 ### Serviços de domínio
 
@@ -56,6 +58,20 @@ Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable
 | `TaskSuggestionCatalog` | Sugestões de tarefa por categoria de cômodo |
 
 Contrato matemático completo: [ALGORITMO.md](ALGORITMO.md).
+
+### Backend (`backend/`)
+
+Swift Package separado, na raiz do repositório, com dependência local em `GrupuxoDomain`. Detalhes em [BACKEND.md](BACKEND.md).
+
+```
+backend/Sources/
+  WhatsAppCore/       Webhook/ (payload, assinatura, handler), Ports/ (protocolos), Worker/
+  WhatsAppInMemory/   adaptadores em memória dos ports (dev e testes)
+backend/Tests/WhatsAppCoreTests
+backend/Dockerfile    build e testes em Linux (domínio + backend)
+```
+
+O app e o backend compartilham o domínio, não a camada de dados: os repositórios PostgreSQL e os ports do WhatsApp ficam no backend; `Data/Remote` (futuro) fica no app.
 
 ## Navegação e fluxo de produto
 

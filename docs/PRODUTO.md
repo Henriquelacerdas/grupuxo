@@ -2,7 +2,7 @@
 
 App iOS em SwiftUI para organizar tarefas domésticas em casas compartilhadas e repúblicas. Objetivo: reduzir a carga mental de criar, distribuir, lembrar e acompanhar tarefas, com divisão clara e justa.
 
-**Estado atual:** arquitetura, navegação e fluxos completos sobre dados mockados. Sem autenticação, backend, sincronização ou WhatsApp. Login futuro: Sign in with Apple.
+**Estado atual:** arquitetura, navegação e fluxos completos sobre dados mockados. Login com Amazon Cognito (e-mail/senha e Sign in with Apple) já existe, mas ainda não identifica o morador: sem backend de dados, sincronização ou WhatsApp em funcionamento (o backend do WhatsApp está em construção, ver [BACKEND.md](BACKEND.md)).
 
 ## Estrutura da casa
 
@@ -97,13 +97,13 @@ Moradores avaliam cômodos comuns; privados não participam. Resumo a cada 3 sem
 
 ## Roadmap e decisões abertas
 
-**WhatsApp:** integração com o WhatsApp dos moradores para consultar tarefas, receber lembretes e, depois, registrar conclusões sem abrir o app. Viabilidade, custos, escopo (API oficial vs. alternativas), vínculo número↔morador e consentimento dependem de um spike técnico. Provavelmente exige backend.
+**WhatsApp:** integração com o WhatsApp dos moradores para consultar tarefas, receber lembretes e, depois, registrar conclusões sem abrir o app. Decidido: API oficial da Meta (Cloud API), v1 somente de consulta, vínculo do número por link `wa.me` com token e consentimento registrado no vínculo. Exige backend (ver [BACKEND.md](BACKEND.md)). Em aberto: custo de mensagens iniciadas pelo bot (lembretes) e um número de bot por ambiente.
 
 Futuro, sem bloquear a entrega atual: widget, Lembretes, Siri, NFC, lista de mercado, controle financeiro.
 
 Decisões abertas:
 
-- Backend, banco, sincronização; versão mínima de iOS (hoje 26.5).
+- Banco, API do app e sincronização (o PostgreSQL está sendo modelado pelo time); versão mínima de iOS (hoje 26.5).
 - Fuso persistido por casa e regras de atraso (mock: calendário gregoriano, fuso do dispositivo, semana iniciando na segunda).
 - Redistribuição imediata das pendências de quem deixa a casa e em férias.
 - Compensação mais imediata, sem crédito duplicado ou quebra de atribuições publicadas.
