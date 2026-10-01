@@ -84,7 +84,192 @@ struct MockTaskRepository: TaskRepository {
             }
         }
     }
+    func taskDefinition(
+        id: TaskDefinition.ID,
+        requesting userID: User.ID
+    ) async throws -> TaskDefinition {
 
+        try await store.read { state in
+
+            guard let definition = state.definitions.first(
+                where: { $0.id == id }
+            ) else {
+                throw DomainError.entityNotFound
+            }
+
+            guard let room = state.rooms.first(
+                where: { $0.id == definition.roomID }
+            ) else {
+                throw DomainError.entityNotFound
+            }
+
+            guard state.houseMemberships.contains(
+                where: {
+                    $0.houseID == room.houseID
+                        && $0.userID == userID
+                }
+            ) else {
+                throw DomainError.taskUnavailable
+            }
+
+            guard eligibilityPolicy.canView(
+                definition,
+                room: room,
+                userID: userID,
+                roomMemberships: state.roomMemberships
+            ) else {
+                throw DomainError.taskUnavailable
+            }
+
+            return definition
+
+        }
+
+    }
+
+    func updateTaskDetails(
+        id: TaskDefinition.ID,
+        name: String,
+        details: String,
+        requestedBy userID: User.ID
+    ) async throws -> TaskDefinition {
+
+        try await store.update { state in
+
+            let trimmedName =
+                name.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+
+            guard !trimmedName.isEmpty else {
+                throw DomainError.invalidTaskName
+            }
+
+            guard let definitionIndex =
+                state.definitions.firstIndex(
+                    where: { $0.id == id }
+                )
+            else {
+                throw DomainError.entityNotFound
+            }
+
+            let previousDefinition =
+                state.definitions[definitionIndex]
+
+            guard let room =
+                state.rooms.first(
+                    where: {
+                        $0.id ==
+                            previousDefinition.roomID
+                    }
+                )
+            else {
+                throw DomainError.entityNotFound
+            }
+
+            guard state.houseMemberships.contains(
+                where: {
+                    $0.houseID == room.houseID
+                        && $0.userID == userID
+                }
+            ) else {
+                throw DomainError.taskUnavailable
+            }
+
+            guard eligibilityPolicy.canView(
+                previousDefinition,
+                room: room,
+                userID: userID,
+                roomMemberships:
+                    state.roomMemberships
+            ) else {
+                throw DomainError.taskUnavailable
+            }
+
+            let didChange =
+                previousDefinition.name != trimmedName
+                    || previousDefinition.details
+                        != details
+
+            state.definitions[definitionIndex].name =
+                trimmedName
+
+            state.definitions[definitionIndex].details =
+                details
+
+            let updatedDefinition =
+                state.definitions[definitionIndex]
+
+            if didChange {
+
+                let actorName =
+                    state.users.first(
+                        where: {
+                            $0.id == userID
+                        }
+                    )?.name ?? "Um morador"
+
+                let houseMemberIDs = Set(
+                    state.houseMemberships
+                        .filter {
+                            $0.houseID == room.houseID
+                        }
+                        .map(\.userID)
+                )
+
+                let recipientIDs: Set<User.ID>
+
+                switch room.visibility {
+
+                case .common:
+
+                    recipientIDs =
+                        houseMemberIDs
+
+                case .privateRoom:
+
+                    recipientIDs = Set(
+                        state.roomMemberships
+                            .filter {
+                                $0.roomID == room.id
+                                    && $0.isCurrent
+                                    && houseMemberIDs
+                                        .contains(
+                                            $0.userID
+                                        )
+                            }
+                            .map(\.userID)
+                    )
+
+                }
+
+                for recipientID
+                    in recipientIDs
+                    where recipientID != userID {
+
+                    state.notifications.append(
+                        AppNotification(
+                            id: UUID(),
+                            recipientUserID:
+                                recipientID,
+                            kind: .taskEdited,
+                            taskDefinitionID:
+                                updatedDefinition.id,
+                            message:
+                                "\(actorName) editou a tarefa \(updatedDefinition.name).",
+                            createdAt: .now
+                        )
+                    )
+
+                }
+
+            }
+
+            return updatedDefinition
+
+        }
+
+    }
     func create(_ definition: TaskDefinition, requestedBy userID: User.ID, at date: Date) async throws -> TaskDefinition {
         try await store.update { state in
             var schedule = state.schedule

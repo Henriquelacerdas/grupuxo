@@ -211,6 +211,24 @@ final class AppContainer {
         )
     }
 
+    func makeTaskDetailViewModel(
+        taskDefinitionID: TaskDefinition.ID,
+        session: AppSession
+    ) -> TaskDetailViewModel {
+
+        TaskDetailViewModel(
+            getTaskDefinition: GetTaskDefinitionUseCase(
+                repository: taskRepository
+            ),
+            updateTaskDetails: UpdateTaskDetailsUseCase(
+                repository: taskRepository
+            ),
+            taskDefinitionID: taskDefinitionID,
+            userID: session.currentUser.id
+        )
+
+    }
+
     func makeRoomEditorViewModel(
         session: AppSession
     ) -> RoomEditorViewModel {
@@ -227,7 +245,26 @@ final class AppContainer {
             )
         )
     }
+    func makeNotificationsViewModel(
+        session: AppSession
+    ) -> NotificationsViewModel {
 
+        NotificationsViewModel(
+            getNotifications:
+                GetNotificationsUseCase(
+                    repository:
+                        notificationRepository
+                ),
+            markNotificationAsRead:
+                MarkNotificationAsReadUseCase(
+                    repository:
+                        notificationRepository
+                ),
+            userID:
+                session.currentUser.id
+        )
+
+    }
     // MARK: - Troca de tarefas
 
     func makeTaskSwapViewModel(

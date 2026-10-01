@@ -8,10 +8,13 @@ struct RootView: View {
     @StateObject private var session: AppSession
 
     @State private var selectedTab: AppTab = .myTasks
+
     @State private var tasksPath: [AppRoute] = []
+
     @State private var housePath: [AppRoute] = []
 
     init() {
+
         container = AppContainer()
 
         _session = StateObject(
@@ -20,17 +23,20 @@ struct RootView: View {
                 currentHouse: MockSeed.house
             )
         )
+
     }
 
     init(
         container: AppContainer,
         session: AppSession
     ) {
+
         self.container = container
 
         _session = StateObject(
             wrappedValue: session
         )
+
     }
 
     var body: some View {
@@ -41,39 +47,56 @@ struct RootView: View {
             NavigationStack(path: $tasksPath) {
 
                 MyTasksView(
-                    viewModel: container.makeMyTasksViewModel(
-                        session: session
-                    ),
-
+                    viewModel:
+                        container.makeMyTasksViewModel(
+                            session: session
+                        ),
                     onRequestSwap: { occurrenceID in
+
                         tasksPath.append(
                             .taskSwap(
                                 offeredOccurrenceID: occurrenceID
                             )
                         )
-                    },
 
+                    },
                     onSelectNotifications: {
-                        tasksPath.append(.notifications)
-                    },
 
+                        tasksPath.append(
+                            .notifications
+                        )
+
+                    },
                     onSelectProfile: {
-                        tasksPath.append(.settings)
+
+                        tasksPath.append(
+                            .settings
+                        )
+
                     }
                 )
                 .navigationDestination(
                     for: AppRoute.self
                 ) { route in
-                    destination(for: route)
+
+                    destination(
+                        for: route
+                    )
+
                 }
+
             }
             .tabItem {
+
                 Label(
                     "Tarefas",
                     systemImage: "checklist"
                 )
+
             }
-            .tag(AppTab.myTasks)
+            .tag(
+                AppTab.myTasks
+            )
 
             NavigationStack(path: $housePath) {
 
@@ -82,46 +105,63 @@ struct RootView: View {
                         container.makeHouseManagementViewModel(
                             session: session
                         ),
-
                     makeTaskEditorViewModel: {
+
                         container.makeTaskEditorViewModel(
                             roomID: nil,
                             session: session
                         )
-                    },
 
+                    },
                     makeRoomEditorViewModel: {
+
                         container.makeRoomEditorViewModel(
                             session: session
                         )
-                    },
 
-                    onSelectRoom: {
+                    },
+                    onSelectRoom: { roomID in
+
                         housePath.append(
-                            .roomDetail($0)
+                            .roomDetail(
+                                roomID
+                            )
                         )
-                    },
 
+                    },
                     onSelectSporadicTasks: {
+
                         housePath.append(
                             .sporadicTasks
                         )
+
                     }
                 )
                 .navigationDestination(
                     for: AppRoute.self
                 ) { route in
-                    destination(for: route)
+
+                    destination(
+                        for: route
+                    )
+
                 }
+
             }
             .tabItem {
+
                 Label(
                     "Casa",
                     systemImage: "house"
                 )
+
             }
-            .tag(AppTab.house)
+            .tag(
+                AppTab.house
+            )
+
         }
+
     }
 
     @ViewBuilder
@@ -139,16 +179,35 @@ struct RootView: View {
                         roomID: roomID,
                         session: session
                     ),
-
-                makeSuggestionEditorViewModel: {
-                    suggestion in
+                makeSuggestionEditorViewModel: { suggestion in
 
                     container.makeTaskEditorViewModel(
                         roomID: roomID,
                         suggestion: suggestion,
                         session: session
                     )
+
+                },
+                onSelectTask: { taskDefinitionID in
+
+                    housePath.append(
+                        .taskDetail(
+                            taskDefinitionID
+                        )
+                    )
+
                 }
+            )
+
+        case let .taskDetail(taskDefinitionID):
+
+            TaskDetailView(
+                viewModel:
+                    container.makeTaskDetailViewModel(
+                        taskDefinitionID:
+                            taskDefinitionID,
+                        session: session
+                    )
             )
 
         case .sporadicTasks:
@@ -175,22 +234,19 @@ struct RootView: View {
             TaskSwapView(
                 viewModel:
                     container.makeTaskSwapViewModel(
-                        offeredOccurrenceID: offeredOccurrenceID,
+                        offeredOccurrenceID:
+                            offeredOccurrenceID,
                         session: session
                     )
             )
 
         case .notifications:
 
-            ContentUnavailableView(
-                "Histórico de notificações",
-                systemImage: "bell",
-                description: Text(
-                    "Esta área será implementada em breve."
-                )
-            )
-            .navigationTitle(
-                "Notificações"
+            NotificationsView(
+                viewModel:
+                    container.makeNotificationsViewModel(
+                        session: session
+                    )
             )
 
         case .settings:
@@ -201,6 +257,9 @@ struct RootView: View {
                         session: session
                     )
             )
+
         }
+
     }
+
 }
