@@ -36,10 +36,15 @@ class AuthService: ObservableObject {
     
     // Faz o logout
     func signOut() async {
-        let result = await Amplify.Auth.signOut()
-        if let signOutResult = result as? AWSCognitoSignOutResult {
-            print("Logout finalizado: \(signOutResult)")
-            self.isSignedIn = false
+        let result = await Amplify.Auth.signOut(options: .init(globalSignOut: false))
+
+        if let result = result as? AWSCognitoSignOutResult {
+            switch result {
+            case .complete, .partial:
+                isSignedIn = false   // ajuste para a propriedade que você já usa
+            case .failed(let error):
+                print("Erro no logout: \(error)")
+            }
         }
     }
     
