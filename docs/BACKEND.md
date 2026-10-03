@@ -1,6 +1,6 @@
 # Backend e integração com WhatsApp
 
-Arquitetura do backend e do canal WhatsApp, alinhada com o desenvolvimento do banco. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend-ts/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token e ports, tudo com adaptadores em memória, sem banco nem AWS (ver seção 14). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
+Arquitetura do backend e do canal WhatsApp, alinhada com o desenvolvimento do banco. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token e ports, tudo com adaptadores em memória, sem banco nem AWS (ver seção 14). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
 
 Documentos relacionados: [ARQUITETURA.md](ARQUITETURA.md) (app), [ALGORITMO.md](ALGORITMO.md) (contrato matemático), [PRODUTO.md](PRODUTO.md).
 
@@ -72,7 +72,7 @@ O `GrupuxoDomain` Swift (pacote local do app) continua existindo e é a referên
 grupuxo/
   Packages/GrupuxoDomain/   domínio Swift: domínio do app e referência das fixtures      ✅
   grupuxo/                  app iOS (Presentation, App, Data/Mock, Data/Auth, Data/Remote)
-backend-ts/                 projeto Node.js + TypeScript (zero dependências de runtime)
+backend/                 projeto Node.js + TypeScript (zero dependências de runtime)
   src/domain/               port do GrupuxoDomain: entidades, value objects, repositórios
                             (interfaces), services (algoritmo), commands, use-cases, dates.ts   ✅
   src/whatsapp/             webhook (payload, assinatura, handler), worker, vínculo por token
@@ -176,7 +176,7 @@ v1: o app consulta a API a cada abertura de tela e após mutações (já é o qu
 
 ### 7.1 Webhook
 
-Implementado em `WebhookHandler` (`backend-ts/src/whatsapp/webhook/`), com testes.
+Implementado em `WebhookHandler` (`backend/src/whatsapp/webhook/`), com testes.
 
 1. **GET** (verificação): responde `hub.challenge` se `hub.verify_token` confere com o segredo (comparação em tempo constante). Nunca registrar o token em log.
 2. **POST** (evento):
@@ -186,7 +186,7 @@ Implementado em `WebhookHandler` (`backend-ts/src/whatsapp/webhook/`), com teste
 
 ### 7.2 Worker
 
-Implementado em `WhatsAppWorker` (`backend-ts/src/whatsapp/worker.ts`); já faz o vínculo por token (seção 8). Hoje responde com `EchoResponder` e ainda não chama o Gemini.
+Implementado em `WhatsAppWorker` (`backend/src/whatsapp/worker.ts`); já faz o vínculo por token (seção 8). Hoje responde com `EchoResponder` e ainda não chama o Gemini.
 
 ```
 mensagem ─► inserir wamid em whatsapp_inbox (se já existe: descartar)
@@ -321,8 +321,8 @@ Para a infraestrutura (Node):
 
 ## 13. Ordem de entrega sugerida
 
-1. ✅ **Feito:** `GrupuxoDomain` extraído como Swift Package (`grupuxo/Packages/GrupuxoDomain`); o app continua funcionando com o mock. ✅ **Feito:** domínio e algoritmo portados para TypeScript (`backend-ts/src/domain`), com fixtures de referência geradas do Swift e os cenários dos testes Swift traduzidos.
-2. Esquema PostgreSQL, repositórios de persistência e testes contra o mesmo conjunto de cenários do mock. *Em andamento pelo time (banco); as interfaces de repositório do domínio e os ports da seção 14 são parte do contrato, e os testes de contrato (`backend-ts/test/contract`) são reutilizáveis: cada função recebe uma fábrica do adaptador.*
+1. ✅ **Feito:** `GrupuxoDomain` extraído como Swift Package (`grupuxo/Packages/GrupuxoDomain`); o app continua funcionando com o mock. ✅ **Feito:** domínio e algoritmo portados para TypeScript (`backend/src/domain`), com fixtures de referência geradas do Swift e os cenários dos testes Swift traduzidos.
+2. Esquema PostgreSQL, repositórios de persistência e testes contra o mesmo conjunto de cenários do mock. *Em andamento pelo time (banco); as interfaces de repositório do domínio e os ports da seção 14 são parte do contrato, e os testes de contrato (`backend/test/contract`) são reutilizáveis: cada função recebe uma fábrica do adaptador.*
 3. Lambda `api` e autenticação (login Cognito do app ✅; falta validar o JWT no servidor); `Data/Remote` no app (trocar mocks em `AppContainer`).
 4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Falta o endpoint `POST /me/whatsapp/link` (depende da Lambda `api`) e a tela.*
 5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker e eco com adaptadores em memória; falta Lambda, SQS, Graph API e Gemini.* O Gemini chamará casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
@@ -332,7 +332,7 @@ Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paral
 
 ## 14. Estado da implementação e contrato com o banco
 
-Código em `backend-ts/` (`npm test`). Tudo roda com adaptadores em memória; nada acessa AWS, PostgreSQL, Meta ou Gemini ainda.
+Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada acessa AWS, PostgreSQL, Meta ou Gemini ainda.
 
 | Peça | Onde | Situação |
 | --- | --- | --- |
@@ -354,7 +354,7 @@ Código em `backend-ts/` (`npm test`). Tudo roda com adaptadores em memória; na
 ### Verificação
 
 ```sh
-cd backend-ts
+cd backend
 npm install          # só dev-dependencies: typescript e @types/node
 npm run typecheck    # tsc --noEmit
 npm test             # tudo: unitários, contratos e fixtures de referência
@@ -379,7 +379,7 @@ Requer Node 22.18 ou superior (execução de `.ts` por *type stripping*, sem `ts
 
 ### Contrato dos ports com as tabelas
 
-Quem implementar o PostgreSQL deve fazer cada port passar nos mesmos testes dos adaptadores em memória (`backend-ts/test/contract/stores.ts`).
+Quem implementar o PostgreSQL deve fazer cada port passar nos mesmos testes dos adaptadores em memória (`backend/test/contract/stores.ts`).
 
 | Port | Método | Tabela | SQL esperado |
 | --- | --- | --- | --- |

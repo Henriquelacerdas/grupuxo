@@ -1,6 +1,6 @@
 # grupuxo — guia para IAs e devs
 
-App iOS SwiftUI de distribuição de tarefas domésticas, mais um backend em **Node.js + TypeScript** (`backend-ts/`) que roda o algoritmo de distribuição no servidor e atende o canal WhatsApp. Leia [docs/ARQUITETURA.md](docs/ARQUITETURA.md) antes de mudar contratos, [docs/ALGORITMO.md](docs/ALGORITMO.md) antes de tocar no algoritmo (Swift ou TypeScript) e [docs/BACKEND.md](docs/BACKEND.md) antes de mexer em `backend-ts/`.
+App iOS SwiftUI de distribuição de tarefas domésticas, mais um backend em **Node.js + TypeScript** (`backend/`) que roda o algoritmo de distribuição no servidor e atende o canal WhatsApp. Leia [docs/ARQUITETURA.md](docs/ARQUITETURA.md) antes de mudar contratos, [docs/ALGORITMO.md](docs/ALGORITMO.md) antes de tocar no algoritmo (Swift ou TypeScript) e [docs/BACKEND.md](docs/BACKEND.md) antes de mexer em `backend/`.
 
 ## Mapa rápido
 
@@ -12,7 +12,7 @@ App e domínio Swift: código em `grupuxo/grupuxo/` (Xcode project em `grupuxo/g
 - `Data/Auth/AuthService` login com Amplify/Cognito (e-mail/senha e Apple). `ContentView` escolhe entre `LoginView` e `RootView`; o usuário da sessão ainda vem do mock.
 - `Presentation/` `Features/<Nome>/{State,View,ViewModel}`, `Navigation/`, `DesignSystem/`.
 
-Backend TypeScript: `backend-ts/` (Node 22, ESM, `strict`, **zero dependências de runtime**; dev: `typescript` e `@types/node`; os testes usam `node:test`).
+Backend TypeScript: `backend/` (Node 22, ESM, `strict`, **zero dependências de runtime**; dev: `typescript` e `@types/node`; os testes usam `node:test`).
 
 - `src/domain/` domínio puro, port do `GrupuxoDomain`: entidades (`entities.ts`), value objects, erros, repositórios (interfaces), `services/` (algoritmo), `commands/` (a lógica transacional que no app mora nos `Mock*Repository`), `use-cases/`, `dates.ts` (calendário por fuso com `Intl`). Sem `node:*`, sem I/O, sem relógio ou gerador de IDs globais: `now` e `newID` são injetados.
 - `src/whatsapp/` webhook (payload, assinatura, handler), worker, vínculo por token (`linking/`) e ports (`ports.ts`).
@@ -28,7 +28,7 @@ Fluxo no app: View → ViewModel → UseCase → Repository → Data. No backend
 
 Enquanto o app usar o mock, o `GrupuxoDomain` Swift continua sendo o domínio do app **e a referência** do TypeScript. Regra de mudança:
 
-- Mudou regra de distribuição, saldo, calendário ou política de elegibilidade? Altere o Swift (referência), altere o TypeScript, **regenere as fixtures** (`backend-ts/tools/swift-fixtures/regenerate.sh`) e rode `npm test`. As fixtures comparam o resultado dos dois com `deepStrictEqual`.
+- Mudou regra de distribuição, saldo, calendário ou política de elegibilidade? Altere o Swift (referência), altere o TypeScript, **regenere as fixtures** (`backend/tools/swift-fixtures/regenerate.sh`) e rode `npm test`. As fixtures comparam o resultado dos dois com `deepStrictEqual`.
 - Fixture divergente: o Swift é a referência até se entender a diferença. Descubra se é bug do port ou comportamento do Swift a registrar em `docs/ALGORITMO.md`; não "conserte" o TypeScript para passar sem entender.
 - Quando o app passar a consumir a API do servidor, o `GrupuxoDomain` Swift e o gerador de fixtures saem do caminho e o TypeScript fica como única implementação.
 
@@ -59,8 +59,8 @@ xcodebuild test -project grupuxo/grupuxo.xcodeproj -scheme grupuxo \
   -only-testing:grupuxoTests
 swift test --package-path grupuxo/Packages/GrupuxoDomain
 
-# backend TypeScript (Node >= 22.18; a primeira vez, `npm install` em backend-ts)
-cd backend-ts
+# backend TypeScript (Node >= 22.18; a primeira vez, `npm install` em backend)
+cd backend
 npm run typecheck        # tsc --noEmit
 npm test                 # todos os testes, incluindo as fixtures de referência
 npm run test:fixtures    # só as comparações com o Swift

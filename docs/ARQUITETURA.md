@@ -4,7 +4,7 @@
 
 Clean Architecture com SwiftUI + MVVM na apresentação, com o domínio num Swift Package local (`Packages/GrupuxoDomain`) e Data/Presentation/App no target do app (camadas como pastas). Swift 6 com concorrência estrita; deployment target iOS 26.5.
 
-Hoje os dados do app rodam sobre repositórios mockados. O login (Cognito via Amplify) existe, mas só controla o acesso à interface: a sessão (`AppSession`) ainda usa o usuário do `MockSeed`. No app, a distribuição de tarefas ainda roda on-device. O backend em Node.js + TypeScript (`backend-ts/`, ver [BACKEND.md](BACKEND.md)) tem uma **segunda implementação** do domínio e do algoritmo, portada do `GrupuxoDomain` e verificada contra ele por fixtures de referência: é ela que vai calcular a escala no servidor (WhatsApp, Android e, depois, o próprio app). Enquanto o app usar o mock, o `GrupuxoDomain` Swift é o domínio do app e a **referência** do port. Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio.
+Hoje os dados do app rodam sobre repositórios mockados. O login (Cognito via Amplify) existe, mas só controla o acesso à interface: a sessão (`AppSession`) ainda usa o usuário do `MockSeed`. No app, a distribuição de tarefas ainda roda on-device. O backend em Node.js + TypeScript (`backend/`, ver [BACKEND.md](BACKEND.md)) tem uma **segunda implementação** do domínio e do algoritmo, portada do `GrupuxoDomain` e verificada contra ele por fixtures de referência: é ela que vai calcular a escala no servidor (WhatsApp, Android e, depois, o próprio app). Enquanto o app usar o mock, o `GrupuxoDomain` Swift é o domínio do app e a **referência** do port. Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio.
 
 | Camada | Responsabilidade | Depende de |
 | --- | --- | --- |
@@ -40,7 +40,7 @@ Presentation/
   DesignSystem/ DesignSystem, RoomIconView
 ```
 
-Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable import GrupuxoDomain`) e `Packages/GrupuxoDomain/Tests` (domínio puro: Húngaro, motor, justiça; `swift test`). `backend-ts/test` cobre o domínio portado (cenários equivalentes aos do Swift, comparação com fixtures geradas do Swift), webhook (assinatura, verificação, filtragem), worker (idempotência, vínculo) e o contrato dos ports (`npm test` em `backend-ts`). `grupuxo/grupuxo/Tests/` contém apenas guias históricos e não roda. Quando houver `Data/Remote`, criar DTOs e mappers ali.
+Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable import GrupuxoDomain`) e `Packages/GrupuxoDomain/Tests` (domínio puro: Húngaro, motor, justiça; `swift test`). `backend/test` cobre o domínio portado (cenários equivalentes aos do Swift, comparação com fixtures geradas do Swift), webhook (assinatura, verificação, filtragem), worker (idempotência, vínculo) e o contrato dos ports (`npm test` em `backend`). `grupuxo/grupuxo/Tests/` contém apenas guias históricos e não roda. Quando houver `Data/Remote`, criar DTOs e mappers ali.
 
 ### Serviços de domínio
 
@@ -59,12 +59,12 @@ Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable
 
 Contrato matemático completo: [ALGORITMO.md](ALGORITMO.md).
 
-### Backend (`backend-ts/`)
+### Backend (`backend/`)
 
 Projeto Node.js (22.18 ou superior) com TypeScript `strict`, ESM e **nenhuma dependência de runtime** (HMAC, SHA-256, aleatoriedade e UUID vêm de `node:crypto`; testes com `node:test`). Detalhes em [BACKEND.md](BACKEND.md).
 
 ```
-backend-ts/
+backend/
   src/domain/            port do GrupuxoDomain; puro (sem node:*, sem I/O, sem relógio global)
     entities.ts value-objects.ts ids.ts errors.ts dates.ts store-state.ts repositories.ts
     services/            Húngaro, motor, otimizador da casa, agendamento, justiça, carga, elegibilidade, sugestões

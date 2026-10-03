@@ -5,7 +5,7 @@ Contrato matemático e de consistência da distribuição. Regras de produto em 
 Há duas implementações do mesmo contrato, ligadas por fixtures de referência (ver "Implementação em TypeScript e verificação cruzada"):
 
 - **Swift** (domínio do app e **referência**): `grupuxo/Packages/GrupuxoDomain/Sources/GrupuxoDomain/Services/`.
-- **TypeScript** (servidor): `backend-ts/src/domain/services/`.
+- **TypeScript** (servidor): `backend/src/domain/services/`.
 
 ## Resumo
 
@@ -161,7 +161,7 @@ A persistência é mockada e os dados de demonstração são gerados pelo planej
 
 ## Implementação em TypeScript e verificação cruzada
 
-Mapa dos arquivos (Swift `GrupuxoDomain/Services/` → TypeScript `backend-ts/src/domain/services/`):
+Mapa dos arquivos (Swift `GrupuxoDomain/Services/` → TypeScript `backend/src/domain/services/`):
 
 | Swift | TypeScript |
 | --- | --- |
@@ -172,9 +172,9 @@ Mapa dos arquivos (Swift `GrupuxoDomain/Services/` → TypeScript `backend-ts/sr
 | `FairnessCalculator`, `RotationCalculator`, `WeeklyLoadCalculator` | `fairness.ts`, `rotation.ts`, `weekly-load.ts` |
 | `TaskEligibilityPolicy`, `TaskSwapEligibilityPolicy` | `eligibility.ts` |
 | `TaskSuggestionCatalog` | `task-suggestion-catalog.ts` |
-| `Calendar` do Foundation | `backend-ts/src/domain/dates.ts` (`Intl.DateTimeFormat`) |
+| `Calendar` do Foundation | `backend/src/domain/dates.ts` (`Intl.DateTimeFormat`) |
 
-**Fixtures de referência.** `backend-ts/tools/swift-fixtures` roda cenários no `GrupuxoDomain` e grava JSON em `backend-ts/test/fixtures/` (cabeçalho `_generated` com o comando). Os testes `*.fixtures.test.ts` carregam cada fixture e comparam com `deepStrictEqual` (com `-0` ≡ `0`, único ajuste). Cobertura: grade de datas × fusos (`UTC`, `America/Sao_Paulo` incluindo a meia-noite inexistente de 2018, `Asia/Tokyo`, `America/New_York`, `Australia/Lord_Howe`, `Europe/London`) em todas as primitivas de calendário; Húngaro escalar e lexicográfico (empates, negativos, vazia, erros); motor; otimizador da casa; agendamento (criação por todas as recorrências, por conclusão, esporádica, escala compartilhada do cômodo, refresh após semanas puladas, conclusão e reabertura, ausência, entrada e saída em cômodo, saída do último participante, replanejamento da casa, horário de verão) e políticas de elegibilidade e troca. IDs gerados na execução (aleatórios no Swift) são normalizados para `new-1`, `new-2`… por ordem de aparição. Para regenerar: `backend-ts/tools/swift-fixtures/regenerate.sh`. Mudou o algoritmo? Altere o Swift (referência) e o TypeScript, regenere e rode `npm test`.
+**Fixtures de referência.** `backend/tools/swift-fixtures` roda cenários no `GrupuxoDomain` e grava JSON em `backend/test/fixtures/` (cabeçalho `_generated` com o comando). Os testes `*.fixtures.test.ts` carregam cada fixture e comparam com `deepStrictEqual` (com `-0` ≡ `0`, único ajuste). Cobertura: grade de datas × fusos (`UTC`, `America/Sao_Paulo` incluindo a meia-noite inexistente de 2018, `Asia/Tokyo`, `America/New_York`, `Australia/Lord_Howe`, `Europe/London`) em todas as primitivas de calendário; Húngaro escalar e lexicográfico (empates, negativos, vazia, erros); motor; otimizador da casa; agendamento (criação por todas as recorrências, por conclusão, esporádica, escala compartilhada do cômodo, refresh após semanas puladas, conclusão e reabertura, ausência, entrada e saída em cômodo, saída do último participante, replanejamento da casa, horário de verão) e políticas de elegibilidade e troca. IDs gerados na execução (aleatórios no Swift) são normalizados para `new-1`, `new-2`… por ordem de aparição. Para regenerar: `backend/tools/swift-fixtures/regenerate.sh`. Mudou o algoritmo? Altere o Swift (referência) e o TypeScript, regenere e rode `npm test`.
 
 **Pontos que exigem cuidado no port** (todos verificados pelas fixtures):
 
@@ -187,7 +187,7 @@ Mapa dos arquivos (Swift `GrupuxoDomain/Services/` → TypeScript `backend-ts/sr
 
 ## Verificação
 
-Testes no target `grupuxoTests` verificam matrizes escalares e lexicográficas contra enumeração exaustiva, equilíbrio semanal entre filas, transições na próxima segunda-feira, snapshots, saída e reentrada, privacidade, idempotência, atomicidade, concorrência, exclusão confirmada do último participante, avanço por conclusão, ausência, legado e horário de verão. `WeeklyLoadCalculator` conta cada ocorrência uma vez, na semana de disponibilidade, desconsiderando planos substituídos e mantendo o esforço concluído com seu executor. O mesmo conjunto de cenários roda no TypeScript (`backend-ts/test`), somado às fixtures de referência.
+Testes no target `grupuxoTests` verificam matrizes escalares e lexicográficas contra enumeração exaustiva, equilíbrio semanal entre filas, transições na próxima segunda-feira, snapshots, saída e reentrada, privacidade, idempotência, atomicidade, concorrência, exclusão confirmada do último participante, avanço por conclusão, ausência, legado e horário de verão. `WeeklyLoadCalculator` conta cada ocorrência uma vez, na semana de disponibilidade, desconsiderando planos substituídos e mantendo o esforço concluído com seu executor. O mesmo conjunto de cenários roda no TypeScript (`backend/test`), somado às fixtures de referência.
 
 Executar:
 
@@ -196,5 +196,5 @@ xcodebuild test -project grupuxo/grupuxo.xcodeproj -scheme grupuxo \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
   -only-testing:grupuxoTests
 swift test --package-path grupuxo/Packages/GrupuxoDomain
-cd backend-ts && npm test
+cd backend && npm test
 ```
