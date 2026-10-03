@@ -1,6 +1,6 @@
 # Backend e integração com WhatsApp
 
-Arquitetura do backend e do canal WhatsApp, alinhada com o desenvolvimento do banco. Status: **rascunho para revisão, com a primeira parte implementada** (webhook, worker e ports em `backend/`, sem banco nem AWS; ver seção 14). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
+Arquitetura do backend e do canal WhatsApp, alinhada com o desenvolvimento do banco. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend-ts/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token e ports, tudo com adaptadores em memória, sem banco nem AWS (ver seção 14). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
 
 Documentos relacionados: [ARQUITETURA.md](ARQUITETURA.md) (app), [ALGORITMO.md](ALGORITMO.md) (contrato matemático), [PRODUTO.md](PRODUTO.md).
 
@@ -19,12 +19,13 @@ Fora de escopo: avaliação da casa, widget, Siri, lista de mercado e financeiro
 
 | # | Decisão | Motivo |
 | --- | --- | --- |
-| ✅ 1 | O cálculo da escala (Húngaro, justiça, replanejamento) roda **no servidor, em Swift**, reusando o `Domain/` do app | Uma única implementação. Se app e WhatsApp calculassem separados, divergiriam. Também permite concluir tarefas pelo WhatsApp sem o app aberto. |
+| ✅ 1 | O cálculo da escala (Húngaro, justiça, replanejamento) roda **no servidor, em TypeScript (Node.js)**. O domínio e o algoritmo foram portados do `GrupuxoDomain` Swift, que continua sendo a referência (e o domínio do app enquanto ele usar o mock) até o app consumir a API | O WhatsApp (e depois o Android) precisa da escala calculada com o app fechado, de forma transacional por casa, e não no cliente. Uma implementação única no servidor evita divergência entre canais. Um backend em Swift tende a dar mais problemas a longo prazo (ecossistema de servidor, deploy em Lambda, contratação). A equivalência com o Swift é provada por fixtures de referência (seção 14), não por confiança. |
 | ✅ 2 | Banco: **Aurora PostgreSQL** | O modelo é relacional (casa → cômodos → tarefas → ocorrências) e a conclusão precisa de transação forte. |
 | ✅ 3 | LLM: **Gemini**, via API REST com *function calling* | Escolha do time. |
 | ✅ 4 | Vínculo do número: **link `wa.me` com token**, com código de verificação como plano B | Ver seção 8. |
 | ✅ 5 | O LLM só **interpreta a intenção**; nunca grava dados nem calcula escala | Segurança e previsibilidade. Toda leitura e escrita passa pelos casos de uso. |
 | ✅ 6 | Autenticação: **Amazon Cognito** (Amplify no app), com Apple como provedor federado | Já implementado no app (`Data/Auth/AuthService`, `amplify_outputs.json`, user pool em `us-east-1`). A `api` só valida o JWT do Cognito (seção 5). Confirmar com o time que é o caminho definitivo. |
+| ✅ 7 | Stack do backend: **Node.js 22 + TypeScript** (`strict`, ESM), **zero dependências de runtime** (`node:crypto`, `Intl`, `node:test`); sem Temporal, Luxon, zod, ORM nem container de DI | O básico bem feito: menos superfície de supply chain e de atualização, bundle de Lambda mínimo. Validação de entrada na borda por funções de estreitamento escritas à mão. |
 
 ## 3. Visão geral
 
@@ -35,7 +36,7 @@ Fora de escopo: avaliação da casa, widget, Siri, lista de mercado e financeiro
                               └──────┬────────┘
                                      ▼
 ┌──────────┐  webhook   ┌────────────────────┐        ┌────────────────────┐
-│ WhatsApp │ ─────────► │ Lambda "webhook"   │        │ Lambda "api" (Swift)│
+│ WhatsApp │ ─────────► │ Lambda "webhook"   │        │ Lambda "api" (Node)│
 │ (Meta)   │            │ valida assinatura  │        │ casos de uso        │
 └──────────┘            │ e enfileira        │        └─────────┬──────────┘
       ▲                 └─────────┬──────────┘                  │
@@ -65,30 +66,32 @@ O webhook nunca chama o LLM diretamente. A Meta reenvia o evento se não receber
 
 ### Estrutura de código
 
-O `Domain/` do app não importa SwiftUI nem persistência, então virou um pacote local (✅ feito):
+O `GrupuxoDomain` Swift (pacote local do app) continua existindo e é a referência do algoritmo; o backend tem o seu próprio domínio em TypeScript, verificado contra ele:
 
 ```
 grupuxo/
-  Packages/
-    GrupuxoDomain/        entidades, repositórios (protocolos), casos de uso, serviços   ✅
-  grupuxo/                app iOS (Presentation, App, Data/Mock, Data/Auth, Data/Remote)
-backend/                  Swift Package; depende de GrupuxoDomain por caminho local
-  Package.swift
-  Sources/
-    WhatsAppCore/         payload, assinatura, WebhookHandler, ports, WhatsAppWorker   ✅
-    WhatsAppInMemory/     adaptadores em memória dos ports (dev e testes)              ✅
-    Persistence/          repositórios PostgreSQL (implementam Domain e os ports)      a fazer
-    ApiLambda/                                                                         a fazer
-    WhatsAppWebhookLambda/  converte o evento do API Gateway em WebhookRequest         a fazer
-    WhatsAppWorkerLambda/   converte o evento do SQS em IncomingMessage                a fazer
-  Tests/WhatsAppCoreTests
-  Dockerfile              verificação em Linux (build + testes do domínio e do backend)  ✅
-  infra/                  IaC (AWS CDK, SAM ou Terraform ❓)                           a fazer
+  Packages/GrupuxoDomain/   domínio Swift: domínio do app e referência das fixtures      ✅
+  grupuxo/                  app iOS (Presentation, App, Data/Mock, Data/Auth, Data/Remote)
+backend-ts/                 projeto Node.js + TypeScript (zero dependências de runtime)
+  src/domain/               port do GrupuxoDomain: entidades, value objects, repositórios
+                            (interfaces), services (algoritmo), commands, use-cases, dates.ts   ✅
+  src/whatsapp/             webhook (payload, assinatura, handler), worker, vínculo por token
+                            (linking/) e ports (ports.ts)                                       ✅
+  src/adapters/in-memory/   store transacional, repositórios, ports do WhatsApp e seed (dev/testes) ✅
+  src/adapters/postgres/    repositórios PostgreSQL (implementam as interfaces do domínio e os ports)  a fazer
+  src/lambdas/api|webhook|worker/  conversão do evento (API Gateway, SQS) em chamadas ao núcleo       a fazer
+  test/                     testes; contract/ (contratos dos ports); fixtures/ (casos dourados do Swift)  ✅
+  tools/swift-fixtures/     gerador das fixtures a partir do GrupuxoDomain (Swift)                    ✅
+  infra/                    IaC (AWS CDK, SAM ou Terraform ❓)                                        a fazer
 ```
 
-`WhatsAppCore` não conhece AWS: as Lambdas serão camadas finas (com `swift-aws-lambda-runtime`) que montam `WebhookRequest`/`IncomingMessage`, chamam o núcleo e traduzem a resposta. A dependência de criptografia é `swift-crypto`, que também compila em Linux (as Lambdas rodam lá). ✅ Verificado: `GrupuxoDomain` e `backend/` compilam e passam nos testes em Linux (seção 14).
+`src/whatsapp/` e `src/domain/` não conhecem AWS: as Lambdas serão camadas finas que montam `WebhookRequest`/`IncomingMessage`, chamam o núcleo e traduzem a resposta. Empacotamento das Lambdas (esbuild ou `tsc` com `rewriteRelativeImportExtensions`) é decisão de infraestrutura ❓.
 
-Regra mantida: **nenhuma regra de negócio no backend fora do pacote de domínio**. As Lambdas só traduzem HTTP/WhatsApp em chamadas a casos de uso.
+Regras mantidas:
+
+- **Nenhuma regra de negócio no backend fora de `src/domain/`.** As Lambdas e `src/whatsapp/` só traduzem HTTP/WhatsApp em chamadas a casos de uso e comandos.
+- **`src/domain/` é puro**: sem `node:*`, sem I/O, sem relógio nem gerador de IDs globais (`now` e `newID` são injetados). Um teste de arquitetura (`test/architecture.test.ts`) verifica isso.
+- **A lógica transacional vive em `src/domain/commands/`** (o que no app está dentro dos `Mock*Repository`: acesso, claim/release, trocas, entrada/saída de casa). O adaptador só chama `store.update(estado => comando(...))`; o adaptador PostgreSQL carrega o estado da casa, chama o mesmo comando e grava, sem reimplementar regras.
 
 ## 4. Modelo de dados (PostgreSQL)
 
@@ -119,15 +122,15 @@ Estruturas aninhadas (fila rotativa, versões de escala, `completion_debt_impact
 
 ### Concorrência e transações
 
-Cada comando transacional do app (`create`, `complete`, `refreshSchedule`, `addMember`, `removeMember`) executa hoje **dentro** de `MockStore.update` (cópia, commit, rollback). No servidor, isso vira:
+Cada comando transacional (`create`, `complete`, `refreshSchedule`, `addMember`, `removeMember`) executa hoje **dentro** de `MockStore.update` no app e de `InMemoryStore.update` no backend (cópia, commit, rollback; testes de rollback e concorrência). No servidor com PostgreSQL, isso vira:
 
 1. `BEGIN` com bloqueio por casa: `SELECT ... FROM houses WHERE id = $1 FOR UPDATE` (ou *advisory lock* por `house_id`). Mutações de escala são por casa, então o bloqueio não atrapalha casas diferentes.
-2. Carregar o estado da casa, executar o serviço de domínio (puro, sem I/O) e gravar o resultado.
+2. Carregar o estado da casa (`StoreState`), executar o comando de domínio (`src/domain/commands/`, puro e síncrono, sem I/O) e gravar o resultado.
 3. `COMMIT`. Qualquer erro causa `ROLLBACK`.
 
 Conclusão e atribuição continuam **idempotentes**: repetir não duplica esforço nem `fairness_debt`. Isso é essencial porque o WhatsApp entrega *at-least-once*.
 
-Custo de conexões: Lambda abre muitas conexões, então usar **RDS Proxy**. Para custo baixo em desenvolvimento, Aurora Serverless v2 com pausa automática (min. 0 ACU) ❓. O time está montando o banco em AWS e modelando no DBeaver/PostgreSQL; o contrato que o código do WhatsApp espera está na seção 14.
+Custo de conexões: Lambda abre muitas conexões, então usar **RDS Proxy**. Para custo baixo em desenvolvimento, Aurora Serverless v2 com pausa automática (min. 0 ACU) ❓. O time está montando o banco em AWS e modelando no DBeaver/PostgreSQL; o contrato que o código do WhatsApp espera está na seção 14. Fuso: `houses.timezone` (IANA) é lido na carga do estado e define o calendário do serviço de agendamento.
 
 ## 5. Autenticação
 
@@ -173,7 +176,7 @@ v1: o app consulta a API a cada abertura de tela e após mutações (já é o qu
 
 ### 7.1 Webhook
 
-Implementado em `WebhookHandler` (`backend/Sources/WhatsAppCore/Webhook`), com testes.
+Implementado em `WebhookHandler` (`backend-ts/src/whatsapp/webhook/`), com testes.
 
 1. **GET** (verificação): responde `hub.challenge` se `hub.verify_token` confere com o segredo (comparação em tempo constante). Nunca registrar o token em log.
 2. **POST** (evento):
@@ -183,13 +186,13 @@ Implementado em `WebhookHandler` (`backend/Sources/WhatsAppCore/Webhook`), com t
 
 ### 7.2 Worker
 
-Implementado em `WhatsAppWorker`; hoje responde com `EchoResponder` e ainda não faz o vínculo por token nem chama o Gemini.
+Implementado em `WhatsAppWorker` (`backend-ts/src/whatsapp/worker.ts`); já faz o vínculo por token (seção 8). Hoje responde com `EchoResponder` e ainda não chama o Gemini.
 
 ```
 mensagem ─► inserir wamid em whatsapp_inbox (se já existe: descartar)
+        ─► mensagem com token de vínculo? responder pelo `WhatsAppLinker` (seção 8) e parar
         ─► resolver telefone → usuário (whatsapp_links)
-              ├─ desconhecido: se for token de vínculo, vincular (seção 8);
-              │                senão responder "Vincule seu número no app"
+              ├─ desconhecido: responder "Vincule seu número no app"
         ─► Gemini (function calling) interpreta a intenção
         ─► executa a ferramenta → caso de uso (leitura)
         ─► formata a resposta em português e envia pela Graph API
@@ -221,10 +224,28 @@ Por que o `wa.me` é mais barato: quando é o **usuário** quem envia a primeira
 Fluxo:
 
 1. No Perfil, o usuário toca em "Conectar WhatsApp". O app chama `POST /me/whatsapp/link`.
-2. O backend cria um token aleatório de uso único (≥128 bits, validade curta, ex. 15 min; grava apenas o *hash*) e devolve `https://wa.me/<numero-do-bot>?text=<mensagem com token>`.
-3. O app abre o link. O usuário envia a mensagem pré-preenchida.
-4. O worker recebe a mensagem, encontra o token, grava `whatsapp_links(user_id, phone_e164, consented_at)`, marca o token como usado e confirma no chat.
+2. O backend (`WhatsAppLinker.issueInvitation`) cria um token aleatório de uso único e devolve `https://wa.me/<numero-do-bot>?text=<mensagem com token>`. Recusa se o morador já tem número conectado.
+3. O app abre o link. O usuário envia a mensagem pré-preenchida (`Conectar meu WhatsApp ao Grupuxo. Código: <token>`).
+4. O worker recebe a mensagem, o `WhatsAppLinker.handle` reconhece o token, marca-o como usado, grava `whatsapp_links(user_id, phone_e164, consented_at, linked_at)` e confirma no chat.
 5. O app passa a mostrar "WhatsApp conectado", com opção de desconectar.
+
+Formato do token (`LinkTokenCodec`):
+
+- 128 bits do gerador seguro do sistema (`crypto.randomBytes`), em 32 caracteres hexadecimais minúsculos. Hex porque o teclado do WhatsApp pode trocar a caixa; o reconhecimento normaliza para minúsculo.
+- Persistido só o SHA-256 em hexadecimal (`whatsapp_link_tokens.token_hash`); o token em claro existe apenas na URL devolvida ao app.
+- Validade de 15 minutos (`LinkConfig.tokenLifetimeSeconds`) e uso único (`LinkTokenStore.consume`, atômico).
+- Reconhecimento: a primeira palavra da mensagem com exatamente 32 caracteres hex. O texto é entrada não confiável; o `userID` vem sempre do token.
+
+Respostas do bot (`WhatsAppLinker`):
+
+| Situação | Resposta |
+| --- | --- |
+| Vinculado | "Pronto! Seu WhatsApp está conectado…"; `consented_at` = horário da mensagem do usuário, `linked_at` = horário do processamento |
+| Token inexistente, usado ou expirado (sem distinguir, para não vazar informação) | "Link inválido ou expirado…" |
+| Número já vinculado (a qualquer morador) | "Este número já está conectado…"; **o token não é consumido**, outro número ainda pode usá-lo |
+| Morador já tem outro número | "Sua conta já tem outro número conectado…"; o vínculo original fica intacto |
+
+Limitação conhecida: consumir o token e criar o vínculo são duas chamadas aos ports. Se `create` falhar depois do `consume`, o token fica queimado e o morador gera outro pelo app. Com PostgreSQL, o adaptador pode fazer as duas coisas numa transação, sem mudar o ponto de chamada. Gerar um novo convite não invalida os anteriores: todos valem até expirar.
 
 Cuidados:
 
@@ -293,66 +314,81 @@ Para o produto:
 11. Um morador pode estar em mais de uma casa? Os casos de uso pedem `houseID`; o worker precisa resolver usuário → casa antes de chamar o domínio.
 12. Um morador tem no máximo um número vinculado (restrição `UNIQUE (user_id)` em `whatsapp_links`, assumida pelo código)? Confirmar com o desenvolvedor do banco.
 
+Para a infraestrutura (Node):
+
+13. Empacotamento das Lambdas: `esbuild` (bundle único) ou `tsc` com `rewriteRelativeImportExtensions`? O código usa imports com extensão `.ts` e roda no Node 22.18+ por *type stripping*; o Lambda precisa de JavaScript.
+14. Runtime Node 22 nas Lambdas e como o time quer fixar a versão (`.nvmrc` e `engines` já indicam 22).
+
 ## 13. Ordem de entrega sugerida
 
-1. ✅ **Feito:** `GrupuxoDomain` extraído como Swift Package (`grupuxo/Packages/GrupuxoDomain`); o app continua funcionando com o mock.
-2. Esquema PostgreSQL, repositórios de persistência e testes contra o mesmo conjunto de cenários do mock. *Em andamento pelo time (banco); os ports da seção 14 são parte do contrato.*
+1. ✅ **Feito:** `GrupuxoDomain` extraído como Swift Package (`grupuxo/Packages/GrupuxoDomain`); o app continua funcionando com o mock. ✅ **Feito:** domínio e algoritmo portados para TypeScript (`backend-ts/src/domain`), com fixtures de referência geradas do Swift e os cenários dos testes Swift traduzidos.
+2. Esquema PostgreSQL, repositórios de persistência e testes contra o mesmo conjunto de cenários do mock. *Em andamento pelo time (banco); as interfaces de repositório do domínio e os ports da seção 14 são parte do contrato, e os testes de contrato (`backend-ts/test/contract`) são reutilizáveis: cada função recebe uma fábrica do adaptador.*
 3. Lambda `api` e autenticação (login Cognito do app ✅; falta validar o JWT no servidor); `Data/Remote` no app (trocar mocks em `AppContainer`).
-4. Vínculo do número (`wa.me`) e tela no Perfil. *Ports `LinkTokenStore` e `WhatsAppLinkStore` prontos; falta gerar/reconhecer o token, o endpoint e a tela.*
-5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker e eco com adaptadores em memória; falta Lambda, SQS, Graph API e Gemini.*
+4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Falta o endpoint `POST /me/whatsapp/link` (depende da Lambda `api`) e a tela.*
+5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker e eco com adaptadores em memória; falta Lambda, SQS, Graph API e Gemini.* O Gemini chamará casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
 6. Concluir tarefas com confirmação e, por fim, lembretes.
 
 Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paralelo.
 
 ## 14. Estado da implementação e contrato com o banco
 
-Código em `backend/` (`swift test --package-path backend`). Tudo roda com adaptadores em memória; nada acessa AWS, PostgreSQL, Meta ou Gemini ainda.
+Código em `backend-ts/` (`npm test`). Tudo roda com adaptadores em memória; nada acessa AWS, PostgreSQL, Meta ou Gemini ainda.
 
 | Peça | Onde | Situação |
 | --- | --- | --- |
+| Domínio e algoritmo (Húngaro, motor, otimizador da casa, agendamento, justiça, carga, elegibilidade, sugestões) | `src/domain/services/` | ✅ portados; fixtures de referência do Swift verdes |
+| Calendário por fuso (semana na segunda, horário de verão) | `src/domain/dates.ts` | ✅ verificado contra o `Calendar` do Foundation em seis fusos |
+| Comandos transacionais, casos de uso, repositórios (interfaces) | `src/domain/commands/`, `use-cases/`, `repositories.ts` | ✅ |
 | Verificação (GET) e eventos (POST) do webhook | `WebhookHandler` | ✅ testado |
 | Assinatura `X-Hub-Signature-256` (HMAC-SHA256, tempo constante, falha fechada com segredo vazio) | `SignatureVerifier` | ✅ testado, incluindo vetor gerado com `openssl` |
-| Extração de mensagens de texto (ignora `statuses`, mídia e outros campos) | `WebhookPayload` | ✅ testado |
+| Extração de mensagens de texto (ignora `statuses`, mídia e outros campos) | `webhook-payload.ts` | ✅ testado, com decodificação tão rígida quanto o `Decodable` do Swift |
 | Worker: idempotência por `wamid`, resolve número → morador, responde | `WhatsAppWorker` | ✅ com `EchoResponder` |
-| Ports e adaptadores em memória | `Ports/`, `WhatsAppInMemory` | ✅ |
-| Build e testes em Linux (`swift:6.3`, aarch64) | `backend/Dockerfile` | ✅ domínio (8 testes) e backend (28 testes) passam |
+| Ports e adaptadores em memória | `src/whatsapp/ports.ts`, `src/adapters/in-memory/` | ✅ com testes de contrato reutilizáveis |
+| Vínculo por token: gerar convite, reconhecer o token, vincular, rejeitar número já vinculado | `LinkTokenCodec`, `WhatsAppLinker` | ✅ testado (em memória) |
 | Lambdas, SQS, Graph API, Secrets Manager | | a fazer |
-| Vínculo por token (gerar, reconhecer, `POST /me/whatsapp/link`) | | a fazer (passo 4) |
+| Repositórios PostgreSQL (domínio e ports) | `src/adapters/postgres/` | a fazer (time do banco) |
+| Endpoint `POST /me/whatsapp/link` e tela no Perfil | | a fazer (depende da Lambda `api`) |
 | Gemini e ferramentas de leitura (`MessageResponder` definitivo) | | a fazer |
 | Intervalo de datas ("da semana") em `GetMyTasksUseCase` | | a fazer no domínio, com o fuso da casa; hoje o caso de uso devolve todas |
 
-### Verificação em Linux
-
-As Lambdas rodam em Linux, então o domínio e o backend precisam compilar lá. O `backend/Dockerfile` usa `swift:6.3`, compila os dois pacotes e roda as duas suítes. O contexto do build é a **raiz do repositório** (o backend depende de `grupuxo/Packages/GrupuxoDomain` por caminho local):
+### Verificação
 
 ```sh
-docker build -f backend/Dockerfile -t grupuxo-backend .
-docker run --rm grupuxo-backend
+cd backend-ts
+npm install          # só dev-dependencies: typescript e @types/node
+npm run typecheck    # tsc --noEmit
+npm test             # tudo: unitários, contratos e fixtures de referência
+npm run test:fixtures
 ```
 
-Sem Docker Desktop, `brew install colima docker && colima start` serve. Se o build falhar com `docker-credential-desktop: executable file not found`, o `~/.docker/config.json` aponta para um helper do Docker Desktop que não existe; remova `credsStore` desse arquivo (ou use um `DOCKER_CONFIG` temporário), pois a imagem base é pública.
+Requer Node 22.18 ou superior (execução de `.ts` por *type stripping*, sem `tsx`; verificado localmente com Node 25 — o Node 22 ainda precisa ser conferido no CI). Estrutura dos testes:
 
-Resultado: `GrupuxoDomain` compilou em Linux sem alterações. O único problema foi no backend: `SymmetricKey` do `swift-crypto` não é `Sendable` (o do CryptoKit é), então `SignatureVerifier` guarda o segredo como `Data` e cria a chave a cada validação. Testado em aarch64 (compatível com Lambda arm64/Graviton); x86_64 não foi testado.
+- **Fixtures de referência** (`test/*.fixtures.test.ts`, `test/fixtures/*.json`): casos gerados do `GrupuxoDomain` Swift por `tools/swift-fixtures` (`regenerate.sh`) e comparados com `deepStrictEqual`. Detalhes e pontos de cuidado em [ALGORITMO.md](ALGORITMO.md).
+- **Cenários portados** dos testes Swift (app, domínio e backend) para `node:test`, mais testes novos para o que o Swift não cobria (calendário por fuso, trocas, notificações, assumir/devolver, decodificação rígida do webhook, arquitetura).
+- **Contratos** (`test/contract/stores.ts`): uma função por port que recebe uma fábrica do adaptador. O adaptador PostgreSQL deve passar nos mesmos testes (incluindo os concorrentes).
 
 ### Comportamentos decididos na implementação
 
-- Webhook: assinatura inválida ou ausente → 401; verificação com token/modo errado → 403; JSON inválido com assinatura válida → 400; falha ao enfileirar → 500 (a Meta reenvia; o SQS FIFO e a `whatsapp_inbox` deduplicam por `wamid`); método diferente de GET/POST → 405; qualquer evento válido sem mensagem de texto → 200 sem enfileirar.
+- Webhook: assinatura inválida ou ausente → 401; verificação com token/modo errado → 403; JSON inválido, UTF-8 inválido ou payload com tipo errado em campo obrigatório, com assinatura válida → 400; falha ao enfileirar → 500 (a Meta reenvia; o SQS FIFO e a `whatsapp_inbox` deduplicam por `wamid`); método diferente de GET/POST → 405; qualquer evento válido sem mensagem de texto → 200 sem enfileirar.
+- `timestamp` da mensagem: só dígitos (com fração opcional); qualquer outro valor (inclusive infinito ou fora do intervalo) cai no relógio injetado. É um endurecimento em relação ao Swift, que aceitava formatos como `1e9`.
 - Telefone: a Meta envia só dígitos (`5511999998888`); o backend normaliza para E.164 (`+5511999998888`) antes de enfileirar e de consultar `whatsapp_links`. **Risco:** números brasileiros antigos podem chegar sem o nono dígito; se aparecer divergência entre o número do cadastro e o `from` da Meta, normalizar na entrada.
 - Idempotência: `claim` devolve `claimed` para mensagem nova **ou registrada e ainda não processada** (o worker caiu no meio), e `duplicate` só depois de `markProcessed`. Assim uma falha não perde a mensagem. O custo é poder responder duas vezes se o envio funcionou e a marcação falhou; aceitável para leitura (na escrita, o caso de uso é idempotente).
 - Número desconhecido: o worker responde "Vincule seu número no app" (texto em `WhatsAppWorker.unlinkedReply`). Nunca vincula sem token válido.
+- Reconhecimento do token: marcas combinantes contam como parte da palavra (um caractere acentuado é uma letra), como no `split` por `Character` do Swift; um falso positivo só gera uma consulta de hash sem resultado.
+- Não registrar em log nem persistir o texto das mensagens: o worker só passa ao `InboxStore` o `wamid` e os horários (teste dedicado), e o código de `src` não usa `console`.
 
 ### Contrato dos ports com as tabelas
 
-Quem implementar o PostgreSQL deve fazer cada port passar nos mesmos testes dos adaptadores em memória (`backend/Tests/WhatsAppCoreTests/InMemoryStoreTests.swift`).
+Quem implementar o PostgreSQL deve fazer cada port passar nos mesmos testes dos adaptadores em memória (`backend-ts/test/contract/stores.ts`).
 
 | Port | Método | Tabela | SQL esperado |
 | --- | --- | --- | --- |
-| `InboxStore` | `claim(wamid:receivedAt:)` | `whatsapp_inbox` | `INSERT (wamid, received_at) ON CONFLICT (wamid) DO UPDATE SET wamid = EXCLUDED.wamid WHERE whatsapp_inbox.processed_at IS NULL RETURNING wamid` (1 linha = `claimed`; 0 = `duplicate`) |
-| | `markProcessed(wamid:at:)` | | `UPDATE ... SET processed_at = $2 WHERE wamid = $1` |
-| `WhatsAppLinkStore` | `link(forPhone:)`, `link(forUser:)` | `whatsapp_links` | `SELECT` por `phone_e164` ou `user_id` |
-| | `create(_:)` | | `INSERT`; violação de `UNIQUE (phone_e164)` → `WhatsAppLinkError.phoneAlreadyLinked`; de `UNIQUE (user_id)` → `.userAlreadyLinked` |
-| | `remove(forUser:)` | | `DELETE ... WHERE user_id = $1` (idempotente) |
-| `LinkTokenStore` | `save(_:)` | `whatsapp_link_tokens` | `INSERT (token_hash, user_id, expires_at)` |
-| | `consume(tokenHash:at:)` | | `UPDATE ... SET used_at = $2 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2 RETURNING user_id` (atômico) |
+| `InboxStore` | `claim(wamid, receivedAt)` | `whatsapp_inbox` | `INSERT (wamid, received_at) ON CONFLICT (wamid) DO UPDATE SET wamid = EXCLUDED.wamid WHERE whatsapp_inbox.processed_at IS NULL RETURNING wamid` (1 linha = `claimed`; 0 = `duplicate`) |
+| | `markProcessed(wamid, at)` | | `UPDATE ... SET processed_at = $2 WHERE wamid = $1` |
+| `WhatsAppLinkStore` | `linkForPhone(phone)`, `linkForUser(userID)` | `whatsapp_links` | `SELECT` por `phone_e164` ou `user_id` |
+| | `create(link)` | | `INSERT`; violação de `UNIQUE (phone_e164)` → `WhatsAppLinkError("phoneAlreadyLinked")`; de `UNIQUE (user_id)` → `"userAlreadyLinked"` |
+| | `remove(userID)` | | `DELETE ... WHERE user_id = $1` (idempotente) |
+| `LinkTokenStore` | `save(token)` | `whatsapp_link_tokens` | `INSERT (token_hash, user_id, expires_at)` |
+| | `consume(tokenHash, at)` | | `UPDATE ... SET used_at = $2 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > $2 RETURNING user_id` (atômico) |
 
-Campos que o código usa em `whatsapp_links`: `user_id`, `phone_e164` (E.164 com `+`), `consented_at`, `linked_at`. A coluna `status` listada na seção 4 não é usada na v1: desvincular apaga a linha. Mantê-la só se o time quiser histórico.
+Campos que o código usa em `whatsapp_links`: `user_id`, `phone_e164` (E.164 com `+`), `consented_at`, `linked_at`. A coluna `status` listada na seção 4 não é usada na v1: desvincular apaga a linha. Mantê-la só se o time quiser histórico. Instantes são `timestamptz` (o código usa milissegundos desde a época Unix em memória).

@@ -2,7 +2,7 @@
 
 App iOS em SwiftUI para organizar tarefas domésticas em casas compartilhadas e repúblicas. Objetivo: reduzir a carga mental de criar, distribuir, lembrar e acompanhar tarefas, com divisão clara e justa.
 
-**Estado atual:** arquitetura, navegação e fluxos completos sobre dados mockados. Login com Amazon Cognito (e-mail/senha e Sign in with Apple) já existe, mas ainda não identifica o morador: sem backend de dados, sincronização ou WhatsApp em funcionamento (o backend do WhatsApp está em construção, ver [BACKEND.md](BACKEND.md)).
+**Estado atual:** arquitetura, navegação e fluxos completos sobre dados mockados. Login com Amazon Cognito (e-mail/senha e Sign in with Apple) já existe, mas ainda não identifica o morador: sem backend de dados, sincronização ou WhatsApp em funcionamento (o backend em Node.js + TypeScript, com o algoritmo de distribuição portado e o canal WhatsApp, está em construção, ver [BACKEND.md](BACKEND.md)).
 
 ## Estrutura da casa
 
@@ -68,7 +68,7 @@ Tarefa sem calendário só troca de responsável quando o atual conclui. A fila 
 
 ### Distribuição automática e justiça
 
-Roda no dispositivo, com projeção de 12 semanas (rolling horizon):
+No app roda no dispositivo e no servidor roda a mesma lógica (implementação em TypeScript, verificada contra a do app), com projeção de 12 semanas (rolling horizon):
 
 1. **Saldo de justiça:** ao concluir esforço `E` num cômodo com `M` elegíveis, o executor ganha `E − E/M` e os demais perdem `E/M`. Quem é de fora do cômodo não é afetado.
 2. **Fila inicial:** custo quadrático por usuário/semana (pune picos) e Húngaro para a permutação de menor custo, com as demais filas fixas. Não garante ótimo global.
@@ -104,7 +104,7 @@ Futuro, sem bloquear a entrega atual: widget, Lembretes, Siri, NFC, lista de mer
 Decisões abertas:
 
 - Banco, API do app e sincronização (o PostgreSQL está sendo modelado pelo time); versão mínima de iOS (hoje 26.5).
-- Fuso persistido por casa e regras de atraso (mock: calendário gregoriano, fuso do dispositivo, semana iniciando na segunda).
+- Regras de atraso. O fuso é por casa no servidor (`houses.timezone`; semana iniciando na segunda, virada no fuso da casa); o mock do app ainda usa o fuso do dispositivo.
 - Redistribuição imediata das pendências de quem deixa a casa e em férias.
 - Compensação mais imediata, sem crédito duplicado ou quebra de atribuições publicadas.
 - Permissões de edição/exclusão manual de cômodos.

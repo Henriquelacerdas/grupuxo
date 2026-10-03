@@ -7,6 +7,7 @@ import WhatsAppInMemory
 struct WhatsAppWorkerTests {
     let inbox = InMemoryInboxStore()
     let links = InMemoryWhatsAppLinkStore()
+    let tokens = InMemoryLinkTokenStore()
     let sender = InMemoryWhatsAppSender()
     let userID = UUID()
     let phone = "+5511999998888"
@@ -14,7 +15,8 @@ struct WhatsAppWorkerTests {
 
     func makeWorker(responder: any MessageResponder = EchoResponder()) -> WhatsAppWorker {
         let processedAt = processedAt
-        return WhatsAppWorker(inbox: inbox, links: links, responder: responder, sender: sender, now: { processedAt })
+        let linker = WhatsAppLinker(config: try! LinkConfig(botPhoneNumber: "5511900000000"), tokens: tokens, links: links, now: { processedAt })
+        return WhatsAppWorker(inbox: inbox, links: links, linker: linker, responder: responder, sender: sender, now: { processedAt })
     }
 
     func message(_ wamid: String = "wamid.A", text: String = "oi") -> IncomingMessage {

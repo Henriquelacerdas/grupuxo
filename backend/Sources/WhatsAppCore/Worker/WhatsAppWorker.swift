@@ -7,6 +7,7 @@ public struct WhatsAppWorker: Sendable {
 
     private let inbox: any InboxStore
     private let links: any WhatsAppLinkStore
+    private let linker: WhatsAppLinker
     private let responder: any MessageResponder
     private let sender: any WhatsAppSender
     private let now: @Sendable () -> Date
@@ -14,12 +15,14 @@ public struct WhatsAppWorker: Sendable {
     public init(
         inbox: any InboxStore,
         links: any WhatsAppLinkStore,
+        linker: WhatsAppLinker,
         responder: any MessageResponder,
         sender: any WhatsAppSender,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.inbox = inbox
         self.links = links
+        self.linker = linker
         self.responder = responder
         self.sender = sender
         self.now = now
@@ -29,7 +32,9 @@ public struct WhatsAppWorker: Sendable {
         guard try await inbox.claim(wamid: message.wamid, receivedAt: message.receivedAt) == .claimed else { return }
 
         let reply: String
-        if let link = try await links.link(forPhone: message.phoneE164) {
+        if let linkReply = try await linker.handle(message) {
+            reply = linkReply
+        } else if let link = try await links.link(forPhone: message.phoneE164) {
             reply = try await responder.reply(to: message.text, from: link.userID)
         } else {
             reply = Self.unlinkedReply
