@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  createCalendar, DISTANT_FUTURE, DISTANT_PAST, formatInstant, localToInstant, parseInstant,
+  createCalendar, DISTANT_FUTURE, DISTANT_PAST, formatInstant, localDateTime, localToInstant, parseInstant,
 } from "../src/domain/dates.ts";
 import { isDomainError } from "../src/domain/errors.ts";
 
@@ -82,4 +82,12 @@ test("parseInstant exige fuso explícito e DISTANT_* ficam nos extremos", () => 
   assert.throws(() => parseInstant("2026-09-16T12:00:00"), (e: unknown) => isDomainError(e, "invalidDateInterval"));
   assert.throws(() => parseInstant("ontem"), (e: unknown) => isDomainError(e, "invalidDateInterval"));
   assert.ok(DISTANT_PAST < Date.UTC(1, 0, 1) && DISTANT_FUTURE > Date.UTC(4000, 0, 1));
+});
+
+test("localDateTime devolve o horário de parede no fuso, inclusive quando o dia UTC é outro", () => {
+  const instant = parseInstant("2026-09-21T02:30:00Z"); // domingo 23:30 em São Paulo, segunda 11:30 em Tóquio
+  assert.deepEqual(localDateTime("America/Sao_Paulo", instant), { year: 2026, month: 9, day: 20, hour: 23, minute: 30, second: 0 });
+  assert.deepEqual(localDateTime("Asia/Tokyo", instant), { year: 2026, month: 9, day: 21, hour: 11, minute: 30, second: 0 });
+  assert.equal(localToInstant("Asia/Tokyo", localDateTime("Asia/Tokyo", instant)), instant);
+  assert.throws(() => localDateTime("Marte/Olympus", instant), (e: unknown) => isDomainError(e, "invalidDateInterval"));
 });

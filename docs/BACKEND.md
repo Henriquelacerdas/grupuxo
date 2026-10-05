@@ -79,7 +79,7 @@ backend/                 projeto Node.js + TypeScript (zero dependências de run
                             (linking/) e ports (ports.ts)                                       ✅
   src/auth/                 validação do JWT do Cognito (TokenVerifier, JWKS) e UserDirectory   ✅
   src/http.ts               tipo HttpFetch: HTTP de saída injetável (JWKS, Gemini, Graph API)    ✅
-  src/assistant/            Gemini: interpreta a intenção e chama os casos de uso de leitura    a fazer
+  src/assistant/            Gemini: GeminiClient, ferramentas de leitura e GeminiMessageResponder ✅ (em memória/falso; sem chamada real)
   src/adapters/in-memory/   store transacional, repositórios, ports do WhatsApp e seed (dev/testes) ✅
   src/adapters/postgres/    repositórios PostgreSQL (implementam as interfaces do domínio e os ports)  a fazer
   src/lambdas/api|webhook|worker/  conversão do evento (API Gateway, SQS) em chamadas ao núcleo       a fazer
@@ -215,7 +215,7 @@ Implementado em `WebhookHandler` (`backend/src/whatsapp/webhook/`), com testes.
 
 ### 7.2 Worker
 
-Implementado em `WhatsAppWorker` (`backend/src/whatsapp/worker.ts`); já faz o vínculo por token (seção 8). Hoje responde com `EchoResponder` e ainda não chama o Gemini.
+Implementado em `WhatsAppWorker` (`backend/src/whatsapp/worker.ts`); já faz o vínculo por token (seção 8). O `MessageResponder` definitivo é o `GeminiMessageResponder` (seção 7.4); a composição da Lambda `worker` o injeta no lugar do `EchoResponder`, que fica para dev e testes.
 
 ```
 mensagem ─► inserir wamid em whatsapp_inbox (se já existe: descartar)
@@ -235,7 +235,7 @@ Ferramentas expostas ao Gemini na v1 (somente leitura, sem parâmetro de usuári
 | `list_room_tasks(room_name)` | `GetRoomTasks` | "o que tem na cozinha?" |
 | `list_sporadic_tasks()` | `GetSporadicTasks` | "tem alguma tarefa avulsa?" |
 
-Se o Gemini não reconhecer a intenção, responde com a lista do que sabe fazer. O texto final pode ser gerado pelo próprio modelo a partir do JSON retornado, mas os dados (nomes, datas) vêm sempre da ferramenta.
+Se o Gemini não reconhecer a intenção, o bot responde com a lista do que sabe fazer. O texto final **não** é gerado pelo modelo: é montado por código a partir do que o caso de uso devolveu (seção 7.4).
 
 ### 7.3 Segurança do LLM
 
@@ -243,6 +243,42 @@ Se o Gemini não reconhecer a intenção, responde com a lista do que sabe fazer
 - Um usuário só consegue dados que ele já veria no app, porque o caso de uso aplica a elegibilidade.
 - Limite de taxa por número e teto de tokens por resposta, para controlar custo.
 - Não registrar o conteúdo das mensagens em log além do necessário (dados pessoais; ver seção 11).
+
+### 7.4 Assistente (`src/assistant/`)
+
+Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum teste chama a rede, e nada chamou o Gemini de verdade ainda.
+
+**`GeminiClient` / `HttpGeminiClient`** (`gemini-client.ts`): `POST https://generativelanguage.googleapis.com/v1beta/models/<GEMINI_MODEL>:generateContent` com *function calling* (`toolConfig` modo `AUTO`, `temperature` 0).
+
+- A chave da API vai só no cabeçalho `x-goog-api-key`: nunca na URL, no corpo ou em mensagem de erro.
+- O modelo vem de `GEMINI_MODEL` e é validado antes de entrar na URL (`^[a-z0-9][a-z0-9.-]{0,63}$`: um pouco mais estrito que `^[a-z0-9.-]+$`, para barrar `.`/`..` como nome). **Sem `GEMINI_MODEL` (ou sem chave) o cliente não é criado** (`GeminiConfigurationError`): não existe modelo escondido. O nome vem como `string | undefined` para a composição passar a variável de ambiente direto e falhar fechada.
+- Timeout (padrão 10 s) e teto de tokens de saída (padrão 512; o modelo só emite chamadas de ferramenta).
+- Erros tipados (`GeminiRequestError`: `network`, `timeout`, `status` com o status HTTP, `invalidResponse`, `blocked`), com mensagem fixa: sem corpo de resposta, sem o erro original, sem texto do usuário. Resposta com mais de 256 KB é recusada. A resposta é lida com estreitamento escrito à mão; partes de raciocínio (`thought`) e tipos desconhecidos são descartados.
+- Modelo padrão **recomendado**: `gemini-2.5-flash-lite` (o mais barato com *function calling*). Conferido em 2026-10-05 na página de depreciações do Google: estável (GA), sem data de desligamento anunciada. Já existe o `gemini-3.5-flash-lite` (também sem data). O `gemini-1.5-flash` foi desativado e, segundo a mesma página, o `gemini-2.0-flash-lite` tinha desligamento anunciado para 1/6/2026: nenhum dos dois pode ser usado. O valor concreto é configuração do ambiente; reconferir a página antes de cada release.
+
+**Ferramentas** (`read-tools.ts`): `list_my_tasks(range)`, `list_room_tasks(room_name)`, `list_sporadic_tasks()`. As declarações não têm parâmetro de usuário nem de casa; o `userID` e a casa são injetados pelo responder. Tudo o que o modelo devolve é entrada não confiável:
+
+| Entrada do modelo | Tratamento |
+| --- | --- |
+| Ferramenta desconhecida (inclusive de escrita ou nomes do protótipo) | Recusada (`unknown_tool`); nada executa |
+| `range` | Só `"week"` ou `"all"`; ausente = `"week"`; qualquer outro valor é recusado (`invalid_range`) |
+| `room_name` | Texto de 1 a 80 caracteres após `trim`; senão `invalid_room_name` |
+| Argumentos extras (`user_id`, `house_id`...) | Ignorados: só os parâmetros declarados são lidos (e só chaves próprias do objeto) |
+
+`room_name` é resolvido contra `RoomRepository.rooms(houseID, userID)`: igualdade sem caixa, acento nem artigo inicial; depois "um nome contém o outro" (mínimo de 3 caracteres). Nomes iguais são desempatados pelo **menor ID**; nomes diferentes na busca parcial são ambíguos (o bot lista as opções em vez de escolher). `rooms()` lista todos os cômodos da casa, inclusive os privados de que o morador não participa (como o app mostra); as tarefas, porém, só saem de `GetRoomTasks`, que aplica a elegibilidade: o morador de fora recebe "Não há tarefas em X", nunca as tarefas.
+
+**`GeminiMessageResponder`** (`gemini-responder.ts`), `reply(text, userID)`:
+
+1. Resolve a casa por `HouseRepository.houses(userID)`, **antes** de chamar o modelo: nenhuma casa → orienta a criar ou entrar numa casa pelo app; mais de uma → diz que o WhatsApp ainda não suporta várias casas e manda usar o app; uma → segue.
+2. Mensagem em branco → lista do que o bot sabe fazer, sem chamar o modelo. Texto cortado em 500 caracteres antes de ir ao modelo.
+3. Laço de *function calling* com limite de rodadas (padrão 3) e no máximo 3 chamadas por rodada; consultas repetidas respondem uma vez. A instrução de sistema é fixa; o texto do morador só vai como mensagem de usuário.
+4. A saída das ferramentas **não** volta ao modelo. A resposta é montada em `task-format.ts` a partir do que os casos de uso devolveram, então nomes e datas só vêm dos dados, e o texto que o modelo escrever é descartado: uma instrução escondida na mensagem ou num nome de tarefa de outro morador não consegue ditar o que o bot diz. Só uma falha recuperável (argumento inválido, cômodo não encontrado/ambíguo) volta ao modelo, como erro de código fixo mais os nomes dos cômodos, para ele corrigir a chamada.
+5. Falha do Gemini (`GeminiRequestError`) → mensagem fixa em português ("Tente de novo em instantes"). Qualquer outro erro (banco, bug) propaga e o SQS tenta de novo. Se a rodada de correção falhar, mantém o que já foi respondido.
+6. Nada do conteúdo é registrado em log nem guardado (teste dedicado: console, `stdout`/`stderr`, responder sem estado, caixa de entrada só com `wamid` e horários).
+
+**Formatação** (`task-format.ts`): datas no fuso da casa (`localDateTime` em `dates.ts`, extensão só do servidor). O prazo é o fim **exclusivo** de `[availableAt, dueAt)`: prazo à meia-noite aparece como o dia anterior ("até dom 20/09" para a semana que termina na segunda 00:00); com horário, aparece o horário; vencido leva "(atrasada)". O ano só aparece quando não é o corrente. Esforço nunca é exibido. Nomes de outros moradores viram uma linha só, sem caracteres de controle, com no máximo 60 caracteres; no máximo 20 tarefas por lista ("… e mais N") e 3800 caracteres por resposta (o `WhatsAppSender` ainda corta em 4096).
+
+Pendente: limite de taxa por número (seção 7.3), a composição na Lambda `worker` e validar o formato do pedido contra a API real (autorização necessária).
 
 ## 8. Vínculo número ↔ morador
 
@@ -303,6 +339,8 @@ Um segredo no **AWS Secrets Manager** (ex. `grupuxo/whatsapp`), lido só pelas L
 | `VERIFY_TOKEN` | "Senha" do webhook |
 | `GEMINI_API_KEY` | Google AI Studio / Vertex |
 
+`GEMINI_MODEL` (nome do modelo) não é segredo: vai em variável de ambiente da Lambda `worker`, validada na composição (seção 7.4).
+
 Regras:
 
 - Nada de segredos no repositório, em variáveis de ambiente em texto puro nem em log. As Lambdas leem o segredo uma vez por instância e mantêm em cache.
@@ -337,10 +375,10 @@ Para o produto:
 
 6. ~~Cognito ou validação própria do token da Apple?~~ Resolvido: Cognito (decisão ✅ 6). Falta decidir se contas Apple e e-mail/senha do mesmo morador podem ser unificadas.
 7. Notificações push (APNs) entram antes ou depois do WhatsApp?
-8. Qual modelo Gemini usar (custo × qualidade)? Deixar configurável por variável.
+8. ~~Qual modelo Gemini usar?~~ Resolvido: configurável por `GEMINI_MODEL` (sem valor, o cliente falha fechado); padrão recomendado `gemini-2.5-flash-lite` (seção 7.4).
 9. Um número de bot por ambiente ou um único número de produção?
 10. O que acontece com o vínculo quando o morador sai da casa (desvincular automaticamente)?
-11. Um morador pode estar em mais de uma casa? Os casos de uso pedem `houseID`; o worker precisa resolver usuário → casa antes de chamar o domínio.
+11. ~~Um morador pode estar em mais de uma casa?~~ Decisão do WhatsApp v1: uma casa por morador. Com várias casas o bot manda usar o app; sem nenhuma, orienta a criar ou entrar numa (seção 7.4). O app/modelo de dados podem seguir permitindo várias.
 12. Um morador tem no máximo um número vinculado (restrição `UNIQUE (user_id)` em `whatsapp_links`, assumida pelo código)? Confirmar com o desenvolvedor do banco.
 
 Para a infraestrutura (Node):
@@ -354,7 +392,7 @@ Para a infraestrutura (Node):
 2. Esquema PostgreSQL, repositórios de persistência e testes contra o mesmo conjunto de cenários do mock. *Em andamento pelo time (banco); as interfaces de repositório do domínio e os ports da seção 14 são parte do contrato, e os testes de contrato (`backend/test/contract`) são reutilizáveis: cada função recebe uma fábrica do adaptador.*
 3. Lambda `api` e autenticação (login Cognito do app ✅; *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; falta a Lambda `api` e o `UserDirectory` em PostgreSQL); `Data/Remote` no app (trocar mocks em `AppContainer`).
 4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Falta o endpoint `POST /me/whatsapp/link` (depende da Lambda `api`) e a tela.*
-5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker e eco com adaptadores em memória; falta Lambda, SQS, Graph API e Gemini.* O Gemini chamará casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
+5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco e `GeminiMessageResponder` (cliente REST, ferramentas de leitura, formatação) com adaptadores em memória e Gemini falso; falta Lambda, SQS e Graph API.* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
 6. Concluir tarefas com confirmação e, por fim, lembretes.
 
 Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paralelo.
@@ -379,7 +417,7 @@ Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada 
 | Lambdas, SQS, Graph API, Secrets Manager | | a fazer |
 | Repositórios PostgreSQL (domínio e ports) | `src/adapters/postgres/` | a fazer (time do banco) |
 | Endpoints `POST /me`, `POST /me/whatsapp/link` e tela no Perfil | | a fazer (dependem da Lambda `api`; a autenticação já existe) |
-| Gemini e ferramentas de leitura (`MessageResponder` definitivo) | | a fazer |
+| Gemini e ferramentas de leitura (`MessageResponder` definitivo) | `src/assistant/` | ✅ testado com cliente e `HttpFetch` falsos (seção 7.4); falta ligar na Lambda `worker` e validar contra a API real |
 | Intervalo de datas ("da semana") em `GetMyTasksUseCase` | `src/domain/use-cases/tasks.ts` | ✅ `range: "week" \| "all"`, fuso da casa, só a semana corrente; extensão só do servidor (ver [ALGORITMO.md](ALGORITMO.md)) |
 
 ### Verificação

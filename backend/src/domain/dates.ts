@@ -209,6 +209,13 @@ export interface LocalDateTime {
   readonly second?: number;
 }
 
+/** Horário de parede de `instant` no fuso (extensão só do servidor, para exibir datas no fuso da casa; sem equivalente no Swift). */
+export function localDateTime(timeZone: string, instant: Instant): Required<LocalDateTime> {
+  createCalendar(timeZone);
+  const { year, month, day, hour, minute, second } = localFields(timeZone, instant);
+  return { year, month, day, hour, minute, second };
+}
+
 /** Instante de um horário de parede no fuso (lacuna usa o deslocamento anterior; repetição, a primeira ocorrência). */
 export function localToInstant(timeZone: string, local: LocalDateTime): Instant {
   createCalendar(timeZone);
