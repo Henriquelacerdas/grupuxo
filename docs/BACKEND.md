@@ -1,6 +1,6 @@
 # Backend e integração com WhatsApp
 
-Arquitetura do backend e do canal WhatsApp, alinhada com o desenvolvimento do banco. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token e ports, tudo com adaptadores em memória, sem banco nem AWS (ver seção 14). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
+Arquitetura do backend e do canal WhatsApp, alinhada com o desenvolvimento do banco. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token, validação do JWT do Cognito e ports, tudo com adaptadores em memória, sem banco nem AWS (ver seção 14). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
 
 Documentos relacionados: [ARQUITETURA.md](ARQUITETURA.md) (app), [ALGORITMO.md](ALGORITMO.md) (contrato matemático), [PRODUTO.md](PRODUTO.md).
 
@@ -24,7 +24,7 @@ Fora de escopo: avaliação da casa, widget, Siri, lista de mercado e financeiro
 | ✅ 3 | LLM: **Gemini**, via API REST com *function calling* | Escolha do time. |
 | ✅ 4 | Vínculo do número: **link `wa.me` com token**, com código de verificação como plano B | Ver seção 8. |
 | ✅ 5 | O LLM só **interpreta a intenção**; nunca grava dados nem calcula escala | Segurança e previsibilidade. Toda leitura e escrita passa pelos casos de uso. |
-| ✅ 6 | Autenticação: **Amazon Cognito** (Amplify no app), com Apple como provedor federado | Já implementado no app (`Data/Auth/AuthService`, `amplify_outputs.json`, user pool em `us-east-1`). A `api` só valida o JWT do Cognito (seção 5). Confirmar com o time que é o caminho definitivo. |
+| ✅ 6 | Autenticação: **Amazon Cognito** (Amplify no app), com Apple como provedor federado | Já implementado no app (`Data/Auth/AuthService`, `amplify_outputs.json`, user pool em `us-east-1`). A `api` só valida o **access token** do Cognito (seção 5); o ID token é rejeitado. Confirmar com o time que é o caminho definitivo. |
 | ✅ 7 | Stack do backend: **Node.js 22 + TypeScript** (`strict`, ESM), **zero dependências de runtime** (`node:crypto`, `Intl`, `node:test`); sem Temporal, Luxon, zod, ORM nem container de DI | O básico bem feito: menos superfície de supply chain e de atualização, bundle de Lambda mínimo. Validação de entrada na borda por funções de estreitamento escritas à mão. |
 
 ## 3. Visão geral
@@ -77,6 +77,9 @@ backend/                 projeto Node.js + TypeScript (zero dependências de run
                             (interfaces), services (algoritmo), commands, use-cases, dates.ts   ✅
   src/whatsapp/             webhook (payload, assinatura, handler), worker, vínculo por token
                             (linking/) e ports (ports.ts)                                       ✅
+  src/auth/                 validação do JWT do Cognito (TokenVerifier, JWKS) e UserDirectory   ✅
+  src/http.ts               tipo HttpFetch: HTTP de saída injetável (JWKS, Gemini, Graph API)    ✅
+  src/assistant/            Gemini: interpreta a intenção e chama os casos de uso de leitura    a fazer
   src/adapters/in-memory/   store transacional, repositórios, ports do WhatsApp e seed (dev/testes) ✅
   src/adapters/postgres/    repositórios PostgreSQL (implementam as interfaces do domínio e os ports)  a fazer
   src/lambdas/api|webhook|worker/  conversão do evento (API Gateway, SQS) em chamadas ao núcleo       a fazer
@@ -85,12 +88,13 @@ backend/                 projeto Node.js + TypeScript (zero dependências de run
   infra/                    IaC (AWS CDK, SAM ou Terraform ❓)                                        a fazer
 ```
 
-`src/whatsapp/` e `src/domain/` não conhecem AWS: as Lambdas serão camadas finas que montam `WebhookRequest`/`IncomingMessage`, chamam o núcleo e traduzem a resposta. Empacotamento das Lambdas (esbuild ou `tsc` com `rewriteRelativeImportExtensions`) é decisão de infraestrutura ❓.
+`src/whatsapp/`, `src/auth/` e `src/domain/` não conhecem AWS: as Lambdas serão camadas finas que montam `WebhookRequest`/`IncomingMessage`, chamam o núcleo e traduzem a resposta. Empacotamento das Lambdas (esbuild ou `tsc` com `rewriteRelativeImportExtensions`) é decisão de infraestrutura ❓.
 
 Regras mantidas:
 
 - **Nenhuma regra de negócio no backend fora de `src/domain/`.** As Lambdas e `src/whatsapp/` só traduzem HTTP/WhatsApp em chamadas a casos de uso e comandos.
 - **`src/domain/` é puro**: sem `node:*`, sem I/O, sem relógio nem gerador de IDs globais (`now` e `newID` são injetados). Um teste de arquitetura (`test/architecture.test.ts`) verifica isso.
+- **Camadas de `src/`** (também no teste de arquitetura): `domain` só importa `domain`; `whatsapp` só `ids` e `dates` do domínio; `auth` só `ids`/`dates` e `http.ts` (pode usar `node:crypto`); `assistant` pode importar o domínio e os ports do WhatsApp, mas não usa `node:*`; `adapters` e `lambdas` são raízes de composição. `auth` e `assistant` não usam relógio, aleatoriedade, `process` nem `fetch` globais: tudo entra por parâmetro.
 - **A lógica transacional vive em `src/domain/commands/`** (o que no app está dentro dos `Mock*Repository`: acesso, claim/release, trocas, entrada/saída de casa). O adaptador só chama `store.update(estado => comando(...))`; o adaptador PostgreSQL carrega o estado da casa, chama o mesmo comando e grava, sem reimplementar regras.
 
 ## 4. Modelo de dados (PostgreSQL)
@@ -137,9 +141,34 @@ Custo de conexões: Lambda abre muitas conexões, então usar **RDS Proxy**. Par
 ✅ O app usa **Amazon Cognito** via Amplify (`AuthService`): cadastro com confirmação por e-mail, login com e-mail/senha e Sign in with Apple pelo Hosted UI do Cognito (provedor `APPLE`, redirect `grupuxo://`).
 
 1. O app autentica no Cognito e passa a ter tokens (o Amplify cuida de renovação).
-2. Nas chamadas à API, envia o *access token* (ou ID token) no cabeçalho `Authorization: Bearer`.
-3. A Lambda `api` valida o JWT contra o JWKS do user pool (assinatura, `iss`, `client_id`/`aud`, `token_use`, expiração). Sem endpoint `POST /v1/auth/apple`.
-4. Na primeira chamada autenticada, cria ou recupera `users` por `cognito_sub` (ex. `POST /v1/me`, idempotente).
+2. Nas chamadas à API, envia o **access token** no cabeçalho `Authorization: Bearer`. O ID token **não é aceito**: o `token_use` do access token é `access`, ele carrega `client_id` (e não `aud`) e não expõe dados do perfil.
+3. A Lambda `api` valida o JWT com `CognitoJwtVerifier` (`src/auth/`), contra o JWKS do user pool. Sem endpoint `POST /v1/auth/apple`.
+4. Na primeira chamada autenticada, o app chama `POST /v1/me` com o `name`; o `UserDirectory.ensureUser` cria ou recupera o morador por `cognito_sub` (idempotente). As demais rotas resolvem o morador com `UserDirectory.userForSub` (conta que ainda não passou pelo `POST /me` → 403/404, decisão da Lambda `api`).
+
+### Validação do token (`src/auth/`)
+
+`TokenVerifier.verify(token)` devolve `{ cognitoSub }` ou falha. **Falha sempre fechada**: nenhum caminho aceita um token que não passou em todas as regras. A assinatura é conferida antes de qualquer claim.
+
+| Regra | Detalhe |
+| --- | --- |
+| Estrutura | Exatamente 3 segmentos base64url não vazios (alfabeto estrito), cabeçalho e payload são objetos JSON, UTF-8 válido, no máximo 8192 caracteres |
+| Algoritmo | Só `RS256`. `none`, HS256 (inclusive o ataque que usa a chave pública como segredo), RS384 e variações de caixa são recusados antes de qualquer chave ser consultada; cabeçalho com `crit` também |
+| Chave | `kid` do cabeçalho tem de existir no JWKS do pool (`createPublicKey({ format: "jwk" })`, RSA de pelo menos 2048 bits; chaves de outro tipo, `use` ≠ `sig` ou `alg` ≠ `RS256` são ignoradas) |
+| `iss` | Exatamente `https://cognito-idp.<região>.amazonaws.com/<pool>` (região derivada do ID do pool) |
+| `token_use` | Dentro de `acceptedTokenUse`, hoje só `["access"]` (configuração do verificador; qualquer outro valor é erro de configuração) |
+| `client_id` | Igual ao `user_pool_client_id` configurado. **Nunca se consulta `aud`** |
+| `exp` / `nbf` | Relógio injetado, tolerância de 30 s (configurável, máximo 300 s). `exp` é obrigatório; `nbf` é opcional, mas se vier tem de ser um número válido |
+| `sub` | Obrigatório, de 1 a 128 caracteres ASCII visíveis |
+
+Chaves (`JwksSource`): `HttpJwksSource` busca `<issuer>/.well-known/jwks.json` por HTTPS com `fetch` injetado (tempo limite de 5 s, corpo de até 64 KB, mensagens de erro sem o corpo). O cache vale 1 hora; um `kid` desconhecido provoca nova busca (rotação), **no máximo uma a cada 10 s**, para que tokens forjados com `kid` aleatório não virem requisições ao Cognito; buscas simultâneas são unificadas. Sem nenhum conjunto de chaves válido, o erro é `TokenVerifierUnavailableError` (a `api` responde 503, não 401); com o cache vigente, uma busca que falha só deixa aquele `kid` desconhecido.
+
+Erros: `AuthenticationError` tem mensagem fixa (`Não autorizado`), nunca contém o token e carrega um `reason` interno (para teste e telemetria); a resposta ao cliente é só 401, sem o motivo. **Nunca registrar o token em log.**
+
+Configuração (valores públicos, sem segredo; estão em `grupuxo/grupuxo/amplify_outputs.json`): `userPoolID` (`user_pool_id`) e `clientID` (`user_pool_client_id`). Por ambiente, vêm de variáveis de ambiente da Lambda lidas na composição (`src/lambdas/`), não do domínio.
+
+`UserDirectory` (`src/auth/user-directory.ts`): `userForSub(cognitoSub)` e `ensureUser(cognitoSub, { name })`. O `name` vem do app (`parseProfileName`: sem espaços nas pontas, 1 a 80 caracteres, sem controle); numa conta que já existe ele só é validado e **não sobrescreve** o nome. Adaptador em memória: `src/adapters/in-memory/user-directory.ts`. Teste de contrato reutilizável (inclusive concorrência no `ensureUser`): `test/contract/user-directory.ts`; o adaptador PostgreSQL (`INSERT ... ON CONFLICT (cognito_sub) DO NOTHING` + `SELECT`) tem de passar nele.
+
+Do lado do app (pendente, `Data/Remote`): enviar o access token do Amplify (`fetchAuthSession()` → `tokens.accessToken`), não o ID token.
 
 Usuários que entram com Apple e com e-mail/senha são contas distintas no Cognito, cada uma com seu `sub`. Vincular os dois (mesmo e-mail) exige configuração do pool e fica fora da v1 ❓.
 
@@ -323,7 +352,7 @@ Para a infraestrutura (Node):
 
 1. ✅ **Feito:** `GrupuxoDomain` extraído como Swift Package (`grupuxo/Packages/GrupuxoDomain`); o app continua funcionando com o mock. ✅ **Feito:** domínio e algoritmo portados para TypeScript (`backend/src/domain`), com fixtures de referência geradas do Swift e os cenários dos testes Swift traduzidos.
 2. Esquema PostgreSQL, repositórios de persistência e testes contra o mesmo conjunto de cenários do mock. *Em andamento pelo time (banco); as interfaces de repositório do domínio e os ports da seção 14 são parte do contrato, e os testes de contrato (`backend/test/contract`) são reutilizáveis: cada função recebe uma fábrica do adaptador.*
-3. Lambda `api` e autenticação (login Cognito do app ✅; falta validar o JWT no servidor); `Data/Remote` no app (trocar mocks em `AppContainer`).
+3. Lambda `api` e autenticação (login Cognito do app ✅; *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; falta a Lambda `api` e o `UserDirectory` em PostgreSQL); `Data/Remote` no app (trocar mocks em `AppContainer`).
 4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Falta o endpoint `POST /me/whatsapp/link` (depende da Lambda `api`) e a tela.*
 5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker e eco com adaptadores em memória; falta Lambda, SQS, Graph API e Gemini.* O Gemini chamará casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
 6. Concluir tarefas com confirmação e, por fim, lembretes.
@@ -345,9 +374,11 @@ Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada 
 | Worker: idempotência por `wamid`, resolve número → morador, responde | `WhatsAppWorker` | ✅ com `EchoResponder` |
 | Ports e adaptadores em memória | `src/whatsapp/ports.ts`, `src/adapters/in-memory/` | ✅ com testes de contrato reutilizáveis |
 | Vínculo por token: gerar convite, reconhecer o token, vincular, rejeitar número já vinculado | `LinkTokenCodec`, `WhatsAppLinker` | ✅ testado (em memória) |
+| Validação do JWT do Cognito (`TokenVerifier`, `CognitoJwtVerifier`, JWKS com cache) | `src/auth/` | ✅ testado com chaves RSA geradas no teste, sem rede (só access token; ID token rejeitado) |
+| `UserDirectory` (conta Cognito → morador) | `src/auth/user-directory.ts`, `src/adapters/in-memory/user-directory.ts` | ✅ port, adaptador em memória e contrato (`test/contract/user-directory.ts`); PostgreSQL a fazer |
 | Lambdas, SQS, Graph API, Secrets Manager | | a fazer |
 | Repositórios PostgreSQL (domínio e ports) | `src/adapters/postgres/` | a fazer (time do banco) |
-| Endpoint `POST /me/whatsapp/link` e tela no Perfil | | a fazer (depende da Lambda `api`) |
+| Endpoints `POST /me`, `POST /me/whatsapp/link` e tela no Perfil | | a fazer (dependem da Lambda `api`; a autenticação já existe) |
 | Gemini e ferramentas de leitura (`MessageResponder` definitivo) | | a fazer |
 | Intervalo de datas ("da semana") em `GetMyTasksUseCase` | `src/domain/use-cases/tasks.ts` | ✅ `range: "week" \| "all"`, fuso da casa, só a semana corrente; extensão só do servidor (ver [ALGORITMO.md](ALGORITMO.md)) |
 

@@ -13,5 +13,7 @@ npm run test:fixtures  # só as comparações com o Swift
 
 - `src/domain/` domínio puro (sem `node:*`, sem I/O, sem relógio global).
 - `src/whatsapp/` webhook, worker, vínculo por token e ports.
+- `src/auth/` validação do JWT do Cognito (só access token), JWKS e `UserDirectory`.
+- `src/http.ts` tipo `HttpFetch` (HTTP de saída injetável).
 - `src/adapters/in-memory/` adaptadores para dev e testes.
 - `test/fixtures/` casos dourados gerados do Swift; para regenerar: `tools/swift-fixtures/regenerate.sh` (precisa do toolchain Swift).

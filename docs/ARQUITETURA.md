@@ -71,6 +71,7 @@ backend/
     commands/            tarefas, casa, cômodos, trocas, notificações: funções (estado, entrada) → estado
     use-cases/           um por caso de uso (classes com execute)
   src/whatsapp/          webhook/ (payload, assinatura, handler), worker, linking/ (token e vínculo), ports
+  src/auth/              JWT do Cognito (TokenVerifier, JWKS) e UserDirectory
   src/adapters/in-memory/  store transacional, repositórios, ports do WhatsApp e seed (dev e testes)
   test/                  testes; contract/ (contratos dos ports); fixtures/ (casos dourados do Swift)
   tools/swift-fixtures/  gerador das fixtures (SwiftPM, depende do GrupuxoDomain)

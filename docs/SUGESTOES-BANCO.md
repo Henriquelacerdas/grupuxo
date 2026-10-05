@@ -30,14 +30,28 @@ ALTER TABLE whatsapp_links
 
 ## 2. `users.cognito_sub` (bloqueante para a `api`)
 
-**Motivo.** O `userID` do app vem do claim `sub` do JWT do Cognito; sem coluna única não há como resolver o morador (`POST /v1/me` idempotente).
+**Motivo.** O `userID` do app vem do claim `sub` do access token do Cognito; sem coluna única não há como resolver o morador (`POST /v1/me` idempotente). O port `UserDirectory` (`src/auth/user-directory.ts`) já existe, com adaptador em memória e teste de contrato (`test/contract/user-directory.ts`); o adaptador PostgreSQL tem de passar nele, incluindo `ensureUser` concorrente.
 
 ```sql
 ALTER TABLE users ADD COLUMN cognito_sub text;            -- se ainda não existir
 CREATE UNIQUE INDEX users_cognito_sub_key ON users (cognito_sub) WHERE cognito_sub IS NOT NULL;
+-- opcional, defesa em profundidade para o nome que o app envia:
+ALTER TABLE users ADD CONSTRAINT users_name_length CHECK (char_length(name) BETWEEN 1 AND 80);
 ```
 
-**Impacto.** Novo port de leitura (conta por `cognito_sub`) e criação idempotente por `INSERT ... ON CONFLICT (cognito_sub) DO NOTHING`. Moradores adicionados pelo dono da casa (sem login) ficam com `cognito_sub` nulo, por isso o índice parcial.
+**Impacto.** Duas operações de `UserDirectory`:
+
+```sql
+-- userForSub(cognitoSub)
+SELECT id FROM users WHERE cognito_sub = $1;
+
+-- ensureUser(cognitoSub, { name }): idempotente e seguro sob concorrência
+INSERT INTO users (id, name, cognito_sub) VALUES ($1, $2, $3)
+ON CONFLICT (cognito_sub) WHERE cognito_sub IS NOT NULL DO NOTHING;
+SELECT id FROM users WHERE cognito_sub = $3;
+```
+
+O `id` (UUID) é gerado pela aplicação (`newID` injetado); em corrida, o `INSERT` perdedor não grava nada e o `SELECT` devolve o morador do vencedor, então todos recebem o mesmo `UserID`. O `ON CONFLICT` precisa repetir o predicado do índice parcial (`WHERE cognito_sub IS NOT NULL`). O `name` da chamada não sobrescreve o de uma conta existente. `users.email` fica nulo (o access token não traz e-mail); se o produto quiser o e-mail, ele viria do `POST /me`, e isso é uma decisão a tomar. Moradores adicionados pelo dono da casa (sem login) ficam com `cognito_sub` nulo, por isso o índice parcial. O `sub` é comparado com distinção de maiúsculas e minúsculas (o Cognito emite UUID em minúsculas).
 
 ## 3. `whatsapp_link_tokens` (bloqueante)
 
