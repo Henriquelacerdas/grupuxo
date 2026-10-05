@@ -39,52 +39,158 @@ struct ResidentAvatar: View {
 }
 
 struct TaskRow: View {
+
     let item: TaskItem
     var canComplete = false
     var onComplete: () -> Void = {}
+    var onSelect: (() -> Void)? = nil
 
     var body: some View {
-        HStack(alignment: .top, spacing: DesignSystem.Spacing.small) {
+
+        HStack(
+            alignment: .top,
+            spacing: DesignSystem.Spacing.small
+        ) {
+
             Button(action: onComplete) {
-                Image(systemName: item.occurrence.isCompleted ? "checkmark.square.fill" : "square")
-                    .font(.title2)
-                    .frame(width: 44, height: 44)
+
+                Image(
+                    systemName:
+                        item.occurrence.isCompleted
+                        ? "checkmark.square.fill"
+                        : "square"
+                )
+                .font(.title2)
+                .frame(width: 44, height: 44)
+
             }
             .buttonStyle(.borderless)
             .disabled(!canComplete)
-            .accessibilityLabel(item.occurrence.isCompleted ? "Desmarcar conclusão de \(item.definition.name)" : "Concluir \(item.definition.name)")
-            .accessibilityValue(item.occurrence.isCompleted ? "Concluída" : "Pendente")
+            .accessibilityLabel(
+                item.occurrence.isCompleted
+                ? "Desmarcar conclusão de \(item.definition.name)"
+                : "Concluir \(item.definition.name)"
+            )
+            .accessibilityValue(
+                item.occurrence.isCompleted
+                ? "Concluída"
+                : "Pendente"
+            )
 
-            VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
-                Text(item.definition.name).font(.headline)
-                    .strikethrough(item.occurrence.isCompleted)
-                if !item.definition.details.isEmpty {
-                    Text(item.definition.details).font(.subheadline).foregroundStyle(.secondary)
+            if let onSelect {
+
+                Button(action: onSelect) {
+
+                    taskContent
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .leading
+                        )
+                        .contentShape(Rectangle())
+
                 }
-                if let user = item.assignee {
-                    HStack {
-                        ResidentAvatar(user: user)
-                        Text(user.name).font(.subheadline)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Responsável: \(user.name)")
-                } else if let user = item.suggestedAssignee {
-                    Text("Morador sugerido: \(user.name)")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                } else {
-                    Label("Sem responsável", systemImage: "person.crop.circle.badge.questionmark")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }
-                if let dueAt = item.occurrence.dueAt {
-                    Text("Prazo: \(dueAt.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.caption).foregroundStyle(.secondary)
-                } else {
-                    Text("Sem prazo").font(.caption).foregroundStyle(.secondary)
-                }
-                if item.occurrence.isCompleted {
-                    Text("Concluída").font(.caption).foregroundStyle(.secondary)
-                }
+                .buttonStyle(.plain)
+
+            } else {
+
+                taskContent
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+
             }
+
         }
+
     }
+
+    private var taskContent: some View {
+
+        VStack(
+            alignment: .leading,
+            spacing: DesignSystem.Spacing.extraSmall
+        ) {
+
+            Text(item.definition.name)
+                .font(.headline)
+                .strikethrough(
+                    item.occurrence.isCompleted
+                )
+
+            if !item.definition.details.isEmpty {
+
+                Text(item.definition.details)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+            }
+
+            if let user = item.assignee {
+
+                HStack {
+
+                    ResidentAvatar(
+                        user: user
+                    )
+
+                    Text(user.name)
+                        .font(.subheadline)
+
+                }
+                .accessibilityElement(
+                    children: .combine
+                )
+                .accessibilityLabel(
+                    "Responsável: \(user.name)"
+                )
+
+            } else if let user = item.suggestedAssignee {
+
+                Text(
+                    "Morador sugerido: \(user.name)"
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            } else {
+
+                Label(
+                    "Sem responsável",
+                    systemImage:
+                        "person.crop.circle.badge.questionmark"
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            }
+
+            if let dueAt = item.occurrence.dueAt {
+
+                Text(
+                    "Prazo: \(dueAt.formatted(date: .abbreviated, time: .shortened))"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            } else {
+
+                Text("Sem prazo")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+            }
+
+            if item.occurrence.isCompleted {
+
+                Text("Concluída")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+            }
+
+        }
+
+    }
+
 }

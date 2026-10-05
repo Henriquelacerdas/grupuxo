@@ -11,6 +11,8 @@ public enum AppNotificationKind: String, Codable, Sendable {
     case taskSwapRequested
     case taskSwapAccepted
     case taskSwapRejected
+
+    case taskEdited
 }
 
 public struct AppNotification: Identifiable, Hashable, Codable, Sendable {
@@ -20,7 +22,9 @@ public struct AppNotification: Identifiable, Hashable, Codable, Sendable {
     public let recipientUserID: User.ID
     public let kind: AppNotificationKind
 
-    public let swapRequestID: TaskSwapRequest.ID
+    public let swapRequestID: TaskSwapRequest.ID?
+    public let taskDefinitionID: TaskDefinition.ID?
+    public let message: String?
 
     public let createdAt: Date
     public var readAt: Date?
@@ -29,14 +33,18 @@ public struct AppNotification: Identifiable, Hashable, Codable, Sendable {
         id: UUID,
         recipientUserID: User.ID,
         kind: AppNotificationKind,
-        swapRequestID: TaskSwapRequest.ID,
+        swapRequestID: TaskSwapRequest.ID? = nil,
+        taskDefinitionID: TaskDefinition.ID? = nil,
+        message: String? = nil,
         createdAt: Date,
-        readAt: Date?
+        readAt: Date? = nil
     ) {
         self.id = id
         self.recipientUserID = recipientUserID
         self.kind = kind
         self.swapRequestID = swapRequestID
+        self.taskDefinitionID = taskDefinitionID
+        self.message = message
         self.createdAt = createdAt
         self.readAt = readAt
     }
