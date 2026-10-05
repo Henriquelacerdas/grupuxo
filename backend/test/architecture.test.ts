@@ -63,7 +63,7 @@ function srcImports(file: string): { specifier: string; target: string }[] {
 // na lista é proibido. `adapters` e `lambdas` são raízes de composição e podem importar tudo.
 const layers: Record<string, readonly string[]> = {
   domain: ["domain/"],
-  whatsapp: ["whatsapp/", "domain/ids.ts", "domain/dates.ts"],
+  whatsapp: ["whatsapp/", "domain/ids.ts", "domain/dates.ts", "http.ts"],
   auth: ["auth/", "domain/ids.ts", "domain/dates.ts", "http.ts"],
   assistant: ["assistant/", "domain/", "whatsapp/ports.ts", "whatsapp/incoming-message.ts", "http.ts"],
 };
@@ -80,14 +80,25 @@ test("cada camada de src/ só importa o que a arquitetura permite", () => {
   assert.deepEqual(offenders, []);
 });
 
-test("auth e assistant usam relógio, aleatoriedade e rede só por injeção", () => {
+test("auth, assistant e whatsapp usam relógio, aleatoriedade e rede só por injeção", () => {
   const offenders: string[] = [];
   const forbidden = [/\bDate\.now\s*\(/, /new Date\(\s*\)/, /Math\.random/, /randomUUID/, /\bprocess\./, /(?<![.\w])fetch\s*\(/, /globalThis/];
-  for (const layer of ["auth", "assistant"]) {
+  for (const layer of ["auth", "assistant", "whatsapp"]) {
     for (const file of sourceFiles(join(root, "src", layer))) {
       const text = withoutComments(readFileSync(file, "utf8"));
       for (const pattern of forbidden) if (pattern.test(text)) offenders.push(`${file}: ${String(pattern)}`);
     }
+  }
+  assert.deepEqual(offenders, []);
+});
+
+test("as Lambdas são só composição: ambiente, relógio e rede entram por parâmetro", () => {
+  // `process.env` e o Secrets Manager serão lidos num ponto de entrada fora de `src/lambdas/` (depende do empacotamento).
+  const offenders: string[] = [];
+  const forbidden = [/\bDate\.now\s*\(/, /new Date\(\s*\)/, /Math\.random/, /randomUUID/, /\bprocess\./, /(?<![.\w])fetch\s*\(/, /globalThis/, /from\s+["']node:/];
+  for (const file of sourceFiles(join(root, "src/lambdas"))) {
+    const text = withoutComments(readFileSync(file, "utf8"));
+    for (const pattern of forbidden) if (pattern.test(text)) offenders.push(`${file}: ${String(pattern)}`);
   }
   assert.deepEqual(offenders, []);
 });

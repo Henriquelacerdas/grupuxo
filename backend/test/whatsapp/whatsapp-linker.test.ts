@@ -10,6 +10,7 @@ import { createLinkConfig, LinkConfigError, WhatsAppLinker } from "../../src/wha
 import { EchoResponder, WhatsAppLinkError, type MessageResponder } from "../../src/whatsapp/ports.ts";
 import { WhatsAppWorker } from "../../src/whatsapp/worker.ts";
 import { uuid } from "../support/world.ts";
+import { openRateLimiter } from "./support.ts";
 
 const NOW = 1_700_000_000_000;
 const TOKEN = "ab".repeat(16);
@@ -27,7 +28,7 @@ function setup() {
   const makeLinker = (at = NOW) =>
     new WhatsAppLinker(createLinkConfig("+5511900000000"), tokens, links, () => at, (count) => new Uint8Array(count).fill(0xab));
   const makeWorker = (linker: WhatsAppLinker, responder: MessageResponder = new EchoResponder()) =>
-    new WhatsAppWorker({ inbox, links, linker, responder, sender, now: () => NOW });
+    new WhatsAppWorker({ inbox, links, linker, responder, sender, rateLimiter: openRateLimiter(), now: () => NOW });
   const message = (wamid = "wamid.1", options: { from?: string; text?: string } = {}): IncomingMessage => ({
     wamid, phoneE164: options.from ?? anaPhone,
     text: options.text ?? `Conectar meu WhatsApp ao Grupuxo. Código: ${TOKEN}`, receivedAt: sentAt,

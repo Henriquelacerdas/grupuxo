@@ -1,4 +1,6 @@
 import { createHmac } from "node:crypto";
+import { InMemoryRateCounter } from "../../src/adapters/in-memory/rate-counter.ts";
+import { MessageRateLimiter } from "../../src/whatsapp/rate-limit.ts";
 import type { WebhookRequest } from "../../src/whatsapp/webhook/webhook-handler.ts";
 
 export const APP_SECRET = "segredo-do-app";
@@ -31,4 +33,9 @@ export function request(options: { method?: string; body: Uint8Array; signature:
   const headers: Record<string, string> = {};
   if (options.signature !== null) headers["x-hub-signature-256"] = options.signature;
   return { method: options.method ?? "POST", headers, body: options.body };
+}
+
+/** Limite folgado para os testes que não tratam de taxa: nunca barra. */
+export function openRateLimiter(): MessageRateLimiter {
+  return new MessageRateLimiter({ counter: new InMemoryRateCounter(), limit: 1_000_000, windowSeconds: 60 });
 }

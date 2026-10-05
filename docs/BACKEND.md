@@ -1,6 +1,6 @@
 # Backend e integração com WhatsApp
 
-Arquitetura do backend e do canal WhatsApp, alinhada com o desenvolvimento do banco. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token, validação do JWT do Cognito e ports, tudo com adaptadores em memória, sem banco nem AWS (ver seção 14). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
+Arquitetura do backend e do canal WhatsApp, alinhada com o desenvolvimento do banco. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token, validação do JWT do Cognito, assistente Gemini, sender da Graph API, limite de taxa e handlers no formato Lambda, tudo com adaptadores em memória, sem banco nem AWS (ver seção 14). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
 
 Documentos relacionados: [ARQUITETURA.md](ARQUITETURA.md) (app), [ALGORITMO.md](ALGORITMO.md) (contrato matemático), [PRODUTO.md](PRODUTO.md).
 
@@ -80,21 +80,38 @@ backend/                 projeto Node.js + TypeScript (zero dependências de run
   src/auth/                 validação do JWT do Cognito (TokenVerifier, JWKS) e UserDirectory   ✅
   src/http.ts               tipo HttpFetch: HTTP de saída injetável (JWKS, Gemini, Graph API)    ✅
   src/assistant/            Gemini: GeminiClient, ferramentas de leitura e GeminiMessageResponder ✅ (em memória/falso; sem chamada real)
+  src/whatsapp/graph-sender.ts  WhatsAppSender real (Graph API), com HttpFetch injetado          ✅ (testado com falso; sem chamada real)
   src/adapters/in-memory/   store transacional, repositórios, ports do WhatsApp e seed (dev/testes) ✅
   src/adapters/postgres/    repositórios PostgreSQL (implementam as interfaces do domínio e os ports)  a fazer
-  src/lambdas/api|webhook|worker/  conversão do evento (API Gateway, SQS) em chamadas ao núcleo       a fazer
+  src/lambdas/              handlers webhook, worker e api, conversão de eventos (API Gateway HTTP API v2,
+                            SQS), config.ts (ambiente e segredos) e compose.ts (composição)           ✅ (sem ponto de entrada: ver 3.1)
   test/                     testes; contract/ (contratos dos ports); fixtures/ (casos dourados do Swift)  ✅
   tools/swift-fixtures/     gerador das fixtures a partir do GrupuxoDomain (Swift)                    ✅
   infra/                    IaC (AWS CDK, SAM ou Terraform ❓)                                        a fazer
 ```
 
-`src/whatsapp/`, `src/auth/` e `src/domain/` não conhecem AWS: as Lambdas serão camadas finas que montam `WebhookRequest`/`IncomingMessage`, chamam o núcleo e traduzem a resposta. Empacotamento das Lambdas (esbuild ou `tsc` com `rewriteRelativeImportExtensions`) é decisão de infraestrutura ❓.
+`src/whatsapp/`, `src/auth/` e `src/domain/` não conhecem AWS: as Lambdas são camadas finas (`src/lambdas/`) que montam `WebhookRequest`/`IncomingMessage`, chamam o núcleo e traduzem a resposta. Empacotamento das Lambdas (esbuild ou `tsc` com `rewriteRelativeImportExtensions`) é decisão de infraestrutura ❓.
+
+### 3.1 Lambdas (`src/lambdas/`)
+
+São funções de fábrica `create…Handler(dependências) => (evento: unknown) => Promise<resposta>`; nada lê `process.env`, relógio ou rede (o teste de arquitetura verifica). O que **ainda não existe** e depende de decisões abertas (empacotamento, perguntas 13 e 14; AWS SDK): o **ponto de entrada** de cada Lambda, que lê `process.env`, busca o segredo no Secrets Manager, cria o `MessageQueue` do SQS e passa tudo às funções abaixo.
+
+| Arquivo | Função |
+| --- | --- |
+| `events.ts` | Estreitamento (de `unknown`, sem `as`) dos eventos do API Gateway HTTP API v2 e do SQS. Corpo `isBase64Encoded` é decodificado para os **bytes brutos** (a assinatura do webhook cobre esses bytes); corpo em texto vira UTF-8 exato; base64 mal formado invalida o evento. A query string é lida de `rawQueryString` (decodificada com `URLSearchParams`; vale a primeira ocorrência), com `queryStringParameters` só como reserva. Cabeçalhos em minúsculo. |
+| `webhook.ts` | `createWebhookHandler(WebhookHandler)`: evento → `WebhookRequest` → resposta (`text/plain`). Evento que não é HTTP: 400. |
+| `worker.ts` | `createWorkerHandler(WhatsAppWorker)`: cada registro do SQS → `JSON.parse` → `parseIncomingMessage` → `WhatsAppWorker.process`. Devolve `batchItemFailures` (a fila precisa de `ReportBatchItemFailures`): o registro que falha (inclusive corpo inválido) e **os seguintes do mesmo `MessageGroupId`** são reportados sem serem processados, para manter a ordem por telefone; outros telefones seguem. Evento que não é um lote do SQS lança erro. |
+| `api.ts` | `createApiHandler({ verifier, users, linker, links })`: rotas da seção 6.1. |
+| `config.ts` | `parseWorkerSettings`, `parseApiSettings` (variáveis de ambiente) e `parseWebhookSecrets`/`parseWorkerSecrets` (o `SecretString` do segredo, JSON com as chaves da seção 10). Nada tem valor padrão escondido; o erro nomeia a variável, nunca o valor. |
+| `compose.ts` | `composeWhatsAppWorker` (`WhatsAppWorker` + `GeminiMessageResponder` + `GraphWhatsAppSender` + `MessageRateLimiter`, falha fechada na criação) e `composeCognitoVerifier` (`CognitoJwtVerifier` + `HttpJwksSource`). |
+
+Variáveis de ambiente: **worker** `GEMINI_MODEL`, `WHATSAPP_GRAPH_VERSION`, `RATE_LIMIT_MAX_MESSAGES`, `RATE_LIMIT_WINDOW_SECONDS` (sugestão inicial: 10 mensagens por 60 s); **api** `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `BOT_PHONE_NUMBER`. Segredos (Secrets Manager, seção 10): **webhook** `VERIFY_TOKEN` e `WHATSAPP_APP_SECRET`; **worker** `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID` e `GEMINI_API_KEY`.
 
 Regras mantidas:
 
 - **Nenhuma regra de negócio no backend fora de `src/domain/`.** As Lambdas e `src/whatsapp/` só traduzem HTTP/WhatsApp em chamadas a casos de uso e comandos.
 - **`src/domain/` é puro**: sem `node:*`, sem I/O, sem relógio nem gerador de IDs globais (`now` e `newID` são injetados). Um teste de arquitetura (`test/architecture.test.ts`) verifica isso.
-- **Camadas de `src/`** (também no teste de arquitetura): `domain` só importa `domain`; `whatsapp` só `ids` e `dates` do domínio; `auth` só `ids`/`dates` e `http.ts` (pode usar `node:crypto`); `assistant` pode importar o domínio e os ports do WhatsApp, mas não usa `node:*`; `adapters` e `lambdas` são raízes de composição. `auth` e `assistant` não usam relógio, aleatoriedade, `process` nem `fetch` globais: tudo entra por parâmetro.
+- **Camadas de `src/`** (também no teste de arquitetura): `domain` só importa `domain`; `whatsapp` só `ids`, `dates` do domínio e `http.ts`; `auth` só `ids`/`dates` e `http.ts` (pode usar `node:crypto`); `assistant` pode importar o domínio e os ports do WhatsApp, mas não usa `node:*`; `adapters` e `lambdas` são raízes de composição. `auth`, `assistant` e `whatsapp` não usam relógio, aleatoriedade, `process` nem `fetch` globais, e `lambdas` também não usa `node:*` nem `process`: tudo entra por parâmetro (o ponto de entrada de cada Lambda, que lerá o ambiente, ainda não existe).
 - **A lógica transacional vive em `src/domain/commands/`** (o que no app está dentro dos `Mock*Repository`: acesso, claim/release, trocas, entrada/saída de casa). O adaptador só chama `store.update(estado => comando(...))`; o adaptador PostgreSQL carrega o estado da casa, chama o mesmo comando e grava, sem reimplementar regras.
 
 ## 4. Modelo de dados (PostgreSQL)
@@ -197,6 +214,19 @@ Todas as mutações aceitam `Idempotency-Key`. O `at` (data de referência) vem 
 
 Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`houses.timezone`), o que resolve a decisão aberta do PRODUTO.md e é necessário para "tarefas da semana" ter o mesmo significado no app e no WhatsApp.
 
+### 6.1 Rotas implementadas (`src/lambdas/api.ts`)
+
+Só as quatro de conta e WhatsApp, sob `/v1`; as demais da tabela dependem de repositórios PostgreSQL. A autorização é feita na Lambda (não no gateway): `Authorization: Bearer <access token>` (esquema sem distinção de caixa). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo ou da URL.
+
+| Rota | Resposta |
+| --- | --- |
+| `POST /v1/me` | Corpo JSON `{ "name": "…" }` (até 4 KB; `parseProfileName`) → `200 { "id" }` (idempotente; não sobrescreve o nome de conta existente). Nome ou corpo inválido → `400 invalid_name`. |
+| `POST /v1/me/whatsapp/link` | `200 { "url", "expiresAt" (ISO 8601) }` com o link `wa.me`; número já conectado → `409 already_linked`. |
+| `GET /v1/me/whatsapp` | `200 { "linked": false }` ou `{ "linked": true, "phone": "+55•••••••8888", "linkedAt" }` (telefone mascarado). |
+| `DELETE /v1/me/whatsapp` | `204`, idempotente. |
+
+Erros: sem token válido (ausente, malformado, expirado, ID token, `client_id` errado…) → `401 { "error": "unauthorized" }`, **igual para qualquer motivo**; chaves do Cognito indisponíveis → `503`; erro inesperado → `500 { "error": "internal" }` sem detalhe. Conta que ainda não passou por `POST /v1/me` nas rotas do WhatsApp → `403 account_not_registered`. Rota desconhecida → `404`; método errado → `405` com `allow`; corpo ilegível → `400`. Rota e método são verificados antes do token (revelar que a rota existe não expõe nada). `Idempotency-Key` e as demais rotas ainda não foram implementadas.
+
 ### Sincronização do app
 
 v1: o app consulta a API a cada abertura de tela e após mutações (já é o que os ViewModels fazem: "recarregar após mutações"). Sem *offline-first*. Notificações push (APNs) ficam para depois ❓.
@@ -215,10 +245,11 @@ Implementado em `WebhookHandler` (`backend/src/whatsapp/webhook/`), com testes.
 
 ### 7.2 Worker
 
-Implementado em `WhatsAppWorker` (`backend/src/whatsapp/worker.ts`); já faz o vínculo por token (seção 8). O `MessageResponder` definitivo é o `GeminiMessageResponder` (seção 7.4); a composição da Lambda `worker` o injeta no lugar do `EchoResponder`, que fica para dev e testes.
+Implementado em `WhatsAppWorker` (`backend/src/whatsapp/worker.ts`); já faz o vínculo por token (seção 8). O `MessageResponder` definitivo é o `GeminiMessageResponder` (seção 7.4); `composeWhatsAppWorker` (`src/lambdas/compose.ts`) o injeta no lugar do `EchoResponder`, que fica para dev e testes, e liga o `GraphWhatsAppSender` (seção 7.5).
 
 ```
 mensagem ─► inserir wamid em whatsapp_inbox (se já existe: descartar)
+        ─► limite de taxa por número (seção 7.3); estourou: avisa uma vez por janela, descarta o resto e para
         ─► mensagem com token de vínculo? responder pelo `WhatsAppLinker` (seção 8) e parar
         ─► resolver telefone → usuário (whatsapp_links)
               ├─ desconhecido: responder "Vincule seu número no app"
@@ -241,9 +272,18 @@ Se o Gemini não reconhecer a intenção, o bot responde com a lista do que sabe
 
 - O texto da mensagem é **entrada não confiável**. O modelo não tem acesso a banco, segredos ou a outros usuários, só às ferramentas acima.
 - Um usuário só consegue dados que ele já veria no app, porque o caso de uso aplica a elegibilidade.
-- Limite de taxa por número e teto de tokens por resposta, para controlar custo.
+- Limite de taxa por número e teto de tokens por resposta, para controlar custo. ✅ Implementado (abaixo).
 - Não registrar o conteúdo das mensagens em log além do necessário (dados pessoais; ver seção 11).
 
+**Limite de taxa por número** (`MessageRateLimiter`, `src/whatsapp/rate-limit.ts`; port `RateCounter` em `ports.ts`). Janela fixa: o instante é arredondado ao início da janela e `RateCounter.increment(telefone, início da janela)` devolve a contagem (atômico; SQL sugerido: `INSERT … ON CONFLICT (key, window_start) DO UPDATE SET count = count + 1 RETURNING count`; o armazenamento real **não está decidido**, ver SUGESTOES-BANCO.md item 10). `limit` e `windowSeconds` vêm da configuração, sem valor padrão no código (sugestão inicial: 10 por 60 s). O worker consulta logo depois do `claim` e **antes** do vínculo e do Gemini, então um número que exagera não gera consulta, chamada ao modelo nem resposta:
+
+| Contagem na janela | Decisão | O que o worker faz |
+| --- | --- | --- |
+| até `limit` | `allowed` | segue o fluxo normal |
+| `limit + 1` | `limitedFirst` | envia o aviso fixo (`WhatsAppWorker.rateLimitedReply`) e marca como processada |
+| acima | `limited` | só marca como processada (descarta em silêncio) |
+
+A mensagem barrada conta como processada (nem retry nem DLQ). Vale para todos os números, inclusive os sem vínculo (o aviso de "vincule seu número" não vira spam). Limitações aceitas: uma rajada na virada da janela pode somar até o dobro do limite; uma nova tentativa depois de uma falha (SQS) conta de novo na janela.
 ### 7.4 Assistente (`src/assistant/`)
 
 Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum teste chama a rede, e nada chamou o Gemini de verdade ainda.
@@ -278,7 +318,17 @@ Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum test
 
 **Formatação** (`task-format.ts`): datas no fuso da casa (`localDateTime` em `dates.ts`, extensão só do servidor). O prazo é o fim **exclusivo** de `[availableAt, dueAt)`: prazo à meia-noite aparece como o dia anterior ("até dom 20/09" para a semana que termina na segunda 00:00); com horário, aparece o horário; vencido leva "(atrasada)". O ano só aparece quando não é o corrente. Esforço nunca é exibido. Nomes de outros moradores viram uma linha só, sem caracteres de controle, com no máximo 60 caracteres; no máximo 20 tarefas por lista ("… e mais N") e 3800 caracteres por resposta (o `WhatsAppSender` ainda corta em 4096).
 
-Pendente: limite de taxa por número (seção 7.3), a composição na Lambda `worker` e validar o formato do pedido contra a API real (autorização necessária).
+A composição na Lambda `worker` está em `compose.ts` (seção 3.1). Pendente: validar o formato do pedido contra a API real (autorização necessária; checklist em [VALIDACAO-APIS-REAIS.md](VALIDACAO-APIS-REAIS.md)).
+
+### 7.5 Envio pela Graph API (`src/whatsapp/graph-sender.ts`)
+
+`GraphWhatsAppSender` implementa `WhatsAppSender.send(text, toPhone)` com `HttpFetch` injetado. Testado só com `HttpFetch` falso; nada chamou a Graph API de verdade ainda.
+
+- `POST https://graph.facebook.com/<WHATSAPP_GRAPH_VERSION>/<PHONE_NUMBER_ID>/messages`, corpo `{ "messaging_product": "whatsapp", "recipient_type": "individual", "to": "+5511999998888", "type": "text", "text": { "body": "…" } }`. `recipient_type` não estava no pedido original: entra porque o exemplo da documentação da Meta o inclui (conferido em 2026-10-05; o exemplo da doc usa `v25.0`).
+- **Campo `to`:** E.164 **com `+`**, exatamente como o port recebe e como o vínculo guarda (a documentação recomenda o `+` e o código do país, e aceita `+`, `-`, `()` e espaços). O sender recusa (`invalidRecipient`) o que não for `^\+[1-9][0-9]{7,14}$`, sem chamar a rede. **Dúvida em aberto:** para Brasil e México a documentação diz que a Cloud API pode modificar o prefixo (nono dígito); o efeito entre o `from` recebido e o `to` enviado precisa ser validado com um número real (ver [VALIDACAO-APIS-REAIS.md](VALIDACAO-APIS-REAIS.md)).
+- Token só no cabeçalho `Authorization: Bearer` (nunca em URL, corpo ou erro). Versão (`^v[0-9]{1,3}\.[0-9]{1,2}$`), `PHONE_NUMBER_ID` (só dígitos) e token são validados na criação (`GraphConfigurationError`): **sem versão não existe sender**, como o `GEMINI_MODEL`.
+- Timeout (padrão 10 s). Texto cortado em 4096 caracteres por ponto de código (nunca no meio de um par substituto), com reticências no corte; o limite de 4096 vem do pedido e **não foi confirmado nas páginas lidas da documentação** (checklist). Texto vazio: `emptyMessage`.
+- Erros tipados (`GraphSendError`: `network`, `timeout`, `status` com o status HTTP, `invalidRecipient`, `emptyMessage`), com mensagem fixa: sem corpo de resposta, token, texto nem telefone. A resposta de sucesso não é lida. **Toda falha propaga** e o SQS tenta de novo; isso inclui erros permanentes (por exemplo, fora da janela de 24 h ou número inexistente), que ficam repetindo até a DLQ. O `status` fica exposto para uma política futura (não repetir 4xx, exceto 429).
 
 ## 8. Vínculo número ↔ morador
 
@@ -339,7 +389,7 @@ Um segredo no **AWS Secrets Manager** (ex. `grupuxo/whatsapp`), lido só pelas L
 | `VERIFY_TOKEN` | "Senha" do webhook |
 | `GEMINI_API_KEY` | Google AI Studio / Vertex |
 
-`GEMINI_MODEL` (nome do modelo) não é segredo: vai em variável de ambiente da Lambda `worker`, validada na composição (seção 7.4).
+`GEMINI_MODEL` (nome do modelo) e `WHATSAPP_GRAPH_VERSION` (versão da Graph API) não são segredos: vão em variável de ambiente da Lambda `worker`, validadas na composição (seções 7.4 e 7.5). O segredo é um objeto JSON com estas chaves; `parseWebhookSecrets` e `parseWorkerSecrets` (`src/lambdas/config.ts`) leem só o que cada Lambda usa.
 
 Regras:
 
@@ -385,14 +435,16 @@ Para a infraestrutura (Node):
 
 13. Empacotamento das Lambdas: `esbuild` (bundle único) ou `tsc` com `rewriteRelativeImportExtensions`? O código usa imports com extensão `.ts` e roda no Node 22.18+ por *type stripping*; o Lambda precisa de JavaScript.
 14. Runtime Node 22 nas Lambdas e como o time quer fixar a versão (`.nvmrc` e `engines` já indicam 22).
+15. **Driver PostgreSQL** (`pg`, `postgres` ou `@aws-sdk/rds-data`) e **AWS SDK** (SQS para o `MessageQueue`, Secrets Manager): são dependências de runtime e quebram "zero dependências". O runtime Node 22 do Lambda já traz o AWS SDK v3, então o SDK não precisa ser empacotado (só tipado). Recomendação: `pg` com RDS Proxy para o banco (o mais testado em Lambda; a Data API evita VPC e conexões persistentes, mas tem mais latência e limites de payload). Decisão pendente; nada foi instalado.
+16. Onde fica o contador do limite de taxa (`RateCounter`): tabela no próprio Aurora (SUGESTOES-BANCO.md, item 10) ou DynamoDB? (O worker já precisa do Aurora; o contador é de escrita muito frequente e descartável.)
 
 ## 13. Ordem de entrega sugerida
 
 1. ✅ **Feito:** `GrupuxoDomain` extraído como Swift Package (`grupuxo/Packages/GrupuxoDomain`); o app continua funcionando com o mock. ✅ **Feito:** domínio e algoritmo portados para TypeScript (`backend/src/domain`), com fixtures de referência geradas do Swift e os cenários dos testes Swift traduzidos.
 2. Esquema PostgreSQL, repositórios de persistência e testes contra o mesmo conjunto de cenários do mock. *Em andamento pelo time (banco); as interfaces de repositório do domínio e os ports da seção 14 são parte do contrato, e os testes de contrato (`backend/test/contract`) são reutilizáveis: cada função recebe uma fábrica do adaptador.*
 3. Lambda `api` e autenticação (login Cognito do app ✅; *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; falta a Lambda `api` e o `UserDirectory` em PostgreSQL); `Data/Remote` no app (trocar mocks em `AppContainer`).
-4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Falta o endpoint `POST /me/whatsapp/link` (depende da Lambda `api`) e a tela.*
-5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco e `GeminiMessageResponder` (cliente REST, ferramentas de leitura, formatação) com adaptadores em memória e Gemini falso; falta Lambda, SQS e Graph API.* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
+4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Os endpoints `POST /v1/me` e `POST /v1/me/whatsapp/link` já existem no handler `api` (em memória); falta a tela.*
+5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco, `GeminiMessageResponder`, `GraphWhatsAppSender`, limite de taxa e handlers no formato Lambda, com adaptadores em memória e Gemini/Graph falsos; falta o ponto de entrada de cada Lambda, o adaptador SQS e o segredo no Secrets Manager (AWS SDK e empacotamento em aberto).* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
 6. Concluir tarefas com confirmação e, por fim, lembretes.
 
 Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paralelo.
@@ -414,10 +466,13 @@ Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada 
 | Vínculo por token: gerar convite, reconhecer o token, vincular, rejeitar número já vinculado | `LinkTokenCodec`, `WhatsAppLinker` | ✅ testado (em memória) |
 | Validação do JWT do Cognito (`TokenVerifier`, `CognitoJwtVerifier`, JWKS com cache) | `src/auth/` | ✅ testado com chaves RSA geradas no teste, sem rede (só access token; ID token rejeitado) |
 | `UserDirectory` (conta Cognito → morador) | `src/auth/user-directory.ts`, `src/adapters/in-memory/user-directory.ts` | ✅ port, adaptador em memória e contrato (`test/contract/user-directory.ts`); PostgreSQL a fazer |
-| Lambdas, SQS, Graph API, Secrets Manager | | a fazer |
+| Envio pela Graph API | `src/whatsapp/graph-sender.ts` | ✅ testado com `HttpFetch` falso (seção 7.5); falta validar contra a API real |
+| Limite de taxa por número | `src/whatsapp/rate-limit.ts`, port `RateCounter`, `adapters/in-memory/rate-counter.ts`, contrato `test/contract/rate-counter.ts` | ✅ em memória; armazenamento real em aberto |
+| Handlers Lambda (`webhook`, `worker`, `api`), eventos, config, composição | `src/lambdas/` | ✅ testados ponta a ponta em memória (seção 3.1) |
+| Pontos de entrada das Lambdas, adaptador SQS, leitura do Secrets Manager | | a fazer (dependem do empacotamento e do AWS SDK ❓) |
 | Repositórios PostgreSQL (domínio e ports) | `src/adapters/postgres/` | a fazer (time do banco) |
-| Endpoints `POST /me`, `POST /me/whatsapp/link` e tela no Perfil | | a fazer (dependem da Lambda `api`; a autenticação já existe) |
-| Gemini e ferramentas de leitura (`MessageResponder` definitivo) | `src/assistant/` | ✅ testado com cliente e `HttpFetch` falsos (seção 7.4); falta ligar na Lambda `worker` e validar contra a API real |
+| Endpoints `POST /v1/me`, `/v1/me/whatsapp/link`, `GET`/`DELETE /v1/me/whatsapp` | `src/lambdas/api.ts` | ✅ em memória; tela no Perfil a fazer |
+| Gemini e ferramentas de leitura (`MessageResponder` definitivo) | `src/assistant/` | ✅ testado com cliente e `HttpFetch` falsos (seção 7.4), ligado em `composeWhatsAppWorker`; falta validar contra a API real |
 | Intervalo de datas ("da semana") em `GetMyTasksUseCase` | `src/domain/use-cases/tasks.ts` | ✅ `range: "week" \| "all"`, fuso da casa, só a semana corrente; extensão só do servidor (ver [ALGORITMO.md](ALGORITMO.md)) |
 
 ### Verificação

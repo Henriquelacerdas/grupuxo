@@ -9,6 +9,7 @@ import { GetMyTasksUseCase, GetRoomTasksUseCase, GetSporadicTasksUseCase } from 
 import { createLinkConfig, WhatsAppLinker } from "../../src/whatsapp/linking/whatsapp-linker.ts";
 import { WhatsAppWorker } from "../../src/whatsapp/worker.ts";
 import { uuid, World, type Env } from "../support/world.ts";
+import { openRateLimiter } from "../whatsapp/support.ts";
 import { call, FakeGemini, item, say, type Scripted } from "./support.ts";
 
 const ZONE = "America/Sao_Paulo";
@@ -380,7 +381,7 @@ test("pelo worker, a caixa de entrada só recebe o wamid e os horários", async 
       claim: async (...args) => { claims.push(args); return inbox.claim(...args); },
       markProcessed: async (...args) => { marked.push(args); return inbox.markProcessed(...args); },
     },
-    links, responder, sender, now: () => 2,
+    links, responder, sender, rateLimiter: openRateLimiter(), now: () => 2,
     linker: new WhatsAppLinker(createLinkConfig("5511900000000"), new InMemoryLinkTokenStore(), links, () => 2),
   });
   const text = "minhas tarefas SEGREDO-98765";

@@ -15,6 +15,7 @@ Instantes são `timestamptz`; no código viram milissegundos desde a época Unix
 | 7 | Bloqueio por casa e leitura que escreve | Não (decisão de desenho) |
 | 8 | Coluna `status` de `whatsapp_links` | Não |
 | 9 | Telefone: E.164 e nono dígito | Não |
+| 10 | Contador do limite de taxa por número | Não (armazenamento em aberto) |
 
 ## 1. Unicidade em `whatsapp_links` (bloqueante)
 
@@ -128,3 +129,30 @@ ALTER TABLE whatsapp_links
 ```
 
 **Impacto.** O `CHECK` rejeita lixo na borda do banco. A normalização do nono dígito, se for necessária, fica na aplicação (decisão em aberto quando houver caso real).
+
+## 10. Contador do limite de taxa por número (não bloqueante, armazenamento em aberto)
+
+**Motivo.** O worker limita as mensagens por número (BACKEND.md 7.3) com o port `RateCounter.increment(key, windowStart)`: soma 1 à contagem de (número, janela) e devolve o novo valor, de forma **atômica**. O código só precisa disso; onde guardar é decisão do time (pergunta 16 de BACKEND.md). Duas opções:
+
+- **Aurora** (uma tabela só para isso):
+
+```sql
+CREATE TABLE whatsapp_rate_counters (
+  key          text        NOT NULL,   -- telefone E.164
+  window_start timestamptz NOT NULL,
+  count        integer     NOT NULL,
+  PRIMARY KEY (key, window_start)
+);
+
+-- increment(key, windowStart)
+INSERT INTO whatsapp_rate_counters (key, window_start, count) VALUES ($1, $2, 1)
+ON CONFLICT (key, window_start) DO UPDATE SET count = whatsapp_rate_counters.count + 1
+RETURNING count;
+
+-- limpeza periódica (janelas antigas não servem a nada)
+DELETE FROM whatsapp_rate_counters WHERE window_start < now() - interval '1 day';
+```
+
+- **DynamoDB** com TTL e `UpdateItem ... ADD count 1` (`ReturnValues: UPDATED_NEW`): escrita muito frequente e descartável, sem carregar o Aurora, mas um serviço a mais para operar.
+
+**Impacto.** Qualquer adaptador tem de passar em `test/contract/rate-counter.ts` (inclui incrementos concorrentes: N chamadas simultâneas recebem as contagens 1..N sem repetição). Armazenar o número em claro como chave é dado pessoal: manter retenção curta (a limpeza acima) ou usar o SHA-256 do telefone como `key`.

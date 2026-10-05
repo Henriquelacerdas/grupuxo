@@ -94,3 +94,14 @@ export class EchoResponder implements MessageResponder {
 export interface WhatsAppSender {
   send(text: string, toPhone: string): Promise<void>;
 }
+
+/**
+ * Contador por chave e janela, base do limite de taxa por número (`MessageRateLimiter`). Atômico: chamadas
+ * concorrentes com a mesma chave e janela recebem contagens distintas e consecutivas. Em SQL:
+ * `INSERT (key, window_start, count) VALUES ($1, $2, 1) ON CONFLICT (key, window_start) DO UPDATE SET count =
+ * whatsapp_rate_counters.count + 1 RETURNING count`.
+ */
+export interface RateCounter {
+  /** Soma 1 à contagem de (`key`, `windowStart`) e devolve o novo valor (1 na primeira chamada). */
+  increment(key: string, windowStart: Instant): Promise<number>;
+}

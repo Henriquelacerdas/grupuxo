@@ -12,7 +12,8 @@ npm run test:fixtures  # só as comparações com o Swift
 ```
 
 - `src/domain/` domínio puro (sem `node:*`, sem I/O, sem relógio global).
-- `src/whatsapp/` webhook, worker, vínculo por token e ports.
+- `src/whatsapp/` webhook, worker, vínculo por token, envio pela Graph API, limite de taxa e ports.
+- `src/lambdas/` handlers `webhook`, `worker` e `api` (API Gateway HTTP API v2 e SQS), config e composição; sem ponto de entrada ainda.
 - `src/auth/` validação do JWT do Cognito (só access token), JWKS e `UserDirectory`.
 - `src/http.ts` tipo `HttpFetch` (HTTP de saída injetável).
 - `src/adapters/in-memory/` adaptadores para dev e testes.
