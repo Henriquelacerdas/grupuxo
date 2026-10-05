@@ -64,7 +64,7 @@ test("minhas tarefas mantêm as concluídas por último e permitem desfazer", as
   const { world, users, house } = setup();
   const env = world.env(world.seed.state);
   const user = users.marina.id;
-  const getMyTasks = new GetMyTasksUseCase(env.tasks);
+  const getMyTasks = new GetMyTasksUseCase(env.tasks, env.houses, () => world.now);
   const complete = new CompleteTaskUseCase(env.tasks, () => world.now);
   const tasks = await getMyTasks.execute(user, house.id);
   const item = tasks.find((t) => !isCompleted(t.occurrence));

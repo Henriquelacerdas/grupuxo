@@ -185,6 +185,18 @@ Mapa dos arquivos (Swift `GrupuxoDomain/Services/` → TypeScript `backend/src/d
 - **Inteiros grandes.** O Swift usa `Int` (64 bits) e `dividingFullWidth` em `firstWeeklyDate`; o TypeScript limita `WeeklyPeriodicity` a inteiros seguros (`Number.MAX_SAFE_INTEGER / 7` semanas) e usa `BigInt` só no produto intermediário `i × comprimento / n`. Datas fora do intervalo do `Date` do JS lançam `invalidDateInterval` (o Swift falha de forma equivalente em `Calendar`).
 - **Falhas que no Swift travam.** `Dictionary(uniqueKeysWithValues:)` com chave duplicada e fatiamento com índice negativo abortam o processo no Swift; o TypeScript lança erro (`uniqueMap`, `invalidSchedule`).
 
+## Extensão só do servidor: "minhas tarefas da semana"
+
+`GetMyTasksUseCase` do TypeScript aceita `range: "week" | "all"` (padrão `all`, igual ao Swift e ao app). É um filtro de **leitura** sobre o que o repositório já devolve; não altera distribuição, saldo, elegibilidade nem calendário, por isso o Swift não muda e nenhuma fixture é regenerada. O app iOS continua listando tudo.
+
+Com `week`, a janela é `[segunda 00:00, segunda seguinte 00:00)` no fuso da casa (`House.timezone`, via `createCalendar`; nunca somando 24 h, então semanas de horário de verão têm 167 h ou 169 h). A ocorrência ocupa `[availableAt, dueAt)`:
+
+- Entra se o intervalo cruza a janela. Prazo exatamente na virada pertence à semana que termina; disponível na virada, à que começa.
+- Sem prazo: pendente sempre entra (está aberta); concluída só entra se foi concluída dentro da janela.
+- Atrasadas de semanas anteriores **não** entram (decisão de produto: só a semana corrente). Pendentes continuam antes das concluídas, ordenadas por prazo.
+
+Se o app passar a consumir a API, ele ganha o mesmo parâmetro sem mudar o Swift.
+
 ## Verificação
 
 Testes no target `grupuxoTests` verificam matrizes escalares e lexicográficas contra enumeração exaustiva, equilíbrio semanal entre filas, transições na próxima segunda-feira, snapshots, saída e reentrada, privacidade, idempotência, atomicidade, concorrência, exclusão confirmada do último participante, avanço por conclusão, ausência, legado e horário de verão. `WeeklyLoadCalculator` conta cada ocorrência uma vez, na semana de disponibilidade, desconsiderando planos substituídos e mantendo o esforço concluído com seu executor. O mesmo conjunto de cenários roda no TypeScript (`backend/test`), somado às fixtures de referência.

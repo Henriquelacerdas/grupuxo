@@ -349,7 +349,7 @@ Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada 
 | Repositórios PostgreSQL (domínio e ports) | `src/adapters/postgres/` | a fazer (time do banco) |
 | Endpoint `POST /me/whatsapp/link` e tela no Perfil | | a fazer (depende da Lambda `api`) |
 | Gemini e ferramentas de leitura (`MessageResponder` definitivo) | | a fazer |
-| Intervalo de datas ("da semana") em `GetMyTasksUseCase` | | a fazer no domínio, com o fuso da casa; hoje o caso de uso devolve todas |
+| Intervalo de datas ("da semana") em `GetMyTasksUseCase` | `src/domain/use-cases/tasks.ts` | ✅ `range: "week" \| "all"`, fuso da casa, só a semana corrente; extensão só do servidor (ver [ALGORITMO.md](ALGORITMO.md)) |
 
 ### Verificação
 

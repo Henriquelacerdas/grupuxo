@@ -1,25 +1,51 @@
-import type { Instant } from "../dates.ts";
+import { createCalendar, type Instant } from "../dates.ts";
 import {
-  isCompleted, sortedByDeadline, type TaskDefinition, type TaskItem, type TaskSuggestion,
+  isCompleted, sortedByDeadline, type TaskDefinition, type TaskItem, type TaskOccurrence, type TaskSuggestion,
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
 import type { HouseID, RoomID, TaskOccurrenceID, UserID } from "../ids.ts";
-import type { TaskRepository } from "../repositories.ts";
+import type { HouseRepository, TaskRepository } from "../repositories.ts";
 import { TaskSuggestionCatalog } from "../services/task-suggestion-catalog.ts";
 import { hasValidInterval, isRepeating, sameRecurrence, type RoomCategory } from "../value-objects.ts";
 import { isBlank } from "../arrays.ts";
 
 export type Clock = () => Instant;
 
+/** `week`: só a semana corrente da casa; `all`: tudo o que já está disponível para o morador. */
+export type TaskRange = "week" | "all";
+
+/**
+ * A ocorrência ocupa o intervalo semiaberto `[availableAt, dueAt)` (sem prazo, fica aberta até ser concluída), então
+ * um prazo exatamente na virada da semana pertence à semana anterior. Concluída sem prazo só conta na semana em que
+ * foi concluída. Atrasadas de semanas anteriores ficam de fora.
+ */
+function overlapsWeek(occurrence: TaskOccurrence, weekStart: Instant, weekEnd: Instant): boolean {
+  if (occurrence.availableAt >= weekEnd) return false;
+  if (occurrence.dueAt !== null) return occurrence.dueAt > weekStart;
+  if (!isCompleted(occurrence)) return true;
+  return occurrence.completedAt !== null && occurrence.completedAt >= weekStart && occurrence.completedAt < weekEnd;
+}
+
 export class GetMyTasksUseCase {
-  private readonly repository: TaskRepository;
-  constructor(repository: TaskRepository) {
+  private readonly repository: Pick<TaskRepository, "tasks">;
+  private readonly houses: Pick<HouseRepository, "house">;
+  private readonly now: Clock;
+  constructor(repository: Pick<TaskRepository, "tasks">, houses: Pick<HouseRepository, "house">, now: Clock) {
     this.repository = repository;
+    this.houses = houses;
+    this.now = now;
   }
 
-  /** Pendentes por prazo; concluídas por último. */
-  async execute(userID: UserID, houseID: HouseID): Promise<TaskItem[]> {
-    const tasks = sortedByDeadline(await this.repository.tasks(userID, houseID));
+  /** Pendentes por prazo; concluídas por último. A semana começa na segunda 00:00 do fuso da casa (`House.timezone`). */
+  async execute(userID: UserID, houseID: HouseID, range: TaskRange = "all"): Promise<TaskItem[]> {
+    let items = await this.repository.tasks(userID, houseID);
+    if (range === "week") {
+      const calendar = createCalendar((await this.houses.house(houseID)).timezone);
+      const weekStart = calendar.weekStart(this.now());
+      const weekEnd = calendar.addWeeks(weekStart, 1);
+      items = items.filter((t) => overlapsWeek(t.occurrence, weekStart, weekEnd));
+    }
+    const tasks = sortedByDeadline(items);
     return [...tasks.filter((t) => !isCompleted(t.occurrence)), ...tasks.filter((t) => isCompleted(t.occurrence))];
   }
 }
