@@ -1,4 +1,5 @@
 import SwiftUI
+import GrupuxoDomain
 
 struct TaskEditorView: View {
     @StateObject private var viewModel: TaskEditorViewModel

@@ -1,4 +1,5 @@
 import SwiftUI
+import GrupuxoDomain
 
 struct SporadicTasksView: View {
     @StateObject private var viewModel: SporadicTasksViewModel

@@ -2,9 +2,9 @@
 
 ## Visão geral
 
-Clean Architecture com SwiftUI + MVVM na apresentação, em um único target (camadas como pastas). Swift 6 com concorrência estrita; deployment target iOS 26.5.
+Clean Architecture com SwiftUI + MVVM na apresentação, com o domínio num Swift Package local (`Packages/GrupuxoDomain`) e Data/Presentation/App no target do app (camadas como pastas). Swift 6 com concorrência estrita; deployment target iOS 26.5.
 
-Hoje tudo roda sobre repositórios mockados e sem login. Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio. A distribuição de tarefas roda on-device.
+Hoje os dados do app rodam sobre repositórios mockados. O login (Cognito via Amplify) existe, mas só controla o acesso à interface: a sessão (`AppSession`) ainda usa o usuário do `MockSeed`. No app, a distribuição de tarefas ainda roda on-device. O backend em Node.js + TypeScript (`backend/`, ver [BACKEND.md](BACKEND.md)) tem uma **segunda implementação** do domínio e do algoritmo, portada do `GrupuxoDomain` e verificada contra ele por fixtures de referência: é ela que vai calcular a escala no servidor (WhatsApp, Android e, depois, o próprio app). Enquanto o app usar o mock, o `GrupuxoDomain` Swift é o domínio do app e a **referência** do port. Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio.
 
 | Camada | Responsabilidade | Depende de |
 | --- | --- | --- |
@@ -17,11 +17,11 @@ Fluxo de uma ação: View → ViewModel → UseCase → Repository → implement
 
 ## Estrutura de pastas
 
-Base: `grupuxo/grupuxo/`.
+App: `grupuxo/grupuxo/`. Domínio: `grupuxo/Packages/GrupuxoDomain/Sources/GrupuxoDomain/` (importado com `import GrupuxoDomain`).
 
 ```
 App/            DomesticApp, AppContainer, AppSession, RootView
-Domain/
+GrupuxoDomain (pacote)/
   Entities/     User, House, HouseMembership, Room, RoomMembership, RoomAccessRequest,
                 TaskDefinition, TaskOccurrence, TaskAssignment, TaskSuggestion,
                 TaskSwapRequest, AppNotification, Absence
@@ -31,14 +31,16 @@ Domain/
   Services/     algoritmos e políticas (ver abaixo)
   Errors/       DomainError
 Data/Mock/      MockStore (actor), MockSeed, Mock{House,Room,Task,TaskSwap,Notification}Repository
+Data/Auth/      AuthService (Amplify/Cognito: login, cadastro, confirmação, Apple, sessão)
 Presentation/
   Features/     MyTasks, HouseManagement, RoomDetail, RoomEditor, TaskEditor,
                 SporadicTasks, TaskSwap, Profile   (cada uma: State + View + ViewModel)
+                Auth (LoginView, SignUpView, ConfirmSignUpView; sem ViewModel, usam AuthService)
   Navigation/   AppRoute, AppRouter
   DesignSystem/ DesignSystem, RoomIconView
 ```
 
-Testes executáveis: `grupuxo/grupuxoTests` (target separado). `grupuxo/grupuxo/Tests/` contém apenas guias históricos e não roda. Quando houver `Data/Remote`, criar DTOs e mappers ali.
+Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable import GrupuxoDomain`) e `Packages/GrupuxoDomain/Tests` (domínio puro: Húngaro, motor, justiça; `swift test`). `backend/test` cobre o domínio portado (cenários equivalentes aos do Swift, comparação com fixtures geradas do Swift), webhook (assinatura, verificação, filtragem), worker (idempotência, vínculo) e o contrato dos ports (`npm test` em `backend`). `grupuxo/grupuxo/Tests/` contém apenas guias históricos e não roda. Quando houver `Data/Remote`, criar DTOs e mappers ali.
 
 ### Serviços de domínio
 
@@ -56,6 +58,31 @@ Testes executáveis: `grupuxo/grupuxoTests` (target separado). `grupuxo/grupuxo/
 | `TaskSuggestionCatalog` | Sugestões de tarefa por categoria de cômodo |
 
 Contrato matemático completo: [ALGORITMO.md](ALGORITMO.md).
+
+### Backend (`backend/`)
+
+Projeto Node.js (22.18 ou superior) com TypeScript `strict`, ESM e **nenhuma dependência de runtime** (HMAC, SHA-256, aleatoriedade e UUID vêm de `node:crypto`; testes com `node:test`). Detalhes em [BACKEND.md](BACKEND.md).
+
+```
+backend/
+  src/domain/            port do GrupuxoDomain; puro (sem node:*, sem I/O, sem relógio global)
+    entities.ts value-objects.ts ids.ts errors.ts dates.ts store-state.ts repositories.ts
+    services/            Húngaro, motor, otimizador da casa, agendamento, justiça, carga, elegibilidade, sugestões
+    commands/            tarefas, casa, cômodos, trocas, notificações: funções (estado, entrada) → estado
+    use-cases/           um por caso de uso (classes com execute)
+  src/whatsapp/          webhook/ (payload, assinatura, handler), worker, linking/ (token e vínculo), ports
+  src/auth/              JWT do Cognito (TokenVerifier, JWKS) e UserDirectory
+  src/adapters/in-memory/  store transacional, repositórios, ports do WhatsApp e seed (dev e testes)
+  test/                  testes; contract/ (contratos dos ports); fixtures/ (casos dourados do Swift)
+  tools/swift-fixtures/  gerador das fixtures (SwiftPM, depende do GrupuxoDomain)
+```
+
+Diferenças deliberadas em relação ao Swift:
+
+- **A lógica transacional sai dos repositórios.** No app ela está nos `Mock*Repository` (acesso, claim/release, trocas, entrada/saída de casa). No TypeScript ela vive em `domain/commands/` como funções puras sobre o estado, e o adaptador só faz `store.update(estado => comando(...))`. Assim o adaptador PostgreSQL carrega o estado da casa, chama o mesmo comando e grava, sem reimplementar regras.
+- **Relógio e IDs injetados.** Nada no domínio lê o relógio nem gera UUID: `now` e `newID` entram por construtor (`CommandContext`, `TaskSchedulingService`, casos de uso).
+- **Fuso por casa.** `House.timezone` (IANA) é campo do domínio TypeScript; o calendário do serviço de agendamento é montado a partir dele. O Swift recebe o `Calendar` por injeção e não guarda o fuso na casa.
+- **Imutabilidade.** Entidades são `readonly` e atualizadas por cópia. O `SchedulingState` é um objeto com arrays que o serviço altera por substituição de elementos; copiar os arrays (`cloneSchedulingState`, `cloneStoreState`) é uma cópia por valor correta porque entidades nunca mudam no lugar.
 
 ## Navegação e fluxo de produto
 
@@ -120,6 +147,8 @@ Todos os repositórios mock compartilham um `MockStore` (actor). `MockSeed` gera
 
 Isso impede ler participantes/carga, calcular o Húngaro e gravar sobre um snapshot desatualizado. Onde o cálculo roda é decisão de Data; a matemática continua em Domain e testável isoladamente.
 
+No backend TypeScript o equivalente é `InMemoryStore.update(fn)` (`src/adapters/in-memory/store.ts`): `fn` é síncrona, trabalha numa cópia do estado e só a publica se termina sem erro (testes de rollback e de concorrência com `Promise.all`). O repositório PostgreSQL fará o mesmo com `BEGIN` + bloqueio por casa + `COMMIT` (ver [BACKEND.md](BACKEND.md), seção 4).
+
 Consultas resolvem a casa pelo cômodo e aplicam elegibilidade antes de devolver dados. Repositórios omitem as versões de escala de cômodos privados para não participantes (contêm IDs de tarefas).
 
 Conclusão e atribuição são idempotentes: repetir não duplica esforço, responsáveis nem `FairnessDebt`. Um backend real deve prover transação ou controle otimista de versão equivalente e ser a autoridade de autorização; a UI nunca é.
@@ -135,13 +164,14 @@ Conclusão e atribuição são idempotentes: repetir não duplica esforço, resp
 ## Autenticação, perfil e WhatsApp (futuro)
 
 - Sign in with Apple ficará em Data atrás de um contrato de autenticação em Domain. A UI funciona sem imagem (iniciais/avatar).
-- A integração com WhatsApp ainda não tem código nem contrato. Ao implementar: definir um protocolo em Domain (ex.: envio de lembretes e vínculo morador↔número), implementação em Data, e atualizar este documento. Proposta de backend e WhatsApp: [BACKEND.md](BACKEND.md).
+- A integração com WhatsApp vive no backend TypeScript (`src/whatsapp/`, ports em `ports.ts`); o app só vai precisar do endpoint de vínculo (`POST /me/whatsapp/link`) e de uma tela no Perfil. Proposta e estado: [BACKEND.md](BACKEND.md).
 
 ## Convenções
 
 - Tipos e propriedades em inglês; textos de interface em português.
-- Domain não importa SwiftUI nem frameworks de persistência.
+- Domain (pacote) importa só `Foundation`; nada de SwiftUI nem persistência. O que o app consome é `public` (structs com `init` público explícito). No TypeScript, `src/domain/` não importa `node:*` (verificado por teste).
 - ViewModels não instanciam repositórios concretos; sem `Singleton.shared`.
 - Regras de negócio e balanceamento não ficam em Views/ViewModels.
 - Testar o Húngaro isoladamente, com matrizes de resposta conhecida.
+- Mudou o algoritmo? Altere o Swift (referência) e o TypeScript, regenere as fixtures e rode as duas suítes (ver `CLAUDE.md`).
 - Alterou contrato compartilhado? Atualize estes documentos.

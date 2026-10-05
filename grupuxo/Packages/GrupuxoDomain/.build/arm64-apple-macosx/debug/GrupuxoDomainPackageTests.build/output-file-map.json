@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/henriquelacerdasilveira/Documents/Academy/grupuxo/grupuxo/Packages/GrupuxoDomain/.build/arm64-apple-macosx/debug/GrupuxoDomainPackageTests.build/primary.swiftdeps"
+  },
+  "/Users/henriquelacerdasilveira/Documents/Academy/grupuxo/grupuxo/Packages/GrupuxoDomain/.build/arm64-apple-macosx/debug/GrupuxoDomainPackageTests.derived/runner.swift": {
+    "dependencies": "/Users/henriquelacerdasilveira/Documents/Academy/grupuxo/grupuxo/Packages/GrupuxoDomain/.build/arm64-apple-macosx/debug/GrupuxoDomainPackageTests.build/runner.d",
+    "object": "/Users/henriquelacerdasilveira/Documents/Academy/grupuxo/grupuxo/Packages/GrupuxoDomain/.build/arm64-apple-macosx/debug/GrupuxoDomainPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/henriquelacerdasilveira/Documents/Academy/grupuxo/grupuxo/Packages/GrupuxoDomain/.build/arm64-apple-macosx/debug/GrupuxoDomainPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/henriquelacerdasilveira/Documents/Academy/grupuxo/grupuxo/Packages/GrupuxoDomain/.build/arm64-apple-macosx/debug/GrupuxoDomainPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/henriquelacerdasilveira/Documents/Academy/grupuxo/grupuxo/Packages/GrupuxoDomain/.build/arm64-apple-macosx/debug/GrupuxoDomainPackageTests.build/runner.dia"
+  }
+}

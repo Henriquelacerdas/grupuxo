@@ -1,3 +1,5 @@
+import GrupuxoDomain
+
 enum SporadicTasksState: Equatable {
     case idle
     case loading

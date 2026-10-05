@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import GrupuxoDomain
 
 struct NotificationsView: View {
 

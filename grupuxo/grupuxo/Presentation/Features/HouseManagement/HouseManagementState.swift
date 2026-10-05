@@ -1,3 +1,5 @@
+import GrupuxoDomain
+
 enum HouseManagementState: Equatable {
     case idle
     case loading

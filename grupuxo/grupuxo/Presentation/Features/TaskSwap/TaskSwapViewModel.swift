@@ -6,6 +6,7 @@
 //
 import Combine
 import Foundation
+import GrupuxoDomain
 
 @MainActor
 final class TaskSwapViewModel: ObservableObject {

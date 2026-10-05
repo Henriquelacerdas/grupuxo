@@ -1,4 +1,5 @@
 import SwiftUI
+import GrupuxoDomain
 
 struct RoomCreationSheetView: View {
     @Environment(\.dismiss) private var dismiss
