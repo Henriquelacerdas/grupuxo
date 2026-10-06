@@ -1,4 +1,5 @@
 import Foundation
+import GrupuxoDomain
 
 struct RoomDraft: Equatable {
     var name = ""

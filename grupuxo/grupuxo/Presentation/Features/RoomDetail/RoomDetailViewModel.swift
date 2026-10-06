@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import GrupuxoDomain
 
 @MainActor
 final class RoomDetailViewModel: ObservableObject {

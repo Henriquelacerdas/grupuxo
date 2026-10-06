@@ -1,0 +1,17 @@
+{
+    "version": "1",
+    "auth": {
+        "aws_region": "us-east-1",
+        "user_pool_id": "us-east-1_M9GpISkE3",
+        "user_pool_client_id": "21gqeeehhmeufpipk84e3cc7tu",
+        "oauth": {
+            "domain": "us-east-1m9gpiske3.auth.us-east-1.amazoncognito.com",
+            "scopes": ["email", "openid", "profile"],
+            "redirect_sign_in_uri": ["grupuxo://"],
+            "redirect_sign_out_uri": ["grupuxo://"],
+            "response_type": "code",
+            "identity_providers": ["APPLE"],
+            "identityProviders": ["APPLE"]
+        }
+    }
+}

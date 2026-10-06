@@ -1,3 +1,5 @@
+import GrupuxoDomain
+
 actor MockStore {
     struct State: Sendable {
         var users: [User]

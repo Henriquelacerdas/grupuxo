@@ -1,0 +1,4 @@
+node_modules
+*.tsbuildinfo
+tools/swift-fixtures/.build
+.DS_Store

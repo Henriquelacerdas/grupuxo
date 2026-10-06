@@ -1,4 +1,5 @@
 import Foundation
+import GrupuxoDomain
 
 struct MockRoomRepository: RoomRepository {
     let store: MockStore

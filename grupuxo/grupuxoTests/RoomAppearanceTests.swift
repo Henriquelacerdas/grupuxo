@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import GrupuxoDomain
 @testable import grupuxo
 
 struct RoomAppearanceTests {
@@ -17,6 +18,11 @@ struct RoomAppearanceTests {
         #expect(!model.canSave)
         await model.loadResidents()
         #expect(model.residents.count == members.count)
+        model.updateDraft { $0.responsibleCount = members.count + 1 }
+        #expect(model.state.draft.responsibleCount == members.count)
+        model.updateDraft { $0.responsibleCount = 0 }
+        #expect(model.state.draft.responsibleCount == 1)
+        model.updateDraft { $0.responsibleCount = members.count }
         model.updateDraft {
             $0.name = "  Quarto azul  "
             $0.icon = "bed.double.fill"
@@ -31,6 +37,7 @@ struct RoomAppearanceTests {
         }
         let stored = try await container.roomRepository.room(id: room.id, requesting: creator.id)
         #expect(stored.name == "Quarto azul")
+        #expect(stored.responsibleCount == members.count)
         #expect(stored.icon == "bed.double.fill")
         #expect(stored.color == .purple)
         let participation = try await container.roomRepository.participation(in: room.id, requesting: second.id, at: .now)

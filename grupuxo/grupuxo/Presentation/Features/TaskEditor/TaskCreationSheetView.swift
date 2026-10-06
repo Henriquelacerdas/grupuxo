@@ -1,4 +1,89 @@
 import SwiftUI
+import UIKit
+import GrupuxoDomain
+
+private extension TaskEffortLevel {
+    var title: String {
+        switch self {
+        case .light: "Leve"
+        case .medium: "Médio"
+        case .intense: "Intenso"
+        }
+    }
+}
+
+/// UIKit owns tracking, selection, and the iOS 26 Liquid Glass lens.
+/// Only the segment artwork is custom; never override the control's backgrounds.
+private struct EffortSegmentedControl: UIViewRepresentable {
+    @Binding var selection: Int
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.displayScale) private var displayScale
+    @ScaledMetric(relativeTo: .callout) private var fontSize: CGFloat = 16
+
+    func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
+
+    func makeUIView(context: Context) -> UISegmentedControl {
+        let control = UISegmentedControl(items: TaskEffortLevel.allCases.map(\.title))
+        control.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .valueChanged)
+        control.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        control.accessibilityIdentifier = "taskEffortPicker"
+        return control
+    }
+
+    func updateUIView(_ control: UISegmentedControl, context: Context) {
+        context.coordinator.selection = $selection
+        control.isEnabled = isEnabled
+        // Replacing images during valueChanged interrupts native lens tracking.
+        let appearance = "\(fontSize)-\(colorScheme)-\(displayScale)"
+        if context.coordinator.appearance != appearance {
+            context.coordinator.appearance = appearance
+            for (index, level) in TaskEffortLevel.allCases.enumerated() {
+                let artwork = VStack(spacing: 2) {
+                    HStack(spacing: 2) {
+                        ForEach(0..<level.rawValue, id: \.self) { _ in
+                            Image(systemName: "bolt.fill")
+                        }
+                    }
+                    .foregroundStyle(Color.accentColor)
+                    Text(level.title).foregroundStyle(.primary)
+                }
+                .font(.system(size: fontSize))
+                .padding(.vertical, 4)
+                .frame(width: fontSize * 4.5)
+                .environment(\.colorScheme, colorScheme)
+                let renderer = ImageRenderer(content: artwork)
+                renderer.scale = displayScale
+                if let image = renderer.uiImage?.withRenderingMode(.alwaysOriginal) {
+                    image.accessibilityLabel = "\(level.title), esforço \(level.rawValue) de 3"
+                    control.setImage(image, forSegmentAt: index)
+                }
+            }
+        }
+        let index = TaskEffortLevel.allCases.firstIndex { $0.rawValue == selection } ?? 0
+        if control.selectedSegmentIndex != index {
+            control.selectedSegmentIndex = index
+        }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UISegmentedControl, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? uiView.intrinsicContentSize.width,
+               height: max(64, fontSize * 3.5 + 8))
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var selection: Binding<Int>
+        var appearance: String?
+
+        init(selection: Binding<Int>) { self.selection = selection }
+
+        @objc func changed(_ sender: UISegmentedControl) {
+            guard TaskEffortLevel.allCases.indices.contains(sender.selectedSegmentIndex) else { return }
+            selection.wrappedValue = TaskEffortLevel.allCases[sender.selectedSegmentIndex].rawValue
+        }
+    }
+}
 
 /// Formulário apresentado a partir da aba Casa para cadastrar uma tarefa
 struct TaskCreationSheetView: View {
@@ -16,6 +101,7 @@ struct TaskCreationSheetView: View {
 
     private enum Layout {
         static let cardCornerRadius: CGFloat = 16
+        static let effortRaySpacing: CGFloat = 2
         static let rowMinimumHeight = DesignSystem.minimumTouchTarget
             + 2 * DesignSystem.Spacing.extraSmall
     }
@@ -54,20 +140,6 @@ struct TaskCreationSheetView: View {
 
                         }
 
-                        if !urgency {
-                            selectionRow(
-                                title: "Repetição",
-                                systemImage: "arrow.triangle.2.circlepath"
-                            ) {
-                                Menu {
-                                    recurrenceMenu
-                                } label: {
-                                    rowValue(recurrenceName)
-                                }
-                                .accessibilityLabel("Repetição")
-                                .accessibilityValue(recurrenceName)
-                            }
-                        }
 
                         selectionRow(
                             title: "Cômodo",
@@ -84,7 +156,22 @@ struct TaskCreationSheetView: View {
                                 rowValue(selectedRoomName)
                             }
                             .accessibilityLabel("Cômodo")
-                            .accessibilityValue(selectedRoomName)
+                            .accessibilityValue(selectedRoomName).foregroundStyle(.secondary)
+                        }
+
+                        if !urgency {
+                            selectionRow(
+                                title: "Repetição",
+                                systemImage: "arrow.triangle.2.circlepath"
+                            ) {
+                                Menu {
+                                    recurrenceMenu
+                                } label: {
+                                    rowValue(recurrenceName)
+                                }
+                                .accessibilityLabel("Repetição")
+                                .accessibilityValue(recurrenceName).foregroundStyle(.secondary)
+                            }
                         }
 
                         effortCard
@@ -102,7 +189,7 @@ struct TaskCreationSheetView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("Criar tarefa")
+            .navigationTitle("Nova tarefa")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -127,7 +214,7 @@ struct TaskCreationSheetView: View {
             }
         }
         .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
+        .presentationDragIndicator(.hidden)
         .interactiveDismissDisabled(isSaving)
         .sheet(item: $recurrenceSheet) { sheet in
             switch sheet {
@@ -169,24 +256,26 @@ struct TaskCreationSheetView: View {
 
     private var effortCard: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.large) {
-            
             adaptiveRow {
-                Label("Esforço", systemImage: "bolt")
-                    .font(.callout.weight(.medium))
-                
-                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
-                
-                Text("Nível \(viewModel.state.draft.effortPoints) · \(effortName)")
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.secondary)
+                Label {
+                    Text("Esforço").font(.callout.weight(.medium))
+                } icon: {
+                    Image(systemName: "bolt.fill").foregroundStyle(.tint)
+                }
+
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+
+                HStack(spacing: DesignSystem.Spacing.extraSmall) {
+                    effortRays(for: selectedEffortLevel, color: .secondary)
+                    Text("– \(selectedEffortLevel.title)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Esforço \(selectedEffortLevel.title), nível \(selectedEffortLevel.rawValue) de \(TaskEffortLevel.allCases.count)")
             }
 
-            if dynamicTypeSize.isAccessibilitySize {
-                effortPicker.pickerStyle(.inline)
-            } else {
-                effortPicker.pickerStyle(.segmented)
-            }
-            
+            effortPicker
         }
         .padding(DesignSystem.Spacing.large)
         .background(cardBackground)
@@ -220,17 +309,41 @@ struct TaskCreationSheetView: View {
     }
 
     private var effortPicker: some View {
-        Picker("Nível de esforço", selection: binding(\.effortPoints)) {
-            Text("1 · Leve").tag(1)
-            Text("2 · Médio").tag(2)
-            Text("3 · Intenso").tag(3)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                Picker("Nível de esforço", selection: binding(\.effortPoints)) {
+                    ForEach(TaskEffortLevel.allCases) { level in
+                        Text(level.title)
+                            .accessibilityLabel("\(level.title), esforço \(level.rawValue) de 3")
+                            .tag(level.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(minHeight: DesignSystem.minimumTouchTarget)
+            } else {
+                EffortSegmentedControl(selection: binding(\.effortPoints))
+            }
         }
+        .accessibilityIdentifier("taskEffortPicker")
+        .sensoryFeedback(.selection, trigger: viewModel.state.draft.effortPoints)
+    }
+
+    private func effortRays<Style: ShapeStyle>(for level: TaskEffortLevel, color: Style) -> some View {
+        HStack(spacing: Layout.effortRaySpacing) {
+            ForEach(0..<level.rawValue, id: \.self) { _ in
+                Image(systemName: "bolt.fill")
+            }
+        }
+        .font(.callout)
+        .foregroundStyle(color)
     }
 
     private var recurrenceMenu: some View {
         Group {
-            Button("Mesma periodicidade do cômodo") { viewModel.useRoomPeriodicity() }
+            Button("Mesma do cômodo") { viewModel.useRoomPeriodicity() }
                 .disabled(viewModel.state.draft.roomID == nil)
+
+            Divider()
             recurrenceMenuButton("Diariamente", recurrence: .recurring(frequency: .daily, interval: 1))
             recurrenceMenuButton("Semanalmente", recurrence: .recurring(frequency: .weekly, interval: 1))
             recurrenceMenuButton("Quinzenalmente", recurrence: .recurring(frequency: .weekly, interval: 2))
@@ -274,12 +387,8 @@ struct TaskCreationSheetView: View {
         return room.name
     }
 
-    private var effortName: String {
-        switch viewModel.state.draft.effortPoints {
-        case 1: "Leve"
-        case 2: "Médio"
-        default: "Intenso"
-        }
+    private var selectedEffortLevel: TaskEffortLevel {
+        TaskEffortLevel(rawValue: viewModel.state.draft.effortPoints) ?? .light
     }
 
     private var recurrenceName: String {
@@ -383,7 +492,7 @@ private struct CustomRecurrenceSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .presentationDragIndicator(.hidden)
     }
 
     private var recurrenceSummary: String {
