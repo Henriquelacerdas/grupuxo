@@ -4,6 +4,8 @@ Checklist do que **ainda não foi validado** contra a Graph API da Meta, o Gemin
 
 Regras para qualquer chamada real: usar números e chaves de **teste** (ambiente `dev`), nunca registrar token, texto de mensagem nem telefone, e anotar aqui o resultado (data, versão da API, o que diferiu do código).
 
+**Como rodar as seções 1 e 2:** scripts descartáveis em `backend/tools/validate/` (`graph.ts`: G1–G7; `gemini.ts`: M1–M5), um item por vez, com autorização por item; ver o [README](../backend/tools/validate/README.md) (variáveis, chamadas de cada item e o que a saída nunca mostra). `--dry-run` exercita os scripts sem rede. Os scripts estão prontos e **não foram executados contra a rede**.
+
 ## 1. Graph API (`src/whatsapp/graph-sender.ts`)
 
 Conferido só na documentação (somente leitura, 2026-10-05): URL `https://graph.facebook.com/<versão>/<PHONE_NUMBER_ID>/messages`, `Authorization: Bearer`, corpo com `messaging_product`, `recipient_type`, `to`, `type`, `text.body`; exemplos com `v25.0`.

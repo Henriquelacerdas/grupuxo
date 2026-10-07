@@ -22,6 +22,7 @@ Backend TypeScript: `backend/` (Node 22, ESM, `strict`, **zero dependências de 
 - `src/adapters/in-memory/` store transacional, repositórios do domínio, adaptadores dos ports do WhatsApp e `seed` de demonstração (dev e testes). `src/adapters/dynamodb/` (a fazer): persistência real em DynamoDB, tabela única sob demanda (BACKEND.md seção 4); não existe banco relacional no projeto.
 - `test/` testes (`node:test`), `test/contract/` testes de contrato reutilizáveis dos ports, `test/fixtures/` casos dourados gerados do Swift.
 - `tools/swift-fixtures/` gerador (SwiftPM) das fixtures, a partir do `GrupuxoDomain`.
+- `tools/validate/` scripts descartáveis que chamam a Graph API e o Gemini **reais** (fora do `npm test`); só rodam com autorização explícita, item por item (README da pasta e `docs/VALIDACAO-APIS-REAIS.md`).
 
 Testes Swift: `grupuxo/grupuxoTests` (app + Mock) e `Packages/GrupuxoDomain/Tests` (domínio puro, `swift test`). `grupuxo/grupuxo/Tests/` são guias históricos, não rodam.
 
