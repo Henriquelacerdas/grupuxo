@@ -4,7 +4,7 @@ import { userID } from "../../src/domain/ids.ts";
 import { WhatsAppLinkError, type InboxStore, type LinkTokenStore, type WhatsAppLink, type WhatsAppLinkStore } from "../../src/whatsapp/ports.ts";
 import { uuid } from "../support/world.ts";
 
-// Contrato que qualquer implementação dos ports (inclusive a de PostgreSQL) deve respeitar: a mesma função
+// Contrato que qualquer implementação dos ports (inclusive a de DynamoDB) deve respeitar: a mesma função
 // recebe uma fábrica do adaptador e registra os testes. Cada teste usa uma instância nova.
 
 const NOW = 1_700_000_000_000;

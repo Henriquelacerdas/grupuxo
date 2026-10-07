@@ -11,7 +11,7 @@ Conferido só na documentação (somente leitura, 2026-10-05): URL `https://grap
 | # | O que validar | Por quê | Como |
 | --- | --- | --- | --- |
 | G1 | Formato do `to`: o código envia E.164 **com `+`** (`+5511999998888`) | A documentação recomenda o `+`, mas o exemplo não deixa claro se `to` sem `+` é igualmente aceito | Enviar uma mensagem de teste a um número do próprio time (dentro da janela de 24 h) e conferir a entrega |
-| G2 | **Nono dígito brasileiro**: o `from` que a Meta envia (só dígitos) pode vir sem o 9 (números antigos), e a documentação diz que, para Brasil e México, a Cloud API pode modificar o prefixo do `to` | O vínculo guarda o `from` normalizado; se a Meta responder por outro formato, o `phone_e164` do cadastro pode divergir | Com um número que **não** tem o 9 no cadastro do WhatsApp, vincular, receber, responder e comparar o `wa_id` devolvido com o `phone_e164` gravado |
+| G2 | **Nono dígito brasileiro**: o `from` que a Meta envia (só dígitos) pode vir sem o 9 (números antigos), e a documentação diz que, para Brasil e México, a Cloud API pode modificar o prefixo do `to` | O vínculo guarda o `from` normalizado; se a Meta responder por outro formato, o `phoneE164` do cadastro pode divergir | Com um número que **não** tem o 9 no cadastro do WhatsApp, vincular, receber, responder e comparar o `wa_id` devolvido com o `phoneE164` gravado |
 | G3 | Limite de **4096 caracteres** do `text.body` (o código corta aí) | Não consta nas páginas de documentação lidas; o valor veio do pedido | Enviar texto com 4096 e com 4097 caracteres e ver a resposta |
 | G4 | `recipient_type: "individual"` é aceito (e se é opcional) | A doc o lista; o pedido original do corpo não o trazia | Enviar com e sem o campo (só em `dev`) |
 | G5 | Versão vigente da Graph API | `WHATSAPP_GRAPH_VERSION` não tem padrão; a doc mostra `v25.0` em 2026-10-05 | Conferir a página de versões antes do release |
@@ -40,4 +40,17 @@ Conferido só na documentação (somente leitura, 2026-10-05): URL `https://grap
 | A4 | Evento SQS FIFO: `attributes.MessageGroupId` e `ReportBatchItemFailures` habilitado no gatilho | Lote de teste com uma mensagem inválida |
 | A5 | `rawPath` das rotas `/v1/...` chega exato, sem *stage* (o handler compara `rawPath` exato) | Deploy em `dev`; chamar a URL da `api` e conferir o evento |
 | A6 | Function URL com `AuthType = NONE` aceita a chamada do app e da Meta (permissões `lambda:InvokeFunctionUrl` e, se exigida, `lambda:InvokeFunction` com `InvokedViaFunctionUrl`) | Deploy em `dev`; `curl` sem credenciais AWS deve chegar na Lambda (e o 401 vir do código) |
-| A7 | Concorrência reservada nas Lambdas HTTP segura uma rajada sem derrubar o banco | Teste de carga leve em `dev` |
+| A7 | Concorrência reservada nas Lambdas HTTP segura uma rajada sem estourar a conta do DynamoDB sob demanda nem o limite de leitura/escrita da tabela | Teste de carga leve em `dev` |
+
+## 4. DynamoDB (`src/adapters/dynamodb/`, a fazer)
+
+Só vale depois que o adaptador existir. Rodar contra a tabela de `dev` (ou DynamoDB Local, se a equipe preferir, o que não exige autorização AWS) e anotar o resultado.
+
+| # | O que validar | Como |
+| --- | --- | --- |
+| D1 | Os testes de contrato (`test/contract/`) passam no adaptador, inclusive os concorrentes (`increment`, `ensureUser`, `claim`, `consume`, `create`) | Rodar os mesmos contratos com a fábrica do adaptador DynamoDB |
+| D2 | Bloqueio otimista por casa: dois comandos simultâneos na mesma casa terminam com um repetido e o estado final igual ao do `InMemoryStore` | Teste de concorrência com `Promise.all` na tabela de `dev` |
+| D3 | Limite de 100 ações / 4 MB do `TransactWriteItems` e o erro explícito (falha fechada) num `refreshSchedule` grande | Casa de teste parada há muitas semanas; medir quantas ações o comando gera |
+| D4 | TTL: `ttl` em segundos, e a **condição** (`expiresAt > :at`) decide a validade, não a presença do item (o DynamoDB apaga com atraso de horas) | Token vencido ainda presente na tabela deve ser recusado |
+| D5 | Custo real por requisição do worker e da `api` (leituras consistentes de partição inteira) | Medir unidades de capacidade consumidas por consulta em `dev` e extrapolar para uma casa com um ano de histórico |
+| D6 | O GSI (`GSI1`) é eventualmente consistente: nada transacional depende dele (`houses(userID)` logo após entrar numa casa) | Entrar numa casa e listar em seguida; se falhar, ler a casa pela partição |

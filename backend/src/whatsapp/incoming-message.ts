@@ -5,7 +5,7 @@ import type { Instant } from "../domain/dates.ts";
  * e que o worker consome. O texto é entrada não confiável e nunca é persistido nem registrado em log.
  */
 export interface IncomingMessage {
-  /** ID da mensagem na Meta. Chave de idempotência (`whatsapp_inbox`) e `MessageDeduplicationId` do SQS FIFO. */
+  /** ID da mensagem na Meta. Chave de idempotência (item `WAMID#<wamid>`) e `MessageDeduplicationId` do SQS FIFO. */
   readonly wamid: string;
   /** Remetente em E.164 (`+5511999998888`). `MessageGroupId` do SQS FIFO. */
   readonly phoneE164: string;

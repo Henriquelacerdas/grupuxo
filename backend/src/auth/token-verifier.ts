@@ -1,6 +1,6 @@
 import type { Brand } from "../domain/ids.ts";
 
-/** Claim `sub` do JWT do Cognito: identifica a conta no user pool (coluna `users.cognito_sub`). */
+/** Claim `sub` do JWT do Cognito: identifica a conta no user pool (atributo `cognitoSub` do morador e item `COGNITO#<sub>`). */
 export type CognitoSub = Brand<string, "CognitoSub">;
 
 /** Promove uma `string` a `CognitoSub`: de 1 a 128 caracteres ASCII visíveis, sem espaço nem controle. */

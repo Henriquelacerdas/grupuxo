@@ -103,8 +103,8 @@ Futuro, sem bloquear a entrega atual: widget, Lembretes, Siri, NFC, lista de mer
 
 Decisões abertas:
 
-- Banco, API do app e sincronização (o PostgreSQL está sendo modelado pelo time); versão mínima de iOS (hoje 26.5).
-- Regras de atraso. O fuso é por casa no servidor (`houses.timezone`; semana iniciando na segunda, virada no fuso da casa); o mock do app ainda usa o fuso do dispositivo.
+- Banco, API do app e sincronização (o banco será o DynamoDB, tabela única sob demanda, para minimizar custo; modelo em [BACKEND.md](BACKEND.md) seção 4); versão mínima de iOS (hoje 26.5).
+- Regras de atraso. O fuso é por casa no servidor (`House.timezone`; semana iniciando na segunda, virada no fuso da casa); o mock do app ainda usa o fuso do dispositivo.
 - Redistribuição imediata das pendências de quem deixa a casa e em férias.
 - Compensação mais imediata, sem crédito duplicado ou quebra de atribuições publicadas.
 - Permissões de edição/exclusão manual de cômodos.

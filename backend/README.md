@@ -17,4 +17,5 @@ npm run test:fixtures  # só as comparações com o Swift
 - `src/auth/` validação do JWT do Cognito (só access token), JWKS e `UserDirectory`.
 - `src/http.ts` tipo `HttpFetch` (HTTP de saída injetável).
 - `src/adapters/in-memory/` adaptadores para dev e testes.
+- `src/adapters/dynamodb/` (a fazer) persistência real em DynamoDB, tabela única sob demanda; modelo de itens em [../docs/BACKEND.md](../docs/BACKEND.md) seção 4.
 - `test/fixtures/` casos dourados gerados do Swift; para regenerar: `tools/swift-fixtures/regenerate.sh` (precisa do toolchain Swift).

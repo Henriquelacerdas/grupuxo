@@ -90,7 +90,7 @@ export class WhatsAppLinker {
    * Devolve `null` se a mensagem não traz token (o worker segue o fluxo normal); senão, a resposta ao remetente.
    *
    * Consumir o token e criar o vínculo são duas chamadas: se `create` falhar depois do `consume`, o token fica
-   * queimado e o morador gera outro. Com PostgreSQL isso passa a ser uma transação no adaptador.
+   * queimado e o morador gera outro. No DynamoDB o adaptador pode juntar as duas coisas num `TransactWriteItems`.
    */
   async handle(message: IncomingMessage): Promise<string | null> {
     const token = extractToken(message.text);
