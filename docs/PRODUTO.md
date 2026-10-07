@@ -2,7 +2,7 @@
 
 App iOS em SwiftUI para organizar tarefas domésticas em casas compartilhadas e repúblicas. Objetivo: reduzir a carga mental de criar, distribuir, lembrar e acompanhar tarefas, com divisão clara e justa.
 
-**Estado atual:** arquitetura, navegação e fluxos completos sobre dados mockados. Sem autenticação, backend, sincronização ou WhatsApp. Login futuro: Sign in with Apple.
+**Estado atual:** arquitetura, navegação e fluxos completos sobre dados mockados. Login com Amazon Cognito (e-mail/senha e Sign in with Apple) já existe, mas ainda não identifica o morador: sem backend de dados, sincronização ou WhatsApp em funcionamento (o backend em Node.js + TypeScript, com o algoritmo de distribuição portado e o canal WhatsApp, está em construção, ver [BACKEND.md](BACKEND.md)).
 
 ## Estrutura da casa
 
@@ -68,7 +68,7 @@ Tarefa sem calendário só troca de responsável quando o atual conclui. A fila 
 
 ### Distribuição automática e justiça
 
-Roda no dispositivo, com projeção de 12 semanas (rolling horizon):
+No app roda no dispositivo e no servidor roda a mesma lógica (implementação em TypeScript, verificada contra a do app), com projeção de 12 semanas (rolling horizon):
 
 1. **Saldo de justiça:** ao concluir esforço `E` num cômodo com `M` elegíveis, o executor ganha `E − E/M` e os demais perdem `E/M`. Quem é de fora do cômodo não é afetado.
 2. **Fila inicial:** custo quadrático por usuário/semana (pune picos) e Húngaro para a permutação de menor custo, com as demais filas fixas. Não garante ótimo global.
@@ -97,14 +97,14 @@ Moradores avaliam cômodos comuns; privados não participam. Resumo a cada 3 sem
 
 ## Roadmap e decisões abertas
 
-**WhatsApp:** integração com o WhatsApp dos moradores para consultar tarefas, receber lembretes e, depois, registrar conclusões sem abrir o app. Viabilidade, custos, escopo (API oficial vs. alternativas), vínculo número↔morador e consentimento dependem de um spike técnico. Provavelmente exige backend.
+**WhatsApp:** integração com o WhatsApp dos moradores para consultar tarefas, receber lembretes e, depois, registrar conclusões sem abrir o app. Decidido: API oficial da Meta (Cloud API), v1 somente de consulta, vínculo do número por link `wa.me` com token e consentimento registrado no vínculo. Exige backend (ver [BACKEND.md](BACKEND.md)). Em aberto: custo de mensagens iniciadas pelo bot (lembretes) e um número de bot por ambiente.
 
 Futuro, sem bloquear a entrega atual: widget, Lembretes, Siri, NFC, lista de mercado, controle financeiro.
 
 Decisões abertas:
 
-- Backend, banco, sincronização; versão mínima de iOS (hoje 26.5).
-- Fuso persistido por casa e regras de atraso (mock: calendário gregoriano, fuso do dispositivo, semana iniciando na segunda).
+- Banco, API do app e sincronização (o banco será o DynamoDB, tabela única sob demanda, para minimizar custo; modelo em [BACKEND.md](BACKEND.md) seção 4); versão mínima de iOS (hoje 26.5).
+- Regras de atraso. O fuso é por casa no servidor (`House.timezone`; semana iniciando na segunda, virada no fuso da casa); o mock do app ainda usa o fuso do dispositivo.
 - Redistribuição imediata das pendências de quem deixa a casa e em férias.
 - Compensação mais imediata, sem crédito duplicado ou quebra de atribuições publicadas.
 - Permissões de edição/exclusão manual de cômodos.

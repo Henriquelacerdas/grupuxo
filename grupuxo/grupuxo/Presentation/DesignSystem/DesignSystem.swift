@@ -1,4 +1,5 @@
 import SwiftUI
+import GrupuxoDomain
 
 enum DesignSystem {
     /// Escala compartilhada de espaçamento do app, em pontos.

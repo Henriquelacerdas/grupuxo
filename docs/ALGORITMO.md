@@ -1,6 +1,11 @@
-# Algoritmo de distribuição de tarefas (on-device)
+# Algoritmo de distribuição de tarefas
 
-Contrato matemático e de consistência da distribuição. Regras de produto em [PRODUTO.md](PRODUTO.md); camadas e transações em [ARQUITETURA.md](ARQUITETURA.md). Código em `Domain/Services/`.
+Contrato matemático e de consistência da distribuição. Regras de produto em [PRODUTO.md](PRODUTO.md); camadas e transações em [ARQUITETURA.md](ARQUITETURA.md).
+
+Há duas implementações do mesmo contrato, ligadas por fixtures de referência (ver "Implementação em TypeScript e verificação cruzada"):
+
+- **Swift** (domínio do app e **referência**): `grupuxo/Packages/GrupuxoDomain/Sources/GrupuxoDomain/Services/`.
+- **TypeScript** (servidor): `backend/src/domain/services/`.
 
 ## Resumo
 
@@ -56,7 +61,7 @@ Concluir novamente pela mesma pessoa é idempotente. Outra pessoa não pode se a
 
 ## Horizonte e função de custo
 
-O calendário é injetado; a composição padrão usa calendário gregoriano e o fuso do dispositivo. A semana começa na segunda-feira. Datas avançam por componentes de calendário, nunca somando 604800 segundos, preservando transições de horário de verão.
+O calendário é injetado; no app a composição padrão usa calendário gregoriano e o fuso do dispositivo, e no servidor o calendário é o do **fuso da casa** (`House.timezone`, IANA). A semana começa na segunda-feira e a virada de semana acontece às 00:00 desse fuso. Datas avançam por componentes de calendário, nunca somando 604800 segundos (nem 24 h por dia), preservando transições de horário de verão.
 
 Na criação, o horizonte é `[início da semana de referência, início + 12 semanas)`. Tarefas independentes com recorrência antiga começam na criação. A nova modalidade semanal e tarefas vinculadas ao cômodo começam na primeira execução do calendário a partir da criação. Na recorrência semanal, as seguintes começam na segunda-feira da semana calculada pelo intervalo, com prazo até a próxima ocorrência. Recorrências diárias, mensais e anuais avançam pelo respectivo componente de calendário. A primeira semana pode ser parcial. Nas recorrências semanais independentes antigas, intervalo 2 gera seis ocorrências e intervalos maiores que o horizonte geram apenas a primeira. Na nova modalidade ancorada, a criação depois da última execução do período pode não gerar ocorrências dentro do horizonte; o próximo refresh continua a partir da próxima data prevista.
 
@@ -101,7 +106,7 @@ O horizonte continua sendo 12 semanas. A busca compara esforço, dificuldade, sa
 - `.sporadic` exige `.none` e `.selfAssigned`; nasce sem responsável, fora do Húngaro. Assumir/devolver não altera saldo. Concluir altera saldo e não cria sucessora. Como não possui fila, sua elegibilidade usa a participação atual no cômodo, inclusive antes da vigência da próxima rotação.
 - `.recurring + .selfAssigned` não é uma combinação aceita na criação nova.
 
-`RefreshTaskScheduleUseCase` completa a janela de 12 semanas a partir de `nextScheduledAt`. Pular semanas sem abrir o app materializa também os períodos intermediários, preservando fase e histórico. Repetir o refresh não duplica dados. Consultas pessoais e esporádicas acionam refresh; outros clientes podem chamar o caso de uso explicitamente. Isso não é execução em background com o aplicativo fechado.
+`RefreshTaskScheduleUseCase` completa a janela de 12 semanas a partir de `nextScheduledAt`. Pular semanas sem abrir o app materializa também os períodos intermediários, preservando fase e histórico. Repetir o refresh não duplica dados. Consultas pessoais e esporádicas acionam refresh; outros clientes podem chamar o caso de uso explicitamente. No app isso não é execução em background com o aplicativo fechado; no servidor o mesmo caso de uso pode ser chamado por um agendador (decisão futura).
 
 ## Entrada e saída de participantes
 
@@ -146,17 +151,55 @@ A criação recebe o solicitante explicitamente. Assumir uma tarefa exige partic
 
 ## Atomicidade, concorrência e limites de produto
 
-Os serviços são valores `Sendable`, sem acesso a Data, SwiftUI, relógio global ou banco. `TaskSchedulingService` recebe um `TaskSchedulingState` por valor e executa a transição sincronamente. IDs de novos registros são gerados apenas quando necessários; decisões matemáticas são determinísticas para os mesmos dados e calendário.
+Os serviços são valores `Sendable`, sem acesso a Data, SwiftUI, relógio global ou banco. `TaskSchedulingService` recebe um `TaskSchedulingState` por valor e executa a transição sincronamente. IDs de novos registros são gerados apenas quando necessários; decisões matemáticas são determinísticas para os mesmos dados e calendário. No TypeScript, o serviço recebe `calendar` e `newID` por construtor e opera sobre um `SchedulingState` que o chamador já copiou (a transação publica a cópia só em caso de sucesso).
 
-O repositório executa o serviço **dentro** de `MockStore.update`, sem `await` na transação. O store altera uma cópia e a publica somente se a closure termina com sucesso. Assim, falhas revertem todas as mutações, e duas criações concorrentes não calculam sobre o mesmo snapshot desatualizado. O actor é independente do MainActor. Essa decisão serializa cálculos pequenos da casa; em escala maior, migrar para snapshot versionado e commit com compare-and-swap, nunca leitura/cálculo/gravação sem validação de versão.
+O repositório executa o serviço **dentro** de `MockStore.update` (Swift) ou `InMemoryStore.update` (TypeScript), sem `await` na transação. O store altera uma cópia e a publica somente se a closure termina com sucesso. Assim, falhas revertem todas as mutações, e duas criações concorrentes não calculam sobre o mesmo snapshot desatualizado. O actor é independente do MainActor. Essa decisão serializa cálculos pequenos da casa; em escala maior, migrar para snapshot versionado e commit com compare-and-swap, nunca leitura/cálculo/gravação sem validação de versão.
 
 Ausências são respeitadas na publicação e conclusão. Se o próximo usuário estiver ausente, seu slot é consumido e a ocorrência fica sem responsável. A criação avalia a fila nominal; o replanejamento por mudança de participantes avalia apenas a carga efetivamente atribuível. Retorno de férias, por si só, não dispara reotimização. Entradas e saídas de cômodos seguem a política descrita acima; entradas na casa incluem todos os cômodos comuns; saídas removem todos os vínculos atuais da pessoa. Cada comando de casa realiza um único replanejamento e um commit atômico.
 
 A persistência é mockada e os dados de demonstração são gerados pelo planejador. Não há migração de backend. Entrada livre e saída confirmada estão disponíveis nos detalhes do cômodo; contratos revalidam acesso e confirmação dentro da transação.
 
+## Implementação em TypeScript e verificação cruzada
+
+Mapa dos arquivos (Swift `GrupuxoDomain/Services/` → TypeScript `backend/src/domain/services/`):
+
+| Swift | TypeScript |
+| --- | --- |
+| `HungarianAlgorithm` (e `solve(costs:)`, `ScheduleCost`) | `hungarian.ts` (`solve`, `solveLexicographic`) |
+| `TaskDistributionEngine`, `ProjectedWeek` | `task-distribution-engine.ts` |
+| `HouseQueueOptimizer`, `QueueForecast` | `house-queue-optimizer.ts` |
+| `TaskSchedulingService` + `RoomScheduling` | `task-scheduling-service.ts` |
+| `FairnessCalculator`, `RotationCalculator`, `WeeklyLoadCalculator` | `fairness.ts`, `rotation.ts`, `weekly-load.ts` |
+| `TaskEligibilityPolicy`, `TaskSwapEligibilityPolicy` | `eligibility.ts` |
+| `TaskSuggestionCatalog` | `task-suggestion-catalog.ts` |
+| `Calendar` do Foundation | `backend/src/domain/dates.ts` (`Intl.DateTimeFormat`) |
+
+**Fixtures de referência.** `backend/tools/swift-fixtures` roda cenários no `GrupuxoDomain` e grava JSON em `backend/test/fixtures/` (cabeçalho `_generated` com o comando). Os testes `*.fixtures.test.ts` carregam cada fixture e comparam com `deepStrictEqual` (com `-0` ≡ `0`, único ajuste). Cobertura: grade de datas × fusos (`UTC`, `America/Sao_Paulo` incluindo a meia-noite inexistente de 2018, `Asia/Tokyo`, `America/New_York`, `Australia/Lord_Howe`, `Europe/London`) em todas as primitivas de calendário; Húngaro escalar e lexicográfico (empates, negativos, vazia, erros); motor; otimizador da casa; agendamento (criação por todas as recorrências, por conclusão, esporádica, escala compartilhada do cômodo, refresh após semanas puladas, conclusão e reabertura, ausência, entrada e saída em cômodo, saída do último participante, replanejamento da casa, horário de verão) e políticas de elegibilidade e troca. IDs gerados na execução (aleatórios no Swift) são normalizados para `new-1`, `new-2`… por ordem de aparição. Para regenerar: `backend/tools/swift-fixtures/regenerate.sh`. Mudou o algoritmo? Altere o Swift (referência) e o TypeScript, regenere e rode `npm test`.
+
+**Pontos que exigem cuidado no port** (todos verificados pelas fixtures):
+
+- **Ponto flutuante.** O Húngaro e os custos usam `Double` (não há inteiros). A igualdade bit a bit com o Swift depende de manter a ordem exata das operações (`0.5 × (n1² + n2² + n3²)`, `2 × carga × saldo / 12`, somas em ordem de semana e usuário). O `number` do JS é um double IEEE-754, então basta replicar a ordem; as fixtures batem bit a bit, e o gerador produz arquivos idênticos nos builds de debug e de release do Swift (sem fusão `a*b+c`/FMA observável). Se isso mudar, é uma fixture quebrada para investigar, não para tolerar.
+- **Empates.** Todo desempate é por ordem do texto do UUID (minúsculo no TypeScript; a ordem relativa é a mesma da maiúscula do Swift). Nenhuma regra depende da ordem de `Set`/`Dictionary`; a saída da casa percorre os cômodos em ordem de ID e há teste de que o resultado não depende dela.
+- **Húngaro** só aceita matriz quadrada e finita (o Swift lança `invalidDistribution` para retangular, NaN e infinito; o TypeScript também).
+- **Datas.** Semana começando na segunda, em dias de calendário local. Horário inexistente (lacuna do horário de verão) usa o deslocamento anterior à transição; horário repetido resolve para a primeira ocorrência; meia-noite inexistente começa o dia na primeira hora válida; mês e ano limitam o dia ao último do mês de destino (31/jan + 1 mês = 28/fev, 29/fev + 1 ano = 28/fev). `daysBetween`/`weeksBetween` contam períodos completos.
+- **Inteiros grandes.** O Swift usa `Int` (64 bits) e `dividingFullWidth` em `firstWeeklyDate`; o TypeScript limita `WeeklyPeriodicity` a inteiros seguros (`Number.MAX_SAFE_INTEGER / 7` semanas) e usa `BigInt` só no produto intermediário `i × comprimento / n`. Datas fora do intervalo do `Date` do JS lançam `invalidDateInterval` (o Swift falha de forma equivalente em `Calendar`).
+- **Falhas que no Swift travam.** `Dictionary(uniqueKeysWithValues:)` com chave duplicada e fatiamento com índice negativo abortam o processo no Swift; o TypeScript lança erro (`uniqueMap`, `invalidSchedule`).
+
+## Extensão só do servidor: "minhas tarefas da semana"
+
+`GetMyTasksUseCase` do TypeScript aceita `range: "week" | "all"` (padrão `all`, igual ao Swift e ao app). É um filtro de **leitura** sobre o que o repositório já devolve; não altera distribuição, saldo, elegibilidade nem calendário, por isso o Swift não muda e nenhuma fixture é regenerada. O app iOS continua listando tudo.
+
+Com `week`, a janela é `[segunda 00:00, segunda seguinte 00:00)` no fuso da casa (`House.timezone`, via `createCalendar`; nunca somando 24 h, então semanas de horário de verão têm 167 h ou 169 h). A ocorrência ocupa `[availableAt, dueAt)`:
+
+- Entra se o intervalo cruza a janela. Prazo exatamente na virada pertence à semana que termina; disponível na virada, à que começa.
+- Sem prazo: pendente sempre entra (está aberta); concluída só entra se foi concluída dentro da janela.
+- Atrasadas de semanas anteriores **não** entram (decisão de produto: só a semana corrente). Pendentes continuam antes das concluídas, ordenadas por prazo.
+
+Se o app passar a consumir a API, ele ganha o mesmo parâmetro sem mudar o Swift.
+
 ## Verificação
 
-Testes no target `grupuxoTests` verificam matrizes escalares e lexicográficas contra enumeração exaustiva, equilíbrio semanal entre filas, transições na próxima segunda-feira, snapshots, saída e reentrada, privacidade, idempotência, atomicidade, concorrência, exclusão confirmada do último participante, avanço por conclusão, ausência, legado e horário de verão. `WeeklyLoadCalculator` conta cada ocorrência uma vez, na semana de disponibilidade, desconsiderando planos substituídos e mantendo o esforço concluído com seu executor.
+Testes no target `grupuxoTests` verificam matrizes escalares e lexicográficas contra enumeração exaustiva, equilíbrio semanal entre filas, transições na próxima segunda-feira, snapshots, saída e reentrada, privacidade, idempotência, atomicidade, concorrência, exclusão confirmada do último participante, avanço por conclusão, ausência, legado e horário de verão. `WeeklyLoadCalculator` conta cada ocorrência uma vez, na semana de disponibilidade, desconsiderando planos substituídos e mantendo o esforço concluído com seu executor. O mesmo conjunto de cenários roda no TypeScript (`backend/test`), somado às fixtures de referência.
 
 Executar:
 
@@ -164,4 +207,6 @@ Executar:
 xcodebuild test -project grupuxo/grupuxo.xcodeproj -scheme grupuxo \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
   -only-testing:grupuxoTests
+swift test --package-path grupuxo/Packages/GrupuxoDomain
+cd backend && npm test
 ```

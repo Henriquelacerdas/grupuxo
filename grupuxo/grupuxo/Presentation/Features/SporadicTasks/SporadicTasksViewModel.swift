@@ -6,6 +6,7 @@
 // é uma integração posterior com a distribuição; assumir sozinho não concede pulo.
 import Combine
 import Foundation
+import GrupuxoDomain
 
 @MainActor
 final class SporadicTasksViewModel: ObservableObject {

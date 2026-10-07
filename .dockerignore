@@ -1,0 +1,9 @@
+**/.build
+**/.swiftpm
+**/.DS_Store
+.git
+.claude
+grupuxo/grupuxo
+grupuxo/grupuxoTests
+grupuxo/grupuxoUITests
+grupuxo/grupuxo.xcodeproj

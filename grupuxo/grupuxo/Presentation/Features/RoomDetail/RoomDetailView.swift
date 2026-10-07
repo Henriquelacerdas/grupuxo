@@ -1,4 +1,5 @@
 import SwiftUI
+import GrupuxoDomain
 
 struct RoomDetailView: View {
 

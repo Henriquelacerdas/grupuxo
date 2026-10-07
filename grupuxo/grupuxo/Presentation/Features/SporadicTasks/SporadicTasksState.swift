@@ -1,4 +1,4 @@
-import Foundation
+import GrupuxoDomain
 
 struct SporadicTaskCardItem: Identifiable, Equatable {
 
@@ -9,7 +9,6 @@ struct SporadicTaskCardItem: Identifiable, Equatable {
     var id: TaskOccurrence.ID {
         task.id
     }
-
 }
 
 enum SporadicTasksState: Equatable {
@@ -19,5 +18,4 @@ enum SporadicTasksState: Equatable {
     case content([SporadicTaskCardItem])
     case empty
     case failure(String)
-
 }

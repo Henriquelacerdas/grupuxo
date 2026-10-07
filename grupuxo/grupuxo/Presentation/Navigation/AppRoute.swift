@@ -1,3 +1,5 @@
+import GrupuxoDomain
+
 // TODO — Adicionar rota do formulário de cômodo e conectá-la em RootView.
 // Transportar somente IDs quando houver edição. Criação de cômodos e tarefas
 // parte de Gerenciar casa; Minhas tarefas continua dedicada às atribuições.

@@ -1,0 +1,17 @@
+{
+  "name": "grupuxo-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend do Grupuxo: domínio, algoritmo de distribuição e canal WhatsApp",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "test:fixtures": "node --test \"test/**/*.fixtures.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}
