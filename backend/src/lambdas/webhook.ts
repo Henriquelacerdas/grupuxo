@@ -2,7 +2,7 @@ import type { WebhookHandler } from "../whatsapp/webhook/webhook-handler.ts";
 import { parseHttpApiEvent, type HttpApiResult } from "./events.ts";
 
 /**
- * Lambda `whatsapp-webhook`: converte o evento do API Gateway em `WebhookRequest` e devolve a resposta do
+ * Lambda `whatsapp-webhook`: converte o evento da Function URL em `WebhookRequest` e devolve a resposta do
  * `WebhookHandler`. Sem regra aqui. Evento que não é uma requisição HTTP bem formada responde 400.
  */
 export function createWebhookHandler(webhook: Pick<WebhookHandler, "handle">): (event: unknown) => Promise<HttpApiResult> {

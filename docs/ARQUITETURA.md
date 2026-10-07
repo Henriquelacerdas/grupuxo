@@ -79,7 +79,7 @@ backend/
 
 Diferenças deliberadas em relação ao Swift:
 
-- **A lógica transacional sai dos repositórios.** No app ela está nos `Mock*Repository` (acesso, claim/release, trocas, entrada/saída de casa). No TypeScript ela vive em `domain/commands/` como funções puras sobre o estado, e o adaptador só faz `store.update(estado => comando(...))`. Assim o adaptador PostgreSQL carrega o estado da casa, chama o mesmo comando e grava, sem reimplementar regras.
+- **A lógica transacional sai dos repositórios.** No app ela está nos `Mock*Repository` (acesso, claim/release, trocas, entrada/saída de casa). No TypeScript ela vive em `domain/commands/` como funções puras sobre o estado, e o adaptador só faz `store.update(estado => comando(...))`. Assim o adaptador DynamoDB carrega o estado da casa, chama o mesmo comando e grava a diferença, sem reimplementar regras.
 - **Relógio e IDs injetados.** Nada no domínio lê o relógio nem gera UUID: `now` e `newID` entram por construtor (`CommandContext`, `TaskSchedulingService`, casos de uso).
 - **Fuso por casa.** `House.timezone` (IANA) é campo do domínio TypeScript; o calendário do serviço de agendamento é montado a partir dele. O Swift recebe o `Calendar` por injeção e não guarda o fuso na casa.
 - **Imutabilidade.** Entidades são `readonly` e atualizadas por cópia. O `SchedulingState` é um objeto com arrays que o serviço altera por substituição de elementos; copiar os arrays (`cloneSchedulingState`, `cloneStoreState`) é uma cópia por valor correta porque entidades nunca mudam no lugar.
@@ -147,7 +147,7 @@ Todos os repositórios mock compartilham um `MockStore` (actor). `MockSeed` gera
 
 Isso impede ler participantes/carga, calcular o Húngaro e gravar sobre um snapshot desatualizado. Onde o cálculo roda é decisão de Data; a matemática continua em Domain e testável isoladamente.
 
-No backend TypeScript o equivalente é `InMemoryStore.update(fn)` (`src/adapters/in-memory/store.ts`): `fn` é síncrona, trabalha numa cópia do estado e só a publica se termina sem erro (testes de rollback e de concorrência com `Promise.all`). O repositório PostgreSQL fará o mesmo com `BEGIN` + bloqueio por casa + `COMMIT` (ver [BACKEND.md](BACKEND.md), seção 4).
+No backend TypeScript o equivalente é `InMemoryStore.update(fn)` (`src/adapters/in-memory/store.ts`): `fn` é síncrona, trabalha numa cópia do estado e só a publica se termina sem erro (testes de rollback e de concorrência com `Promise.all`). O repositório DynamoDB fará o mesmo com bloqueio otimista por casa: carrega a partição, roda o comando sobre a cópia e grava a diferença num `TransactWriteItems` condicionado ao `version` da casa, repetindo se outro pedido gravou no meio (ver [BACKEND.md](BACKEND.md), seção 4).
 
 Consultas resolvem a casa pelo cômodo e aplicam elegibilidade antes de devolver dados. Repositórios omitem as versões de escala de cômodos privados para não participantes (contêm IDs de tarefas).
 

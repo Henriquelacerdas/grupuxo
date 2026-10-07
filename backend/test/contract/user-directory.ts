@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { parseCognitoSub, type CognitoSub } from "../../src/auth/token-verifier.ts";
 import { UserDirectoryError, type UserDirectory } from "../../src/auth/user-directory.ts";
 
-// Contrato do `UserDirectory`: o adaptador PostgreSQL (`INSERT ... ON CONFLICT (cognito_sub)`) deve passar nos
+// Contrato do `UserDirectory`: o adaptador DynamoDB (`Put` condicional em `COGNITO#<sub>`) deve passar nos
 // mesmos testes, inclusive os concorrentes. Cada teste usa uma instância nova.
 
 export function cognitoSub(value: string): CognitoSub {

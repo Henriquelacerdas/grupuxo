@@ -2,8 +2,8 @@ import type { Instant } from "../domain/dates.ts";
 import type { UserID } from "../domain/ids.ts";
 import type { IncomingMessage } from "./incoming-message.ts";
 
-// Persistência e integrações externas entram só por estes ports. A implementação PostgreSQL deve passar nos
-// mesmos testes de contrato dos adaptadores em memória (`test/contract`).
+// Persistência e integrações externas entram só por estes ports. A implementação DynamoDB deve passar nos
+// mesmos testes de contrato dos adaptadores em memória (`test/contract`). Modelo de itens: BACKEND.md seção 4.
 
 export type InboxClaim =
   /** Primeira entrega, ou entrega anterior que não chegou a ser concluída: processar. */
@@ -11,17 +11,19 @@ export type InboxClaim =
   /** Já processada com sucesso: descartar. */
   | "duplicate";
 
-/** Idempotência e auditoria (`whatsapp_inbox`). Só guarda `wamid` e horários, nunca o texto da mensagem. */
+/** Idempotência e auditoria (item `WAMID#<wamid>`). Só guarda `wamid` e horários, nunca o texto da mensagem. */
 export interface InboxStore {
   /**
-   * Registra o `wamid` se for novo. Uma mensagem registrada mas ainda sem `processed_at` (o worker caiu no
-   * meio) volta como `claimed`, para a nova tentativa não perdê-la.
+   * Registra o `wamid` se for novo. Uma mensagem registrada mas ainda sem `processedAt` (o worker caiu no
+   * meio) volta como `claimed`, para a nova tentativa não perdê-la. No DynamoDB: `PutItem` em `WAMID#<wamid>`
+   * com condição `attribute_not_exists(PK) OR attribute_not_exists(processedAt)`;
+   * `ConditionalCheckFailedException` vira `duplicate`.
    */
   claim(wamid: string, receivedAt: Instant): Promise<InboxClaim>;
   markProcessed(wamid: string, at: Instant): Promise<void>;
 }
 
-/** Vínculo entre um número de WhatsApp e um morador (`whatsapp_links`). */
+/** Vínculo entre um número de WhatsApp e um morador (itens `PHONE#<e164>` e `USER#<id>`/`WHATSAPP`). */
 export interface WhatsAppLink {
   readonly userID: UserID;
   readonly phoneE164: string;
@@ -30,7 +32,7 @@ export interface WhatsAppLink {
 }
 
 export type WhatsAppLinkErrorCode =
-  /** `phone_e164` é único: um número, um morador. */
+  /** O número é único: um número, um morador. */
   | "phoneAlreadyLinked"
   /** Um morador tem no máximo um número; para trocar, desconectar e conectar de novo. */
   | "userAlreadyLinked";
@@ -54,7 +56,7 @@ export interface WhatsAppLinkStore {
   remove(userID: UserID): Promise<void>;
 }
 
-/** Token de vínculo de uso único (`whatsapp_link_tokens`). Só o hash é persistido. */
+/** Token de vínculo de uso único (item `LINKTOKEN#<hash>`). Só o hash é persistido. */
 export interface LinkToken {
   /** SHA-256 do token em hexadecimal minúsculo. */
   readonly tokenHash: string;
@@ -66,7 +68,9 @@ export interface LinkTokenStore {
   save(token: LinkToken): Promise<void>;
   /**
    * Atômico: se o token existe, não foi usado e não expirou em `at`, marca como usado e devolve o dono; senão
-   * `null`. Em SQL: `UPDATE ... WHERE used_at IS NULL AND expires_at > $2 RETURNING user_id`.
+   * `null`. No DynamoDB: `UpdateItem` com `SET usedAt = :at` e condição
+   * `attribute_exists(PK) AND attribute_not_exists(usedAt) AND expiresAt > :at` (`ReturnValues: ALL_NEW`);
+   * `ConditionalCheckFailedException` vira `null`.
    */
   consume(tokenHash: string, at: Instant): Promise<UserID | null>;
 }
@@ -97,9 +101,9 @@ export interface WhatsAppSender {
 
 /**
  * Contador por chave e janela, base do limite de taxa por número (`MessageRateLimiter`). Atômico: chamadas
- * concorrentes com a mesma chave e janela recebem contagens distintas e consecutivas. Em SQL:
- * `INSERT (key, window_start, count) VALUES ($1, $2, 1) ON CONFLICT (key, window_start) DO UPDATE SET count =
- * whatsapp_rate_counters.count + 1 RETURNING count`.
+ * concorrentes com a mesma chave e janela recebem contagens distintas e consecutivas. No DynamoDB:
+ * `UpdateItem` em (`RATE#<key>`, `<windowStart>`) com `ADD #count :one SET #ttl = :ttl`
+ * (`ReturnValues: UPDATED_NEW`); o TTL apaga as janelas antigas.
  */
 export interface RateCounter {
   /** Soma 1 à contagem de (`key`, `windowStart`) e devolve o novo valor (1 na primeira chamada). */

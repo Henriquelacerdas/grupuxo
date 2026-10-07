@@ -1,4 +1,4 @@
-// Eventos no formato do API Gateway HTTP API v2 e do SQS, para os testes das Lambdas.
+// Eventos no formato da Lambda Function URL (payload 2.0) e do SQS, para os testes das Lambdas.
 
 export interface HttpEventOptions {
   readonly method?: string;
