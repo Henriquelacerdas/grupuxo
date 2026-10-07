@@ -147,9 +147,9 @@ struct MockTaskRepository: TaskRepository {
             }
 
             guard let definitionIndex =
-                state.definitions.firstIndex(
-                    where: { $0.id == id }
-                )
+                    state.definitions.firstIndex(
+                        where: { $0.id == id }
+                    )
             else {
                 throw DomainError.entityNotFound
             }
@@ -157,13 +157,19 @@ struct MockTaskRepository: TaskRepository {
             let previousDefinition =
                 state.definitions[definitionIndex]
 
+            if previousDefinition.kind == .sporadic {
+                guard previousDefinition.createdByUserID == userID else {
+                    throw DomainError.taskUnavailable
+                }
+            }
+
             guard let room =
-                state.rooms.first(
-                    where: {
-                        $0.id ==
-                            previousDefinition.roomID
-                    }
-                )
+                    state.rooms.first(
+                        where: {
+                            $0.id ==
+                                previousDefinition.roomID
+                        }
+                    )
             else {
                 throw DomainError.entityNotFound
             }
@@ -181,16 +187,14 @@ struct MockTaskRepository: TaskRepository {
                 previousDefinition,
                 room: room,
                 userID: userID,
-                roomMemberships:
-                    state.roomMemberships
+                roomMemberships: state.roomMemberships
             ) else {
                 throw DomainError.taskUnavailable
             }
 
             let didChange =
                 previousDefinition.name != trimmedName
-                    || previousDefinition.details
-                        != details
+                    || previousDefinition.details != details
 
             state.definitions[definitionIndex].name =
                 trimmedName
@@ -234,14 +238,12 @@ struct MockTaskRepository: TaskRepository {
                             .filter {
                                 $0.roomID == room.id
                                     && $0.isCurrent
-                                    && houseMemberIDs
-                                        .contains(
-                                            $0.userID
-                                        )
+                                    && houseMemberIDs.contains(
+                                        $0.userID
+                                    )
                             }
                             .map(\.userID)
                     )
-
                 }
 
                 for recipientID
@@ -261,15 +263,120 @@ struct MockTaskRepository: TaskRepository {
                             createdAt: .now
                         )
                     )
-
                 }
-
             }
 
             return updatedDefinition
-
         }
+    }
 
+    func deleteSporadicTask(
+        id: TaskDefinition.ID,
+        requestedBy userID: User.ID
+    ) async throws {
+
+        try await store.update { state in
+
+            guard let definition =
+                    state.definitions.first(
+                        where: { $0.id == id }
+                    )
+            else {
+                throw DomainError.entityNotFound
+            }
+
+            guard definition.kind == .sporadic,
+                  definition.createdByUserID == userID
+            else {
+                throw DomainError.taskUnavailable
+            }
+
+            guard let room =
+                    state.rooms.first(
+                        where: {
+                            $0.id == definition.roomID
+                        }
+                    )
+            else {
+                throw DomainError.entityNotFound
+            }
+
+            guard state.houseMemberships.contains(
+                where: {
+                    $0.houseID == room.houseID
+                        && $0.userID == userID
+                }
+            ) else {
+                throw DomainError.taskUnavailable
+            }
+
+            guard eligibilityPolicy.canView(
+                definition,
+                room: room,
+                userID: userID,
+                roomMemberships: state.roomMemberships
+            ) else {
+                throw DomainError.taskUnavailable
+            }
+
+            let occurrenceIDs = Set(
+                state.occurrences
+                    .filter {
+                        $0.taskDefinitionID == id
+                    }
+                    .map(\.id)
+            )
+
+            let relatedSwapRequestIDs = Set(
+                state.taskSwapRequests
+                    .filter {
+                        occurrenceIDs.contains(
+                            $0.offeredOccurrenceID
+                        )
+                        || occurrenceIDs.contains(
+                            $0.requestedOccurrenceID
+                        )
+                    }
+                    .map(\.id)
+            )
+
+            state.assignments.removeAll {
+                occurrenceIDs.contains(
+                    $0.occurrenceID
+                )
+            }
+
+            state.taskSwapRequests.removeAll {
+                relatedSwapRequestIDs.contains(
+                    $0.id
+                )
+            }
+
+            state.notifications.removeAll { notification in
+
+                if notification.taskDefinitionID == id {
+                    return true
+                }
+
+                guard let swapRequestID =
+                        notification.swapRequestID
+                else {
+                    return false
+                }
+
+                return relatedSwapRequestIDs.contains(
+                    swapRequestID
+                )
+            }
+
+            state.occurrences.removeAll {
+                $0.taskDefinitionID == id
+            }
+
+            state.definitions.removeAll {
+                $0.id == id
+            }
+        }
     }
     func create(_ definition: TaskDefinition, requestedBy userID: User.ID, at date: Date) async throws -> TaskDefinition {
         try await store.update { state in

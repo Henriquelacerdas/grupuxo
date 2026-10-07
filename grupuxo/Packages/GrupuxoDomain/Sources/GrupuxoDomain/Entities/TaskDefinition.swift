@@ -10,6 +10,7 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
     public var recurrence: RecurrencePolicy
     public var assignmentPolicy: TaskAssignmentPolicy
     public var sourceSuggestionID: String? = nil
+    public var createdByUserID: User.ID? = nil
     public var rotationQueue: [User.ID] = []
     public var currentRotationIndex: Int = 0
     public var nextScheduledAt: Date? = nil
@@ -26,6 +27,7 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
         recurrence: RecurrencePolicy,
         assignmentPolicy: TaskAssignmentPolicy,
         sourceSuggestionID: String? = nil,
+        createdByUserID: User.ID? = nil,
         rotationQueue: [User.ID] = [],
         currentRotationIndex: Int = 0,
         nextScheduledAt: Date? = nil,
@@ -41,6 +43,7 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
         self.recurrence = recurrence
         self.assignmentPolicy = assignmentPolicy
         self.sourceSuggestionID = sourceSuggestionID
+        self.createdByUserID = createdByUserID
         self.rotationQueue = rotationQueue
         self.currentRotationIndex = currentRotationIndex
         self.nextScheduledAt = nextScheduledAt
@@ -53,7 +56,10 @@ public struct PendingRotation: Hashable, Codable, Sendable {
     public let effectiveAt: Date
     public let queue: [User.ID]
 
-    public init(effectiveAt: Date, queue: [User.ID]) {
+    public init(
+        effectiveAt: Date,
+        queue: [User.ID]
+    ) {
         self.effectiveAt = effectiveAt
         self.queue = queue
     }
