@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		41D0821B306BED31007F697D /* AWSCognitoAuthPlugin in Frameworks */ = {isa = PBXBuildFile; productRef = 41D0821A306BED31007F697D /* AWSCognitoAuthPlugin */; };
+		41D0821D306BED31007F697D /* Amplify in Frameworks */ = {isa = PBXBuildFile; productRef = 41D0821C306BED31007F697D /* Amplify */; };
+		41D0821F306BED31007F697D /* AWSAPIPlugin in Frameworks */ = {isa = PBXBuildFile; productRef = 41D0821E306BED31007F697D /* AWSAPIPlugin */; };
 		A5AC27E930583F00006C8F79 /* ARCHITECTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = A5AC27E730583EE4006C8F79 /* ARCHITECTURE.md */; };
 		A5AC287330585230006C8F79 /* DESCRICAO.md in Resources */ = {isa = PBXBuildFile; fileRef = A5AC287130585225006C8F79 /* DESCRICAO.md */; };
 /* End PBXBuildFile section */
@@ -72,6 +75,9 @@
 		A5AC27BA3058135C006C8F79 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				41D0821B306BED31007F697D /* AWSCognitoAuthPlugin in Frameworks */,
+				41D0821F306BED31007F697D /* AWSAPIPlugin in Frameworks */,
+				41D0821D306BED31007F697D /* Amplify in Frameworks */,
 			);
 		};
 		A5AC27C73058135D006C8F79 /* Frameworks */ = {
@@ -127,6 +133,11 @@
 				A5AC27BF3058135C006C8F79 /* grupuxo */,
 			);
 			name = grupuxo;
+			packageProductDependencies = (
+				41D0821A306BED31007F697D /* AWSCognitoAuthPlugin */,
+				41D0821E306BED31007F697D /* AWSAPIPlugin */,
+				41D0821C306BED31007F697D /* Amplify */,
+			);
 			productName = grupuxo;
 			productReference = A5AC27BD3058135C006C8F79 /* grupuxo.app */;
 			productType = "com.apple.product-type.application";
@@ -205,6 +216,9 @@
 			);
 			mainGroup = A5AC27B43058135C006C8F79;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				41D08219306BED31007F697D /* XCRemoteSwiftPackageReference "amplify-swift" */,
+			);
 			preferredProjectObjectVersion = 100;
 			productRefGroup = A5AC27BE3058135C006C8F79 /* Products */;
 			projectDirPath = "";
@@ -393,9 +407,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = grupuxo/grupuxo.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 2DK23BZ7KB;
+				DEVELOPMENT_TEAM = ZTK9F54WV3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = grupuxo/Info.plist;
@@ -410,7 +425,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = henrique.grupuxo;
+				PRODUCT_BUNDLE_IDENTIFIER = vidal.grupuxo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -431,9 +446,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = grupuxo/grupuxo.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 2DK23BZ7KB;
+				DEVELOPMENT_TEAM = ZTK9F54WV3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = grupuxo/Info.plist;
@@ -448,7 +464,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = henrique.grupuxo;
+				PRODUCT_BUNDLE_IDENTIFIER = vidal.grupuxo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -584,6 +600,35 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		41D08219306BED31007F697D /* XCRemoteSwiftPackageReference "amplify-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/aws-amplify/amplify-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.62.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		41D0821A306BED31007F697D /* AWSCognitoAuthPlugin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41D08219306BED31007F697D /* XCRemoteSwiftPackageReference "amplify-swift" */;
+			productName = AWSCognitoAuthPlugin;
+		};
+		41D0821C306BED31007F697D /* Amplify */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41D08219306BED31007F697D /* XCRemoteSwiftPackageReference "amplify-swift" */;
+			productName = Amplify;
+		};
+		41D0821E306BED31007F697D /* AWSAPIPlugin */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 41D08219306BED31007F697D /* XCRemoteSwiftPackageReference "amplify-swift" */;
+			productName = AWSAPIPlugin;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A5AC27B53058135C006C8F79 /* Project object */;
 }

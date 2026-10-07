@@ -56,6 +56,16 @@ struct ConfirmSignUpView: View {
             .buttonStyle(.borderedProminent)
             .disabled(isConfirmed)
             
+            if !isConfirmed {
+                Button("Reenviar código") {
+                    Task {
+                        let success = await authService.resendSignUpCode(username: email)
+                        message = success ? "Código reenviado!" : "Erro ao reenviar código."
+                    }
+                }
+                .font(.footnote)
+            }
+            
             if !message.isEmpty {
                 Text(message)
                     .foregroundColor(isConfirmed ? .green : .red)

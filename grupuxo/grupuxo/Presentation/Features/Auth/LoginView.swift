@@ -4,6 +4,8 @@ struct LoginView: View {
     @EnvironmentObject var authService: AuthService
     @State private var username = ""
     @State private var password = ""
+    @State private var signInError = ""
+    @State private var showConfirmSignUp = false
     
     var body: some View {
         NavigationStack {
@@ -20,9 +22,29 @@ struct LoginView: View {
                 SecureField("Senha", text: $password)
                     .textFieldStyle(.roundedBorder)
                 
+                if !signInError.isEmpty {
+                    Text(signInError)
+                        .foregroundColor(.red)
+                        .font(.footnote)
+                        .multilineTextAlignment(.center)
+                }
+                
                 Button {
                     Task {
-                        await authService.signIn(username: username, password: password)
+                        signInError = ""
+                        let status = await authService.signIn(username: username, password: password)
+                        switch status {
+                        case .success:
+                            break // App reage ao authService.isSignedIn
+                        case .confirmSignUp:
+                            showConfirmSignUp = true
+                        case .resetPassword:
+                            signInError = "Redefinição de senha necessária. Clique em 'Esqueci minha senha'."
+                        case .invalidCredentials:
+                            signInError = "Email ou senha incorretos."
+                        case .error(let msg):
+                            signInError = msg
+                        }
                     }
                 } label: {
                     Text("Login")
@@ -31,10 +53,19 @@ struct LoginView: View {
                 .buttonStyle(.borderedProminent)
                 .padding(.top)
                 
-                // Botão para ir para a tela de Cadastro
-                NavigationLink("Não tem uma conta? Cadastre-se") {
-                    SignUpView()
+                // Links de cadastro e esqueceu a senha
+                HStack {
+                    NavigationLink("Cadastre-se") {
+                        SignUpView()
+                    }
+                    
+                    Spacer()
+                    
+                    NavigationLink("Esqueci minha senha") {
+                        ForgotPasswordView(username: username)
+                    }
                 }
+                .font(.callout)
                 .padding(.top, 10)
                 
                 HStack {
@@ -64,6 +95,9 @@ struct LoginView: View {
                 .controlSize(.large)
             }
             .padding()
+            .navigationDestination(isPresented: $showConfirmSignUp) {
+                ConfirmSignUpView(email: username)
+            }
         }
     }
 }

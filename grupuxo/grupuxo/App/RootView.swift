@@ -121,6 +121,7 @@ struct RootView: View {
                 )
             }
             .tag(AppTab.house)
+
         }
     }
 
@@ -194,13 +195,10 @@ struct RootView: View {
             )
 
         case .settings:
-
-            ProfileView(
-                viewModel:
-                    container.makeProfileViewModel(
-                        session: session
-                    )
-            )
+            
+            HouseGateView {
+                HouseView()
+            }
         }
     }
 }

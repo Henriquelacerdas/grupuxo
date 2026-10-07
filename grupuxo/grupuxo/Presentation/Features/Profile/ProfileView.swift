@@ -1,6 +1,5 @@
 import SwiftUI
 import Combine
-import AuthenticationServices
 
 @MainActor
 final class ProfileViewModel: ObservableObject {
@@ -63,50 +62,6 @@ final class ProfileViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
-    }
-}
-
-@MainActor
-final class AuthManager: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {
-    @Published var isLoggedIn = false
-
-    private let domain = "us-east-1m9gpiske3.auth.us-east-1.amazoncognito.com"
-    private let clientId = "21gqeeehhmeufpipk84e3cc7tu"
-    private let signOutURI = "grupuxo://signout"
-    private let callbackScheme = "grupuxo"
-
-    private var session: ASWebAuthenticationSession?
-
-    func signOut() {
-        // 1. Apaga os tokens locais (Keychain)
-        clearTokens()
-        isLoggedIn = false
-
-        // 2. Encerra a sessão do Hosted UI no Cognito
-        var comps = URLComponents(string: "https://\(domain)/logout")!
-        comps.queryItems = [
-            .init(name: "client_id", value: clientId),
-            .init(name: "logout_uri", value: signOutURI)
-        ]
-
-        session = ASWebAuthenticationSession(
-            url: comps.url!,
-            callbackURLScheme: callbackScheme
-        ) { _, _ in }
-        session?.presentationContextProvider = self
-        session?.prefersEphemeralWebBrowserSession = false // precisa compartilhar o cookie do login
-        session?.start()
-    }
-
-    private func clearTokens() {
-        // Remova id_token, access_token e refresh_token do Keychain
-    }
-
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first { $0.isKeyWindow } ?? ASPresentationAnchor()
     }
 }
 
@@ -177,12 +132,10 @@ struct ProfileView: View {
                     Label("Adicionar morador", systemImage: "person.badge.plus")
                 }
                 .disabled(viewModel.isSaving)
-                Section {
-                    Button(role: .destructive) {
-                        Task { await authService.signOut()}
-                    } label: {
-                        Label("Sair da conta", systemImage: "rectangle.portrait.and.arrow.right")
-                    }
+                Button (role: .destructive) {
+                    Task { await authService.signOut()}
+                } label: {
+                    Label("Sair da conta", systemImage: "rectangle.portrait.and.arrow.right")
                 }
             }
             if viewModel.isSaving && !showingAdd {
