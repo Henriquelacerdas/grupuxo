@@ -10,13 +10,13 @@ struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
     var recurrence: RecurrencePolicy
     var assignmentPolicy: TaskAssignmentPolicy
     var sourceSuggestionID: String? = nil
+    var createdByUserID: User.ID? = nil
     var rotationQueue: [User.ID] = []
     var currentRotationIndex: Int = 0
     var nextScheduledAt: Date? = nil
     var pendingRotation: PendingRotation? = nil
     var calendarAnchor: Date? = nil
 }
-
 struct PendingRotation: Hashable, Codable, Sendable {
     let effectiveAt: Date
     let queue: [User.ID]

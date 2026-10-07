@@ -28,12 +28,18 @@ protocol TaskRepository: Sendable {
         details: String,
         requestedBy userID: User.ID
     ) async throws -> TaskDefinition
+    
+    func deleteSporadicTask(
+        id: TaskDefinition.ID,
+        requestedBy userID: User.ID
+    ) async throws
 
     func create(
         _ definition: TaskDefinition,
         requestedBy userID: User.ID,
         at date: Date
     ) async throws -> TaskDefinition
+    
 
     func refreshSchedule(
         in houseID: House.ID,

@@ -43,7 +43,6 @@ struct RootView: View {
 
         TabView(selection: $selectedTab) {
 
-            // Cada aba possui sua própria barra e histórico de navegação.
             NavigationStack(path: $tasksPath) {
 
                 MyTasksView(
@@ -216,7 +215,16 @@ struct RootView: View {
                 viewModel:
                     container.makeSporadicTasksViewModel(
                         session: session
+                    ),
+                onEditTask: {
+                    taskDefinitionID in
+
+                    housePath.append(
+                        .taskDetail(
+                            taskDefinitionID
+                        )
                     )
+                }
             )
 
         case let .taskEditor(roomID):
