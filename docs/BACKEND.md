@@ -26,29 +26,32 @@ Fora de escopo: avaliação da casa, widget, Siri, lista de mercado e financeiro
 | ✅ 5 | O LLM só **interpreta a intenção**; nunca grava dados nem calcula escala | Segurança e previsibilidade. Toda leitura e escrita passa pelos casos de uso. |
 | ✅ 6 | Autenticação: **Amazon Cognito** (Amplify no app), com Apple como provedor federado | Já implementado no app (`Data/Auth/AuthService`, `amplify_outputs.json`, user pool em `us-east-1`). A `api` só valida o **access token** do Cognito (seção 5); o ID token é rejeitado. Confirmar com o time que é o caminho definitivo. |
 | ✅ 7 | Stack do backend: **Node.js 22 + TypeScript** (`strict`, ESM), **zero dependências de runtime** (`node:crypto`, `Intl`, `node:test`); sem Temporal, Luxon, zod, ORM nem container de DI | O básico bem feito: menos superfície de supply chain e de atualização, bundle de Lambda mínimo. Validação de entrada na borda por funções de estreitamento escritas à mão. |
+| ✅ 8 | Infraestrutura como Código (IaC): **Terraform** | Padrão declarativo da indústria, reprodutibilidade de ambientes e controle de versão de toda a infraestrutura AWS (Lambdas com Function URL, SQS, Aurora, Secrets Manager). |
+| ✅ 9 | Entrada HTTP: **URL pública da Lambda (Lambda Function URL)**, **sem API Gateway** | Menos um serviço para configurar, pagar e manter; a URL é gerada pela própria Lambda. Cada Lambda HTTP (`api`, `whatsapp-webhook`) tem a sua URL. A autenticação já é feita no código (JWT do Cognito na `api`, assinatura HMAC no webhook), então a URL fica com `AuthType = NONE`. O evento chega no mesmo formato 2.0 do HTTP API, e por isso `src/lambdas/events.ts` não muda. Consequências na seção 3.2. |
 
 ## 3. Visão geral
 
 ```
-┌─────────┐   HTTPS + JWT     ┌───────────────┐
-│ App iOS │ ────────────────► │ API Gateway   │
-└─────────┘                   │ (HTTP API)    │
-                              └──────┬────────┘
-                                     ▼
-┌──────────┐  webhook   ┌────────────────────┐        ┌────────────────────┐
-│ WhatsApp │ ─────────► │ Lambda "webhook"   │        │ Lambda "api" (Node)│
-│ (Meta)   │            │ valida assinatura  │        │ casos de uso        │
-└──────────┘            │ e enfileira        │        └─────────┬──────────┘
-      ▲                 └─────────┬──────────┘                  │
-      │                           ▼                             ▼
-      │                    ┌─────────────┐             ┌────────────────┐
-      │                    │ SQS (FIFO)  │             │ Aurora          │
-      │                    └──────┬──────┘             │ PostgreSQL      │
-      │                           ▼                    │ (via RDS Proxy) │
-      │                 ┌────────────────────┐         └────────────────┘
-      └──────────────── │ Lambda "worker"    │ ◄──── lê/grava pelos mesmos
-        Graph API       │ Gemini + casos de  │       casos de uso do domínio
-                        │ uso                │
+┌─────────┐ HTTPS + JWT  ┌─────────────────────┐        ┌─────────────────┐
+│ App iOS │ ───────────► │ Lambda "api" (Node) │ ─────► │ Aurora          │
+└─────────┘ (Function    │ casos de uso        │        │ PostgreSQL      │
+            URL)         └─────────────────────┘        │ (via RDS Proxy) │
+                                                        └────────┴────────┘
+                                                                 │
+┌──────────┐  webhook   ┌────────────────────┐                   │
+│ WhatsApp │ ─────────► │ Lambda "webhook"   │                   │
+│ (Meta)   │ (Function  │ valida assinatura  │                   │
+└──────────┘  URL)      │ e enfileira        │                   │
+      ▲                 └─────────┬──────────┘                   │
+      │                           ▼                              │
+      │                    ┌─────────────┐                       │
+      │                    │ SQS (FIFO)  │                       │
+      │                    └──────┬──────┘                       │
+      │                           ▼                              │
+      │                 ┌────────────────────┐                   │
+      └──────────────── │ Lambda "worker"    │ ◄─────────────────┘
+        Graph API       │ Gemini + casos de  │  lê/grava pelos mesmos
+                        │ uso                │  casos de uso do domínio
                         └────────────────────┘
 
 Secrets Manager: segredos da Meta e do Gemini (seção 10)
@@ -58,8 +61,8 @@ Três Lambdas com responsabilidades separadas:
 
 | Lambda | Responsabilidade | Observação |
 | --- | --- | --- |
-| `api` | Endpoints do app (seção 6) | Autenticada por JWT |
-| `whatsapp-webhook` | Responde ao *challenge* (GET), valida a assinatura e enfileira (POST) | Sem dependência de domínio nem de LLM. Responde 200 em milissegundos. |
+| `api` | Endpoints do app (seção 6) | Function URL pública; autenticada por JWT na própria Lambda |
+| `whatsapp-webhook` | Responde ao *challenge* (GET), valida a assinatura e enfileira (POST) | Function URL pública (é a URL cadastrada na Meta). Sem dependência de domínio nem de LLM. Responde 200 em milissegundos. |
 | `whatsapp-worker` | Consome a fila, resolve o usuário, chama Gemini, executa o caso de uso e responde | Idempotente por `wamid` |
 
 O webhook nunca chama o LLM diretamente. A Meta reenvia o evento se não receber 200 rápido, e sem fila o mesmo pedido rodaria duas vezes.
@@ -83,11 +86,11 @@ backend/                 projeto Node.js + TypeScript (zero dependências de run
   src/whatsapp/graph-sender.ts  WhatsAppSender real (Graph API), com HttpFetch injetado          ✅ (testado com falso; sem chamada real)
   src/adapters/in-memory/   store transacional, repositórios, ports do WhatsApp e seed (dev/testes) ✅
   src/adapters/postgres/    repositórios PostgreSQL (implementam as interfaces do domínio e os ports)  a fazer
-  src/lambdas/              handlers webhook, worker e api, conversão de eventos (API Gateway HTTP API v2,
+  src/lambdas/              handlers webhook, worker e api, conversão de eventos (Function URL, payload 2.0,
                             SQS), config.ts (ambiente e segredos) e compose.ts (composição)           ✅ (sem ponto de entrada: ver 3.1)
   test/                     testes; contract/ (contratos dos ports); fixtures/ (casos dourados do Swift)  ✅
   tools/swift-fixtures/     gerador das fixtures a partir do GrupuxoDomain (Swift)                    ✅
-  infra/                    IaC (AWS CDK, SAM ou Terraform ❓)                                        a fazer
+  infra/                    IaC com Terraform (módulos, Lambdas + Function URLs, SQS, Aurora)          a fazer
 ```
 
 `src/whatsapp/`, `src/auth/` e `src/domain/` não conhecem AWS: as Lambdas são camadas finas (`src/lambdas/`) que montam `WebhookRequest`/`IncomingMessage`, chamam o núcleo e traduzem a resposta. Empacotamento das Lambdas (esbuild ou `tsc` com `rewriteRelativeImportExtensions`) é decisão de infraestrutura ❓.
@@ -98,7 +101,7 @@ São funções de fábrica `create…Handler(dependências) => (evento: unknown)
 
 | Arquivo | Função |
 | --- | --- |
-| `events.ts` | Estreitamento (de `unknown`, sem `as`) dos eventos do API Gateway HTTP API v2 e do SQS. Corpo `isBase64Encoded` é decodificado para os **bytes brutos** (a assinatura do webhook cobre esses bytes); corpo em texto vira UTF-8 exato; base64 mal formado invalida o evento. A query string é lida de `rawQueryString` (decodificada com `URLSearchParams`; vale a primeira ocorrência), com `queryStringParameters` só como reserva. Cabeçalhos em minúsculo. |
+| `events.ts` | Estreitamento (de `unknown`, sem `as`) dos eventos das Lambda Function URLs (payload 2.0, idêntico ao do HTTP API v2) e do SQS. Corpo `isBase64Encoded` é decodificado para os **bytes brutos** (a assinatura do webhook cobre esses bytes); corpo em texto vira UTF-8 exato; base64 mal formado invalida o evento. A query string é lida de `rawQueryString` (decodificada com `URLSearchParams`; vale a primeira ocorrência), com `queryStringParameters` só como reserva. Cabeçalhos em minúsculo. |
 | `webhook.ts` | `createWebhookHandler(WebhookHandler)`: evento → `WebhookRequest` → resposta (`text/plain`). Evento que não é HTTP: 400. |
 | `worker.ts` | `createWorkerHandler(WhatsAppWorker)`: cada registro do SQS → `JSON.parse` → `parseIncomingMessage` → `WhatsAppWorker.process`. Devolve `batchItemFailures` (a fila precisa de `ReportBatchItemFailures`): o registro que falha (inclusive corpo inválido) e **os seguintes do mesmo `MessageGroupId`** são reportados sem serem processados, para manter a ordem por telefone; outros telefones seguem. Evento que não é um lote do SQS lança erro. |
 | `api.ts` | `createApiHandler({ verifier, users, linker, links })`: rotas da seção 6.1. |
@@ -113,6 +116,23 @@ Regras mantidas:
 - **`src/domain/` é puro**: sem `node:*`, sem I/O, sem relógio nem gerador de IDs globais (`now` e `newID` são injetados). Um teste de arquitetura (`test/architecture.test.ts`) verifica isso.
 - **Camadas de `src/`** (também no teste de arquitetura): `domain` só importa `domain`; `whatsapp` só `ids`, `dates` do domínio e `http.ts`; `auth` só `ids`/`dates` e `http.ts` (pode usar `node:crypto`); `assistant` pode importar o domínio e os ports do WhatsApp, mas não usa `node:*`; `adapters` e `lambdas` são raízes de composição. `auth`, `assistant` e `whatsapp` não usam relógio, aleatoriedade, `process` nem `fetch` globais, e `lambdas` também não usa `node:*` nem `process`: tudo entra por parâmetro (o ponto de entrada de cada Lambda, que lerá o ambiente, ainda não existe).
 - **A lógica transacional vive em `src/domain/commands/`** (o que no app está dentro dos `Mock*Repository`: acesso, claim/release, trocas, entrada/saída de casa). O adaptador só chama `store.update(estado => comando(...))`; o adaptador PostgreSQL carrega o estado da casa, chama o mesmo comando e grava, sem reimplementar regras.
+
+### 3.2 Entrada HTTP: Lambda Function URL (sem API Gateway)
+
+✅ Decisão 9. Cada Lambda HTTP recebe uma URL própria (`https://<id>.lambda-url.<região>.on.aws/`), criada no Terraform com `aws_lambda_function_url`. Uma URL por Lambda: a `api` e a `whatsapp-webhook` não compartilham endereço. A `worker` não tem URL, pois só lê do SQS.
+
+| Ponto | Como fica |
+| --- | --- |
+| Formato do evento | Payload 2.0, o mesmo do HTTP API v2: `events.ts`, `webhook.ts` e `api.ts` funcionam sem mudança de código. |
+| Autenticação da URL | `AuthType = NONE` (qualquer um alcança a URL). A defesa está no código: JWT do Cognito na `api` (seção 5) e HMAC `X-Hub-Signature-256` no webhook (seção 7.1). Não usar `AWS_IAM`: nem o app nem a Meta assinam com SigV4. |
+| Permissão de invocação | `AuthType = NONE` exige a permissão pública `lambda:InvokeFunctionUrl` com `function_url_auth_type = NONE` (`aws_lambda_permission`). Contas novas também podem precisar de `lambda:InvokeFunction` com a condição `lambda:InvokedViaFunctionUrl`: conferir a documentação vigente no deploy. |
+| Rotas | A URL não tem *stage* nem mapeamento de rotas: `rawPath` é exatamente o caminho pedido (`/v1/me`), e o roteamento continua em `api.ts`. O app guarda a URL base da `api` na configuração por ambiente. |
+| URL cadastrada na Meta | A URL da `whatsapp-webhook`. A Meta faz o GET de verificação e o POST de eventos nela. |
+| Limitação de taxa e abuso | Não existe *throttling* por rota nem plano de uso como no API Gateway. Mitigações: **concorrência reservada** em cada Lambda (teto de custo e de carga no banco), assinatura validada **antes** de qualquer trabalho no webhook, token validado antes de tocar no banco na `api`, e o limite por telefone do worker (seção 7.3). Se o abuso virar problema, o caminho é pôr o CloudFront com AWS WAF na frente da URL (fora da v1). |
+| Domínio próprio | Sem domínio personalizado na v1: a URL gerada serve. Domínio próprio exigiria CloudFront. |
+| CORS | O app iOS não precisa. Só configurar `cors` na URL se um cliente web passar a existir. |
+| Tamanho | Corpo de requisição e de resposta de até 6 MB (síncrono). Folgado para esta API. |
+| Logs | Sem *access log* do gateway. Registrar na Lambda só o que já é permitido (nunca token, texto de mensagem ou telefone). |
 
 ## 4. Modelo de dados (PostgreSQL)
 
@@ -216,7 +236,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`houses.
 
 ### 6.1 Rotas implementadas (`src/lambdas/api.ts`)
 
-Só as quatro de conta e WhatsApp, sob `/v1`; as demais da tabela dependem de repositórios PostgreSQL. A autorização é feita na Lambda (não no gateway): `Authorization: Bearer <access token>` (esquema sem distinção de caixa). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo ou da URL.
+Só as quatro de conta e WhatsApp, sob `/v1`; as demais da tabela dependem de repositórios PostgreSQL. A autorização é feita na Lambda (a Function URL fica com `AuthType = NONE`): `Authorization: Bearer <access token>` (esquema sem distinção de caixa). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo ou da URL.
 
 | Rota | Resposta |
 | --- | --- |
@@ -419,7 +439,7 @@ Para o desenvolvedor do banco:
 2. Bloqueio por casa: `FOR UPDATE` em `houses` ou *advisory lock*?
 3. Aurora Serverless v2 com pausa automática atende o custo do MVP?
 4. Região do banco e das Lambdas: `sa-east-1` ou `us-east-1`? O Cognito já está em `us-east-1`, o que favorece manter tudo lá.
-5. IaC: CDK, SAM ou Terraform?
+5. ~~IaC: CDK, SAM ou Terraform?~~ Resolvido: Terraform (decisão ✅ 8).
 
 Para o produto:
 

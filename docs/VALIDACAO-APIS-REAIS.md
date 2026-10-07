@@ -1,6 +1,6 @@
 # Validação contra as APIs reais
 
-Checklist do que **ainda não foi validado** contra a Graph API da Meta, o Gemini e o API Gateway. Hoje todos os testes usam `HttpFetch` falso e nunca chamam a rede. Nada abaixo foi executado: cada item que toca AWS, Meta ou Google exige **autorização explícita, caso a caso** (deploy, criar recurso, chamar a API real). Estado e decisões: [BACKEND.md](BACKEND.md) (seções 3.1, 7.4 e 7.5).
+Checklist do que **ainda não foi validado** contra a Graph API da Meta, o Gemini e a Lambda Function URL. Hoje todos os testes usam `HttpFetch` falso e nunca chamam a rede. Nada abaixo foi executado: cada item que toca AWS, Meta ou Google exige **autorização explícita, caso a caso** (deploy, criar recurso, chamar a API real). Estado e decisões: [BACKEND.md](BACKEND.md) (seções 3.1, 3.2, 7.4 e 7.5).
 
 Regras para qualquer chamada real: usar números e chaves de **teste** (ambiente `dev`), nunca registrar token, texto de mensagem nem telefone, e anotar aqui o resultado (data, versão da API, o que diferiu do código).
 
@@ -30,12 +30,14 @@ Conferido só na documentação (somente leitura, 2026-10-05): URL `https://grap
 | M4 | `gemini-2.5-flash-lite` (padrão recomendado) continua GA e sem data de desligamento | Reconferir a página de depreciações do Google antes de cada release |
 | M5 | Latência e custo por pergunta, e o teto de 512 tokens de saída | Medir em `dev` |
 
-## 3. API Gateway HTTP API v2 e SQS (`src/lambdas/events.ts`)
+## 3. Lambda Function URL (payload 2.0) e SQS (`src/lambdas/events.ts`)
 
 | # | O que validar | Como |
 | --- | --- | --- |
 | A1 | `rawQueryString` chega crua e a decodificação (`URLSearchParams`) bate com o `hub.verify_token` real; `+` e `%20` | GET de verificação com um token que tenha caracteres especiais, em `dev` |
 | A2 | Corpo do webhook com `isBase64Encoded` verdadeiro/falso: os bytes decodificados fecham a assinatura | POST real da Meta; conferir 200 (e não 401) |
-| A3 | Nomes de cabeçalho em minúsculo (`x-hub-signature-256`, `authorization`) | Evento real do gateway |
+| A3 | Nomes de cabeçalho em minúsculo (`x-hub-signature-256`, `authorization`) | Evento real da Function URL |
 | A4 | Evento SQS FIFO: `attributes.MessageGroupId` e `ReportBatchItemFailures` habilitado no gatilho | Lote de teste com uma mensagem inválida |
-| A5 | Rotas `/v1/...` mapeadas no gateway (o handler compara `rawPath` exato; `rawPath` inclui o *stage* se houver) | Deploy em `dev`; ajustar o *stage* ou o mapeamento |
+| A5 | `rawPath` das rotas `/v1/...` chega exato, sem *stage* (o handler compara `rawPath` exato) | Deploy em `dev`; chamar a URL da `api` e conferir o evento |
+| A6 | Function URL com `AuthType = NONE` aceita a chamada do app e da Meta (permissões `lambda:InvokeFunctionUrl` e, se exigida, `lambda:InvokeFunction` com `InvokedViaFunctionUrl`) | Deploy em `dev`; `curl` sem credenciais AWS deve chegar na Lambda (e o 401 vir do código) |
+| A7 | Concorrência reservada nas Lambdas HTTP segura uma rajada sem derrubar o banco | Teste de carga leve em `dev` |

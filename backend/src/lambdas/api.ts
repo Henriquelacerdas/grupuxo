@@ -54,7 +54,7 @@ function jsonObject(body: Uint8Array): Fields | null {
 }
 
 /**
- * Lambda `api` (API Gateway HTTP API v2, autorização feita aqui, não no gateway). O `userID` vem sempre do
+ * Lambda `api` (Function URL pública, payload 2.0; autorização feita aqui, a URL fica sem autenticação da AWS). O `userID` vem sempre do
  * access token do Cognito (via `UserDirectory`), nunca do corpo ou da URL. 401 não revela o motivo; 503 quando
  * as chaves do Cognito estão indisponíveis; erro inesperado vira 500 sem detalhe. Não registra nada em log.
  */

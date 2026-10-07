@@ -3,7 +3,7 @@ import type { MessageQueue } from "../ports.ts";
 import { constantTimeEquals, SignatureVerifier } from "./signature-verifier.ts";
 import { decodeWebhookPayload, incomingTextMessages } from "./webhook-payload.ts";
 
-/** Requisição HTTP já desacoplada do API Gateway: a Lambda `whatsapp-webhook` só converte o evento nisto. */
+/** Requisição HTTP já desacoplada da AWS: a Lambda `whatsapp-webhook` só converte o evento nisto. */
 export interface WebhookRequest {
   readonly method: string;
   readonly queryParameters?: Readonly<Record<string, string>>;
