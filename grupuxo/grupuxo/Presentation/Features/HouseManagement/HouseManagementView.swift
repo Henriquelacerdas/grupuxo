@@ -100,7 +100,7 @@ struct HouseManagementView: View {
             TaskCreationSheetView(
                 viewModel: makeTaskEditorViewModel()
             )
-            .presentationDragIndicator(.hidden)
+            .presentationDragIndicator(.visible)
         }
 
         .sheet(
