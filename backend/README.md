@@ -18,4 +18,5 @@ npm run test:fixtures  # só as comparações com o Swift
 - `src/http.ts` tipo `HttpFetch` (HTTP de saída injetável).
 - `src/adapters/in-memory/` adaptadores para dev e testes.
 - `src/adapters/dynamodb/` (a fazer) persistência real em DynamoDB, tabela única sob demanda; modelo de itens em [../docs/BACKEND.md](../docs/BACKEND.md) seção 4.
+- `tools/validate/` scripts descartáveis de validação contra a Graph API e o Gemini reais (não rodam no `npm test`; exigem autorização por item, ver o README da pasta).
 - `test/fixtures/` casos dourados gerados do Swift; para regenerar: `tools/swift-fixtures/regenerate.sh` (precisa do toolchain Swift).

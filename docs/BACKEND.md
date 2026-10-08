@@ -86,6 +86,7 @@ backend/                 projeto Node.js + TypeScript (zero dependências de run
   src/assistant/            Gemini: GeminiClient, ferramentas de leitura e GeminiMessageResponder ✅ (em memória/falso; sem chamada real)
   src/whatsapp/graph-sender.ts  WhatsAppSender real (Graph API), com HttpFetch injetado          ✅ (testado com falso; sem chamada real)
   src/adapters/in-memory/   store transacional, repositórios, ports do WhatsApp e seed (dev/testes) ✅
+  src/adapters/aws/         SqsMessageQueue e SecretStringReader sobre clientes mínimos injetados     ✅ (cliente falso; sem chamada real)
   src/adapters/dynamodb/    repositórios DynamoDB (implementam as interfaces do domínio e os ports)    a fazer
   src/lambdas/              handlers webhook, worker e api, conversão de eventos (Function URL, payload 2.0,
                             SQS), config.ts (ambiente e segredos) e compose.ts (composição)           ✅ (sem ponto de entrada: ver 3.1)
@@ -98,7 +99,13 @@ backend/                 projeto Node.js + TypeScript (zero dependências de run
 
 ### 3.1 Lambdas (`src/lambdas/`)
 
-São funções de fábrica `create…Handler(dependências) => (evento: unknown) => Promise<resposta>`; nada lê `process.env`, relógio ou rede (o teste de arquitetura verifica). O que **ainda não existe** e depende de decisões abertas (empacotamento, perguntas 13 e 14; AWS SDK): o **ponto de entrada** de cada Lambda, que lê `process.env`, busca o segredo no Secrets Manager, cria o `MessageQueue` do SQS e o cliente do DynamoDB e passa tudo às funções abaixo.
+São funções de fábrica `create…Handler(dependências) => (evento: unknown) => Promise<resposta>`; nada lê `process.env`, relógio ou rede (o teste de arquitetura verifica). O que **ainda não existe** e depende de decisões abertas (empacotamento, perguntas 13 e 14; AWS SDK): o **ponto de entrada** de cada Lambda, que lê `process.env`, embrulha o AWS SDK nos clientes mínimos de `src/adapters/aws/clients.ts` (`SqsClient`, `SecretsManagerClient`), cria o `SqsMessageQueue` e o `SecretStringReader` (a busca do segredo e o `parse…Secrets` são feitos aqui) e o cliente do DynamoDB, e passa tudo às funções abaixo.
+
+**Adaptadores AWS (`src/adapters/aws/`)**, sem o AWS SDK (o teste de arquitetura proíbe `node:*`, `process`, relógio, `fetch` e `@aws-sdk`):
+
+- `SqsMessageQueue` (`MessageQueue`): corpo JSON com exatamente os quatro campos de `IncomingMessage` (o que `parseIncomingMessage` lê no worker), `MessageGroupId` = telefone, `MessageDeduplicationId` = `wamid`. Sem `QUEUE_URL` a criação falha (`LambdaConfigError`). `wamid` ou telefone fora das regras de ID do FIFO (1–128 caracteres ASCII alfanuméricos ou de pontuação) não são enviados (`MessageQueueError` `invalidMessage`). Qualquer falha do cliente vira `MessageQueueError` `sendFailed`, com mensagem fixa (sem texto, telefone, `wamid`, URL nem mensagem original; só o `name` do erro original em `causeName`), e propaga: o webhook responde 500 e a Meta reenvia. A fila precisa ter `ContentBasedDeduplication` desligada (a deduplicação é pelo `wamid`).
+- `SecretStringReader`: lê o `SecretString` uma vez por instância (a promessa fica em cache, então chamadas concorrentes compartilham a busca); **falha não é cacheada**. `SecretReadError` (`readFailed`, `noSecretString`) tem mensagem fixa, sem ID do segredo nem conteúdo. Sem `SECRET_ID` a criação falha.
+- Testes: `test/contract/message-queue.ts` (rodado contra a fila em memória e o `SqsMessageQueue` com cliente falso), `test/adapters/`. Nada foi chamado na AWS.
 
 | Arquivo | Função |
 | --- | --- |
@@ -445,7 +452,7 @@ Um segredo no **AWS Secrets Manager** (ex. `grupuxo/whatsapp`), lido só pelas L
 
 Regras:
 
-- Nada de segredos no repositório, em variáveis de ambiente em texto puro nem em log. As Lambdas leem o segredo uma vez por instância e mantêm em cache.
+- Nada de segredos no repositório, em variáveis de ambiente em texto puro nem em log. As Lambdas leem o segredo uma vez por instância e mantêm em cache (`SecretStringReader`: só o sucesso fica em cache).
 - **Menor privilégio:** cada role recebe apenas `secretsmanager:GetSecretValue` no ARN desse segredo. Evitar a política gerenciada `SecretsManagerReadWrite`, que dá escrita em todos os segredos da conta.
 - Sem usuário IAM com chaves de acesso para as Lambdas: elas usam a role de execução. Pessoas acessam por IAM Identity Center.
 - DynamoDB sem credenciais: as Lambdas acessam a tabela pela role de execução (IAM), então não há senha de banco para guardar nem rotacionar. **Menor privilégio:** cada role recebe só as ações de que precisa, restritas ao ARN da tabela e do índice `GSI1` (`dynamodb:GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query`, `BatchGetItem`, `ConditionCheckItem`; a `TransactWriteItems` é autorizada por essas ações, não existe permissão com esse nome). O webhook não acessa a tabela. Nunca `dynamodb:*` nem `Resource: "*"`.
@@ -489,7 +496,7 @@ Para a infraestrutura (Node):
 
 13. Empacotamento das Lambdas: `esbuild` (bundle único) ou `tsc` com `rewriteRelativeImportExtensions`? O código usa imports com extensão `.ts` e roda no Node 22.18+ por *type stripping*; o Lambda precisa de JavaScript.
 14. Runtime Node 22 nas Lambdas e como o time quer fixar a versão (`.nvmrc` e `engines` já indicam 22).
-15. **AWS SDK v3** (`@aws-sdk/client-dynamodb` ou `@aws-sdk/lib-dynamodb`, `client-sqs`, `client-secrets-manager`): são dependências de runtime e quebram "zero dependências". O runtime Node 22 do Lambda já traz o AWS SDK v3, então o SDK não precisa ser empacotado (só tipado, como dependência de desenvolvimento). Recomendação: o adaptador `src/adapters/dynamodb/` recebe um **cliente mínimo injetado** (uma interface própria com `get`, `query`, `put`, `update`, `delete`, `batchGet` e `transactWrite`), para o domínio e os testes não importarem o SDK; o ponto de entrada de cada Lambda instancia o SDK real. Decisão pendente; nada foi instalado.
+15. **AWS SDK v3** (`@aws-sdk/client-dynamodb` ou `@aws-sdk/lib-dynamodb`, `client-sqs`, `client-secrets-manager`): são dependências de runtime e quebram "zero dependências". O runtime Node 22 do Lambda já traz o AWS SDK v3, então o SDK não precisa ser empacotado (só tipado, como dependência de desenvolvimento). Recomendação: o adaptador `src/adapters/dynamodb/` recebe um **cliente mínimo injetado** (uma interface própria com `get`, `query`, `put`, `update`, `delete`, `batchGet` e `transactWrite`), para o domínio e os testes não importarem o SDK; o ponto de entrada de cada Lambda instancia o SDK real. Para SQS e Secrets Manager isso já está feito: `SqsClient` e `SecretsManagerClient` (`src/adapters/aws/clients.ts`) são as interfaces mínimas e o ponto de entrada embrulha o SDK. Decisão pendente para o DynamoDB; nada foi instalado.
 16. ~~Onde fica o contador do limite de taxa?~~ Resolvido: na mesma tabela DynamoDB (itens `RATE#`, com TTL), sem serviço extra (seção 4).
 
 ## 13. Ordem de entrega sugerida
@@ -498,7 +505,7 @@ Para a infraestrutura (Node):
 2. Tabela DynamoDB (Terraform), adaptadores `src/adapters/dynamodb/` (repositórios do domínio e ports) e testes contra o mesmo conjunto de cenários do mock. *A fazer; o modelo de itens está na seção 4, as interfaces de repositório do domínio e os ports da seção 14 são o contrato, e os testes de contrato (`backend/test/contract`) são reutilizáveis: cada função recebe uma fábrica do adaptador.*
 3. Lambda `api` e autenticação (login Cognito do app ✅; *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; falta o `UserDirectory` em DynamoDB e o ponto de entrada da Lambda `api`); `Data/Remote` no app (trocar mocks em `AppContainer`).
 4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Os endpoints `POST /v1/me` e `POST /v1/me/whatsapp/link` já existem no handler `api` (em memória); falta a tela.*
-5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco, `GeminiMessageResponder`, `GraphWhatsAppSender`, limite de taxa e handlers no formato Lambda, com adaptadores em memória e Gemini/Graph falsos; falta o ponto de entrada de cada Lambda, o adaptador SQS e o segredo no Secrets Manager (AWS SDK e empacotamento em aberto).* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
+5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco, `GeminiMessageResponder`, `GraphWhatsAppSender`, limite de taxa e handlers no formato Lambda, com adaptadores em memória e Gemini/Graph falsos; adaptador SQS e leitor do segredo no Secrets Manager prontos com clientes falsos; falta o ponto de entrada de cada Lambda (AWS SDK e empacotamento em aberto).* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
 6. Concluir tarefas com confirmação e, por fim, lembretes.
 
 Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paralelo.
@@ -523,7 +530,8 @@ Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada 
 | Envio pela Graph API | `src/whatsapp/graph-sender.ts` | ✅ testado com `HttpFetch` falso (seção 7.5); falta validar contra a API real |
 | Limite de taxa por número | `src/whatsapp/rate-limit.ts`, port `RateCounter`, `adapters/in-memory/rate-counter.ts`, contrato `test/contract/rate-counter.ts` | ✅ em memória; DynamoDB (itens `RATE#`) a fazer |
 | Handlers Lambda (`webhook`, `worker`, `api`), eventos, config, composição | `src/lambdas/` | ✅ testados ponta a ponta em memória (seção 3.1) |
-| Pontos de entrada das Lambdas, adaptador SQS, leitura do Secrets Manager | | a fazer (dependem do empacotamento e do AWS SDK ❓) |
+| Adaptador SQS (`MessageQueue`) e leitura do Secrets Manager | `src/adapters/aws/`, contrato `test/contract/message-queue.ts` | ✅ com clientes mínimos falsos; falta validar contra a AWS real (VALIDACAO-APIS-REAIS.md A8, A9) |
+| Pontos de entrada das Lambdas (embrulham o AWS SDK nos clientes mínimos) | | a fazer (dependem do empacotamento e do cliente DynamoDB ❓) |
 | Tabela DynamoDB e repositórios (domínio e ports) | `infra/` (Terraform), `src/adapters/dynamodb/` | a fazer (modelo na seção 4) |
 | Endpoints `POST /v1/me`, `/v1/me/whatsapp/link`, `GET`/`DELETE /v1/me/whatsapp` | `src/lambdas/api.ts` | ✅ em memória; tela no Perfil a fazer |
 | Gemini e ferramentas de leitura (`MessageResponder` definitivo) | `src/assistant/` | ✅ testado com cliente e `HttpFetch` falsos (seção 7.4), ligado em `composeWhatsAppWorker`; falta validar contra a API real |

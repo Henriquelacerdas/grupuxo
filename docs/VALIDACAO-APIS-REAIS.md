@@ -4,6 +4,8 @@ Checklist do que **ainda não foi validado** contra a Graph API da Meta, o Gemin
 
 Regras para qualquer chamada real: usar números e chaves de **teste** (ambiente `dev`), nunca registrar token, texto de mensagem nem telefone, e anotar aqui o resultado (data, versão da API, o que diferiu do código).
 
+**Como rodar as seções 1 e 2:** scripts descartáveis em `backend/tools/validate/` (`graph.ts`: G1–G7; `gemini.ts`: M1–M5), um item por vez, com autorização por item; ver o [README](../backend/tools/validate/README.md) (variáveis, chamadas de cada item e o que a saída nunca mostra). `--dry-run` exercita os scripts sem rede. Os scripts estão prontos e **não foram executados contra a rede**.
+
 ## 1. Graph API (`src/whatsapp/graph-sender.ts`)
 
 Conferido só na documentação (somente leitura, 2026-10-05): URL `https://graph.facebook.com/<versão>/<PHONE_NUMBER_ID>/messages`, `Authorization: Bearer`, corpo com `messaging_product`, `recipient_type`, `to`, `type`, `text.body`; exemplos com `v25.0`.
@@ -41,6 +43,8 @@ Conferido só na documentação (somente leitura, 2026-10-05): URL `https://grap
 | A5 | `rawPath` das rotas `/v1/...` chega exato, sem *stage* (o handler compara `rawPath` exato) | Deploy em `dev`; chamar a URL da `api` e conferir o evento |
 | A6 | Function URL com `AuthType = NONE` aceita a chamada do app e da Meta (permissões `lambda:InvokeFunctionUrl` e, se exigida, `lambda:InvokeFunction` com `InvokedViaFunctionUrl`) | Deploy em `dev`; `curl` sem credenciais AWS deve chegar na Lambda (e o 401 vir do código) |
 | A7 | Concorrência reservada nas Lambdas HTTP segura uma rajada sem estourar a conta do DynamoDB sob demanda nem o limite de leitura/escrita da tabela | Teste de carga leve em `dev` |
+| A8 | `SqsMessageQueue`: `MessageGroupId` com `+` (telefone) e `MessageDeduplicationId` com `.` e `=` (`wamid`) aceitos pela fila FIFO real; `ContentBasedDeduplication` desligada; um `sendMessage` de teste chega ao worker com o corpo que `parseIncomingMessage` lê (**não executado**) | Fila FIFO de `dev` e um envio de teste com o cliente real embrulhado, sem texto real de usuário |
+| A9 | `SecretStringReader`: `GetSecretValue` com a role de menor privilégio devolve `SecretString`; latência da 1ª busca e comportamento sob concorrência no *cold start*; nome do erro quando falta permissão (`causeName`) (**não executado**) | Segredo de teste em `dev`, role só com `secretsmanager:GetSecretValue` nesse ARN |
 
 ## 4. DynamoDB (`src/adapters/dynamodb/`, a fazer)
 
