@@ -1,9 +1,8 @@
 import SwiftUI
 
 import UIKit
+
 import GrupuxoDomain
-
-
 
 private extension TaskEffortLevel {
 
@@ -23,8 +22,6 @@ private extension TaskEffortLevel {
 
 }
 
-
-
 /// UIKit owns tracking, selection, and the iOS 26 Liquid Glass lens.
 
 /// Only the segment artwork is custom; never override the control's backgrounds.
@@ -41,11 +38,7 @@ private struct EffortSegmentedControl: UIViewRepresentable {
 
     @ScaledMetric(relativeTo: .callout) private var fontSize: CGFloat = 16
 
-
-
     func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
-
-
 
     func makeUIView(context: Context) -> UISegmentedControl {
 
@@ -60,8 +53,6 @@ private struct EffortSegmentedControl: UIViewRepresentable {
         return control
 
     }
-
-
 
     func updateUIView(_ control: UISegmentedControl, context: Context) {
 
@@ -131,8 +122,6 @@ private struct EffortSegmentedControl: UIViewRepresentable {
 
     }
 
-
-
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UISegmentedControl, context: Context) -> CGSize? {
 
         CGSize(width: proposal.width ?? uiView.intrinsicContentSize.width,
@@ -140,8 +129,6 @@ private struct EffortSegmentedControl: UIViewRepresentable {
                height: max(64, fontSize * 3.5 + 8))
 
     }
-
-
 
     @MainActor
 
@@ -151,11 +138,7 @@ private struct EffortSegmentedControl: UIViewRepresentable {
 
         var appearance: String?
 
-
-
         init(selection: Binding<Int>) { self.selection = selection }
-
-
 
         @objc func changed(_ sender: UISegmentedControl) {
 
@@ -169,49 +152,30 @@ private struct EffortSegmentedControl: UIViewRepresentable {
 
 }
 
-
-
 /// Formulário apresentado a partir da aba Casa para cadastrar uma tarefa
 
 struct TaskCreationSheetView: View {
-
     @Environment(\.dismiss) private var dismiss
-
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @FocusState private var focusedField: Field?
-
     @StateObject private var viewModel: TaskEditorViewModel
 
     @State private var recurrenceSheet: RecurrenceSheet?
     @State private var titleText: String
     @State private var detailsText: String
 
-    @State private var urgency: Bool = false
-
-
-
     private enum Field: Hashable {
-
         case title, details
-
     }
-
-
 
     private enum Layout {
-
-        static let cardCornerRadius: CGFloat = 16
-
+        static let cardCornerRadius: CGFloat = 26
         static let effortRaySpacing: CGFloat = 2
-
-        static let rowMinimumHeight = DesignSystem.minimumTouchTarget
-
+        static let rowMinimumHeight =
+            DesignSystem.minimumTouchTarget
             + 2 * DesignSystem.Spacing.extraSmall
-
     }
-
-
 
     init(viewModel: TaskEditorViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -219,605 +183,504 @@ struct TaskCreationSheetView: View {
         _detailsText = State(initialValue: viewModel.state.draft.details)
     }
 
-
-
     var body: some View {
-
         NavigationStack {
-
             ScrollView {
-
                 VStack(spacing: DesignSystem.Spacing.large) {
-
                     titleCard
 
+                    VStack(spacing: DesignSystem.Spacing.large) {
+                        uniqueTaskRow
 
-
-                    VStack(spacing: DesignSystem.Spacing.medium) {
-
-                        VStack(spacing: 0) {
-
-                            Toggle(isOn: $urgency) {
-
-                                Label {
-
-                                    Text("Tarefa Única")
-
-                                        .font(.callout.weight(.medium))
-
-                                    if !dynamicTypeSize.isAccessibilitySize { Spacer() }
-
-                                } icon: {
-
-                                    Image(systemName: "flag")
-
-                                }
-
-                            }
-
+                        if !isUniqueTask {
+                            recurrenceSection
                         }
 
-                        .padding(.horizontal, DesignSystem.Spacing.large)
-
-                        .padding(.vertical, DesignSystem.Spacing.extraSmall)
-
-                        .frame(minHeight: Layout.rowMinimumHeight)
-
-                        .background(cardBackground)
-
-                        .accessibilityElement(children: .contain)
-
-                        .onChange(of: urgency) { _, isUrgent in
-
-                            if isUrgent {
-
-                                viewModel.selectRecurrence(.none)
-
-                            }
-
-
-
-                        }
-
-
-
-
-
-                        selectionRow(
-
-                            title: "Cômodo",
-
-                            systemImage: "square.grid.2x2"
-
-                        ) {
-
-                            Menu {
-
-                                Picker("Cômodo", selection: binding(\.roomID)) {
-
-                                    Text("Selecionar").tag(Optional<Room.ID>.none)
-
-                                    ForEach(viewModel.rooms) { room in
-
-                                        Text(room.name).tag(Optional(room.id))
-
-                                    }
-
-                                }
-
-                            } label: {
-
-                                rowValue(selectedRoomName)
-
-                            }
-
-                            .accessibilityLabel("Cômodo")
-
-                            .accessibilityValue(selectedRoomName).foregroundStyle(.secondary)
-
-                        }
-
-
-
-                        if !urgency {
-
-                            selectionRow(
-
-                                title: "Repetição",
-
-                                systemImage: "arrow.triangle.2.circlepath"
-
-                            ) {
-
-                                Menu {
-
-                                    recurrenceMenu
-
-                                } label: {
-
-                                    rowValue(recurrenceName)
-
-                                }
-
-                                .accessibilityLabel("Repetição")
-
-                                .accessibilityValue(recurrenceName).foregroundStyle(.secondary)
-
-                            }
-
-                        }
-
-
-
+                        roomRow
                         effortCard
-
                     }
-
-
 
                     if case let .failure(_, message) = viewModel.state {
-
                         Label(message, systemImage: "exclamationmark.triangle")
-
                             .font(.footnote)
-
                             .foregroundStyle(.red)
-
                             .frame(maxWidth: .infinity, alignment: .leading)
-
                     }
-
                 }
-
                 .padding(DesignSystem.Spacing.large)
-
                 .disabled(isSaving)
-
             }
-
             .scrollDismissesKeyboard(.interactively)
-
             .background(Color(uiColor: .systemGroupedBackground))
-
-            .navigationTitle("Nova tarefa")
-
+            .navigationTitle("Criar Tarefa")
             .navigationBarTitleDisplayMode(.inline)
-
             .toolbar {
-
                 ToolbarItem(placement: .cancellationAction) {
-
-                    Button("Fechar", systemImage: "xmark") { dismiss() }
-
-                        .labelStyle(.iconOnly)
-
-                        .accessibilityLabel("Fechar")
-
-                        .disabled(isSaving)
-
-                }
-
-
-
-                ToolbarItem(placement: .confirmationAction) {
-
-                    if isSaving {
-
-                        ProgressView("Salvando tarefa")
-
-                    } else {
-
-                        Button("Salvar", systemImage: "checkmark") {
-                            focusedField = nil
-                            viewModel.updateDraft { draft in
-                                draft.name = titleText
-                                draft.details = detailsText
-                            }
-                            Task { await viewModel.save() }
-                        }
-
-                        .labelStyle(.iconOnly)
-
-                        .accessibilityLabel("Salvar tarefa")
-
+                    Button("Fechar", systemImage: "xmark") {
+                        dismiss()
                     }
-
+                    .labelStyle(.iconOnly)
+                    .accessibilityLabel("Fechar")
+                    .disabled(isSaving)
                 }
 
+                ToolbarItem(placement: .topBarTrailing) {
+                    if isSaving {
+                        ProgressView("Salvando tarefa")
+                    } else if canSave {
+                        saveButton
+                            .buttonStyle(.borderedProminent)
+                    } else {
+                        saveButton
+                            .buttonStyle(.bordered)
+                            .disabled(true)
+                    }
+                }
             }
-
         }
-
         .presentationDetents([.large])
-
-        .presentationDragIndicator(.hidden)
-
+        .presentationDragIndicator(.visible)
         .interactiveDismissDisabled(isSaving)
-
         .sheet(item: $recurrenceSheet) { sheet in
-
             switch sheet {
-
             case let .custom(recurrence):
-
                 CustomRecurrenceSheet(
-
                     viewModel: viewModel,
-
                     initialRecurrence: recurrence
-
                 )
-
             }
-
         }
-
-        .task { await viewModel.loadRooms() }
-
+        .task {
+            await viewModel.loadRooms()
+        }
         .onChange(of: viewModel.state) { _, state in
-
-            if case .saved = state { dismiss() }
-
+            if case .saved = state {
+                dismiss()
+            }
         }
-
     }
 
-
-
     private var titleCard: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: DesignSystem.Spacing.large) {
             TextField("Título", text: $titleText)
+                .font(.body.weight(.medium))
                 .textInputAutocapitalization(.sentences)
                 .submitLabel(.next)
                 .focused($focusedField, equals: .title)
-                .onSubmit { focusedField = .details }
+                .onSubmit {
+                    focusedField = .details
+                }
                 .accessibilityLabel("Título da tarefa")
-                .padding(.vertical, DesignSystem.Spacing.large)
+                .padding(.horizontal, DesignSystem.Spacing.large)
+                .frame(minHeight: 52)
+                .background(cardBackground)
 
-            Divider()
+            TextField(
+                "Descrição",
+                text: $detailsText,
+                axis: .vertical
+            )
+            .font(.body.weight(.medium))
+            .lineLimit(1...4)
+            .textInputAutocapitalization(.sentences)
+            .focused($focusedField, equals: .details)
+            .accessibilityLabel("Descrição da tarefa")
+            .padding(.horizontal, DesignSystem.Spacing.large)
+            .frame(minHeight: 52)
+            .background(cardBackground)
+        }
+    }
 
-            TextField("Descrição", text: $detailsText, axis: .vertical)
-                .lineLimit(2...4)
-                .textInputAutocapitalization(.sentences)
-                .focused($focusedField, equals: .details)
-                .accessibilityLabel("Descrição da tarefa")
-                .padding(.vertical, DesignSystem.Spacing.large)
+    private var uniqueTaskRow: some View {
+        Toggle(isOn: uniqueTaskBinding) {
+            HStack(spacing: DesignSystem.Spacing.small) {
+                Image(systemName: "flag")
+                    .foregroundStyle(.tint)
+
+                Text("Tarefa Única")
+                    .font(.body)
+            }
         }
         .padding(.horizontal, DesignSystem.Spacing.large)
+        .padding(.vertical, DesignSystem.Spacing.extraSmall)
+        .frame(minHeight: Layout.rowMinimumHeight)
         .background(cardBackground)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var recurrenceSection: some View {
+        VStack(
+            alignment: .leading,
+            spacing: DesignSystem.Spacing.small
+        ) {
+            selectionRow(
+                title: "Repetição",
+                systemImage: "repeat"
+            ) {
+                Menu {
+                    recurrenceMenu
+                } label: {
+                    rowValue(recurrenceName)
+                }
+                .accessibilityLabel("Repetição")
+                .accessibilityValue(recurrenceName)
+                .foregroundStyle(.secondary)
+            }
+
+            Text(
+                "Tarefas que ocorrem na mesma frequência do cômodo entram no ciclo. As que têm frequência diferente são consideradas Tarefas Extras."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var roomRow: some View {
+        selectionRow(
+            title: "Cômodo",
+            systemImage: "house"
+        ) {
+            Menu {
+                Picker(
+                    "Cômodo",
+                    selection: binding(\.roomID)
+                ) {
+                    Text("Selecionar")
+                        .tag(Optional<Room.ID>.none)
+
+                    ForEach(viewModel.rooms) { room in
+                        Text(room.name)
+                            .tag(Optional(room.id))
+                    }
+                }
+            } label: {
+                rowValue(selectedRoomName)
+            }
+            .accessibilityLabel("Cômodo")
+            .accessibilityValue(selectedRoomName)
+            .foregroundStyle(.secondary)
+        }
     }
 
     private var effortCard: some View {
-
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.large) {
-
+        VStack(
+            alignment: .leading,
+            spacing: DesignSystem.Spacing.large
+        ) {
             adaptiveRow {
-
                 Label {
-
-                    Text("Esforço").font(.callout.weight(.medium))
-
+                    Text("Esforço")
+                        .font(.body)
                 } icon: {
-
-                    Image(systemName: "bolt.fill").foregroundStyle(.tint)
-
+                    Image(systemName: "bolt.fill")
+                        .foregroundStyle(.tint)
                 }
 
-
-
-                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
-
-
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 0)
+                }
 
                 HStack(spacing: DesignSystem.Spacing.extraSmall) {
-
-                    effortRays(for: selectedEffortLevel, color: .secondary)
+                    effortRays(
+                        for: selectedEffortLevel,
+                        color: .secondary
+                    )
 
                     Text("– \(selectedEffortLevel.title)")
-
-                        .font(.callout)
-
+                        .font(.body)
                         .foregroundStyle(.secondary)
-
                 }
-
                 .accessibilityElement(children: .ignore)
-
-                .accessibilityLabel("Esforço \(selectedEffortLevel.title), nível \(selectedEffortLevel.rawValue) de \(TaskEffortLevel.allCases.count)")
-
+                .accessibilityLabel(
+                    "Esforço \(selectedEffortLevel.title), nível \(selectedEffortLevel.rawValue) de \(TaskEffortLevel.allCases.count)"
+                )
             }
-
-
 
             effortPicker
-
         }
-
         .padding(DesignSystem.Spacing.large)
-
         .background(cardBackground)
-
     }
 
+    private var saveButton: some View {
+        Button("Salvar", systemImage: "checkmark") {
+            focusedField = nil
 
+            viewModel.updateDraft { draft in
+                draft.name = titleText
+                draft.details = detailsText
+            }
 
-    private func selectionRow<Control: View>(title: String, systemImage: String, @ViewBuilder control: () -> Control) -> some View {
+            Task {
+                await viewModel.save()
+            }
+        }
+        .labelStyle(.iconOnly)
+        .accessibilityLabel("Salvar tarefa")
+    }
 
+    private var uniqueTaskBinding: Binding<Bool> {
+        Binding(
+            get: {
+                viewModel.state.draft.kind == .sporadic
+            },
+            set: { isUnique in
+                viewModel.updateDraft { draft in
+                    draft.kind = isUnique ? .sporadic : .recurring
+                }
+            }
+        )
+    }
 
+    private var isUniqueTask: Bool {
+        viewModel.state.draft.kind == .sporadic
+    }
 
+    private var canSave: Bool {
+        let hasTitle = !titleText
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+
+        let hasRoom = viewModel.state.draft.roomID != nil
+
+        return hasTitle && hasRoom
+    }
+
+    private func selectionRow<Control: View>(
+        title: String,
+        systemImage: String,
+        @ViewBuilder control: () -> Control
+    ) -> some View {
         adaptiveRow {
+            HStack(spacing: DesignSystem.Spacing.small) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(.tint)
 
-            Label(title, systemImage: systemImage)
+                Text(title)
+                    .font(.body)
+            }
 
-                .font(.callout.weight(.medium))
-
-            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
+            if !dynamicTypeSize.isAccessibilitySize {
+                Spacer()
+            }
 
             control()
-
         }
-
         .padding(.horizontal, DesignSystem.Spacing.large)
-
         .padding(.vertical, DesignSystem.Spacing.extraSmall)
-
         .frame(minHeight: Layout.rowMinimumHeight)
-
         .background(cardBackground)
-
         .accessibilityElement(children: .contain)
-
     }
-
-
 
     private func rowValue(_ value: String) -> some View {
-
         HStack(spacing: DesignSystem.Spacing.extraSmall) {
-
             Text(value)
 
-            Image(systemName: "chevron.right")
-
+            Image(systemName: "chevron.up.chevron.down")
                 .font(.caption.weight(.semibold))
-
                 .accessibilityHidden(true)
-
         }
-
-        .font(.callout)
-
+        .font(.body)
         .foregroundStyle(.secondary)
-
         .frame(minHeight: DesignSystem.minimumTouchTarget)
-
     }
-
-
 
     private var effortPicker: some View {
-
         Group {
-
             if dynamicTypeSize.isAccessibilitySize {
-
-                Picker("Nível de esforço", selection: binding(\.effortPoints)) {
-
+                Picker(
+                    "Nível de esforço",
+                    selection: binding(\.effortPoints)
+                ) {
                     ForEach(TaskEffortLevel.allCases) { level in
-
                         Text(level.title)
-
-                            .accessibilityLabel("\(level.title), esforço \(level.rawValue) de 3")
-
+                            .accessibilityLabel(
+                                "\(level.title), esforço \(level.rawValue) de 3"
+                            )
                             .tag(level.rawValue)
-
                     }
-
                 }
-
                 .pickerStyle(.menu)
-
                 .frame(minHeight: DesignSystem.minimumTouchTarget)
-
             } else {
-
-                EffortSegmentedControl(selection: binding(\.effortPoints))
-
+                EffortSegmentedControl(
+                    selection: binding(\.effortPoints)
+                )
             }
-
         }
-
         .accessibilityIdentifier("taskEffortPicker")
-
-        .sensoryFeedback(.selection, trigger: viewModel.state.draft.effortPoints)
-
+        .sensoryFeedback(
+            .selection,
+            trigger: viewModel.state.draft.effortPoints
+        )
     }
 
-
-
-    private func effortRays<Style: ShapeStyle>(for level: TaskEffortLevel, color: Style) -> some View {
-
+    private func effortRays<Style: ShapeStyle>(
+        for level: TaskEffortLevel,
+        color: Style
+    ) -> some View {
         HStack(spacing: Layout.effortRaySpacing) {
-
             ForEach(0..<level.rawValue, id: \.self) { _ in
-
                 Image(systemName: "bolt.fill")
-
             }
-
         }
-
         .font(.callout)
-
         .foregroundStyle(color)
-
     }
-
-
 
     private var recurrenceMenu: some View {
-
         Group {
-
-            Button("Mesma do cômodo") { viewModel.useRoomPeriodicity() }
-
-                .disabled(viewModel.state.draft.roomID == nil)
-
-
+            Button("Mesma do cômodo") {
+                viewModel.useRoomPeriodicity()
+            }
+            .disabled(viewModel.state.draft.roomID == nil)
 
             Divider()
 
-            recurrenceMenuButton("Diariamente", recurrence: .recurring(frequency: .daily, interval: 1))
-
-            recurrenceMenuButton("Semanalmente", recurrence: .recurring(frequency: .weekly, interval: 1))
-
-            recurrenceMenuButton("Quinzenalmente", recurrence: .recurring(frequency: .weekly, interval: 2))
-
-            recurrenceMenuButton("Mensalmente", recurrence: .recurring(frequency: .monthly, interval: 1))
-
-            recurrenceMenuButton("A cada 3 meses", recurrence: .recurring(frequency: .monthly, interval: 3))
-
-            recurrenceMenuButton("A cada 6 meses", recurrence: .recurring(frequency: .monthly, interval: 6))
-
-            recurrenceMenuButton("Anualmente", recurrence: .recurring(frequency: .yearly, interval: 1))
+            recurrenceMenuButton(
+                "Diariamente",
+                recurrence: .recurring(frequency: .daily, interval: 1)
+            )
+            recurrenceMenuButton(
+                "Semanalmente",
+                recurrence: .recurring(frequency: .weekly, interval: 1)
+            )
+            recurrenceMenuButton(
+                "Quinzenalmente",
+                recurrence: .recurring(frequency: .weekly, interval: 2)
+            )
+            recurrenceMenuButton(
+                "Mensalmente",
+                recurrence: .recurring(frequency: .monthly, interval: 1)
+            )
+            recurrenceMenuButton(
+                "A cada 3 meses",
+                recurrence: .recurring(frequency: .monthly, interval: 3)
+            )
+            recurrenceMenuButton(
+                "A cada 6 meses",
+                recurrence: .recurring(frequency: .monthly, interval: 6)
+            )
+            recurrenceMenuButton(
+                "Anualmente",
+                recurrence: .recurring(frequency: .yearly, interval: 1)
+            )
 
             Divider()
 
             Button("Personalizado") {
-
-                recurrenceSheet = .custom(viewModel.state.draft.recurrence)
-
+                recurrenceSheet = .custom(
+                    viewModel.state.draft.recurrence
+                )
             }
-
         }
-
     }
 
-
-
-    private func recurrenceMenuButton(_ title: String, recurrence: RecurrencePolicy) -> some View {
-
+    private func recurrenceMenuButton(
+        _ title: String,
+        recurrence: RecurrencePolicy
+    ) -> some View {
         Button(title) {
-
             viewModel.selectRecurrence(recurrence)
-
         }
-
     }
 
-
-
-    private func adaptiveRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-
+    private func adaptiveRow<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         let layout = dynamicTypeSize.isAccessibilitySize
-
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: DesignSystem.Spacing.small))
-
-            : AnyLayout(HStackLayout(spacing: DesignSystem.Spacing.large))
+            ? AnyLayout(
+                VStackLayout(
+                    alignment: .leading,
+                    spacing: DesignSystem.Spacing.small
+                )
+            )
+            : AnyLayout(
+                HStackLayout(
+                    spacing: DesignSystem.Spacing.large
+                )
+            )
 
         return layout {
-
             content()
-
         }
-
         .frame(maxWidth: .infinity, alignment: .leading)
-
     }
-
-
 
     private var cardBackground: some View {
-
-        RoundedRectangle(cornerRadius: Layout.cardCornerRadius, style: .continuous)
-
-            .fill(Color(uiColor: .secondarySystemGroupedBackground))
-
+        RoundedRectangle(
+            cornerRadius: Layout.cardCornerRadius,
+            style: .continuous
+        )
+        .fill(Color(uiColor: .secondarySystemGroupedBackground))
     }
 
-
-
     private var selectedRoomName: String {
-
-        guard let roomID = viewModel.state.draft.roomID,
-
-              let room = viewModel.rooms.first(where: { $0.id == roomID }) else {
-
+        guard
+            let roomID = viewModel.state.draft.roomID,
+            let room = viewModel.rooms.first(where: { $0.id == roomID })
+        else {
             return "Selecionar"
-
         }
 
         return room.name
-
     }
-
-
 
     private var selectedEffortLevel: TaskEffortLevel {
-
-        TaskEffortLevel(rawValue: viewModel.state.draft.effortPoints) ?? .light
-
+        TaskEffortLevel(
+            rawValue: viewModel.state.draft.effortPoints
+        ) ?? .light
     }
 
-
-
     private var recurrenceName: String {
-
         switch viewModel.state.draft.recurrence {
-
-        case .none: "Sem repetição"
+        case .none:
+            "Sem repetição"
 
         case let .weekly(value):
-
             value.label
 
         case let .recurring(frequency, interval):
-
-            RecurrencePresentation.name(for: frequency, interval: interval)
-
+            RecurrencePresentation.name(
+                for: frequency,
+                interval: interval
+            )
         }
-
     }
-
-
 
     private var isSaving: Bool {
-
-        if case .saving = viewModel.state { true }
-
-        else { false }
-
+        if case .saving = viewModel.state {
+            true
+        } else {
+            false
+        }
     }
 
-
-
-    private func binding<Value>(_ keyPath: WritableKeyPath<TaskDraft, Value>) -> Binding<Value> {
-
+    private func binding<Value>(
+        _ keyPath: WritableKeyPath<TaskDraft, Value>
+    ) -> Binding<Value> {
         Binding(
-
-            get: { viewModel.state.draft[keyPath: keyPath] },
-
-            set: { value in viewModel.updateDraft { $0[keyPath: keyPath] = value } }
-
+            get: {
+                viewModel.state.draft[keyPath: keyPath]
+            },
+            set: { value in
+                viewModel.updateDraft {
+                    $0[keyPath: keyPath] = value
+                }
+            }
         )
-
     }
-
-
 
     private enum RecurrenceSheet: Identifiable {
-
         case custom(RecurrencePolicy)
 
-
-
-        var id: String { "custom" }
-
+        var id: String {
+            "custom"
+        }
     }
-
 }
-
-
 
 private struct CustomRecurrenceSheet: View {
 
@@ -830,8 +693,6 @@ private struct CustomRecurrenceSheet: View {
     @State private var interval: Int
 
     @State private var executions: Int
-
-
 
     init(viewModel: TaskEditorViewModel, initialRecurrence: RecurrencePolicy) {
 
@@ -863,8 +724,6 @@ private struct CustomRecurrenceSheet: View {
 
     }
 
-
-
     var body: some View {
 
         NavigationStack {
@@ -882,8 +741,6 @@ private struct CustomRecurrenceSheet: View {
                         }
 
                     }
-
-
 
                     if frequency == .weekly {
 
@@ -911,8 +768,6 @@ private struct CustomRecurrenceSheet: View {
 
                 }
 
-
-
                 Section {
 
                     Text(recurrenceSummary)
@@ -938,8 +793,6 @@ private struct CustomRecurrenceSheet: View {
                         .accessibilityLabel("Cancelar recorrência personalizada")
 
                 }
-
-
 
                 ToolbarItem(placement: .confirmationAction) {
 
@@ -967,8 +820,6 @@ private struct CustomRecurrenceSheet: View {
 
     }
 
-
-
     private var recurrenceSummary: String {
 
         RecurrencePresentation.summary(for: frequency, interval: interval)
@@ -976,8 +827,6 @@ private struct CustomRecurrenceSheet: View {
     }
 
 }
-
-
 
 private enum RecurrencePresentation {
 
@@ -1005,8 +854,6 @@ private enum RecurrencePresentation {
 
     }
 
-
-
     static func frequencyName(for frequency: RecurrenceFrequency) -> String {
 
         switch frequency {
@@ -1022,8 +869,6 @@ private enum RecurrencePresentation {
         }
 
     }
-
-
 
     static func summary(for frequency: RecurrenceFrequency, interval: Int) -> String {
 
@@ -1046,8 +891,6 @@ private enum RecurrencePresentation {
         return "A tarefa ocorrerá a cada \(interval) \(unitName(for: frequency, interval: interval))."
 
     }
-
-
 
     static func unitName(for frequency: RecurrenceFrequency, interval: Int) -> String {
 
