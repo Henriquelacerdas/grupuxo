@@ -43,6 +43,8 @@ Conferido só na documentação (somente leitura, 2026-10-05): URL `https://grap
 | A5 | `rawPath` das rotas `/v1/...` chega exato, sem *stage* (o handler compara `rawPath` exato) | Deploy em `dev`; chamar a URL da `api` e conferir o evento |
 | A6 | Function URL com `AuthType = NONE` aceita a chamada do app e da Meta (permissões `lambda:InvokeFunctionUrl` e, se exigida, `lambda:InvokeFunction` com `InvokedViaFunctionUrl`) | Deploy em `dev`; `curl` sem credenciais AWS deve chegar na Lambda (e o 401 vir do código) |
 | A7 | Concorrência reservada nas Lambdas HTTP segura uma rajada sem estourar a conta do DynamoDB sob demanda nem o limite de leitura/escrita da tabela | Teste de carga leve em `dev` |
+| A8 | `SqsMessageQueue`: `MessageGroupId` com `+` (telefone) e `MessageDeduplicationId` com `.` e `=` (`wamid`) aceitos pela fila FIFO real; `ContentBasedDeduplication` desligada; um `sendMessage` de teste chega ao worker com o corpo que `parseIncomingMessage` lê (**não executado**) | Fila FIFO de `dev` e um envio de teste com o cliente real embrulhado, sem texto real de usuário |
+| A9 | `SecretStringReader`: `GetSecretValue` com a role de menor privilégio devolve `SecretString`; latência da 1ª busca e comportamento sob concorrência no *cold start*; nome do erro quando falta permissão (`causeName`) (**não executado**) | Segredo de teste em `dev`, role só com `secretsmanager:GetSecretValue` nesse ARN |
 
 ## 4. DynamoDB (`src/adapters/dynamodb/`, a fazer)
 

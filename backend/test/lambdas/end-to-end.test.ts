@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { SqsMessageQueue } from "../../src/adapters/aws/sqs-message-queue.ts";
 import { InMemoryRateCounter } from "../../src/adapters/in-memory/rate-counter.ts";
-import { InMemoryInboxStore, InMemoryLinkTokenStore, InMemoryMessageQueue, InMemoryWhatsAppLinkStore } from "../../src/adapters/in-memory/whatsapp.ts";
+import { InMemoryInboxStore, InMemoryLinkTokenStore, InMemoryWhatsAppLinkStore } from "../../src/adapters/in-memory/whatsapp.ts";
 import { GetMyTasksUseCase, GetRoomTasksUseCase, GetSporadicTasksUseCase } from "../../src/domain/use-cases/tasks.ts";
 import { composeCognitoVerifier, composeWhatsAppWorker, type WorkerCompositionDependencies } from "../../src/lambdas/compose.ts";
 import { parseApiSettings, parseWorkerSecrets, parseWorkerSettings } from "../../src/lambdas/config.ts";
@@ -14,6 +15,7 @@ import { WhatsAppWorker } from "../../src/whatsapp/worker.ts";
 import { CLIENT_ID, NOW, USER_POOL_ID, generateKey, signJWT } from "../auth/support.ts";
 import { World } from "../support/world.ts";
 import { APP_SECRET, VERIFY_TOKEN, sign, textEvent } from "../whatsapp/support.ts";
+import { FakeSqsClient } from "../adapters/support.ts";
 import { httpEvent, sqsEvent } from "./support.ts";
 
 const PHONE = "+5511999998888";
@@ -57,7 +59,8 @@ function setup(geminiBody: string) {
     return { ok: true, status: 200, text: async () => (url.startsWith(GEMINI) ? geminiBody : "{}") };
   };
   const { world, links, deps } = workerDeps(http);
-  const queue = new InMemoryMessageQueue();
+  const sqs = new FakeSqsClient();
+  const queue = new SqsMessageQueue({ client: sqs, queueURL: "https://sqs.sa-east-1.amazonaws.com/123456789012/grupuxo-dev.fifo" });
   const webhook = createWebhookHandler(new WebhookHandler({ verifyToken: VERIFY_TOKEN, appSecret: APP_SECRET }, queue, deps.now));
   const worker = createWorkerHandler(composeWhatsAppWorker(deps));
   const graphCalls = () => calls.filter((c) => c.url.startsWith(GRAPH));
@@ -68,8 +71,9 @@ function setup(geminiBody: string) {
     const body = textEvent({ wamid, body: text });
     const response = await webhook(httpEvent({ method: "POST", headers: { "x-hub-signature-256": sign(body) }, body, base64: true }));
     assert.equal(response.statusCode, 200);
-    const messages = queue.drain();
-    const result = await worker(sqsEvent(...messages.map((m) => ({ messageId: m.wamid, group: m.phoneE164, body: JSON.stringify(m) }))));
+    // Formato real da fila: corpo, grupo e deduplicação saem do adaptador SQS.
+    const sent = sqs.sent.splice(0);
+    const result = await worker(sqsEvent(...sent.map((m) => ({ messageId: m.messageDeduplicationID, group: m.messageGroupID, body: m.body }))));
     assert.deepEqual(result, { batchItemFailures: [] });
   }
   return { world, links, deliver, graphCalls, geminiCalls };
