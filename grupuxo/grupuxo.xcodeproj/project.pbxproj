@@ -10,8 +10,6 @@
 		41D0821B306BED31007F697D /* AWSCognitoAuthPlugin in Frameworks */ = {isa = PBXBuildFile; productRef = 41D0821A306BED31007F697D /* AWSCognitoAuthPlugin */; };
 		41D0821D306BED31007F697D /* Amplify in Frameworks */ = {isa = PBXBuildFile; productRef = 41D0821C306BED31007F697D /* Amplify */; };
 		41D0821F306BED31007F697D /* AWSAPIPlugin in Frameworks */ = {isa = PBXBuildFile; productRef = 41D0821E306BED31007F697D /* AWSAPIPlugin */; };
-		A5AC27E930583F00006C8F79 /* ARCHITECTURE.md in Resources */ = {isa = PBXBuildFile; fileRef = A5AC27E730583EE4006C8F79 /* ARCHITECTURE.md */; };
-		A5AC287330585230006C8F79 /* DESCRICAO.md in Resources */ = {isa = PBXBuildFile; fileRef = A5AC287130585225006C8F79 /* DESCRICAO.md */; };
 		A5AC2B00305E0003006C8F79 /* GrupuxoDomain in Frameworks */ = {isa = PBXBuildFile; productRef = A5AC2B00305E0001006C8F79 /* GrupuxoDomain */; };
 		A5AC2B00305E0004006C8F79 /* GrupuxoDomain in Frameworks */ = {isa = PBXBuildFile; productRef = A5AC2B00305E0002006C8F79 /* GrupuxoDomain */; };
 /* End PBXBuildFile section */
@@ -420,7 +418,7 @@
 				CODE_SIGN_ENTITLEMENTS = grupuxo/grupuxo.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
-				DEVELOPMENT_TEAM = 2DK23BZ7KB;
+				DEVELOPMENT_TEAM = ZTK9F54WV3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = grupuxo/Info.plist;
@@ -459,7 +457,7 @@
 				CODE_SIGN_ENTITLEMENTS = grupuxo/grupuxo.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 5;
-				DEVELOPMENT_TEAM = 2DK23BZ7KB;
+				DEVELOPMENT_TEAM = ZTK9F54WV3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = grupuxo/Info.plist;
@@ -630,14 +628,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A5AC2B00305E0001006C8F79 /* GrupuxoDomain */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GrupuxoDomain;
-		};
-		A5AC2B00305E0002006C8F79 /* GrupuxoDomain */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = GrupuxoDomain;
-		};
 		41D0821A306BED31007F697D /* AWSCognitoAuthPlugin */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 41D08219306BED31007F697D /* XCRemoteSwiftPackageReference "amplify-swift" */;
@@ -652,6 +642,14 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 41D08219306BED31007F697D /* XCRemoteSwiftPackageReference "amplify-swift" */;
 			productName = AWSAPIPlugin;
+		};
+		A5AC2B00305E0001006C8F79 /* GrupuxoDomain */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GrupuxoDomain;
+		};
+		A5AC2B00305E0002006C8F79 /* GrupuxoDomain */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GrupuxoDomain;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

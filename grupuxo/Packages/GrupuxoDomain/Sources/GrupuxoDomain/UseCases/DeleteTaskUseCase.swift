@@ -1,9 +1,13 @@
 import Foundation
 
-struct DeleteTaskUseCase: Sendable {
-    let repository: any TaskRepository
+public struct DeleteTaskUseCase: Sendable {
+    public let repository: any TaskRepository
 
-    func callAsFunction(taskID: TaskDefinition.ID) async throws {
+    public init(repository: any TaskRepository) {
+        self.repository = repository
+    }
+
+    public func callAsFunction(taskID: TaskDefinition.ID) async throws {
         try await repository.deleteTask(taskID)
     }
 }
