@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { RateCounter } from "../../src/whatsapp/ports.ts";
 
-// Contrato do `RateCounter`: o adaptador real (PostgreSQL ou outro) deve passar nos mesmos testes, inclusive o
+// Contrato do `RateCounter`: o adaptador DynamoDB deve passar nos mesmos testes, inclusive o
 // concorrente. Cada teste usa uma instância nova.
 
 const WINDOW = 1_700_000_000_000;

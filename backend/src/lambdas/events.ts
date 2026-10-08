@@ -1,4 +1,4 @@
-// Conversão dos eventos da AWS (API Gateway HTTP API v2 e SQS) em tipos nossos. O evento chega como `unknown`
+// Conversão dos eventos da AWS (Lambda Function URL, payload 2.0, e SQS) em tipos nossos. O evento chega como `unknown`
 // e é estreitado à mão: o que não tem a forma esperada vira `null` (o handler decide o que responder). Nenhum
 // conteúdo de mensagem, cabeçalho ou token é registrado em log.
 
@@ -13,7 +13,7 @@ export function field(record: Fields, name: string): unknown {
   return Object.hasOwn(record, name) ? record[name] : undefined;
 }
 
-/** Requisição HTTP já desacoplada do API Gateway. Os nomes dos cabeçalhos vêm em minúsculo (formato 2.0). */
+/** Requisição HTTP já desacoplada da AWS. Os nomes dos cabeçalhos vêm em minúsculo (formato 2.0). */
 export interface HttpApiRequest {
   readonly method: string;
   readonly path: string;
@@ -23,7 +23,7 @@ export interface HttpApiRequest {
   readonly body: Uint8Array;
 }
 
-/** Resposta no formato que o API Gateway HTTP API (payload 2.0) entende. */
+/** Resposta no formato que a Function URL (payload 2.0) entende. */
 export interface HttpApiResult {
   readonly statusCode: number;
   readonly headers?: Readonly<Record<string, string>>;
@@ -47,7 +47,7 @@ function parseQuery(rawQueryString: unknown, fallback: unknown): Record<string, 
   return result;
 }
 
-/** `null` se o evento não for uma requisição do API Gateway HTTP API v2 bem formada. */
+/** `null` se o evento não for uma requisição da Function URL (payload 2.0) bem formada. */
 export function parseHttpApiEvent(event: unknown): HttpApiRequest | null {
   if (!isRecord(event)) return null;
   const context = field(event, "requestContext");

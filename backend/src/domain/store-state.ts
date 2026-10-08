@@ -1,6 +1,6 @@
 import { cloneSchedulingState, type AppNotification, type House, type SchedulingState, type TaskSwapRequest, type User } from "./entities.ts";
 
-/** Estado completo de um armazenamento (hoje em memória; no futuro, o que o PostgreSQL carrega por casa). */
+/** Estado completo de um armazenamento (hoje em memória; no futuro, o que o DynamoDB carrega por casa). */
 export interface StoreState extends SchedulingState {
   users: User[];
   houses: House[];

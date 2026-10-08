@@ -90,7 +90,8 @@ final class TaskEditorViewModel: ObservableObject {
             id: UUID(), roomID: roomID, name: draft.name, details: draft.details,
             effort: TaskEffort(points: draft.effortPoints), kind: draft.kind,
             recurrence: draft.recurrence, assignmentPolicy: draft.assignmentPolicy,
-            sourceSuggestionID: draft.sourceSuggestionID
+            sourceSuggestionID: draft.sourceSuggestionID,
+            createdByUserID: requestingUserID
         )
         do {
             state = .saved(try await createTask(definition: definition, requestedBy: requestingUserID))

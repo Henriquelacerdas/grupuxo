@@ -5,8 +5,8 @@ import type { InMemoryStore } from "./store.ts";
 
 /**
  * Diretório em memória. O morador criado entra em `StoreState.users`, a mesma lista que o domínio lê (no
- * PostgreSQL, a mesma tabela `users`); só o mapa `cognito_sub → UserID` é daqui. Em JavaScript cada método
- * roda sem intercalar, então verificar e gravar (sem `await` no meio) é atômico, como o `ON CONFLICT` será.
+ * DynamoDB, o mesmo item `USER#<id>`); só o mapa `cognitoSub → UserID` é daqui. Em JavaScript cada método
+ * roda sem intercalar, então verificar e gravar (sem `await` no meio) é atômico, como o `Put` condicional será.
  */
 export class InMemoryUserDirectory implements UserDirectory {
   private readonly store: InMemoryStore;

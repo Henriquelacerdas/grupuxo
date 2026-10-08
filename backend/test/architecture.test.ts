@@ -103,6 +103,16 @@ test("as Lambdas são só composição: ambiente, relógio e rede entram por par
   assert.deepEqual(offenders, []);
 });
 
+test("o adaptador AWS não usa node:*, ambiente, relógio nem rede globais (clientes entram por parâmetro)", () => {
+  const offenders: string[] = [];
+  const forbidden = [/\bDate\.now\s*\(/, /new Date\(\s*\)/, /Math\.random/, /randomUUID/, /\bprocess\./, /(?<![.\w])fetch\s*\(/, /globalThis/, /from\s+["']node:/, /from\s+["']@aws-sdk/];
+  for (const file of sourceFiles(join(root, "src/adapters/aws"))) {
+    const text = withoutComments(readFileSync(file, "utf8"));
+    for (const pattern of forbidden) if (pattern.test(text)) offenders.push(`${file}: ${String(pattern)}`);
+  }
+  assert.deepEqual(offenders, []);
+});
+
 test("o assistente não usa node:* (só o domínio e os ports)", () => {
   const offenders = sourceFiles(join(root, "src/assistant")).filter((file) => /from\s+["']node:/.test(withoutComments(readFileSync(file, "utf8"))));
   assert.deepEqual(offenders, []);

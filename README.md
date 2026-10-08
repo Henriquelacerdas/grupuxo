@@ -2,7 +2,7 @@
 
 App iOS (SwiftUI) que distribui tarefas domésticas entre moradores de casas compartilhadas e repúblicas, equilibrando o esforço semanal e respeitando a participação de cada um nos cômodos.
 
-**Estado atual:** o app tem login (Amazon Cognito via Amplify, e-mail/senha e Sign in with Apple), mas os dados continuam mockados, sem backend de dados nem sincronização. No app, as regras de distribuição ainda rodam no dispositivo. O login ainda é só uma porta de entrada: o morador exibido vem do `MockSeed`, não da conta autenticada. O backend em Node.js + TypeScript (`backend/`) já tem o domínio e o algoritmo portados, verificados contra o Swift por fixtures de referência, e a integração com o WhatsApp (webhook, worker, vínculo por token e contratos, sem banco nem AWS ainda), conforme [docs/BACKEND.md](docs/BACKEND.md).
+**Estado atual:** o app tem login (Amazon Cognito via Amplify, e-mail/senha e Sign in with Apple), mas os dados continuam mockados, sem backend de dados nem sincronização. No app, as regras de distribuição ainda rodam no dispositivo. O login ainda é só uma porta de entrada: o morador exibido vem do `MockSeed`, não da conta autenticada. O backend em Node.js + TypeScript (`backend/`) já tem o domínio e o algoritmo portados, verificados contra o Swift por fixtures de referência, e a integração com o WhatsApp (webhook, worker, vínculo por token e contratos, tudo em memória, sem DynamoDB nem AWS ainda), conforme [docs/BACKEND.md](docs/BACKEND.md).
 
 ## Funcionalidades
 
@@ -19,7 +19,7 @@ App iOS (SwiftUI) que distribui tarefas domésticas entre moradores de casas com
 | [docs/PRODUTO.md](docs/PRODUTO.md) | Regras de produto: casa, cômodos, tarefas, férias, avaliação, roadmap |
 | [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Camadas, estrutura de pastas, navegação, repositórios, concorrência, convenções |
 | [docs/ALGORITMO.md](docs/ALGORITMO.md) | Contrato matemático da distribuição: custo, Húngaro, calendário, invariantes |
-| [docs/BACKEND.md](docs/BACKEND.md) | Backend Node.js + TypeScript, banco PostgreSQL, WhatsApp, autenticação e estado da implementação em `backend/` |
+| [docs/BACKEND.md](docs/BACKEND.md) | Backend Node.js + TypeScript, banco DynamoDB, WhatsApp, autenticação e estado da implementação em `backend/` |
 | [CLAUDE.md](CLAUDE.md) | Guia rápido para IAs e novos desenvolvedores |
 
 ## Rodando

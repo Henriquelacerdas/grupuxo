@@ -30,7 +30,7 @@ export function parseProfileName(raw: string): string | null {
   return name.length >= 1 && [...name].length <= 80 && !/\p{Cc}/u.test(name) ? name : null;
 }
 
-/** Liga a conta do Cognito (`users.cognito_sub`) ao morador do domínio. */
+/** Liga a conta do Cognito (item `COGNITO#<sub>`) ao morador do domínio. */
 export interface UserDirectory {
   /** O morador da conta, ou `null` se ela ainda não passou pelo `POST /me`. */
   userForSub(cognitoSub: CognitoSub): Promise<UserID | null>;
@@ -39,8 +39,9 @@ export interface UserDirectory {
    * Devolve o morador da conta, criando-o se for a primeira vez. Idempotente e seguro sob concorrência:
    * chamadas simultâneas com o mesmo `cognitoSub` resultam num único morador e devolvem o mesmo `UserID`. Para
    * uma conta que já existe, `profile` só é validado e não sobrescreve o nome. Lança `UserDirectoryError` se
-   * `profile` for inválido, exista a conta ou não. No PostgreSQL: `INSERT ... ON CONFLICT (cognito_sub) DO NOTHING`, seguido de
-   * `SELECT` por `cognito_sub`.
+   * `profile` for inválido, exista a conta ou não. No DynamoDB: `TransactWriteItems` com `Put` de
+   * `COGNITO#<sub>` (condição `attribute_not_exists(PK)`) e do perfil `USER#<id>`; se a condição falhar, outro
+   * pedido venceu e o `UserID` sai de um `GetItem` consistente em `COGNITO#<sub>`.
    */
   ensureUser(cognitoSub: CognitoSub, profile: UserProfile): Promise<UserID>;
 }

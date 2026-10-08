@@ -7,7 +7,8 @@ import {
 } from "../../whatsapp/ports.ts";
 
 // Em JavaScript cada método roda até o fim sem intercalar, então cada operação abaixo é atômica (sem `await`
-// entre ler e gravar), como o SQL do adaptador PostgreSQL será (`ON CONFLICT`, `UPDATE ... RETURNING`).
+// entre ler e gravar), como as escritas condicionais do adaptador DynamoDB serão (`ConditionExpression`,
+// `TransactWriteItems`).
 
 export class InMemoryInboxStore implements InboxStore {
   private readonly processedAt = new Map<string, Instant | null>();

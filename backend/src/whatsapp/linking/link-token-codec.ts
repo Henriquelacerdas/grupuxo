@@ -16,7 +16,7 @@ export function generateToken(randomBytes: RandomBytes = systemRandomBytes): str
   return Buffer.from(randomBytes(TOKEN_BYTE_COUNT)).toString("hex");
 }
 
-/** SHA-256 do token em hexadecimal minúsculo: o único valor persistido (`whatsapp_link_tokens.token_hash`). */
+/** SHA-256 do token em hexadecimal minúsculo: o único valor persistido (item `LINKTOKEN#<hash>`). */
 export function hashToken(token: string): string {
   return createHash("sha256").update(token.toLowerCase(), "utf8").digest("hex");
 }
