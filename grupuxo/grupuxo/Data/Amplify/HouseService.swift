@@ -7,8 +7,9 @@ import AWSPluginsCore
 /// Usa os models gerados pelo modelgen: HouseRecord, RoomRecord, MemberRecord.
 @MainActor
 final class HouseService: ObservableObject {
+    /// Todos os moradores têm o mesmo peso de decisão; o campo `role` do backend
+    /// é mantido apenas por compatibilidade e sempre recebe este valor.
     enum Role {
-        static let admin = "ADMIN"
         static let member = "MEMBER"
     }
 
@@ -28,7 +29,6 @@ final class HouseService: ObservableObject {
         return members.first { $0.userId == currentUserId }
     }
 
-    var isAdmin: Bool { myMember?.role == Role.admin }
 
     // Scan com filtro: o limite precisa cobrir a tabela inteira (ok para MVP).
     private let listLimit = 1000
@@ -84,7 +84,7 @@ final class HouseService: ObservableObject {
                 HouseRecord(name: houseName, inviteCode: code, ownerId: userId)
             ))
             _ = try await self.mutate(.create(
-                MemberRecord(houseId: newHouse.id, userId: userId, name: residentName, role: Role.admin)
+                MemberRecord(houseId: newHouse.id, userId: userId, name: residentName, role: Role.member)
             ))
 
             self.house = newHouse
@@ -126,13 +126,6 @@ final class HouseService: ObservableObject {
                 for member in self.members { _ = try await self.mutate(.delete(member)) }
                 _ = try await self.mutate(.delete(house))
             } else {
-                // Garante que a casa continue com um admin.
-                if me.role == Role.admin,
-                   !othersWithAccount.contains(where: { $0.role == Role.admin }),
-                   var heir = othersWithAccount.first {
-                    heir.role = Role.admin
-                    _ = try await self.mutate(.update(heir))
-                }
                 _ = try await self.mutate(.delete(me))
             }
             self.clearHouse()
@@ -141,10 +134,10 @@ final class HouseService: ObservableObject {
 
     // MARK: - Cômodos
 
-    func addRoom(name: String) async {
+    func addRoom(name: String, id: String = UUID().uuidString) async {
         guard let house, !name.trimmed.isEmpty else { return }
         await perform {
-            let room = try await self.mutate(.create(RoomRecord(houseId: house.id, name: name.trimmed)))
+            let room = try await self.mutate(.create(RoomRecord(id: id, houseId: house.id, name: name.trimmed)))
             self.rooms.append(room)
             self.rooms.sort { $0.name.localizedCompare($1.name) == .orderedAscending }
         }
@@ -173,7 +166,7 @@ final class HouseService: ObservableObject {
 
     /// Adiciona morador sem conta (userId vazio).
     func addResident(name: String) async {
-        guard let house, isAdmin, !name.trimmed.isEmpty else { return }
+        guard let house, !name.trimmed.isEmpty else { return }
         await perform {
             let member = try await self.mutate(.create(
                 MemberRecord(houseId: house.id, userId: nil, name: name.trimmed, role: Role.member)
@@ -183,22 +176,10 @@ final class HouseService: ObservableObject {
     }
 
     func removeMember(_ member: MemberRecord) async {
-        guard isAdmin, member.id != myMember?.id else { return }
+        guard member.id != myMember?.id else { return }
         await perform {
             _ = try await self.mutate(.delete(member))
             self.members.removeAll { $0.id == member.id }
-        }
-    }
-
-    func setRole(_ member: MemberRecord, admin: Bool) async {
-        guard isAdmin, member.userId != nil, member.id != myMember?.id else { return }
-        await perform {
-            var updated = member
-            updated.role = admin ? Role.admin : Role.member
-            let saved = try await self.mutate(.update(updated))
-            if let index = self.members.firstIndex(where: { $0.id == saved.id }) {
-                self.members[index] = saved
-            }
         }
     }
 
@@ -223,9 +204,8 @@ final class HouseService: ObservableObject {
         async let roomList = list(RoomRecord.self, where: RoomRecord.keys.houseId == houseId)
         async let memberList = list(MemberRecord.self, where: MemberRecord.keys.houseId == houseId)
         rooms = try await roomList.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
-        members = try await memberList.sorted { lhs, rhs in
-            if lhs.role != rhs.role { return lhs.role == Role.admin }
-            return lhs.name.localizedCompare(rhs.name) == .orderedAscending
+        members = try await memberList.sorted {
+            $0.name.localizedCompare($1.name) == .orderedAscending
         }
     }
 

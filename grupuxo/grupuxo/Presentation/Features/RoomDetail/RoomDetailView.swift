@@ -50,6 +50,13 @@ struct RoomDetailView: View {
                         TaskRow(item: item, canComplete: viewModel.canComplete(item)) {
                             Task { await viewModel.complete(item.id) }
                         }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                Task { await viewModel.delete(taskID: item.definition.id) }
+                            } label: {
+                                Label("Apagar", systemImage: "trash")
+                            }
+                        }
                     }
                 }
             case .empty:

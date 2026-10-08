@@ -18,6 +18,7 @@ final class RoomDetailViewModel: ObservableObject {
     private let getRoomTasks: GetRoomTasksUseCase
     private let getTaskSuggestions: GetTaskSuggestionsUseCase
     private let completeTask: CompleteTaskUseCase
+    private let deleteTask: DeleteTaskUseCase
     private let roomID: Room.ID
     private let userID: User.ID
 
@@ -28,6 +29,7 @@ final class RoomDetailViewModel: ObservableObject {
         getRoomTasks: GetRoomTasksUseCase,
         getTaskSuggestions: GetTaskSuggestionsUseCase,
         completeTask: CompleteTaskUseCase,
+        deleteTask: DeleteTaskUseCase,
         roomID: Room.ID,
         userID: User.ID
     ) {
@@ -37,6 +39,7 @@ final class RoomDetailViewModel: ObservableObject {
         self.getRoomTasks = getRoomTasks
         self.getTaskSuggestions = getTaskSuggestions
         self.completeTask = completeTask
+        self.deleteTask = deleteTask
         self.roomID = roomID
         self.userID = userID
     }
@@ -109,5 +112,14 @@ final class RoomDetailViewModel: ObservableObject {
             try await completeTask(occurrenceID: occurrenceID, userID: userID, isCompleted: !item.occurrence.isCompleted)
             await load()
         } catch { actionError = error.localizedDescription }
+    }
+
+    func delete(taskID: TaskDefinition.ID) async {
+        do {
+            try await deleteTask(taskID: taskID)
+            await load()
+        } catch {
+            actionError = error.localizedDescription
+        }
     }
 }

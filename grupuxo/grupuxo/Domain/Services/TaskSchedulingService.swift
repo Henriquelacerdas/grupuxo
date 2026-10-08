@@ -30,7 +30,7 @@ struct TaskSchedulingService: Sendable {
         self.calendar = calendar
     }
 
-    func create(_ input: TaskDefinition, at date: Date, state: inout TaskSchedulingState) throws -> TaskDefinition {
+    func create(_ input: TaskDefinition, requestedBy userID: User.ID, at date: Date, state: inout TaskSchedulingState) throws -> TaskDefinition {
         if let existing = state.definitions.first(where: { $0.id == input.id }) { return existing }
         guard !input.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw DomainError.invalidTaskName
@@ -49,7 +49,7 @@ struct TaskSchedulingService: Sendable {
             guard definition.recurrence == .none, definition.assignmentPolicy == .selfAssigned else {
                 throw DomainError.invalidSchedule
             }
-            appendOccurrence(definition: definition, date: date, dueAt: nil, userID: nil, state: &state)
+            appendOccurrence(definition: definition, date: date, dueAt: nil, userID: userID, state: &state)
         } else {
             guard definition.assignmentPolicy != .selfAssigned else { throw DomainError.invalidSchedule }
             if definition.assignmentPolicy == .afterCompletion {
@@ -94,6 +94,16 @@ struct TaskSchedulingService: Sendable {
             try rebalance(houseID: houseID, boundary: boundary, at: date, state: &state)
         }
         return state.definitions.first { $0.id == definition.id }!
+    }
+
+    func deleteTask(_ taskID: TaskDefinition.ID, state: inout TaskSchedulingState) throws {
+        guard let index = state.definitions.firstIndex(where: { $0.id == taskID }) else {
+            throw DomainError.entityNotFound
+        }
+        state.definitions.remove(at: index)
+        let occurrenceIDs = Set(state.occurrences.filter { $0.taskDefinitionID == taskID }.map(\.id))
+        state.occurrences.removeAll { occurrenceIDs.contains($0.id) }
+        state.assignments.removeAll { occurrenceIDs.contains($0.occurrenceID) }
     }
 
     func complete(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date,

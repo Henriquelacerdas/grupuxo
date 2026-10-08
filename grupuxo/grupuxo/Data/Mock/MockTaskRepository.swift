@@ -94,7 +94,7 @@ struct MockTaskRepository: TaskRepository {
             guard let room = state.rooms.first(where: { $0.id == definition.roomID }),
                   state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }),
                   state.roomMemberships.contains(where: { $0.roomID == room.id && $0.userID == userID && $0.isCurrent }) else { throw DomainError.taskUnavailable }
-            let created = try scheduling.create(definition, at: date, state: &schedule)
+            let created = try scheduling.create(definition, requestedBy: userID, at: date, state: &schedule)
             state.schedule = schedule
             return created
         }
@@ -198,6 +198,14 @@ struct MockTaskRepository: TaskRepository {
                 throw DomainError.entityNotFound
             }
             state.occurrences[occurrenceIndex].status = .available
+        }
+    }
+
+    func deleteTask(_ taskID: TaskDefinition.ID) async throws {
+        try await store.update { state in
+            var schedule = state.schedule
+            try scheduling.deleteTask(taskID, state: &schedule)
+            state.schedule = schedule
         }
     }
 

@@ -7,17 +7,21 @@ struct MyTasksView: View {
     let onRequestSwap: (TaskOccurrence.ID) -> Void
     let onSelectNotifications: () -> Void
     let onSelectProfile: () -> Void
+    /// Muda quando a aba volta a ficar ativa, forçando um novo carregamento.
+    let reloadTrigger: AnyHashable
 
     init(
         viewModel: MyTasksViewModel,
         onRequestSwap: @escaping (TaskOccurrence.ID) -> Void,
         onSelectNotifications: @escaping () -> Void,
-        onSelectProfile: @escaping () -> Void
+        onSelectProfile: @escaping () -> Void,
+        reloadTrigger: AnyHashable = 0
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.onRequestSwap = onRequestSwap
         self.onSelectNotifications = onSelectNotifications
         self.onSelectProfile = onSelectProfile
+        self.reloadTrigger = reloadTrigger
     }
 
     var body: some View {
@@ -92,8 +96,12 @@ struct MyTasksView: View {
                 )
             }
         }
-        .task {
-            await viewModel.load()
+        .task(id: reloadTrigger) {
+            if case .idle = viewModel.state {
+                await viewModel.load()
+            } else {
+                await viewModel.load(showLoading: false)
+            }
         }
         .alert(
             "Não foi possível atualizar a tarefa",

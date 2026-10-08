@@ -115,6 +115,24 @@ enum MockSeed {
         privateOffice
     ]
 
+    /// Estado sem nenhum dado fictício: o app preenche a partir da casa real.
+    nonisolated static func empty() -> MockStore.State {
+        MockStore.State(
+            users: [],
+            houses: [],
+            houseMemberships: [],
+            rooms: [],
+            roomMemberships: [],
+            definitions: [],
+            occurrences: [],
+            assignments: [],
+            absences: [],
+            taskSwapRequests: [],
+            notifications: []
+        )
+    }
+
+    /// Dados fictícios usados somente como fixture dos testes.
     nonisolated static func make() -> MockStore.State {
 
         let seededRooms = rooms
@@ -254,6 +272,7 @@ enum MockSeed {
             for definition in definitions {
                 _ = try scheduling.create(
                     definition,
+                    requestedBy: currentUser.id,
                     at: start,
                     state: &schedule
                 )

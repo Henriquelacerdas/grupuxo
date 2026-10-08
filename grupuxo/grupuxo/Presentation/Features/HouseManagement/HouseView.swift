@@ -157,13 +157,6 @@ struct HouseView: View {
                         }
                     }
                     .contextMenu {
-                        if houses.isAdmin, member.userId != nil, member.id != houses.myMember?.id {
-                            let isAdmin = member.role == HouseService.Role.admin
-                            Button(isAdmin ? "Tornar morador" : "Tornar administrador",
-                                   systemImage: isAdmin ? "person" : "star") {
-                                Task { await houses.setRole(member, admin: !isAdmin) }
-                            }
-                        }
                         if canRemove(member) {
                             Button("Remover", systemImage: "person.badge.minus", role: .destructive) {
                                 memberToRemove = member
@@ -171,34 +164,30 @@ struct HouseView: View {
                         }
                     }
             }
-            if houses.isAdmin {
-                HStack {
-                    TextField("Morador sem conta (nome)", text: $newResidentName)
-                        .textContentType(.name)
-                        .textInputAutocapitalization(.words)
-                        .focused($focus, equals: .resident)
-                        .submitLabel(.done)
-                        .onSubmit(addResident)
-                    Button("Adicionar", systemImage: "person.crop.circle.badge.plus", action: addResident)
-                        .labelStyle(.iconOnly)
-                        .font(.title3)
-                        .buttonStyle(.borderless)
-                        .disabled(newResidentName.isBlank || houses.isLoading)
-                }
+            HStack {
+                TextField("Morador sem conta (nome)", text: $newResidentName)
+                    .textContentType(.name)
+                    .textInputAutocapitalization(.words)
+                    .focused($focus, equals: .resident)
+                    .submitLabel(.done)
+                    .onSubmit(addResident)
+                Button("Adicionar", systemImage: "person.crop.circle.badge.plus", action: addResident)
+                    .labelStyle(.iconOnly)
+                    .font(.title3)
+                    .buttonStyle(.borderless)
+                    .disabled(newResidentName.isBlank || houses.isLoading)
             }
         } header: {
             Text("Moradores (\(houses.members.count))")
         } footer: {
-            Text(houses.isAdmin
-                 ? "Moradores com conta entram pelo código. Use o campo acima para quem não usa o app."
-                 : "Só administradores podem adicionar ou remover moradores.")
+            Text("Moradores com conta entram pelo código. Use o campo acima para quem não usa o app.")
         }
     }
 
     // MARK: - Ações
 
     private func canRemove(_ member: MemberRecord) -> Bool {
-        houses.isAdmin && member.id != houses.myMember?.id
+        member.id != houses.myMember?.id
     }
 
     private func addRoom() {
@@ -238,13 +227,6 @@ private struct MemberRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            if member.role == HouseService.Role.admin {
-                Text("Admin")
-                    .font(.caption.bold())
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(.tint.opacity(0.15)))
-            }
         }
         .accessibilityElement(children: .combine)
     }
