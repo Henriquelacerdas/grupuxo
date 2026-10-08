@@ -144,24 +144,43 @@ final class AppContainer {
     func makeSporadicTasksViewModel(
         session: AppSession
     ) -> SporadicTasksViewModel {
+
         SporadicTasksViewModel(
-            getTasks: GetSporadicTasksUseCase(
-                repository: taskRepository
-            ),
-            claimTask: ClaimSporadicTaskUseCase(
-                repository: taskRepository
-            ),
-            releaseTask: ReleaseSporadicTaskUseCase(
-                repository: taskRepository
-            ),
-            completeTask: CompleteTaskUseCase(
-                repository: taskRepository
-            ),
-            userID: session.currentUser.id,
-            houseID: session.currentHouse.id
+            getTasks:
+                GetSporadicTasksUseCase(
+                    repository: taskRepository
+                ),
+            getRooms:
+                GetHouseRoomsUseCase(
+                    repository: roomRepository
+                ),
+            getMembers:
+                GetHouseMembersUseCase(
+                    repository: houseRepository
+                ),
+            claimTask:
+                ClaimSporadicTaskUseCase(
+                    repository: taskRepository
+                ),
+            releaseTask:
+                ReleaseSporadicTaskUseCase(
+                    repository: taskRepository
+                ),
+            deleteTask:
+                DeleteSporadicTaskUseCase(
+                    repository: taskRepository
+                ),
+            completeTask:
+                CompleteTaskUseCase(
+                    repository: taskRepository
+                ),
+            userID:
+                session.currentUser.id,
+            houseID:
+                session.currentHouse.id
         )
     }
-
+    
     func makeTaskEditorViewModel(
         roomID: Room.ID?,
         session: AppSession

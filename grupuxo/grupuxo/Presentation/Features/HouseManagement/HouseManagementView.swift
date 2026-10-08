@@ -78,6 +78,7 @@ struct HouseManagementView: View {
         .toolbar {
 
             ToolbarItemGroup(placement: .topBarTrailing) {
+
                 Button {
                     isPresentingRoomCreationSheet = true
                 } label: {
@@ -86,7 +87,10 @@ struct HouseManagementView: View {
                 .accessibilityLabel("Adicionar cômodo")
                 .accessibilityIdentifier("createRoom")
 
-                Button("Adicionar tarefa", systemImage: "plus") {
+                Button(
+                    "Adicionar tarefa",
+                    systemImage: "plus"
+                ) {
                     isPresentingTaskCreationSheet = true
                 }
                 .accessibilityIdentifier("createTask")
@@ -100,7 +104,7 @@ struct HouseManagementView: View {
             TaskCreationSheetView(
                 viewModel: makeTaskEditorViewModel()
             )
-            .presentationDragIndicator(.hidden)
+            .presentationDragIndicator(.visible)
         }
 
         .sheet(
@@ -114,13 +118,13 @@ struct HouseManagementView: View {
         ) {
 
             RoomCreationSheetView(
-                viewModel: makeRoomEditorViewModel()
+                viewModel: makeRoomEditorViewModel(),
+                existingRoomNames: existingRoomNames
             )
             .presentationDragIndicator(.hidden)
         }
 
         .task {
-
             await viewModel.load()
         }
 
@@ -152,8 +156,17 @@ struct HouseManagementView: View {
                 Button {
                     onSelectRoom(room.id)
                 } label: {
-                    HStack(spacing: DesignSystem.contentSpacing) {
-                        RoomIconView(icon: room.icon, color: room.color, size: 40)
+
+                    HStack(
+                        spacing: DesignSystem.contentSpacing
+                    ) {
+
+                        RoomIconView(
+                            icon: room.icon,
+                            color: room.color,
+                            size: 40
+                        )
+
                         Text(room.name)
                             .foregroundStyle(.primary)
                     }
@@ -173,6 +186,21 @@ struct HouseManagementView: View {
                 systemImage: "exclamationmark.triangle"
             )
             .foregroundStyle(.red)
+        }
+    }
+
+    private var existingRoomNames: [String] {
+
+        switch viewModel.state {
+
+        case let .content(rooms):
+            return rooms.map(\.name)
+
+        case .idle,
+             .loading,
+             .empty,
+             .failure:
+            return []
         }
     }
 }
