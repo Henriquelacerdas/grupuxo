@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Backend do Grupuxo: domínio, algoritmo de distribuição e canal WhatsApp",
-  "engines": { "node": ">=22.18" },
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
@@ -13,5 +15,9 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1147.0",
+    "@aws-sdk/lib-dynamodb": "^3.1147.0"
   }
 }

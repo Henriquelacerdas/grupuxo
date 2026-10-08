@@ -1,5 +1,5 @@
 import { GetCommand, PutCommand, DeleteCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
-import { WhatsAppLinkError } from "../../whatsapp/ports.js"; // Ajuste o caminho se necessário
+import { WhatsAppLinkError } from "../../whatsapp/ports.ts"; // Ajuste o caminho se necessário
 
 export class DynamoWhatsAppLinkStore {
   constructor(dbClient) {
