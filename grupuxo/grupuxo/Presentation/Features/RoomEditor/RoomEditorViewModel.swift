@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import GrupuxoDomain
 
 @MainActor
 final class RoomEditorViewModel: ObservableObject {
@@ -13,6 +14,8 @@ final class RoomEditorViewModel: ObservableObject {
     private let creatorUserID: User.ID
     private let getMembers: GetHouseMembersUseCase?
     private let onCreated: (@MainActor (Room) async -> Void)?
+
+    var maximumResponsibleCount: Int { max(1, residents.count) }
 
     var canSave: Bool {
         !state.draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -33,6 +36,7 @@ final class RoomEditorViewModel: ObservableObject {
         self.onCreated = onCreated
         var draft = draft
         draft.selectedParticipantIDs.insert(creatorUserID)
+        draft.responsibleCount = 1
         state = .editing(draft)
     }
 
@@ -43,7 +47,10 @@ final class RoomEditorViewModel: ObservableObject {
         isLoadingResidents = true
         residentsError = nil
         defer { isLoadingResidents = false }
-        do { residents = try await getMembers(houseID: houseID, userID: creatorUserID) }
+        do {
+            residents = try await getMembers(houseID: houseID, userID: creatorUserID)
+            updateDraft { _ in }
+        }
         catch { residentsError = error.localizedDescription }
     }
 
@@ -51,6 +58,7 @@ final class RoomEditorViewModel: ObservableObject {
         if case .saving = state { return }
         var draft = state.draft
         update(&draft)
+        draft.responsibleCount = min(max(1, draft.responsibleCount), maximumResponsibleCount)
         draft.periodicity.executionsPerPeriod = min(
             draft.periodicity.executionsPerPeriod, draft.periodicity.intervalWeeks * 7
         )

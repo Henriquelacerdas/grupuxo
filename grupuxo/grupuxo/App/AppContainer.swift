@@ -1,4 +1,5 @@
 import Foundation
+import GrupuxoDomain
 
 /// Retrato da casa real (Amplify) usado para alimentar o store em memória.
 struct HouseSnapshot: Sendable {
@@ -273,24 +274,43 @@ final class AppContainer {
     func makeSporadicTasksViewModel(
         session: AppSession
     ) -> SporadicTasksViewModel {
+
         SporadicTasksViewModel(
-            getTasks: GetSporadicTasksUseCase(
-                repository: taskRepository
-            ),
-            claimTask: ClaimSporadicTaskUseCase(
-                repository: taskRepository
-            ),
-            releaseTask: ReleaseSporadicTaskUseCase(
-                repository: taskRepository
-            ),
-            completeTask: CompleteTaskUseCase(
-                repository: taskRepository
-            ),
-            userID: session.currentUser.id,
-            houseID: session.currentHouse.id
+            getTasks:
+                GetSporadicTasksUseCase(
+                    repository: taskRepository
+                ),
+            getRooms:
+                GetHouseRoomsUseCase(
+                    repository: roomRepository
+                ),
+            getMembers:
+                GetHouseMembersUseCase(
+                    repository: houseRepository
+                ),
+            claimTask:
+                ClaimSporadicTaskUseCase(
+                    repository: taskRepository
+                ),
+            releaseTask:
+                ReleaseSporadicTaskUseCase(
+                    repository: taskRepository
+                ),
+            deleteTask:
+                DeleteSporadicTaskUseCase(
+                    repository: taskRepository
+                ),
+            completeTask:
+                CompleteTaskUseCase(
+                    repository: taskRepository
+                ),
+            userID:
+                session.currentUser.id,
+            houseID:
+                session.currentHouse.id
         )
     }
-
+    
     func makeTaskEditorViewModel(
         roomID: Room.ID?,
         session: AppSession
@@ -341,6 +361,24 @@ final class AppContainer {
         )
     }
 
+    func makeTaskDetailViewModel(
+        taskDefinitionID: TaskDefinition.ID,
+        session: AppSession
+    ) -> TaskDetailViewModel {
+
+        TaskDetailViewModel(
+            getTaskDefinition: GetTaskDefinitionUseCase(
+                repository: taskRepository
+            ),
+            updateTaskDetails: UpdateTaskDetailsUseCase(
+                repository: taskRepository
+            ),
+            taskDefinitionID: taskDefinitionID,
+            userID: session.currentUser.id
+        )
+
+    }
+
     func makeRoomEditorViewModel(
         session: AppSession,
         onCreated: (@MainActor (Room) async -> Void)? = nil
@@ -359,7 +397,26 @@ final class AppContainer {
             onCreated: onCreated
         )
     }
+    func makeNotificationsViewModel(
+        session: AppSession
+    ) -> NotificationsViewModel {
 
+        NotificationsViewModel(
+            getNotifications:
+                GetNotificationsUseCase(
+                    repository:
+                        notificationRepository
+                ),
+            markNotificationAsRead:
+                MarkNotificationAsReadUseCase(
+                    repository:
+                        notificationRepository
+                ),
+            userID:
+                session.currentUser.id
+        )
+
+    }
     // MARK: - Troca de tarefas
 
     func makeTaskSwapViewModel(

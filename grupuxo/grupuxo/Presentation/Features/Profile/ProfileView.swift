@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import GrupuxoDomain
 
 @MainActor
 final class ProfileViewModel: ObservableObject {

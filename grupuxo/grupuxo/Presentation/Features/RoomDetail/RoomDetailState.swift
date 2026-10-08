@@ -1,3 +1,5 @@
+import GrupuxoDomain
+
 struct RoomDetailContent: Equatable {
     let room: Room
     let tasks: [TaskItem]

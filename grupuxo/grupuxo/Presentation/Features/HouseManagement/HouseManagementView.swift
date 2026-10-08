@@ -1,4 +1,5 @@
 import SwiftUI
+import GrupuxoDomain
 
 struct HouseManagementView: View {
 
@@ -99,7 +100,7 @@ struct HouseManagementView: View {
             TaskCreationSheetView(
                 viewModel: makeTaskEditorViewModel()
             )
-            .presentationDragIndicator(.hidden)
+            .presentationDragIndicator(.visible)
         }
 
         .sheet(

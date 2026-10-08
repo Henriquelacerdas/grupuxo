@@ -1,21 +1,60 @@
 # grupuxo
 
-Aplicativo iOS para distribuir tarefas domésticas, considerando esforço semanal e participação nos cômodos.
+App iOS (SwiftUI) que distribui tarefas domésticas entre moradores de casas compartilhadas e repúblicas, equilibrando o esforço semanal e respeitando a participação de cada um nos cômodos.
 
-- [Descrição do produto](grupuxo/DESCRICAO.md)
-- [Arquitetura](grupuxo/ARCHITECTURE.md)
-- [Algoritmo e política de entrada/saída](grupuxo/ALGORITHM.md)
+**Estado atual:** o app tem login (Amazon Cognito via Amplify, e-mail/senha e Sign in with Apple), mas os dados continuam mockados, sem backend de dados nem sincronização. No app, as regras de distribuição ainda rodam no dispositivo. O login ainda é só uma porta de entrada: o morador exibido vem do `MockSeed`, não da conta autenticada. O backend em Node.js + TypeScript (`backend/`) já tem o domínio e o algoritmo portados, verificados contra o Swift por fixtures de referência, e a integração com o WhatsApp (webhook, worker, vínculo por token e contratos, tudo em memória, sem DynamoDB nem AWS ainda), conforme [docs/BACKEND.md](docs/BACKEND.md).
 
-Cômodos comuns incluem todos os moradores. Cômodos privados são visíveis para a casa, têm entrada livre e restringem tarefas aos participantes. Sair de um cômodo comum o torna privado; a última saída exige confirmação e exclui o cômodo e suas tarefas. Casa toda permanece comum e não permite saída individual.
+## Funcionalidades
 
-Cada cômodo repete n execuções a cada x semanas e tem uma quantidade configurável de responsáveis. Tarefas de mesma periodicidade compartilham essa escala: distribuição gulosa entre responsáveis e ordenação pelo Húngaro respeitam o vínculo. Entradas e saídas reequilibram a casa a partir da próxima segunda-feira, preservando pendências anteriores e seu acesso específico. A persistência usa repositórios mockados; os fluxos estão disponíveis na interface.
+- **Minhas tarefas:** tarefas atribuídas ao usuário, conclusão e pedido de troca com outro morador.
+- **Gerenciar casa:** cômodos (comuns e privados), criação/edição de tarefas, sugestões de tarefas por tipo de cômodo e card de tarefas esporádicas.
+- **Distribuição automática:** rotação por calendário ou por conclusão, com fila otimizada pelo Algoritmo Húngaro e saldo de justiça.
+- **Entrada e saída** de moradores na casa e nos cômodos, com reequilíbrio a partir da próxima segunda-feira.
+- **Notificações** (trocas de tarefa) e **Configurações** (moradores da casa).
+
+## Documentação
+
+| Documento | Conteúdo |
+| --- | --- |
+| [docs/PRODUTO.md](docs/PRODUTO.md) | Regras de produto: casa, cômodos, tarefas, férias, avaliação, roadmap |
+| [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Camadas, estrutura de pastas, navegação, repositórios, concorrência, convenções |
+| [docs/ALGORITMO.md](docs/ALGORITMO.md) | Contrato matemático da distribuição: custo, Húngaro, calendário, invariantes |
+| [docs/BACKEND.md](docs/BACKEND.md) | Backend Node.js + TypeScript, banco DynamoDB, WhatsApp, autenticação e estado da implementação em `backend/` |
+| [CLAUDE.md](CLAUDE.md) | Guia rápido para IAs e novos desenvolvedores |
+
+## Rodando
+
+Requisitos: Xcode com o SDK e o runtime iOS 26.5 (deployment target do app: iOS 26.5, Swift 6).
+
+1. Abra `grupuxo/grupuxo.xcodeproj`.
+2. Selecione o scheme `grupuxo` e um simulador iPhone.
+3. Execute (⌘R). Os dados de demonstração são gerados na inicialização por `MockSeed`.
 
 ## Testes
-
-Com Xcode e o runtime iOS 26.5 instalados:
 
 ```sh
 xcodebuild test -project grupuxo/grupuxo.xcodeproj -scheme grupuxo \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
   -only-testing:grupuxoTests
 ```
+
+A suíte do app fica em `grupuxo/grupuxoTests`. O domínio Swift puro roda com SwiftPM:
+
+```sh
+swift test --package-path grupuxo/Packages/GrupuxoDomain
+```
+
+O backend TypeScript (Node 22.18 ou superior) tem testes unitários, de contrato e fixtures de referência geradas a partir do domínio Swift:
+
+```sh
+cd backend
+npm install          # só dev-dependencies (typescript e @types/node)
+npm run typecheck
+npm test
+```
+
+Para regenerar as fixtures depois de mudar o algoritmo (precisa do toolchain Swift): `backend/tools/swift-fixtures/regenerate.sh`.
+
+## Roadmap
+
+Ver "Roadmap e decisões abertas" em [docs/PRODUTO.md](docs/PRODUTO.md).
