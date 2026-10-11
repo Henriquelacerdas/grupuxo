@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import {
   clearSecrets, dryRunHttp, out, parseCli, recording, registerSecret, runMain, safeScalar, scrub, setOutput, shapeOf,
-  UsageError,
+  UsageError, type Recorded,
 } from "./common.ts";
 import { buildGeminiHandlers, GEMINI_ITEMS } from "./gemini.ts";
-import { buildGraphHandlers, GRAPH_ITEMS } from "./graph.ts";
+import { buildGraphHandlers, g1Conclusion, GRAPH_ITEMS } from "./graph.ts";
 
 // Roda com `node --test tools/validate/` (fora do `npm test`). Nenhum teste toca a rede: tudo usa `--dry-run`.
 
@@ -70,6 +70,29 @@ describe("linha de comando", () => {
     } finally {
       if (saved !== undefined) process.env["WHATSAPP_TOKEN"] = saved;
     }
+  });
+});
+
+describe("conclusão do G1", () => {
+  const rejected = (code: number): Recorded => ({ status: 400, ms: 1, apiVersion: null, body: JSON.stringify({ error: { code, type: "OAuthException" } }) });
+  const accepted: Recorded = { status: 200, ms: 1, apiVersion: null, body: "{}" };
+
+  it("duas recusas iguais (ex.: 131030, fora da lista permitida) não concluem nada sobre o formato", () => {
+    assert.match(g1Conclusion(rejected(131030), rejected(131030)), /^inconclusivo: .*mesmo erro/);
+  });
+
+  it("forma que nem chegou à rede deixa o resultado inconclusivo", () => {
+    assert.match(g1Conclusion(null, rejected(131030)), /^inconclusivo: .*não chegou à rede/);
+  });
+
+  it("recusas por erros diferentes continuam inconclusivas", () => {
+    assert.match(g1Conclusion(rejected(131030), rejected(100)), /^inconclusivo: .*erros diferentes/);
+  });
+
+  it("conclui só quando alguma forma foi aceita", () => {
+    assert.equal(g1Conclusion(accepted, accepted), "as duas formas foram aceitas");
+    assert.equal(g1Conclusion(accepted, rejected(100)), "só a forma com + foi aceita");
+    assert.equal(g1Conclusion(rejected(100), accepted), "só a forma sem + foi aceita");
   });
 });
 

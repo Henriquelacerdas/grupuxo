@@ -134,6 +134,24 @@ function succeeded(recorded: Recorded | null): boolean {
   return recorded !== null && recorded.status >= 200 && recorded.status < 300;
 }
 
+function graphErrorCode(recorded: Recorded): string {
+  return safeScalar(field(field(parseJson(recorded.body), "error"), "code"));
+}
+
+/** Só conclui sobre o formato do `to` quando pelo menos uma das formas foi aceita. */
+export function g1Conclusion(withPlus: Recorded | null, withoutPlus: Recorded | null): string {
+  const plusOk = succeeded(withPlus);
+  const plainOk = succeeded(withoutPlus);
+  if (plusOk && plainOk) return "as duas formas foram aceitas";
+  if (plusOk) return "só a forma com + foi aceita";
+  if (plainOk) return "só a forma sem + foi aceita";
+  if (withPlus === null || withoutPlus === null) return "inconclusivo: uma das formas não chegou à rede";
+  if (withPlus.status === withoutPlus.status && graphErrorCode(withPlus) === graphErrorCode(withoutPlus)) {
+    return "inconclusivo: as duas formas foram recusadas com o mesmo erro, então o formato do `to` não foi avaliado";
+  }
+  return "inconclusivo: as duas formas foram recusadas por erros diferentes (veja os status acima)";
+}
+
 export function buildGraphHandlers(dryRun: boolean, rec: Recording | undefined = undefined): Handlers {
   const recorder = rec ?? recording(dryRun ? dryRunHttp() : fetchHttp);
   const ctx: Context = {
@@ -152,7 +170,7 @@ export function buildGraphHandlers(dryRun: boolean, rec: Recording | undefined =
       if (withPlus !== null) out(`[G1a] wa_id: ${waIdRelation(digitsOf(to), withPlus.body)}`);
       const withoutPlus = await viaRaw(ctx, "G1b sem +", messageBody(digitsOf(to), "[validacao G1b] to sem +", true));
       if (withoutPlus !== null) out(`[G1b] wa_id: ${waIdRelation(digitsOf(to), withoutPlus.body)}`);
-      out(`[G1] conclusão: ${succeeded(withPlus) && succeeded(withoutPlus) ? "as duas formas foram aceitas" : "as formas diferem (veja os status acima)"}`);
+      out(`[G1] conclusão: ${g1Conclusion(withPlus, withoutPlus)}`);
       out("[G1] confira no aparelho de teste se chegaram as mensagens G1a e G1b");
     },
 
