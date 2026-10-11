@@ -228,7 +228,6 @@ export async function createRoomPermission(roomId, permissionData) {
 
             // Atributos da tabela
             id: permissionData.id,
-            rating: permissionData.rating,
             submitted_at: permissionData.submittedAt || new Date().toISOString(),
             period_start: permissionData.periodStart,
             period_end: permissionData.periodEnd

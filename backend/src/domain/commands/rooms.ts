@@ -9,6 +9,9 @@ import { isValidPeriodicity } from "../value-objects.ts";
 import type { StoreState } from "../store-state.ts";
 import { schedulingFor, type CommandContext } from "./context.ts";
 
+import { createHouse, createRoom, createTask, addUserToHouse, addUserToRoom, createTaskOccurence, updateFairnessBalance, createVacation, createNotification, createRoomPermission, createTaskQueueSlot } from "../../adapters/database/create.js";
+import { getHouseMembers, getUserProfile, getTasksByRoom, getUsersInRoom, getTaskOccurrences, getHouseFairnessBalances, getUserVacations, getUserNotifications, getRoomPermissions, getTaskQueueSlots } from "../../adapters/database/search.js";
+
 /** Versões da escala contêm IDs de tarefas: não atravessam a fronteira de acesso do cômodo. */
 function visibleRoom(room: Room, userID: UserID, state: StoreState): Room {
   const isMember = state.roomMemberships.some((m) => m.roomID === room.id && m.userID === userID && isCurrentMember(m));
@@ -37,7 +40,8 @@ export function roomsFor(state: StoreState, houseID: HouseID, userID: UserID): R
 export function roomParticipation(
   ctx: CommandContext, state: StoreState, roomID: RoomID, userID: UserID, date: Instant,
 ): RoomParticipation {
-  const room = state.rooms.find((r) => r.id === roomID);
+  getUsersInRoom(roomId: RoomID);
+//  const room = state.rooms.find((r) => r.id === roomID);
   if (room === undefined) throw new DomainError("entityNotFound");
   requireHouseMember(state, room.houseID, userID);
   const scheduling = schedulingFor(ctx, state, room.houseID);
@@ -68,14 +72,15 @@ export function roomParticipation(
 export function createRoom(
   ctx: CommandContext, state: StoreState, room: Room, memberships: readonly RoomMembership[], now: Instant,
 ): Room {
-  const users = new Set(state.houseMemberships.filter((m) => m.houseID === room.houseID).map((m) => m.userID));
-  const participants = new Set(memberships.map((m) => m.userID));
-  const sameParticipants = participants.size === users.size && [...participants].every((u) => users.has(u));
-  const valid = state.houses.some((h) => h.id === room.houseID) && participants.size > 0 &&
-    participants.size === memberships.length && [...participants].every((u) => users.has(u)) &&
-    memberships.every((m) => m.roomID === room.id && isCurrentMember(m)) &&
-    (room.visibility !== "common" || sameParticipants) &&
-    (!representsWholeHouse(room) || room.visibility === "common");
+//  const users = new Set(state.houseMemberships.filter((m) => m.houseID === room.houseID).map((m) => m.userID));
+//  const participants = new Set(memberships.map((m) => m.userID));
+//  const sameParticipants = participants.size === users.size && [...participants].every((u) => users.has(u));
+//  const valid = state.houses.some((h) => h.id === room.houseID) && participants.size > 0 &&
+//    participants.size === memberships.length && [...participants].every((u) => users.has(u)) &&
+//    memberships.every((m) => m.roomID === room.id && isCurrentMember(m)) &&
+//    (room.visibility !== "common" || sameParticipants) &&
+//    (!representsWholeHouse(room) || room.visibility === "common");
+  createRoom(houseId: HouseID, roomName: room.name)
   if (!valid) throw new DomainError("invalidRoomParticipants");
   if (!isValidPeriodicity(room.periodicity) || room.responsibleCount <= 0) throw new DomainError("invalidSchedule");
   const existing = state.rooms.find((r) => r.id === room.id);

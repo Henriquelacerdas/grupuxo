@@ -7,6 +7,8 @@ import type { HouseRepository, RoomRepository } from "../repositories.ts";
 import { isValidPeriodicity, weeklyPeriodicity, type RoomCategory, type RoomColor, type RoomVisibility, type WeeklyPeriodicity } from "../value-objects.ts";
 import type { Clock } from "./tasks.ts";
 
+import { createHouse, createRoom, createTask, addUserToHouse, addUserToRoom, createTaskOccurence, updateFairnessBalance, createVacation, createNotification, createRoomPermission, createTaskQueueSlot } from "../../adapters/database/create.js";
+
 export class GetHouseMembersUseCase {
   private readonly repository: HouseRepository;
   constructor(repository: HouseRepository) {
@@ -27,8 +29,9 @@ export class AddHouseMemberUseCase {
     this.now = now;
   }
 
-  async execute(name: string, houseID: HouseID, requestedBy: UserID, date?: Instant): Promise<User> {
+  async execute(name: string, houseID: HouseID, userId: UserID, requestedBy: UserID, date?: Instant): Promise<User> {
     if (isBlank(name)) throw new DomainError("invalidResidentName");
+    addUserToHouse(userId: userID, houseId: houseID)
     return this.repository.addMember(trimmed(name), houseID, requestedBy, date ?? this.now());
   }
 }

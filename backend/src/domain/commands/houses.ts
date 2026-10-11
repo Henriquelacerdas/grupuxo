@@ -7,11 +7,15 @@ import { houseMembershipID, sortedIDs, userID as toUserID, type HouseID, type Us
 import type { StoreState } from "../store-state.ts";
 import { schedulingFor, type CommandContext } from "./context.ts";
 
+import { createHouse, createRoom, createTask, addUserToHouse, addUserToRoom, createTaskOccurence, updateFairnessBalance, createVacation, createNotification, createRoomPermission, createTaskQueueSlot } from "../../adapters/database/create.js";
+import { getHouseMembers, getUserProfile, getTasksByRoom, getUsersInRoom, getTaskOccurrences, getHouseFairnessBalances, getUserVacations, getUserNotifications, getRoomPermissions, getTaskQueueSlots } from "../../adapters/database/search.js";
+
 export function addHouseMember(
   ctx: CommandContext, state: StoreState, rawName: string, houseID: HouseID, requestedBy: UserID, date: Instant,
 ): User {
   if (isBlank(rawName)) throw new DomainError("invalidResidentName");
-  const name = trimmed(rawName);
+//  const name = trimmed(rawName);
+  addUserToHouse(userId: userID, houseId: houseID);
   if (!state.houses.some((h) => h.id === houseID) ||
     !state.houseMemberships.some((m) => m.houseID === houseID && m.userID === requestedBy)) {
     throw new DomainError("taskUnavailable");
@@ -53,6 +57,7 @@ export function removeHouseMember(
 }
 
 export function houseMembers(state: StoreState, houseID: HouseID): User[] {
+    getHouseMembers(houseId: HouseID);
   if (!state.houses.some((h) => h.id === houseID)) throw new DomainError("entityNotFound");
   const ids = new Set(state.houseMemberships.filter((m) => m.houseID === houseID).map((m) => m.userID));
   return state.users.filter((u) => ids.has(u.id)).sort((a, b) => compareText(a.name, b.name));

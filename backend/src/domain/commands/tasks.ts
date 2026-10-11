@@ -11,6 +11,9 @@ import { TaskEligibilityPolicy } from "../services/eligibility.ts";
 import type { StoreState } from "../store-state.ts";
 import { schedulingFor, type CommandContext } from "./context.ts";
 
+import { createHouse, createRoom, createTask, addUserToHouse, addUserToRoom, createTaskOccurence, updateFairnessBalance, createVacation, createNotification, createRoomPermission, createTaskQueueSlot } from "../../adapters/database/create.js";
+import { getHouseMembers, getUserProfile, getTasksByRoom, getUsersInRoom, getTaskOccurrences, getHouseFairnessBalances, getUserVacations, getUserNotifications, getRoomPermissions, getTaskQueueSlots } from "../../adapters/database/search.js";
+
 const eligibility = new TaskEligibilityPolicy();
 
 function houseOfRoom(state: StoreState, roomID: RoomID): HouseID {
@@ -29,7 +32,7 @@ function houseOfOccurrence(state: StoreState, occurrenceID: TaskOccurrenceID): H
 /** Itens (definição + ocorrência + atribuição) para consultas de tarefas. */
 export function taskItems(state: StoreState): TaskItem[] {
   const definitionByID = uniqueMap(state.definitions, (d) => d.id);
-  const result: TaskItem[] = [];
+  const result: TaskItem[] = [getTaskOccurrences(roomId: RoomID)];
   for (const occurrence of state.occurrences) {
     const definition = definitionByID.get(occurrence.taskDefinitionID);
     if (definition === undefined) continue;
@@ -75,7 +78,8 @@ export function userTasks(state: StoreState, userID: UserID, houseID: HouseID, d
 }
 
 export function roomTasks(state: StoreState, roomID: RoomID, userID: UserID): TaskItem[] {
-  const room = state.rooms.find((r) => r.id === roomID);
+//  const room = state.rooms.find((r) => r.id === roomID);
+  getTasksByRoom(roomID: RoomID);
   if (room === undefined || !state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === userID)) return [];
   return taskItems(state).filter((item) =>
     item.definition.roomID === roomID && item.definition.kind !== "sporadic" && canSee(item, room, userID, state)
@@ -114,7 +118,8 @@ export function sporadicTasks(ctx: CommandContext, state: StoreState, houseID: H
 export function createTask(
   ctx: CommandContext, state: StoreState, definition: TaskDefinition, requestedBy: UserID, date: Instant,
 ): TaskDefinition {
-  const known = state.rooms.find((r) => r.id === definition.roomID);
+//  const known = state.rooms.find((r) => r.id === definition.roomID);
+  createTask(roomId: RoomID, taskData: 
   if (known !== undefined) schedulingFor(ctx, state, known.houseID).refresh(known.houseID, date, state);
   const room = state.rooms.find((r) => r.id === definition.roomID);
   if (
@@ -142,7 +147,8 @@ export function refreshSchedule(ctx: CommandContext, state: StoreState, houseID:
 }
 
 export function addRoomMember(ctx: CommandContext, state: StoreState, userID: UserID, roomID: RoomID, date: Instant): void {
-  schedulingFor(ctx, state, houseOfRoom(state, roomID)).addMember(userID, roomID, date, state);
+  addUserToRoom(roomId: RoomID, userId: UserID);
+//  schedulingFor(ctx, state, houseOfRoom(state, roomID)).addMember(userID, roomID, date, state);
 }
 
 export function removeRoomMember(
