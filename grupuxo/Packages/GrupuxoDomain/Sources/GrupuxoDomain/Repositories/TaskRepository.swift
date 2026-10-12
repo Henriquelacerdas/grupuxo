@@ -29,6 +29,11 @@ public protocol TaskRepository: Sendable {
         requestedBy userID: User.ID
     ) async throws -> TaskDefinition
 
+    func deleteTask(
+        _ taskID: TaskDefinition.ID
+    ) async throws
+
+
     func deleteSporadicTask(
         id: TaskDefinition.ID,
         requestedBy userID: User.ID

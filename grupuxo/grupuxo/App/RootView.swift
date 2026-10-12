@@ -4,6 +4,8 @@ import GrupuxoDomain
 @MainActor
 struct RootView: View {
 
+    @EnvironmentObject private var houses: HouseService
+
     private let container: AppContainer
 
     @StateObject private var session: AppSession
@@ -13,18 +15,18 @@ struct RootView: View {
     @State private var tasksPath: [AppRoute] = []
 
     @State private var housePath: [AppRoute] = []
+    @State private var isSynced: Bool
 
     init() {
-
-        container = AppContainer()
+        container = AppContainer(store: MockStore(state: MockSeed.empty()))
 
         _session = StateObject(
             wrappedValue: AppSession(
-                currentUser: MockSeed.currentUser,
-                currentHouse: MockSeed.house
+                currentUser: User(id: UUID(), name: "", email: nil),
+                currentHouse: House(id: UUID(), name: "", accessCode: "", createdAt: .now)
             )
         )
-
+        _isSynced = State(initialValue: false)
     }
 
     init(
@@ -37,10 +39,63 @@ struct RootView: View {
         _session = StateObject(
             wrappedValue: session
         )
+        _isSynced = State(initialValue: true)
+    }
 
+    /// Muda sempre que moradores ou cômodos da casa real mudam.
+    private var syncKey: [String] {
+        [houses.house?.id ?? ""]
+            + houses.rooms.map { "r:\($0.id):\($0.name)" }
+            + houses.members.map { "m:\($0.id):\($0.userId ?? "-"):\($0.name)" }
     }
 
     var body: some View {
+        Group {
+            if isSynced {
+                tabs
+            } else {
+                ProgressView("Carregando sua casa…")
+            }
+        }
+        .task(id: syncKey) {
+            await syncWithHouse()
+        }
+    }
+
+    private func syncWithHouse() async {
+        guard let house = houses.house, let me = houses.myMember else { return }
+
+        let houseID = Self.uuid(house.id)
+        let snapshot = HouseSnapshot(
+            houseID: houseID,
+            houseName: house.name,
+            inviteCode: house.inviteCode,
+            residents: houses.members.map {
+                .init(id: Self.uuid($0.userId ?? $0.id), name: $0.name)
+            },
+            rooms: houses.rooms.map {
+                .init(id: Self.uuid($0.id), name: $0.name)
+            }
+        )
+
+        do {
+            try await container.sync(snapshot)
+        } catch {
+            return
+        }
+
+        session.currentUser = User(id: Self.uuid(me.userId ?? me.id), name: me.name, email: nil)
+        session.currentHouse = House(
+            id: houseID, name: house.name, accessCode: house.inviteCode, createdAt: .now
+        )
+        isSynced = true
+    }
+
+    private static func uuid(_ string: String) -> UUID {
+        UUID(uuidString: string) ?? UUID()
+    }
+
+    private var tabs: some View {
 
         TabView(selection: $selectedTab) {
 
@@ -68,12 +123,9 @@ struct RootView: View {
 
                     },
                     onSelectProfile: {
-
-                        tasksPath.append(
-                            .settings
-                        )
-
-                    }
+                        tasksPath.append(.settings)
+                    },
+                    reloadTrigger: selectedTab
                 )
                 .navigationDestination(
                     for: AppRoute.self
@@ -116,7 +168,13 @@ struct RootView: View {
                     makeRoomEditorViewModel: {
 
                         container.makeRoomEditorViewModel(
-                            session: session
+                            session: session,
+                            onCreated: { room in
+                                await houses.addRoom(
+                                    name: room.name,
+                                    id: room.id.uuidString
+                                )
+                            }
                         )
 
                     },
@@ -156,9 +214,7 @@ struct RootView: View {
                 )
 
             }
-            .tag(
-                AppTab.house
-            )
+            .tag(AppTab.house)
 
         }
 
@@ -259,16 +315,12 @@ struct RootView: View {
             )
 
         case .settings:
-
-            ProfileView(
-                viewModel:
-                    container.makeProfileViewModel(
-                        session: session
-                    ),
-                whatsApp:
-                    container.makeWhatsAppConnectionViewModel()
-            )
-
+            HouseGateView {
+                HouseView(
+                    whatsApp:
+                        container.makeWhatsAppConnectionViewModel()
+                )
+            }
         }
 
     }

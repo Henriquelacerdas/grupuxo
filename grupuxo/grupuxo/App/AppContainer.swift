@@ -1,11 +1,24 @@
 import Foundation
 import GrupuxoDomain
 
+/// Retrato da casa real (Amplify) usado para alimentar o store em memória.
+struct HouseSnapshot: Sendable {
+    struct Resident: Sendable { let id: UUID; let name: String }
+    struct RoomInfo: Sendable { let id: UUID; let name: String }
+
+    let houseID: UUID
+    let houseName: String
+    let inviteCode: String
+    let residents: [Resident]
+    let rooms: [RoomInfo]
+}
+
 @MainActor
 final class AppContainer {
 
     let store: MockStore
     private let calendar: Calendar
+    private let scheduling: TaskSchedulingService
 
     let houseRepository: any HouseRepository
     let roomRepository: any RoomRepository
@@ -30,6 +43,7 @@ final class AppContainer {
             rotation: RotationCalculator(),
             calendar: calendar
         )
+        self.scheduling = scheduling
 
         roomRepository = MockRoomRepository(
             store: store,
@@ -70,6 +84,119 @@ final class AppContainer {
                 repository: whatsAppConnectionRepository
             )
         )
+    }
+
+    // MARK: - Sincronização com a casa real
+
+    /// Reflete moradores e cômodos reais no store. Cômodos já conhecidos mantêm
+    /// seus dados (ícone, cor, participantes); os que sumiram são removidos.
+    func sync(_ snapshot: HouseSnapshot, at date: Date = .now) async throws {
+        let scheduling = self.scheduling
+
+        try await store.update { state in
+            let houseID = snapshot.houseID
+
+            if let index = state.houses.firstIndex(where: { $0.id == houseID }) {
+                state.houses[index].name = snapshot.houseName
+                state.houses[index].accessCode = snapshot.inviteCode
+            } else {
+                state.houses.append(House(
+                    id: houseID, name: snapshot.houseName,
+                    accessCode: snapshot.inviteCode, createdAt: date
+                ))
+            }
+
+            let wantedUsers = Set(snapshot.residents.map(\.id))
+            var changed = false
+
+            for resident in snapshot.residents {
+                if let index = state.users.firstIndex(where: { $0.id == resident.id }) {
+                    state.users[index].name = resident.name
+                } else {
+                    state.users.append(User(id: resident.id, name: resident.name, email: nil))
+                }
+            }
+
+            var schedule = state.schedule
+
+            // Moradores removidos.
+            let removed = schedule.houseMemberships.filter {
+                $0.houseID == houseID && !wantedUsers.contains($0.userID)
+            }
+            for membership in removed {
+                let roomIDs = schedule.rooms.filter { $0.houseID == houseID }.map(\.id)
+                for roomID in roomIDs {
+                    try scheduling.removeMember(
+                        userID: membership.userID, roomID: roomID, at: date,
+                        confirmDeletion: true, houseChange: true, replan: false, state: &schedule
+                    )
+                }
+                schedule.houseMemberships.removeAll { $0.id == membership.id }
+                schedule.absences.removeAll { $0.membershipID == membership.id }
+                changed = true
+            }
+            let removedUsers = Set(removed.map(\.userID))
+            state.users.removeAll { removedUsers.contains($0.id) }
+
+            // Moradores novos.
+            let known = Set(schedule.houseMemberships.filter { $0.houseID == houseID }.map(\.userID))
+            let addedUsers = snapshot.residents.map(\.id).filter { !known.contains($0) }
+            for userID in addedUsers {
+                schedule.houseMemberships.append(
+                    HouseMembership(id: UUID(), houseID: houseID, userID: userID)
+                )
+                changed = true
+            }
+
+            // Cômodos removidos.
+            let wantedRooms = Set(snapshot.rooms.map(\.id))
+            let staleRooms = schedule.rooms.filter { $0.houseID == houseID && !wantedRooms.contains($0.id) }
+            for room in staleRooms {
+                scheduling.deleteRoom(room.id, state: &schedule)
+                changed = true
+            }
+
+            // Cômodos novos / renomeados.
+            let allUsers = snapshot.residents.map(\.id)
+            var newRoomIDs = Set<UUID>()
+            for info in snapshot.rooms {
+                if let index = schedule.rooms.firstIndex(where: { $0.id == info.id }) {
+                    schedule.rooms[index].name = info.name
+                } else {
+                    schedule.rooms.append(Room(
+                        id: info.id, houseID: houseID, name: info.name,
+                        kind: .standard, category: .other, visibility: .common,
+                        calendarAnchor: try scheduling.weekStart(date),
+                        icon: "square.split.bottomrightquarter", color: .blue
+                    ))
+                    schedule.roomMemberships.append(contentsOf: allUsers.map {
+                        RoomMembership(id: UUID(), roomID: info.id, userID: $0)
+                    })
+                    newRoomIDs.insert(info.id)
+                    changed = true
+                }
+            }
+
+            // Moradores novos entram nos cômodos comuns que já existiam.
+            for room in schedule.rooms where room.houseID == houseID
+                && room.visibility == .common && !newRoomIDs.contains(room.id) {
+                for userID in addedUsers {
+                    try scheduling.addMember(
+                        userID: userID, roomID: room.id, at: date, replan: false, state: &schedule
+                    )
+                }
+            }
+
+            try scheduling.initializeRooms(houseID: houseID, at: date, state: &schedule)
+            if changed {
+                try scheduling.rebalance(
+                    houseID: houseID,
+                    boundary: scheduling.addingWeeks(1, to: scheduling.weekStart(date)),
+                    at: date, state: &schedule
+                )
+            }
+            state.schedule = schedule
+        }
     }
 
     func makeProfileViewModel(
@@ -152,6 +279,9 @@ final class AppContainer {
                 catalog: TaskSuggestionCatalog()
             ),
             completeTask: CompleteTaskUseCase(
+                repository: taskRepository
+            ),
+            deleteTask: DeleteTaskUseCase(
                 repository: taskRepository
             ),
             roomID: roomID,
@@ -268,7 +398,8 @@ final class AppContainer {
     }
 
     func makeRoomEditorViewModel(
-        session: AppSession
+        session: AppSession,
+        onCreated: (@MainActor (Room) async -> Void)? = nil
     ) -> RoomEditorViewModel {
         RoomEditorViewModel(
             createRoom: CreateRoomUseCase(
@@ -280,7 +411,8 @@ final class AppContainer {
             creatorUserID: session.currentUser.id,
             getMembers: GetHouseMembersUseCase(
                 repository: houseRepository
-            )
+            ),
+            onCreated: onCreated
         )
     }
     func makeNotificationsViewModel(

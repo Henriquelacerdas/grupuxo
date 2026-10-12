@@ -122,35 +122,18 @@ struct RoomDetailView: View {
                 )
 
             case let .content(content):
-
-                Section(
-                    viewModel.participation?.isMember == true
-                        ? "Tarefas"
-                        : "Suas pendências preservadas"
-                ) {
-
-                    ForEach(
-                        content.tasks
-                    ) { item in
-
-                        TaskRow(
-                            item: item,
-                            canComplete:
-                                viewModel.canComplete(item),
-                            onComplete: {
-                                Task {
-                                    await viewModel.complete(
-                                        item.id
-                                    )
-                                }
-                            },
-                            onSelect: {
-                                onSelectTask(
-                                    item.definition.id
-                                )
+                Section(viewModel.participation?.isMember == true ? "Tarefas" : "Suas pendências preservadas") {
+                    ForEach(content.tasks) { item in
+                        TaskRow(item: item, canComplete: viewModel.canComplete(item)) {
+                            Task { await viewModel.complete(item.id) }
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                Task { await viewModel.delete(taskID: item.definition.id) }
+                            } label: {
+                                Label("Apagar", systemImage: "trash")
                             }
-                        )
-
+                        }
                     }
 
                 }

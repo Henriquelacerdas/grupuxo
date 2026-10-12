@@ -66,7 +66,6 @@ final class MyTasksViewModel: ObservableObject {
 
         return assignment.isActive
             && assignment.userID == userID
-            && !item.occurrence.isCompleted
             && item.occurrence.availableAt <= .now
     }
 

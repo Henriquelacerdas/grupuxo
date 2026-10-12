@@ -72,6 +72,7 @@ struct ProfileView: View {
     @State private var showingAdd = false
     @State private var memberToRemove: User?
     @FocusState private var nameFocused: Bool
+    @EnvironmentObject var authService: AuthService
 
     init(viewModel: ProfileViewModel, whatsApp: WhatsAppConnectionViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -134,6 +135,11 @@ struct ProfileView: View {
                     Label("Adicionar morador", systemImage: "person.badge.plus")
                 }
                 .disabled(viewModel.isSaving)
+                Button (role: .destructive) {
+                    Task { await authService.signOut()}
+                } label: {
+                    Label("Sair da conta", systemImage: "rectangle.portrait.and.arrow.right")
+                }
             }
             WhatsAppConnectionSection(viewModel: whatsApp)
             if viewModel.isSaving && !showingAdd {
@@ -203,3 +209,4 @@ struct ProfileView: View {
         }
     }
 }
+

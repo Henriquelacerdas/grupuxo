@@ -8,6 +8,14 @@ import Combine
 class AuthService: ObservableObject {
     @Published var isSignedIn = false
     
+    enum SignInStatus {
+        case success
+        case confirmSignUp
+        case resetPassword
+        case invalidCredentials
+        case error(String)
+    }
+    
     // Verifica se o usuário já está logado ao abrir o app
     func checkSession() async {
         do {
@@ -20,26 +28,45 @@ class AuthService: ObservableObject {
     }
     
     // Faz o login
-    func signIn(username: String, password: String) async {
+    func signIn(username: String, password: String) async -> SignInStatus {
         do {
             let result = try await Amplify.Auth.signIn(username: username, password: password)
             if result.isSignedIn {
                 self.isSignedIn = true
                 print("Login com sucesso!")
+                return .success
             } else {
-                print("Login requer confirmação adicional (ex: MFA ou confirmar email).")
+                switch result.nextStep {
+                case .confirmSignUp:
+                    return .confirmSignUp
+                case .resetPassword:
+                    return .resetPassword
+                default:
+                    return .error("O login requer um passo adicional.")
+                }
             }
+        } catch let error as AuthError {
+            if case .notAuthorized = error {
+                return .invalidCredentials
+            }
+            return .error(error.errorDescription)
         } catch {
             print("Erro no login: \(error)")
+            return .error(error.localizedDescription)
         }
     }
     
     // Faz o logout
     func signOut() async {
-        let result = await Amplify.Auth.signOut()
-        if let signOutResult = result as? AWSCognitoSignOutResult {
-            print("Logout finalizado: \(signOutResult)")
-            self.isSignedIn = false
+        let result = await Amplify.Auth.signOut(options: .init(globalSignOut: false))
+
+        if let result = result as? AWSCognitoSignOutResult {
+            switch result {
+            case .complete, .partial:
+                isSignedIn = false   // ajuste para a propriedade que você já usa
+            case .failed(let error):
+                print("Erro no logout: \(error)")
+            }
         }
     }
     
@@ -63,7 +90,6 @@ class AuthService: ObservableObject {
         }
     }
     
-    // Confirma o código enviado para o email
     func confirmSignUp(username: String, code: String) async -> Bool {
         do {
             let result = try await Amplify.Auth.confirmSignUp(for: username, confirmationCode: code)
@@ -75,6 +101,39 @@ class AuthService: ObservableObject {
             }
         } catch {
             print("Erro na confirmação: \(error)")
+            return false
+        }
+    }
+    
+    // Reenvia código de confirmação
+    func resendSignUpCode(username: String) async -> Bool {
+        do {
+            _ = try await Amplify.Auth.resendSignUpCode(for: username)
+            return true
+        } catch {
+            print("Erro ao reenviar código: \(error)")
+            return false
+        }
+    }
+    
+    // Inicia fluxo de redefinição de senha
+    func resetPassword(username: String) async -> Bool {
+        do {
+            _ = try await Amplify.Auth.resetPassword(for: username)
+            return true
+        } catch {
+            print("Erro ao solicitar redefinição: \(error)")
+            return false
+        }
+    }
+    
+    // Confirma fluxo de redefinição de senha
+    func confirmResetPassword(username: String, newPassword: String, code: String) async -> Bool {
+        do {
+            try await Amplify.Auth.confirmResetPassword(for: username, with: newPassword, confirmationCode: code)
+            return true
+        } catch {
+            print("Erro ao confirmar redefinição: \(error)")
             return false
         }
     }
