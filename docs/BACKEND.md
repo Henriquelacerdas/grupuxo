@@ -268,8 +268,8 @@ Um endpoint por ação de negócio, como os protocolos já fazem:
 | Recurso | Endpoints (exemplo) |
 | --- | --- |
 | Casa | `POST /houses`, `POST /houses/join` (código de acesso), `GET /houses/{id}/members` (substituem o fluxo de casa do Amplify Data, decisão ✅ 10) |
-| Cômodos | `GET /houses/{id}/rooms`, `POST /houses/{id}/rooms`, `POST/DELETE /rooms/{id}/members` |
-| Tarefas | `GET /me/tasks`, `GET /rooms/{id}/tasks`, `POST /rooms/{id}/tasks` |
+| Cômodos | `GET /houses/{id}/rooms`, `POST /houses/{id}/rooms`, `POST/DELETE /rooms/{id}/members` (contrato fechado na trilha rápida: seção 6.1) |
+| Tarefas | `GET /me/tasks`, `GET /rooms/{id}/tasks`, `POST /rooms/{id}/tasks`, `GET /rooms/{id}/tasks/{taskID}`, `POST /rooms/{id}/tasks/{taskID}/end` |
 | Ocorrências | `POST /occurrences/{id}/complete`, `/reopen`, `/claim`, `/release` |
 | Trocas | `GET/POST /swap-requests`, `POST /swap-requests/{id}/accept`, `/reject` |
 | Notificações | `GET /notifications`, `POST /notifications/{id}/read` |
@@ -280,18 +280,85 @@ Todas as mutações aceitam `Idempotency-Key`. O `at` (data de referência) vem 
 
 Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.timezone`, atributo do item `META`), o que resolve a decisão aberta do PRODUTO.md e é necessário para "tarefas da semana" ter o mesmo significado no app e no WhatsApp.
 
-### 6.1 Rotas implementadas (`src/lambdas/api.ts`)
+### 6.1 Contrato das rotas (`src/lambdas/api.ts`)
 
-Só as quatro de conta e WhatsApp, sob `/v1`; as demais da tabela dependem dos repositórios DynamoDB. A autorização é feita na Lambda (a Function URL fica com `AuthType = NONE`): `Authorization: Bearer <access token>` (esquema sem distinção de caixa). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo ou da URL.
+**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aguardando aprovação do dono; só as quatro rotas de conta e WhatsApp estão implementadas.** O código das demais entra em T2 e deve seguir esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
+
+**Convenções.** Tudo sob `/v1`, JSON UTF-8. `Authorization: Bearer <access token>` (esquema sem distinção de caixa); a autorização é feita na Lambda (a Function URL fica com `AuthType = NONE`). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo, da URL ou de cabeçalho; o `at` (data de referência) é do relógio do servidor, nunca do cliente. IDs são UUID em minúsculo; instantes são ISO 8601 em UTC **com milissegundos** (`2026-10-12T09:00:00.000Z`; o `.iso8601` padrão do Swift não decodifica isso, o app usa um formatador próprio). Corpos de até 4 KB; campos desconhecidos são ignorados. Rota e método são verificados antes do token. Sem `Idempotency-Key` na trilha (atalho, PLANO.md seção 2): as mutações de tarefa já são idempotentes no domínio; `POST /houses` e `POST /houses/join` repetidos respondem `409 already_in_house`.
+
+**Regras de acesso.** Toda rota além de `POST /me` exige conta registrada (`403 account_not_registered`). Um morador, uma casa (regra v1): `POST /houses` e `POST /houses/join` com casa existente → `409 already_in_house`. Casa, cômodo ou ocorrência de outra casa, ou ID malformado na URL, respondem `404 not_found`, **igual** aos inexistentes (não revela existência). Cômodo privado de que o morador não participa aparece como cômodo sem participação (`isMember: false`), como no domínio.
+
+#### Conta e WhatsApp (implementadas)
 
 | Rota | Resposta |
 | --- | --- |
-| `POST /v1/me` | Corpo JSON `{ "name": "…" }` (até 4 KB; `parseProfileName`) → `200 { "id" }` (idempotente; não sobrescreve o nome de conta existente). Nome ou corpo inválido → `400 invalid_name`. |
-| `POST /v1/me/whatsapp/link` | `200 { "url", "expiresAt" (ISO 8601) }` com o link `wa.me`; número já conectado → `409 already_linked`. |
+| `POST /v1/me` | Corpo `{ "name" }` → `200 { "id" }` (idempotente; não sobrescreve o nome de conta existente). Nome ou corpo inválido → `400 invalid_name`. |
+| `POST /v1/me/whatsapp/link` | `200 { "url", "expiresAt" }` com o link `wa.me`; número já conectado → `409 already_linked`. |
 | `GET /v1/me/whatsapp` | `200 { "linked": false }` ou `{ "linked": true, "phone": "+55•••••••8888", "linkedAt" }` (telefone mascarado). |
 | `DELETE /v1/me/whatsapp` | `204`, idempotente. |
 
-Erros: sem token válido (ausente, malformado, expirado, ID token, `client_id` errado…) → `401 { "error": "unauthorized" }`, **igual para qualquer motivo**; chaves do Cognito indisponíveis → `503`; erro inesperado → `500 { "error": "internal" }` sem detalhe. Conta que ainda não passou por `POST /v1/me` nas rotas do WhatsApp → `403 account_not_registered`. Rota desconhecida → `404`; método errado → `405` com `allow`; corpo ilegível → `400`. Rota e método são verificados antes do token (revelar que a rota existe não expõe nada). `Idempotency-Key` e as demais rotas ainda não foram implementadas.
+#### Casa (T2)
+
+| Rota | Entrada | Resposta e erros |
+| --- | --- | --- |
+| `GET /v1/me/house` | | `200 MyHouse` = `{ house, members: [User], rooms: [Room] }` (`house` inclui `accessCode`). Sem casa → `404 no_house`. |
+| `POST /v1/houses` | `{ "name", "timezone" }` (nome 1 a 80 caracteres sem controle; `timezone` IANA válido) | `201 MyHouse`; cria a casa com o cômodo "Casa toda" e o fundador. `400 invalid_house_name`, `400 invalid_timezone`, `409 already_in_house`. |
+| `POST /v1/houses/join` | `{ "code" }` | `200 MyHouse`. Código inexistente ou malformado → `404 invalid_code` (uniforme); `409 already_in_house`. Replaneja a escala da casa. |
+| `DELETE /v1/me/house` | query opcional `confirmRoomDeletion=true` | `204`. Sem casa → `404 no_house`; último morador → `409 last_member`; o morador é o último participante de um cômodo, que seria excluído → `409 room_deletion_confirmation_required` (o app confirma e repete com a query). Replaneja a escala. |
+
+#### Cômodos (T2)
+
+| Rota | Entrada | Resposta e erros |
+| --- | --- | --- |
+| `POST /v1/houses/{houseID}/rooms` | `{ "name", "visibility": "common" \| "privateRoom", "category"?, "periodicity"?: { "executionsPerPeriod", "intervalWeeks" }, "responsibleCount"?, "icon"?, "color"?, "participantIDs"?: [UUID] }` (`participantIDs` só em cômodo privado; o criador entra sempre) | `201 Room`. `400 invalid_room_name`, `400 invalid_room_participants`, `400 invalid_schedule`; casa de outro → `404`. |
+| `GET /v1/rooms/{roomID}` | | `200 RoomParticipation` (inicializa a escala se preciso). |
+| `POST /v1/rooms/{roomID}/members` | `{ "userID" }` (morador da casa) | `204`. |
+| `DELETE /v1/rooms/{roomID}/members/{userID}` | query opcional `confirmDeletion=true` | `204`. `409 room_deletion_confirmation_required`, `409 whole_house_protected` ("Casa toda" não permite saída individual). |
+
+#### Tarefas e ocorrências (T2)
+
+| Rota | Entrada | Resposta e erros |
+| --- | --- | --- |
+| `GET /v1/me/tasks` | query opcional `range=week\|all` (padrão `all`) | `200 { "tasks": [TaskItem] }` do morador na sua casa: pendentes por prazo, concluídas por último. Sem casa → `404 no_house`. |
+| `GET /v1/rooms/{roomID}/tasks` | | `200 { "tasks": [TaskItem] }` do cômodo (recorrentes, ordenadas por prazo). |
+| `POST /v1/rooms/{roomID}/tasks` | `{ "name", "details", "effort": 1..3, "kind": "recurring" \| "sporadic", "recurrence": Recurrence, "assignmentPolicy" }` | `201 TaskDefinition`. `400 invalid_task_name`, `400 invalid_schedule`, `403 task_unavailable` (quem cria precisa participar do cômodo). |
+| `GET /v1/rooms/{roomID}/tasks/{taskID}` | | `200 TaskDefinition`. |
+| `POST /v1/rooms/{roomID}/tasks/{taskID}/end` | | `204` (encerra: histórico fica, futuras somem). |
+| `POST /v1/occurrences/{occurrenceID}/complete` | | `204`; idempotente. |
+| `POST /v1/occurrences/{occurrenceID}/reopen` | | `204`. |
+
+Desvios do PLANO.md seção 3, decididos em T1: as rotas de tarefa por ID (`GET/PATCH /v1/tasks/{id}`, `POST /v1/tasks/{id}/end`) viram caminhos **sob o cômodo**, porque o DynamoDB não indexa `TASKDEF#` no `GSI1` (só o `roomID` acha a partição) e o servidor TS não tem `updateTaskDetails` nem `taskDefinition(id)`. **`PATCH` fica fora da trilha**: a edição de tarefa é escondida no build de teste (PLANO.md seção 2). `DELETE /rooms/{id}/members` recebe o `userID` no caminho (DELETE sem corpo).
+
+#### Formatos de resposta
+
+Todos em `src/lambdas/api-dto.ts`; exemplos em `test/fixtures/api/`. Campos internos do agendamento (fila de rotação, versões da escala, impacto no saldo, `rotationChanges`) **não** são expostos; o app preenche os padrões. O e-mail do morador também não sai.
+
+| Tipo | Campos | Exemplo |
+| --- | --- | --- |
+| `User` | `id`, `name` | `me-house.json` |
+| `House` | `id`, `name`, `accessCode`, `timezone`, `createdAt` | `house.json` |
+| `Room` | `id`, `houseID`, `name`, `kind` (`wholeHouse`\|`standard`), `category`, `visibility`, `periodicity { executionsPerPeriod, intervalWeeks }`, `responsibleCount`, `calendarAnchor`\|null, `icon`, `color` | `room.json` |
+| `RoomParticipation` | `room`, `isMember`, `memberCount`, `responsibleNames`, `periodStart`, `periodEnd` | `room-participation.json` |
+| `Recurrence` | `{ kind: "none" }` \| `{ kind: "recurring", frequency, interval }` \| `{ kind: "weekly", periodicity }` | `task-definition.json` |
+| `TaskDefinition` | `id`, `roomID`, `name`, `details`, `effort` (1 a 3; carga interna, não exibir como pontuação), `kind`, `recurrence`, `assignmentPolicy`, `calendarAnchor`, `endedAt` (null = ativa) | `task-definition.json` |
+| `TaskItem` | `definition`, `occurrence { id, taskDefinitionID, availableAt, dueAt, status, completedAt, completedByUserID, effort }`, `assignment { id, userID, assignedAt, endedAt }`\|null, `assignee`\|null, `suggestedAssignee`\|null | `task-item.json`, `task-item-completed.json`, `task-item-sporadic.json` |
+
+#### Erros
+
+Formato único: `{ "error": "<código>" }`, sem detalhe. Sem token válido (ausente, malformado, expirado, ID token, `client_id` errado…) → `401 unauthorized`, **igual para qualquer motivo**; chaves do Cognito indisponíveis → `503 unavailable`; erro inesperado → `500 internal`; rota desconhecida → `404 not_found`; método errado → `405 method_not_allowed` com `allow`; corpo ilegível, fora do tamanho ou campo com tipo errado → `400 bad_request`.
+
+| Origem | HTTP e código |
+| --- | --- |
+| `DomainError.entityNotFound` | `404 not_found` |
+| `DomainError.taskUnavailable` | `403 task_unavailable` |
+| `DomainError.taskAlreadyCompleted` | `409 task_already_completed` |
+| `DomainError.deletionConfirmationRequired` | `409 room_deletion_confirmation_required` |
+| `DomainError.wholeHouseProtected` | `409 whole_house_protected` |
+| `DomainError.noEligibleMembers` / `invalidDistribution` | `409 no_eligible_members` / `409 invalid_distribution` |
+| `DomainError.invalidTaskName` / `invalidRoomName` / `invalidRoomParticipants` / `invalidSchedule` / `invalidDateInterval` | `400 invalid_task_name` / `invalid_room_name` / `invalid_room_participants` / `invalid_schedule` / `invalid_date_interval` |
+| casa: nome, fuso, código, última pessoa | `400 invalid_house_name`, `400 invalid_timezone`, `404 invalid_code`, `409 last_member` |
+| `DynamoStoreError("conflict")` (3 tentativas esgotadas) | `409 conflict` (o app pode repetir) |
+| outros erros do armazenamento (`tooManyWrites`, `partialWrite`, `invalidItem`…) | `500 internal` |
 
 ### Sincronização do app
 

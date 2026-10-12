@@ -1,0 +1,125 @@
+{
+  "house": {
+    "id": "ffffffff-ffff-4fff-8fff-000000000005",
+    "name": "Nossa casa",
+    "accessCode": "GRUPUXO",
+    "timezone": "America/Sao_Paulo",
+    "createdAt": "2026-10-14T12:00:00.000Z"
+  },
+  "members": [
+    {
+      "id": "ffffffff-ffff-4fff-8fff-000000000003",
+      "name": "Bia"
+    },
+    {
+      "id": "ffffffff-ffff-4fff-8fff-000000000002",
+      "name": "Leo"
+    },
+    {
+      "id": "ffffffff-ffff-4fff-8fff-000000000001",
+      "name": "Marina"
+    },
+    {
+      "id": "ffffffff-ffff-4fff-8fff-000000000004",
+      "name": "Rafa"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "ffffffff-ffff-4fff-8fff-000000000006",
+      "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+      "name": "Casa toda",
+      "kind": "wholeHouse",
+      "category": "other",
+      "visibility": "common",
+      "periodicity": {
+        "executionsPerPeriod": 1,
+        "intervalWeeks": 1
+      },
+      "responsibleCount": 1,
+      "calendarAnchor": "2026-10-12T03:00:00.000Z",
+      "icon": "house.fill",
+      "color": "blue"
+    },
+    {
+      "id": "ffffffff-ffff-4fff-8fff-000000000007",
+      "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+      "name": "Cozinha",
+      "kind": "standard",
+      "category": "kitchen",
+      "visibility": "common",
+      "periodicity": {
+        "executionsPerPeriod": 1,
+        "intervalWeeks": 1
+      },
+      "responsibleCount": 1,
+      "calendarAnchor": "2026-10-12T03:00:00.000Z",
+      "icon": "refrigerator.fill",
+      "color": "orange"
+    },
+    {
+      "id": "ffffffff-ffff-4fff-8fff-000000000008",
+      "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+      "name": "Banheiro",
+      "kind": "standard",
+      "category": "bathroom",
+      "visibility": "common",
+      "periodicity": {
+        "executionsPerPeriod": 1,
+        "intervalWeeks": 1
+      },
+      "responsibleCount": 1,
+      "calendarAnchor": "2026-10-12T03:00:00.000Z",
+      "icon": "shower.fill",
+      "color": "purple"
+    },
+    {
+      "id": "ffffffff-ffff-4fff-8fff-000000000009",
+      "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+      "name": "Sala",
+      "kind": "standard",
+      "category": "livingRoom",
+      "visibility": "common",
+      "periodicity": {
+        "executionsPerPeriod": 1,
+        "intervalWeeks": 1
+      },
+      "responsibleCount": 1,
+      "calendarAnchor": "2026-10-12T03:00:00.000Z",
+      "icon": "sofa.fill",
+      "color": "green"
+    },
+    {
+      "id": "ffffffff-ffff-4fff-8fff-00000000000a",
+      "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+      "name": "Lavanderia",
+      "kind": "standard",
+      "category": "laundry",
+      "visibility": "common",
+      "periodicity": {
+        "executionsPerPeriod": 1,
+        "intervalWeeks": 1
+      },
+      "responsibleCount": 1,
+      "calendarAnchor": "2026-10-12T03:00:00.000Z",
+      "icon": "washer.fill",
+      "color": "pink"
+    },
+    {
+      "id": "ffffffff-ffff-4fff-8fff-00000000000b",
+      "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+      "name": "Escritório privado",
+      "kind": "standard",
+      "category": "office",
+      "visibility": "privateRoom",
+      "periodicity": {
+        "executionsPerPeriod": 1,
+        "intervalWeeks": 1
+      },
+      "responsibleCount": 1,
+      "calendarAnchor": "2026-10-12T03:00:00.000Z",
+      "icon": "display",
+      "color": "brown"
+    }
+  ]
+}

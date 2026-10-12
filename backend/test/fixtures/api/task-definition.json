@@ -1,0 +1,16 @@
+{
+  "id": "ffffffff-ffff-4fff-8fff-000000000026",
+  "roomID": "ffffffff-ffff-4fff-8fff-000000000009",
+  "name": "Aspirar a sala",
+  "details": "Incluindo embaixo do sofá",
+  "effort": 2,
+  "kind": "recurring",
+  "recurrence": {
+    "kind": "recurring",
+    "frequency": "weekly",
+    "interval": 1
+  },
+  "assignmentPolicy": "calendarRotation",
+  "calendarAnchor": "2026-10-12T03:00:00.000Z",
+  "endedAt": null
+}

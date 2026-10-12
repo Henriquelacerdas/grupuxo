@@ -1,0 +1,16 @@
+{
+  "id": "ffffffff-ffff-4fff-8fff-000000000007",
+  "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+  "name": "Cozinha",
+  "kind": "standard",
+  "category": "kitchen",
+  "visibility": "common",
+  "periodicity": {
+    "executionsPerPeriod": 1,
+    "intervalWeeks": 1
+  },
+  "responsibleCount": 1,
+  "calendarAnchor": null,
+  "icon": "refrigerator.fill",
+  "color": "orange"
+}

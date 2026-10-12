@@ -31,7 +31,7 @@ O backend WhatsApp está pronto em código e testado com falsos: domínio, webho
 - **Escrita acima de 100 ações dividida** em várias transações: a primeira leva o `Update` do `META` condicionado a `version`, as seguintes não. Opção `oversizedWrites: "fail" | "split"` no `HouseStateStore`, `fail` como padrão e `split` ligado só no ponto de entrada. Risco: estado parcial se falhar no meio, e uma leitura concorrente pode ver a casa pela metade. Solução definitiva: D3 (seção 6), depois do teste.
 - Sem `Idempotency-Key` nas mutações (o domínio já é idempotente em concluir/atribuir).
 - Um ambiente só: `dev`, em `us-east-1` (mesma região do Cognito; pergunta 4 decidida provisoriamente). Estado do Terraform local, sem CI de deploy, sem WAF, alarme só da DLQ.
-- Telas sem rota no servidor **escondidas** no build de teste: trocas, notificações, esporádicas, renomear/apagar cômodo, morador sem conta.
+- Telas sem rota no servidor **escondidas** no build de teste: trocas, notificações, esporádicas, renomear/apagar cômodo, **editar tarefa** (`PATCH` fica para depois do teste: o TS não tem `updateTaskDetails`), morador sem conta.
 - Um morador, uma casa (regra v1 do bot): criar ou entrar com casa já existente é recusado.
 
 **Não se corta:** validação do access token do Cognito (ID token rejeitado, `client_id` conferido), HMAC do webhook, `userID` sempre do token ou do vínculo, limite de taxa antes do vínculo e do Gemini, nada de conteúdo de mensagem em log, segredos só no Secrets Manager, IAM de menor privilégio, e cada chamada real autorizada item a item.
@@ -50,7 +50,7 @@ Ordem e paralelismo: T0 começa já e corre em paralelo. T1 destrava T2 e T4, qu
 - [ ] Cadastrar no painel da Meta os até 5 números dos testadores com WhatsApp.
 
 ### T1 — Contrato primeiro (~0,5 dia)
-- BACKEND.md §6.1 com as rotas de T2, JSON de entrada e saída, erros e códigos HTTP, revisado pelas duas frentes antes de qualquer código.
+- ✅ (aguarda aprovação do dono) BACKEND.md §6.1 com as rotas de T2, JSON de entrada e saída, erros e códigos HTTP, revisado pelas duas frentes antes de qualquer código.
 - Teste de contrato TS↔Swift: um teste TS grava um JSON de exemplo de cada resposta (casa, cômodo, participação, `TaskItem`, `TaskDefinition`) em `backend/test/fixtures/api/`, e um teste Swift decodifica os mesmos arquivos com os DTOs de `Data/Remote`. Pega divergência de DTO como as fixtures pegam divergência de algoritmo.
 
 ### T2 — Backend: domínio e `api` (~3–4 dias)
@@ -62,7 +62,7 @@ Ordem e paralelismo: T0 começa já e corre em paralelo. T1 destrava T2 e T4, qu
 3. Rotas, todas com `userID` do token e `at` do servidor:
    - Casa: `GET /v1/me/house` (casa, código, moradores, cômodos; 404 `no_house`), `POST /v1/houses`, `POST /v1/houses/join`, `DELETE /v1/me/house`.
    - Cômodos: `POST /v1/houses/{id}/rooms`, `GET /v1/rooms/{id}` (participação), `POST` e `DELETE /v1/rooms/{id}/members`.
-   - Tarefas: `GET /v1/me/tasks`, `GET` e `POST /v1/rooms/{id}/tasks`, `GET` e `PATCH /v1/tasks/{id}`, `POST /v1/tasks/{id}/end`.
+   - Tarefas: `GET /v1/me/tasks`, `GET` e `POST /v1/rooms/{id}/tasks`, `GET /v1/rooms/{roomId}/tasks/{taskId}`, `POST /v1/rooms/{roomId}/tasks/{taskId}/end` (aninhadas sob o cômodo: o `GSI1` não indexa `TASKDEF#`; sem `PATCH`, ver BACKEND.md §6.1).
    - Ocorrências: `POST /v1/occurrences/{id}/complete` e `/reopen`.
 4. Testes ponta a ponta do handler em memória e contra o DynamoDB com o cliente falso.
 
