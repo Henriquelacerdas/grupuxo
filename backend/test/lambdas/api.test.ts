@@ -13,6 +13,7 @@ import {
   CLIENT_ID, FakeJwksSource, NOW, SUB, USER_POOL_ID, accessClaims, generateKey, idClaims, signJWT,
 } from "../auth/support.ts";
 import { sequentialIDs } from "../support/state-json.ts";
+import { inMemoryApiDeps } from "./api-support.ts";
 import { httpEvent } from "./support.ts";
 
 const key = generateKey("kid-1");
@@ -27,10 +28,11 @@ function emptyState(): StoreState {
 function setup() {
   const jwks = new FakeJwksSource([key]);
   const verifier = new CognitoJwtVerifier({ userPoolID: USER_POOL_ID, clientID: CLIENT_ID }, { jwks, now: () => NOW });
-  const users = new InMemoryUserDirectory(new InMemoryStore(emptyState()), sequentialIDs());
+  const store = new InMemoryStore(emptyState());
+  const users = new InMemoryUserDirectory(store, sequentialIDs());
   const links = new InMemoryWhatsAppLinkStore();
   const linker = new WhatsAppLinker(createLinkConfig("5511900000000"), new InMemoryLinkTokenStore(), links, () => NOW);
-  const handler = createApiHandler({ verifier, users, linker, links });
+  const handler = createApiHandler({ verifier, users, linker, links, ...inMemoryApiDeps(store) });
   const call = (method: string, path: string, options: { token?: string | null; body?: string; headers?: Record<string, string> } = {}) =>
     handler(httpEvent({
       method, path,
@@ -100,6 +102,7 @@ test("erro inesperado: 500 sem detalhe", async () => {
     users: { userForSub: async () => { throw new Error("senha do banco: hunter2"); }, ensureUser: async () => { throw new Error("hunter2"); } },
     linker: { issueInvitation: async () => { throw new Error("hunter2"); } },
     links: { linkForUser: async () => null, remove: async () => undefined },
+    ...inMemoryApiDeps(new InMemoryStore(emptyState())),
   });
   const response = await handler(httpEvent({ method: "GET", path: "/v1/me/whatsapp", headers: { authorization: "Bearer x" } }));
   assert.equal(response.statusCode, 500);

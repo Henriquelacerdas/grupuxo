@@ -114,7 +114,7 @@ São funções de fábrica `create…Handler(dependências) => (evento: unknown)
 | `events.ts` | Estreitamento (de `unknown`, sem `as`) dos eventos das Lambda Function URLs (payload 2.0, idêntico ao do HTTP API v2) e do SQS. Corpo `isBase64Encoded` é decodificado para os **bytes brutos** (a assinatura do webhook cobre esses bytes); corpo em texto vira UTF-8 exato; base64 mal formado invalida o evento. A query string é lida de `rawQueryString` (decodificada com `URLSearchParams`; vale a primeira ocorrência), com `queryStringParameters` só como reserva. Cabeçalhos em minúsculo. |
 | `webhook.ts` | `createWebhookHandler(WebhookHandler)`: evento → `WebhookRequest` → resposta (`text/plain`). Evento que não é HTTP: 400. |
 | `worker.ts` | `createWorkerHandler(WhatsAppWorker)`: cada registro do SQS → `JSON.parse` → `parseIncomingMessage` → `WhatsAppWorker.process`. Devolve `batchItemFailures` (a fila precisa de `ReportBatchItemFailures`): o registro que falha (inclusive corpo inválido) e **os seguintes do mesmo `MessageGroupId`** são reportados sem serem processados, para manter a ordem por telefone; outros telefones seguem. Evento que não é um lote do SQS lança erro. |
-| `api.ts` | `createApiHandler({ verifier, users, linker, links })`: rotas da seção 6.1. |
+| `api.ts` | `createApiHandler({ verifier, users, linker, links, houses, rooms, tasks, now, newID })`: autenticação (token → `UserDirectory`), 401/403/404/405/503 e o mapeamento de erros; as rotas da seção 6.1 ficam em `api-router.ts` (tabela de rotas; parâmetro de caminho só casa se for UUID em minúsculo, senão 404), `api-input.ts` (estreitamento do corpo e da query, de `unknown`, sem `as`), `api-routes.ts` (casa, cômodo, tarefa e ocorrência: só traduz entrada em casos de uso e monta o JSON de `api-dto.ts`) e `api-http.ts` (respostas e tabela `DomainError`/`DynamoStoreError` → HTTP). Variáveis `houses`, `rooms` e `tasks` são os repositórios do domínio (memória ou DynamoDB); `now` é o relógio do servidor. |
 | `config.ts` | `parseWorkerSettings`, `parseApiSettings` (variáveis de ambiente) e `parseWebhookSecrets`/`parseWorkerSecrets` (o `SecretString` do segredo, JSON com as chaves da seção 10). Nada tem valor padrão escondido; o erro nomeia a variável, nunca o valor. |
 | `compose.ts` | `composeWhatsAppWorker` (`WhatsAppWorker` + `GeminiMessageResponder` + `GraphWhatsAppSender` + `MessageRateLimiter`, falha fechada na criação) e `composeCognitoVerifier` (`CognitoJwtVerifier` + `HttpJwksSource`). |
 
@@ -284,7 +284,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 
 ### 6.1 Contrato das rotas (`src/lambdas/api.ts`)
 
-**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aguardando aprovação do dono; só as quatro rotas de conta e WhatsApp estão implementadas.** O código das demais entra em T2 e deve seguir esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
+**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Implementadas: conta e WhatsApp, e as rotas de casa (T2.5a); as de cômodo, tarefa e ocorrência estão marcadas abaixo. O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
 
 **Convenções.** Tudo sob `/v1`, JSON UTF-8. `Authorization: Bearer <access token>` (esquema sem distinção de caixa); a autorização é feita na Lambda (a Function URL fica com `AuthType = NONE`). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo, da URL ou de cabeçalho; o `at` (data de referência) é do relógio do servidor, nunca do cliente. IDs são UUID em minúsculo; instantes são ISO 8601 em UTC **com milissegundos** (`2026-10-12T09:00:00.000Z`; o `.iso8601` padrão do Swift não decodifica isso, o app usa um formatador próprio). Corpos de até 4 KB; campos desconhecidos são ignorados. Rota e método são verificados antes do token. Sem `Idempotency-Key` na trilha (atalho, PLANO.md seção 2): as mutações de tarefa já são idempotentes no domínio; `POST /houses` e `POST /houses/join` repetidos respondem `409 already_in_house`.
 
@@ -299,11 +299,11 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | `GET /v1/me/whatsapp` | `200 { "linked": false }` ou `{ "linked": true, "phone": "+55•••••••8888", "linkedAt" }` (telefone mascarado). |
 | `DELETE /v1/me/whatsapp` | `204`, idempotente. |
 
-#### Casa (T2)
+#### Casa (implementada)
 
 | Rota | Entrada | Resposta e erros |
 | --- | --- | --- |
-| `GET /v1/me/house` | | `200 MyHouse` = `{ house, members: [User], rooms: [Room] }` (`house` inclui `accessCode`). Sem casa → `404 no_house`. |
+| `GET /v1/me/house` | | `200 MyHouse` = `{ house, members: [User], rooms: [Room] }` (`house` inclui `accessCode`). Sem casa → `404 no_house`. A casa do morador vem do `GSI1` (eventualmente consistente): logo depois de criar ou entrar pode demorar frações de segundo para aparecer (use a resposta de `POST /houses` e `join`, montada a partir do próprio comando), e logo depois de sair o índice pode mostrar a casa antiga, caso em que a rota responde `no_house`. |
 | `POST /v1/houses` | `{ "name", "timezone" }` (nome 1 a 80 caracteres sem controle; `timezone` IANA válido) | `201 MyHouse`; cria a casa com o cômodo "Casa toda" e o fundador. `400 invalid_house_name`, `400 invalid_timezone`, `409 already_in_house`. |
 | `POST /v1/houses/join` | `{ "code" }` | `200 MyHouse`. Código inexistente ou malformado → `404 invalid_code` (uniforme); `409 already_in_house`. Replaneja a escala da casa. |
 | `DELETE /v1/me/house` | query opcional `confirmRoomDeletion=true` | `204`. Sem casa → `404 no_house`; último morador → `409 last_member`; o morador é o último participante de um cômodo, que seria excluído → `409 room_deletion_confirmation_required` (o app confirma e repete com a query). Replaneja a escala. |
