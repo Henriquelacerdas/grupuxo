@@ -26,9 +26,26 @@ final class HouseService: ObservableObject {
     @Published private(set) var hasLoaded = false
     @Published var errorMessage: String?
     /// Erro do carregamento inicial (rede/auth). Separado de errorMessage das ações.
-    @Published private(set) var loadError: String?
+    @Published private(set) var loadError: LoadError?
+
+    enum LoadError: Equatable {
+        /// A sessão acabou: não adianta tentar de novo, o app volta ao login.
+        case sessionExpired
+        case failed(String)
+
+        var message: String {
+            switch self {
+            case .sessionExpired: "Sua sessão expirou. Entre novamente."
+            case .failed(let message): message
+            }
+        }
+    }
 
     private(set) var currentUserId: String?
+
+    /// Incrementa em `reset()` e a cada `load()`; um `load()` que acorda depois de uma troca de
+    /// usuário (ou de outro `load()`) percebe que não é mais o atual e descarta o resultado.
+    private var generation = 0
 
     /// Código de convite da casa (o `id` do `InviteCode` é o próprio código).
     var inviteCode: String? { invite?.id }
@@ -47,25 +64,35 @@ final class HouseService: ObservableObject {
     /// Descobre a casa do usuário logado (via MemberRecord.userId).
     func load() async {
         guard !isLoading else { return }
+        generation += 1
+        let current = generation
         isLoading = true
         errorMessage = nil
         loadError = nil
-        defer { isLoading = false; hasLoaded = true }
+        defer {
+            // Se o `reset()` ou outro `load()` passou na frente, o estado já não é deste carregamento.
+            if current == generation { isLoading = false; hasLoaded = true }
+        }
 
         do {
             let userId = try await Amplify.Auth.getCurrentUser().userId
+            guard current == generation else { return }
             currentUserId = userId
 
             let memberships = try await list(MemberRecord.self, where: MemberRecord.keys.userId == userId)
+            guard current == generation else { return }
             guard let membership = memberships.first,
                   let found = try await get(HouseRecord.self, id: membership.houseId) else {
+                guard current == generation else { return }
                 clearHouse()
                 return
             }
+            guard current == generation else { return }
             house = found
-            try await fetchDetails(houseId: found.id)
+            try await fetchDetails(houseId: found.id, generation: current)
         } catch {
-            loadError = Self.message(for: error)
+            guard current == generation else { return }
+            loadError = Self.classify(error)
         }
     }
 
@@ -215,6 +242,8 @@ final class HouseService: ObservableObject {
 
     /// Chamar no logout.
     func reset() {
+        generation += 1
+        isLoading = false
         clearHouse()
         currentUserId = nil
         errorMessage = nil
@@ -231,15 +260,20 @@ final class HouseService: ObservableObject {
         invite = nil
     }
 
-    private func fetchDetails(houseId: String) async throws {
+    /// `generation`: só o `load()` passa; descarta o resultado se o usuário mudou durante a busca.
+    private func fetchDetails(houseId: String, generation expected: Int? = nil) async throws {
         async let roomList = list(RoomRecord.self, where: RoomRecord.keys.houseId == houseId)
         async let memberList = list(MemberRecord.self, where: MemberRecord.keys.houseId == houseId)
         async let inviteList = list(InviteCode.self, where: InviteCode.keys.houseId == houseId)
-        rooms = try await roomList.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
-        members = try await memberList.sorted {
+        let fetchedRooms = try await roomList.sorted { $0.name.localizedCompare($1.name) == .orderedAscending }
+        let fetchedMembers = try await memberList.sorted {
             $0.name.localizedCompare($1.name) == .orderedAscending
         }
-        invite = try await inviteList.first
+        let fetchedInvite = try await inviteList.first
+        if let expected, expected != generation { return }
+        rooms = fetchedRooms
+        members = fetchedMembers
+        invite = fetchedInvite
     }
 
     private func perform(_ work: @MainActor () async throws -> Void) async {
@@ -339,6 +373,24 @@ final class HouseService: ObservableObject {
         case .success(let model): return model
         case .failure(let error): throw error
         }
+    }
+
+    /// Separa "a sessão acabou" de "falhou" (rede etc.). O AppSync embrulha o `AuthError` como erro
+    /// subjacente do `APIError`, então desenrola a cadeia (hipótese: só um teste real confirma o formato).
+    static func classify(_ error: Error) -> LoadError {
+        var current: Error? = error
+        var depth = 0
+        while let candidate = current, depth < 10 {
+            if let auth = candidate as? AuthError {
+                switch auth {
+                case .sessionExpired, .signedOut: return .sessionExpired
+                default: break
+                }
+            }
+            current = (candidate as? AmplifyError)?.underlyingError
+            depth += 1
+        }
+        return .failed(message(for: error))
     }
 
     private static func message(for error: Error) -> String {
