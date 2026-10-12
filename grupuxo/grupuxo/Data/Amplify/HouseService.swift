@@ -185,12 +185,24 @@ final class HouseService: ObservableObject {
     // MARK: - Cômodos
 
     func addRoom(name: String, id: String = UUID().uuidString) async {
-        guard let house, !name.trimmed.isEmpty else { return }
-        await perform {
-            let room = try await self.mutate(.create(RoomRecord(id: id, houseId: house.id, name: name.trimmed, members: house.members)))
-            self.rooms.append(room)
-            self.rooms.sort { $0.name.localizedCompare($1.name) == .orderedAscending }
-        }
+        guard house != nil, !name.trimmed.isEmpty else { return }
+        await perform { try await self.createRoomRecord(name: name, id: id) }
+    }
+
+    /// Variante para quem mostra o erro por conta própria (o editor de cômodo): lança em vez de
+    /// preencher `errorMessage`.
+    func addRoomOrThrow(name: String, id: String) async throws {
+        guard !name.trimmed.isEmpty else { throw HouseServiceError.invalidRoomName }
+        try await createRoomRecord(name: name, id: id)
+    }
+
+    private func createRoomRecord(name: String, id: String) async throws {
+        guard let house else { throw HouseServiceError.houseUnavailable }
+        let room = try await mutate(.create(
+            RoomRecord(id: id, houseId: house.id, name: name.trimmed, members: house.members)
+        ))
+        rooms.append(room)
+        rooms.sort { $0.name.localizedCompare($1.name) == .orderedAscending }
     }
 
     func renameRoom(_ room: RoomRecord, to name: String) async {
@@ -403,9 +415,13 @@ final class HouseService: ObservableObject {
 enum HouseServiceError: LocalizedError {
     case invalidCode
     case codeGenerationFailed
+    case houseUnavailable
+    case invalidRoomName
 
     var errorDescription: String? {
         switch self {
+        case .houseUnavailable: "Sua casa não está carregada. Tente novamente."
+        case .invalidRoomName: "Dê um nome ao cômodo."
         case .invalidCode: "Código de convite inválido."
         case .codeGenerationFailed: "Não foi possível gerar um código de convite. Tente novamente."
         }

@@ -399,7 +399,7 @@ final class AppContainer {
 
     func makeRoomEditorViewModel(
         session: AppSession,
-        onCreated: (@MainActor (Room) async -> Void)? = nil
+        onCreated: (@MainActor (Room) async throws -> Void)? = nil
     ) -> RoomEditorViewModel {
         RoomEditorViewModel(
             createRoom: CreateRoomUseCase(

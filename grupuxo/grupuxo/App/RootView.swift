@@ -134,10 +134,17 @@ struct RootView: View {
                         container.makeRoomEditorViewModel(
                             session: session,
                             onCreated: { room in
-                                await houses.addRoom(
-                                    name: room.name,
-                                    id: room.id.uuidString
-                                )
+                                do {
+                                    try await houses.addRoomOrThrow(
+                                        name: room.name,
+                                        id: room.id.uuidString
+                                    )
+                                } catch {
+                                    // O Mock já criou o cômodo: re-sincroniza com a casa real para
+                                    // removê-lo e deixa o erro aparecer no formulário.
+                                    await syncWithHouse()
+                                    throw error
+                                }
                             }
                         )
 

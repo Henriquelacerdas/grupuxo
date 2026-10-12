@@ -13,7 +13,7 @@ final class RoomEditorViewModel: ObservableObject {
     private let houseID: House.ID
     private let creatorUserID: User.ID
     private let getMembers: GetHouseMembersUseCase?
-    private let onCreated: (@MainActor (Room) async -> Void)?
+    private let onCreated: (@MainActor (Room) async throws -> Void)?
 
     var maximumResponsibleCount: Int { max(1, residents.count) }
 
@@ -27,7 +27,7 @@ final class RoomEditorViewModel: ObservableObject {
         creatorUserID: User.ID,
         draft: RoomDraft = RoomDraft(),
         getMembers: GetHouseMembersUseCase? = nil,
-        onCreated: (@MainActor (Room) async -> Void)? = nil
+        onCreated: (@MainActor (Room) async throws -> Void)? = nil
     ) {
         self.createRoom = createRoom
         self.houseID = houseID
@@ -80,7 +80,8 @@ final class RoomEditorViewModel: ObservableObject {
                 icon: draft.icon, color: draft.color,
                 selectedParticipantIDs: draft.selectedParticipantIDs
             )
-            await onCreated?(room)
+            // Se a gravação real falhar, o erro volta ao formulário; quem passou o callback desfaz o Mock.
+            try await onCreated?(room)
             state = .saved(room)
         } catch {
             state = .failure(draft, error.localizedDescription)

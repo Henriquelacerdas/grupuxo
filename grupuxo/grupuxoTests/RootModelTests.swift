@@ -146,3 +146,63 @@ struct HouseSnapshotMakeTests {
         #expect(state.rooms.map(\.id) == [roomID])
     }
 }
+
+@MainActor
+struct RoomCreationRollbackTests {
+    private struct Boom: LocalizedError { var errorDescription: String? { "Sem rede" } }
+
+    private let userID = UUID()
+    private let houseID = UUID()
+
+    private func syncedModel() async throws -> RootModel {
+        let model = RootModel()
+        try await model.apply(
+            HouseSnapshot(
+                houseID: houseID, houseName: "Casa", inviteCode: "ABC234",
+                residents: [.init(id: userID, name: "Ana")], rooms: []
+            ),
+            user: User(id: userID, name: "Ana", email: nil),
+            house: House(id: houseID, name: "Casa", accessCode: "ABC234", createdAt: .now)
+        )
+        return model
+    }
+
+    @Test func failedRemoteSaveShowsErrorAndResyncRemovesOrphanRoom() async throws {
+        let model = try await syncedModel()
+        let editor = model.container.makeRoomEditorViewModel(
+            session: model.session, onCreated: { _ in throw Boom() }
+        )
+        editor.updateDraft { $0.name = "Quarto" }
+        await editor.save()
+
+        guard case let .failure(draft, message) = editor.state else {
+            Issue.record("esperava .failure, veio \(editor.state)")
+            return
+        }
+        #expect(message == "Sem rede" && draft.name == "Quarto")
+        let orphaned = await model.container.store.read { $0 }
+        #expect(orphaned.rooms.count == 1)
+
+        // Re-sync com a casa real, que não tem o cômodo.
+        try await model.container.sync(
+            HouseSnapshot(
+                houseID: houseID, houseName: "Casa", inviteCode: "ABC234",
+                residents: [.init(id: userID, name: "Ana")], rooms: []
+            )
+        )
+        let state = await model.container.store.read { $0 }
+        #expect(state.rooms.isEmpty)
+        #expect(state.schedule.rooms.isEmpty && state.schedule.roomMemberships.isEmpty)
+    }
+
+    @Test func successfulRemoteSaveEndsSaved() async throws {
+        let model = try await syncedModel()
+        let editor = model.container.makeRoomEditorViewModel(session: model.session, onCreated: { _ in })
+        editor.updateDraft { $0.name = "Quarto" }
+        await editor.save()
+        guard case .saved = editor.state else {
+            Issue.record("esperava .saved, veio \(editor.state)")
+            return
+        }
+    }
+}
