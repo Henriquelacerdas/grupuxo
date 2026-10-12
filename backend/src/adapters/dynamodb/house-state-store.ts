@@ -32,6 +32,18 @@ const SEED_PARALLELISM = 25;
 
 export type LookupKind = keyof typeof lookupPK;
 
+/** O que fazer com um comando que gera mais ações do que cabem numa transação (BACKEND.md seção 4). */
+export type OversizedWrites = "fail" | "split";
+
+export interface HouseStateStoreOptions {
+  /**
+   * `fail` (padrão): falha fechado, sem gravar (`tooManyWrites`). `split`: divide a escrita em várias transações
+   * (atalho provisório do TestFlight, PLANO.md seção 2): a primeira leva o `META` condicionado a `version`; se uma
+   * transação seguinte falhar, a casa fica pela metade (`partialWrite`).
+   */
+  readonly oversizedWrites?: OversizedWrites;
+}
+
 /** Opções de `update`. */
 export interface UpdateOptions {
   /**
@@ -102,6 +114,20 @@ function encodePartition(houseID: HouseID, state: StoreState): Map<string, Dynam
   return items;
 }
 
+/**
+ * Divide as ações em transações de até `MAX_TRANSACT_ACTIONS`. O `META` (ação 0) fica na primeira, e os `Put`
+ * condicionais de perfil novo vêm logo depois dele, para que uma condição violada falhe antes de qualquer
+ * gravação. Sem excesso, devolve uma só transação, na ordem original.
+ */
+function splitTransactions(actions: readonly DynamoTransactAction[]): DynamoTransactAction[][] {
+  if (actions.length <= MAX_TRANSACT_ACTIONS) return [[...actions]];
+  const [meta, ...others] = actions;
+  const isNewProfile = (action: DynamoTransactAction): boolean =>
+    action.kind === "put" && action.item["SK"] === PROFILE_SK && action.condition !== undefined;
+  const ordered = [...(meta === undefined ? [] : [meta]), ...others.filter(isNewProfile), ...others.filter((a) => !isNewProfile(a))];
+  return chunks(ordered, MAX_TRANSACT_ACTIONS);
+}
+
 function chunks<T>(items: readonly T[], size: number): T[][] {
   const result: T[][] = [];
   for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
@@ -116,10 +142,12 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
 export class HouseStateStore {
   private readonly client: DynamoClient;
   private readonly runtime: DynamoRuntime;
+  private readonly oversizedWrites: OversizedWrites;
 
-  constructor(client: DynamoClient, runtime: DynamoRuntime) {
+  constructor(client: DynamoClient, runtime: DynamoRuntime, options: HouseStateStoreOptions = {}) {
     this.client = client;
     this.runtime = runtime;
+    this.oversizedWrites = options.oversizedWrites ?? "fail";
   }
 
   /** Leitura consistente; nunca grava. */
@@ -131,6 +159,8 @@ export class HouseStateStore {
   /**
    * Transação por cópia: `fn` recebe um rascunho do estado e pode lançar (nada é gravado). Sem diferença, nada é
    * gravado. Conflito de `version` recarrega e repete, até `MAX_ATTEMPTS`; esgotado, `DynamoStoreError("conflict")`.
+   * Acima de 100 ações: `tooManyWrites` (padrão) ou, com `oversizedWrites: "split"`, várias transações em sequência
+   * (só o conflito na primeira repete; falha depois dela é `partialWrite`).
    */
   async update<T>(houseID: HouseID, fn: (draft: StoreState) => T, options: UpdateOptions = {}): Promise<T> {
     for (let attempt = 1; ; attempt += 1) {
@@ -140,17 +170,27 @@ export class HouseStateStore {
       const actions = this.diff(houseID, loaded, draft);
       if (actions.length === 0) return result;
       if (!loaded.exists) throw new DomainError("entityNotFound");
-      if (actions.length > MAX_TRANSACT_ACTIONS) throw new DynamoStoreError("tooManyWrites");
+      if (actions.length > MAX_TRANSACT_ACTIONS && this.oversizedWrites === "fail") throw new DynamoStoreError("tooManyWrites");
+      const [first = [], ...rest] = splitTransactions(actions);
       try {
-        await this.client.transactWrite(actions);
-        return result;
+        await this.client.transactWrite(first);
       } catch (error) {
         // A ação 0 é sempre o `META` condicionado a `version`: só a falha dela é conflito de concorrência.
         const conflict = error instanceof DynamoTransactionCanceledError && error.reasons[0] === "ConditionalCheckFailed";
         if (!conflict) throw error;
         if (attempt >= MAX_ATTEMPTS) throw new DynamoStoreError("conflict");
         await this.runtime.sleep(Math.floor(this.runtime.random() * MAX_JITTER_MS * attempt));
+        continue;
       }
+      // A primeira transação (com o `META`) já foi aplicada: daqui em diante não há como repetir nem desfazer.
+      for (const batch of rest) {
+        try {
+          await this.client.transactWrite(batch);
+        } catch {
+          throw new DynamoStoreError("partialWrite");
+        }
+      }
+      return result;
     }
   }
 

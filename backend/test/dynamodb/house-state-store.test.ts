@@ -12,6 +12,7 @@ import { isCompleted } from "../../src/domain/entities.ts";
 import { houseMembershipID, taskOccurrenceID, userID } from "../../src/domain/ids.ts";
 import { dynamoEnvironment, instantRuntime } from "./environment.ts";
 import { FakeDynamoClient } from "../support/fake-dynamo-client.ts";
+import { normalizedState } from "../support/normalize.ts";
 import { sequentialAccessCodes } from "../support/state-json.ts";
 import { uuid, World } from "../support/world.ts";
 
@@ -272,6 +273,151 @@ test("entrar por código: o perfil de quem entra é carregado e não regravado; 
   const writes = env.client.writes;
   await assert.rejects(env.houses.joinByCode(userID(uuid(903)), "GRUPUXO", world.now), (error: unknown) => isDomainError(error, "entityNotFound"));
   assert.equal(env.client.writes, writes);
+});
+
+// ---------- oversizedWrites: "split" ----------
+
+function splitEnvironment(world: World, env: Awaited<ReturnType<typeof dynamoEnvironment>>) {
+  const store = new HouseStateStore(env.client, instantRuntime, { oversizedWrites: "split" });
+  return { store, houses: new DynamoHouseRepository(store, env.client, world.ctx, sequentialAccessCodes()) };
+}
+
+/** O mesmo comando no adaptador em memória, em um mundo idêntico (IDs e relógio determinísticos). */
+async function referenceAddMember(): Promise<unknown> {
+  const reference = new World({ timezone: SAO_PAULO });
+  const refEnv = reference.env();
+  await refEnv.houses.addMember("Nova", reference.seed.house.id, reference.seed.users.marina.id, reference.now);
+  return normalizedState(refEnv.store.read((s) => s));
+}
+
+test("split: divide a escrita em transações de até 100 ações, com o META na primeira, e o resultado é o da memória", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const env = await dynamoEnvironment(world);
+  const { users, house } = world.seed;
+  const { houses } = splitEnvironment(world, env);
+  const startVersion = version(env.client, house.id);
+  const before = env.client.transactions.length;
+
+  await houses.addMember("Nova", house.id, users.marina.id, world.now);
+
+  const sent = env.client.transactions.slice(before);
+  assert.ok(sent.length >= 2);
+  assert.ok(sent.every((transaction) => transaction.length <= 100));
+  assert.ok(sent.slice(0, -1).every((transaction) => transaction.length === 100));
+  const [first = [], ...rest] = sent;
+  const meta = first[0];
+  assert.ok(meta?.kind === "put" && meta.item["SK"] === "META" && meta.condition === "#version = :read");
+  // Os perfis novos (Put condicional) vêm logo depois do META: se a condição falhar, falha antes de gravar o resto.
+  const profile = first[1];
+  assert.ok(profile?.kind === "put" && profile.item["SK"] === "PROFILE" && profile.condition === "attribute_not_exists(PK)");
+  assert.ok(rest.every((transaction) => transaction.every((action) => !(action.kind === "put" && action.item["SK"] === "META"))));
+  const keys = sent.flat().map((action) => JSON.stringify(action.kind === "delete" ? action.key : { PK: action.kind === "put" ? action.item["PK"] : "", SK: action.kind === "put" ? action.item["SK"] : "" }));
+  assert.equal(new Set(keys).size, keys.length);
+  assert.equal(version(env.client, house.id), typeof startVersion === "number" ? startVersion + 1 : -1);
+  assert.deepEqual(normalizedState(await env.state()), await referenceAddMember());
+});
+
+test("split: a saída de um morador (mais de 100 ações, com apagamentos) também chega ao estado da memória", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const env = await dynamoEnvironment(world);
+  const { users, house } = world.seed;
+  const { houses } = splitEnvironment(world, env);
+  const before = env.client.transactions.length;
+  await houses.leave(users.rafa.id, house.id, world.now, false);
+  const sent = env.client.transactions.slice(before);
+  assert.ok(sent.length >= 2);
+
+  const reference = new World({ timezone: SAO_PAULO });
+  const refEnv = reference.env();
+  await refEnv.houses.leave(reference.seed.users.rafa.id, reference.seed.house.id, reference.now, false);
+  assert.deepEqual(normalizedState(await env.state()), normalizedState(refEnv.store.read((s) => s)));
+});
+
+test("split: conflito de versão na primeira transação não grava nada e repete tudo", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const env = await dynamoEnvironment(world);
+  const { users, house } = world.seed;
+  const { houses } = splitEnvironment(world, env);
+  const startVersion = version(env.client, house.id);
+  const before = env.client.snapshot();
+  let calls = 0;
+  let bumpedAt: unknown;
+  env.client.beforeTransact = async () => {
+    calls += 1;
+    if (calls > 1) return;
+    // Outro escritor muda a versão antes da primeira tentativa: a transação cai na condição do META.
+    const meta = env.client.peek({ PK: `HOUSE#${house.id}`, SK: "META" });
+    assert.ok(meta !== undefined);
+    env.client.seedItem({ ...meta, version: Number(meta["version"]) + 1 });
+    bumpedAt = env.client.snapshot();
+  };
+  const writes = env.client.transactions.length;
+  await houses.addMember("Nova", house.id, users.marina.id, world.now);
+  env.client.beforeTransact = undefined;
+
+  // A tentativa que conflitou não gravou nada: só a da repetição (2 transações) entrou no registro.
+  assert.equal(env.client.transactions.length - writes, 2);
+  assert.equal(calls, 3);
+  assert.ok(bumpedAt !== undefined && before.length > 0);
+  assert.equal(version(env.client, house.id), typeof startVersion === "number" ? startVersion + 2 : -1);
+  // O comando rodou de novo sobre o estado recarregado (com IDs novos): mesmo formato do resultado em memória.
+  const shape = (state: unknown): unknown => Object.fromEntries(Object.entries(Object(state)).map(([key, items]) => [key, Array.isArray(items) ? items.length : -1]));
+  assert.deepEqual(shape(normalizedState(await env.state())), shape(await referenceAddMember()));
+});
+
+test("split: falha depois da primeira transação vira partialWrite, sem repetir e com mensagem fixa", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const env = await dynamoEnvironment(world);
+  const { users, house } = world.seed;
+  const { houses } = splitEnvironment(world, env);
+  const startVersion = version(env.client, house.id);
+  const before = env.client.snapshot();
+  const writes = env.client.transactions.length;
+  let calls = 0;
+  env.client.beforeTransact = async () => {
+    calls += 1;
+    if (calls === 2) throw new Error("queda de rede com dados sensíveis");
+  };
+  await assert.rejects(houses.addMember("Nova", house.id, users.marina.id, world.now), (error: unknown) => {
+    assert.ok(error instanceof DynamoStoreError);
+    assert.equal(error.code, "partialWrite");
+    assert.ok(!error.message.includes("sensíveis"));
+    return true;
+  });
+  env.client.beforeTransact = undefined;
+
+  assert.equal(calls, 2);
+  assert.equal(env.client.transactions.length - writes, 1);
+  assert.equal(version(env.client, house.id), typeof startVersion === "number" ? startVersion + 1 : -1);
+  // A primeira transação ficou aplicada: a casa mudou, mas não chegou ao estado final.
+  assert.notDeepEqual(env.client.snapshot(), before);
+  assert.notDeepEqual(normalizedState(await env.state()), await referenceAddMember());
+});
+
+test("split: erro que não é de conflito na primeira transação propaga como está e nada é aplicado", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const env = await dynamoEnvironment(world);
+  const { users, house } = world.seed;
+  const { houses } = splitEnvironment(world, env);
+  const before = env.client.snapshot();
+  env.client.beforeTransact = async () => { throw new Error("queda de rede"); };
+  await assert.rejects(houses.addMember("Nova", house.id, users.marina.id, world.now), /queda de rede/);
+  env.client.beforeTransact = undefined;
+  assert.deepEqual(env.client.snapshot(), before);
+});
+
+test("split: comando que cabe numa transação continua sendo uma só, como sem a opção", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const env = await dynamoEnvironment(world);
+  const { users, house } = world.seed;
+  const { store } = splitEnvironment(world, env);
+  const id = await openTask(world, env);
+  const before = env.client.transactions.length;
+  await new DynamoTaskRepository(store, world.ctx).complete(id, users.marina.id, world.now);
+  const sent = env.client.transactions.slice(before);
+  assert.equal(sent.length, 1);
+  assert.ok(sent[0]?.[0]?.kind === "put");
+  assert.equal(version(env.client, house.id) !== undefined, true);
 });
 
 void taskOccurrenceID;
