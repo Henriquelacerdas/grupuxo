@@ -50,24 +50,22 @@ Ordem e paralelismo: T0 começa já e corre em paralelo. T1 destrava T2 e T4, qu
 - [ ] Cadastrar no painel da Meta os até 5 números dos testadores com WhatsApp.
 
 ### T1 — Contrato primeiro (~0,5 dia)
-- ✅ (aguarda aprovação do dono) BACKEND.md §6.1 com as rotas de T2, JSON de entrada e saída, erros e códigos HTTP, revisado pelas duas frentes antes de qualquer código.
-- Teste de contrato TS↔Swift: um teste TS grava um JSON de exemplo de cada resposta (casa, cômodo, participação, `TaskItem`, `TaskDefinition`) em `backend/test/fixtures/api/`, e um teste Swift decodifica os mesmos arquivos com os DTOs de `Data/Remote`. Pega divergência de DTO como as fixtures pegam divergência de algoritmo.
+- ✅ (aprovado pelo dono; `646f271`) BACKEND.md §6.1 com as rotas de T2, JSON de entrada e saída, erros e códigos HTTP, revisado pelas duas frentes antes de qualquer código.
+- ✅ (lado TS, `646f271`; o teste Swift é T4) Teste de contrato TS↔Swift: um teste TS grava um JSON de exemplo de cada resposta (casa, cômodo, participação, `TaskItem`, `TaskDefinition`) em `backend/test/fixtures/api/`, e um teste Swift decodifica os mesmos arquivos com os DTOs de `Data/Remote`. Pega divergência de DTO como as fixtures pegam divergência de algoritmo.
 
-### T2 — Backend: domínio e `api` (~3–4 dias)
-1. Comandos de domínio (TS; regras de casa novas, sem equivalente no Swift):
-   - `createHouse(founderUserID, name, timezone)`: casa, cômodo "Casa toda" com o fundador e `accessCode` de um gerador injetado. No DynamoDB, criada pelo caminho condicional do `seedHouse` (`META` com `version = 0` e `ACCESSCODE#` com `attribute_not_exists`).
-   - `joinHouseByCode(userID, code)`: extrair de `addHouseMember` um `addExistingUserToHouse` usado pelos dois (mesmo replanejamento; as fixtures de `addHouseMember` protegem a extração). Busca da casa por `GetItem ACCESSCODE#<code>`.
-   - `leaveHouse(userID)` sobre `removeHouseMember`, permitindo a saída do próprio morador.
-2. `HouseStateStore`: opção `oversizedWrites` (seção 2), com teste no cliente falso (divisão, conflito na primeira transação, falha no meio).
-3. Rotas, todas com `userID` do token e `at` do servidor:
-   - Casa: `GET /v1/me/house` (casa, código, moradores, cômodos; 404 `no_house`), `POST /v1/houses`, `POST /v1/houses/join`, `DELETE /v1/me/house`.
-   - Cômodos: `POST /v1/houses/{id}/rooms`, `GET /v1/rooms/{id}` (participação), `POST` e `DELETE /v1/rooms/{id}/members`.
-   - Tarefas: `GET /v1/me/tasks`, `GET` e `POST /v1/rooms/{id}/tasks`, `GET /v1/rooms/{roomId}/tasks/{taskId}`, `POST /v1/rooms/{roomId}/tasks/{taskId}/end` (aninhadas sob o cômodo: o `GSI1` não indexa `TASKDEF#`; sem `PATCH`, ver BACKEND.md §6.1).
-   - Ocorrências: `POST /v1/occurrences/{id}/complete` e `/reopen`.
-4. Testes ponta a ponta do handler em memória e contra o DynamoDB com o cliente falso.
+### T2 — Backend: domínio e `api` — ✅ feita no código (2026-10-12; `npm run typecheck && npm test`: 1065 testes verdes; nada tocou AWS, Meta nem Gemini)
+1. ✅ Comandos de domínio (TS; regras de casa novas, sem equivalente no Swift):
+   - ✅ `addExistingUserToHouse` extraído de `addHouseMember`, sem mudar comportamento nem a ordem de chamadas (`9f3966f`; fixtures intactas).
+   - ✅ `createHouse(founderID, name, timezone)`: casa, "Casa toda" com o fundador, `accessCode` de um gerador injetado; no DynamoDB, `HouseStateStore.createHouse(state)` pelo caminho condicional do `seedHouse` (`META` com `version = 0` e `ACCESSCODE#`), com nova tentativa se o código colidir (`39bed90`, `3a46317`).
+   - ✅ `joinHouseByCode(userID, code)` (código → casa por `GetItem ACCESSCODE#<code>`; `extraProfileIDs` pré-carrega o perfil de quem entra) e `leaveHouse(userID)` (comando separado; `removeHouseMember` segue proibindo remover a si mesmo; último morador → `last_member`) (`39bed90`, `3a46317`).
+2. ✅ `HouseStateStore`: `oversizedWrites: "fail" | "split"` (padrão `fail`), com `partialWrite` se uma transação depois da primeira falhar; testes de divisão, conflito na primeira e falha no meio (`1a847cd`).
+3. ✅ Rotas, todas com `userID` do token e `at` do servidor, conforme BACKEND.md §6.1: casa (`4d48d8a`), cômodos (`74d4434`), tarefas (`994aa0f`), ocorrências (`63398a3`). Antes delas, duas leituras de repositório que o contrato exigia (`TaskRepository.definition` e `houseOfOccurrence`, `05b9dc3`), para o 404 uniforme que a §6.1 manda.
+4. ✅ Testes ponta a ponta do handler em memória e contra o DynamoDB com o cliente falso (`test/lambdas/api-routes*.ts`, com a escrita dividida ligada).
+
+Pontos da implementação que o dono deve conhecer: o criador de cômodo privado entra sempre (união na rota, como diz a §6.1); uma tarefa criada começa na próxima segunda-feira (comportamento do domínio, anotado na §6.1); `already_in_house`/`no_house` leem o `GSI1`, eventualmente consistente (anotado na §6.1 e em D6 do checklist). Nenhuma fixture de API mudou, e o contrato da §6.1 não foi alterado (só notas).
 
 ### T3 — Deploy do bot (~2 dias; em paralelo com T2)
-1. Pontos de entrada `backend/src/main/{api,webhook,worker}.ts`: a única camada que lê `process.env` e importa `@aws-sdk`; embrulham o SDK nos clientes mínimos (`DynamoClient`, `SqsClient`, `SecretsManagerClient`), leem o segredo, montam os adaptadores DynamoDB e passam as retenções de TTL (sugestão: `WAMID#` 7 dias, `RATE#` janela + 5 min, `LINKTOKEN#` validade + 1 h). Teste de arquitetura atualizado para a nova camada.
+1. Pontos de entrada `backend/src/main/{api,webhook,worker}.ts`: a única camada que lê `process.env` e importa `@aws-sdk`; embrulham o SDK nos clientes mínimos (`DynamoClient`, `SqsClient`, `SecretsManagerClient`), leem o segredo, montam os adaptadores DynamoDB e passam as retenções de TTL (sugestão: `WAMID#` 7 dias, `RATE#` janela + 5 min, `LINKTOKEN#` validade + 1 h). Teste de arquitetura atualizado para a nova camada. **Herdado de T2, na `api`:** `new HouseStateStore(client, runtime, { oversizedWrites: "split" })`; o gerador de código de convite (`newAccessCode`, `^[A-Z0-9]{4,16}$`, de `crypto`, sem caracteres ambíguos) passado ao `DynamoHouseRepository`; `now` (relógio) e `newID` (`crypto.randomUUID`) passados ao `createApiHandler` e ao `CommandContext`; `DynamoRuntime` (`sleep`, `random`) real; `DynamoUserDirectory` e os repositórios `DynamoHouse/Room/TaskRepository` montados sobre o mesmo store. (`extraProfileIDs` já é usado por dentro do `DynamoHouseRepository.joinByCode`: não há o que ligar.)
 2. Build: `esbuild` (devDependency) gera um bundle por Lambda; o AWS SDK v3 fica externo (vem no runtime Node 22) e entra só como devDependency de tipos. Fecha as perguntas 13–15.
 3. `backend/infra/` (Terraform): tabela a partir de `table-definition.ts` (GSI1, TTL, sob demanda), SQS FIFO + DLQ (`ContentBasedDeduplication` desligada, `ReportBatchItemFailures`), segredos (valores gravados pelo dono fora do state), 3 Lambdas Node 22 com roles mínimas, 2 Function URLs `AuthType = NONE`, concorrência reservada, logs com retenção, alarme da DLQ.
 4. `backend/tools/seed-dev/`: roda `seedHouse` contra a tabela de `dev` com o `userID` real (o que o `POST /v1/me` devolveu); serve para M1 e para a conta do revisor da Apple. Só com autorização.
@@ -78,8 +76,8 @@ Ordem e paralelismo: T0 começa já e corre em paralelo. T1 destrava T2 e T4, qu
 2. URL base da `api` por `.xcconfig` → chave no `Info.plist`.
 3. `RemoteHouseSession` (`@MainActor`, `ObservableObject`) no lugar do `HouseService`: `POST /v1/me` com o nome → `GET /v1/me/house`; criar, entrar por código, sair, mostrar código. `HouseGateView`, onboarding e `HouseView` passam a usá-lo. `User.id` passa a ser o id do backend (D2), não o `sub`.
 4. `AppContainer` com os repositórios remotos; saem `RootModel.sync`, `AppContainer.sync` e o plugin API do Amplify (fica só o Auth). `Data/Amplify` e `grupuxo/amplify` são apagados na limpeza do fim da trilha.
-5. Reativar a `WhatsAppConnectionSection` com o repositório remoto. Esconder as telas da seção 2.
-6. Testes: decodificação dos JSON de T1, `APIClient` com `URLProtocol` falso (401, 404 `no_house`, erro de rede), `RemoteHouseSession` com cliente falso.
+5. Reativar a `WhatsAppConnectionSection` com o repositório remoto. Esconder as telas da seção 2, **inclusive a edição de tarefa** (sem `PATCH` na `api`; encerrar usa `POST /v1/rooms/{roomID}/tasks/{taskID}/end`, então o `RemoteTaskRepository` precisa do `roomID`, que o `TaskDefinition` já carrega).
+6. Testes: decodificação dos JSON de `backend/test/fixtures/api/` (teste Swift que decodifica os mesmos arquivos que o teste TS de T1 grava, com formatador próprio de datas ISO com milissegundos), `APIClient` com `URLProtocol` falso (401, 404 `no_house`, erro de rede), `RemoteHouseSession` com cliente falso.
 
 ### T5 — Rodadas de teste
 - **M2, TestFlight interno:** duas contas em dois aparelhos: criar casa, entrar por código, criar tarefa, ver a mesma escala no app e no WhatsApp, concluir pelo bot (com o "sim") e ver concluída no app. Roteiro anotado em VALIDACAO-APIS-REAIS.md §6.
