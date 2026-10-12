@@ -31,6 +31,7 @@ Conferido só na documentação (somente leitura, 2026-10-05): URL `https://grap
 | M3 | Modelos com raciocínio: `thoughtSignature` e partes `thought` | Rodar com o modelo escolhido e verificar a rodada de correção |
 | M4 | `gemini-2.5-flash-lite` (padrão recomendado) continua GA e sem data de desligamento | Reconferir a página de depreciações do Google antes de cada release |
 | M5 | Latência e custo por pergunta, e o teto de 512 tokens de saída | Medir em `dev` |
+| M6 | *Function calling* com `complete_task(task_name)`: o modelo chama a ferramenta (e só ela) ao ouvir "terminei de lavar a louça", não a chama para perguntas, e ignora "sim"/"não" (que o código trata antes do modelo). Não executado; o script `tools/validate/gemini.ts` ainda não tem um item para isso | Chamada real em `dev`, só com tarefas de demonstração; a conclusão em si usa adaptadores em memória |
 
 ## 3. Lambda Function URL (payload 2.0) e SQS (`src/lambdas/events.ts`)
 

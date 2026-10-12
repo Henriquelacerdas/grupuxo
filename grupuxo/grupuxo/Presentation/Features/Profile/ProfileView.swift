@@ -68,12 +68,14 @@ final class ProfileViewModel: ObservableObject {
 
 struct ProfileView: View {
     @StateObject private var viewModel: ProfileViewModel
+    @StateObject private var whatsApp: WhatsAppConnectionViewModel
     @State private var showingAdd = false
     @State private var memberToRemove: User?
     @FocusState private var nameFocused: Bool
 
-    init(viewModel: ProfileViewModel) {
+    init(viewModel: ProfileViewModel, whatsApp: WhatsAppConnectionViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        _whatsApp = StateObject(wrappedValue: whatsApp)
     }
 
     var body: some View {
@@ -133,6 +135,7 @@ struct ProfileView: View {
                 }
                 .disabled(viewModel.isSaving)
             }
+            WhatsAppConnectionSection(viewModel: whatsApp)
             if viewModel.isSaving && !showingAdd {
                 ProgressView("Atualizando moradores…")
             }

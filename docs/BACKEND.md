@@ -1,6 +1,6 @@
 # Backend e integração com WhatsApp
 
-Arquitetura do backend e do canal WhatsApp. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token, validação do JWT do Cognito, assistente Gemini, sender da Graph API, limite de taxa e handlers no formato Lambda, tudo com adaptadores em memória, sem DynamoDB nem AWS de verdade (ver seção 14). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
+Arquitetura do backend e do canal WhatsApp. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token, validação do JWT do Cognito, assistente Gemini, sender da Graph API, limite de taxa e handlers no formato Lambda, tudo com adaptadores em memória, sem DynamoDB nem AWS de verdade (ver seção 14). Concluir tarefa pelo WhatsApp, com confirmação, também está implementado em memória (seções 7.4 e 9). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
 
 Documentos relacionados: [ARQUITETURA.md](ARQUITETURA.md) (app), [ALGORITMO.md](ALGORITMO.md) (contrato matemático), [PRODUTO.md](PRODUTO.md).
 
@@ -11,7 +11,7 @@ Hoje os dados do app vivem no `MockStore`, em memória, sem persistência. Já e
 1. Um backend AWS que passa a ser a **fonte de verdade** dos dados.
 2. Um canal WhatsApp que atua como **mais um cliente** desse backend.
 
-**v1 do WhatsApp (✅): somente consulta.** Exemplo: "quais são minhas tarefas da semana?". Concluir tarefas ("acabei de limpar a sala"), lembretes proativos e trocas ficam para versões seguintes, mas o desenho já os comporta (seção 9).
+**v1 do WhatsApp (✅): consulta**, por exemplo "quais são minhas tarefas da semana?". **Concluir tarefa com confirmação** ("terminei de lavar a louça" → "Marcar *Lavar a louça* como feita?" → "sim") já está implementada e testada com adaptadores em memória (seções 7.4 e 9). Lembretes proativos e trocas ficam para versões seguintes, mas o desenho já os comporta (seção 9).
 
 Fora de escopo: avaliação da casa, widget, Siri, lista de mercado e financeiro (ver roadmap em PRODUTO.md).
 
@@ -313,17 +313,19 @@ mensagem ─► registrar o wamid na caixa de entrada (item WAMID#; se já foi p
         ─► resolver telefone → usuário (vínculo PHONE#)
               ├─ desconhecido: responder "Vincule seu número no app"
         ─► Gemini (function calling) interpreta a intenção
-        ─► executa a ferramenta → caso de uso (leitura)
+        ─► resposta a uma confirmação pendente ("sim"/"não" inteiro)? tratada por código, sem o Gemini (seção 7.4)
+        ─► executa a ferramenta → caso de uso (leitura) ou pedido de conclusão (grava só o pedido pendente)
         ─► formata a resposta em português e envia pela Graph API
 ```
 
-Ferramentas expostas ao Gemini na v1 (somente leitura, sem parâmetro de usuário: o `userID` é injetado pelo worker):
+Ferramentas expostas ao Gemini (sem parâmetro de usuário nem de casa: o `userID` é injetado pelo worker; só as de leitura executam algo, `complete_task` apenas pede a conclusão):
 
 | Ferramenta | Caso de uso | Exemplo |
 | --- | --- | --- |
 | `list_my_tasks(range)` | `GetMyTasks` | "quais são minhas tarefas da semana?" |
 | `list_room_tasks(room_name)` | `GetRoomTasks` | "o que tem na cozinha?" |
 | `list_sporadic_tasks()` | `GetSporadicTasks` | "tem alguma tarefa avulsa?" |
+| `complete_task(task_name)` | `CompleteTask`, **só depois do "sim"** | "terminei de lavar a louça" |
 
 Se o Gemini não reconhecer a intenção, o bot responde com a lista do que sabe fazer. O texto final **não** é gerado pelo modelo: é montado por código a partir do que o caso de uso devolveu (seção 7.4).
 
@@ -355,14 +357,15 @@ Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum test
 - Erros tipados (`GeminiRequestError`: `network`, `timeout`, `status` com o status HTTP, `invalidResponse`, `blocked`), com mensagem fixa: sem corpo de resposta, sem o erro original, sem texto do usuário. Resposta com mais de 256 KB é recusada. A resposta é lida com estreitamento escrito à mão; partes de raciocínio (`thought`) e tipos desconhecidos são descartados.
 - Modelo padrão **recomendado**: `gemini-2.5-flash-lite` (o mais barato com *function calling*). Conferido em 2026-10-05 na página de depreciações do Google: estável (GA), sem data de desligamento anunciada. Já existe o `gemini-3.5-flash-lite` (também sem data). O `gemini-1.5-flash` foi desativado e, segundo a mesma página, o `gemini-2.0-flash-lite` tinha desligamento anunciado para 1/6/2026: nenhum dos dois pode ser usado. O valor concreto é configuração do ambiente; reconferir a página antes de cada release.
 
-**Ferramentas** (`read-tools.ts`): `list_my_tasks(range)`, `list_room_tasks(room_name)`, `list_sporadic_tasks()`. As declarações não têm parâmetro de usuário nem de casa; o `userID` e a casa são injetados pelo responder. Tudo o que o modelo devolve é entrada não confiável:
+**Ferramentas** (`read-tools.ts`, `ASSISTANT_FUNCTIONS`): `list_my_tasks(range)`, `list_room_tasks(room_name)`, `list_sporadic_tasks()` e `complete_task(task_name)` (fluxo abaixo). As declarações não têm parâmetro de usuário, de casa nem de ocorrência; o `userID` e a casa são injetados pelo responder. Tudo o que o modelo devolve é entrada não confiável:
 
 | Entrada do modelo | Tratamento |
 | --- | --- |
 | Ferramenta desconhecida (inclusive de escrita ou nomes do protótipo) | Recusada (`unknown_tool`); nada executa |
 | `range` | Só `"week"` ou `"all"`; ausente = `"week"`; qualquer outro valor é recusado (`invalid_range`) |
 | `room_name` | Texto de 1 a 80 caracteres após `trim`; senão `invalid_room_name` |
-| Argumentos extras (`user_id`, `house_id`...) | Ignorados: só os parâmetros declarados são lidos (e só chaves próprias do objeto) |
+| `task_name` | Texto de 1 a 80 caracteres após `trim`; senão `invalid_task_name` |
+| Argumentos extras (`user_id`, `house_id`, `occurrence_id`...) | Ignorados: só os parâmetros declarados são lidos (e só chaves próprias do objeto) |
 
 `room_name` é resolvido contra `RoomRepository.rooms(houseID, userID)`: igualdade sem caixa, acento nem artigo inicial; depois "um nome contém o outro" (mínimo de 3 caracteres). Nomes iguais são desempatados pelo **menor ID**; nomes diferentes na busca parcial são ambíguos (o bot lista as opções em vez de escolher). `rooms()` lista todos os cômodos da casa, inclusive os privados de que o morador não participa (como o app mostra); as tarefas, porém, só saem de `GetRoomTasks`, que aplica a elegibilidade: o morador de fora recebe "Não há tarefas em X", nunca as tarefas.
 
@@ -374,6 +377,15 @@ Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum test
 4. A saída das ferramentas **não** volta ao modelo. A resposta é montada em `task-format.ts` a partir do que os casos de uso devolveram, então nomes e datas só vêm dos dados, e o texto que o modelo escrever é descartado: uma instrução escondida na mensagem ou num nome de tarefa de outro morador não consegue ditar o que o bot diz. Só uma falha recuperável (argumento inválido, cômodo não encontrado/ambíguo) volta ao modelo, como erro de código fixo mais os nomes dos cômodos, para ele corrigir a chamada.
 5. Falha do Gemini (`GeminiRequestError`) → mensagem fixa em português ("Tente de novo em instantes"). Qualquer outro erro (banco, bug) propaga e o SQS tenta de novo. Se a rodada de correção falhar, mantém o que já foi respondido.
 6. Nada do conteúdo é registrado em log nem guardado (teste dedicado: console, `stdout`/`stderr`, responder sem estado, caixa de entrada só com `wamid` e horários).
+
+**Concluir tarefa com confirmação** (`complete-task.ts`, `GeminiMessageResponder`; port `PendingActionStore`, seção 14). Duas etapas, e quem grava é sempre o código:
+
+1. *Pedido.* O morador diz que terminou algo; o modelo chama `complete_task(task_name)`. O responder busca as tarefas **pendentes do próprio morador** (`GetMyTasks`, `range: "all"`) e resolve o nome (`resolveTask`: igualdade normalizada, depois "um nome contém o outro"; mesma ocorrência de nome repetido → prazo mais próximo, depois menor ID; nomes diferentes → ambíguo, e o bot lista as opções em vez de escolher). Achando, grava um `PendingCompletion` (`occurrenceID`, horários, **sem texto**) e responde `Marcar *X* como feita? Responda *sim* ou *não*.` Nada foi gravado no domínio. Não achou/ambíguo → resposta fixa com os nomes pendentes (a tarefa de outro morador nunca aparece). Um único pedido por mensagem; um novo pedido substitui o anterior. Validade de 5 minutos (`confirmationLifetimeSeconds`, padrão 300).
+2. *Confirmação.* Antes de chamar o modelo, `parseConfirmation` olha a mensagem **inteira** (sem caixa, acento nem pontuação das pontas: "sim", "ok", "pode", 👍 / "não", "cancela", 👎...); "sim, e mostre as tarefas do Leo" não confirma nada. "Sim" chama `PendingActionStore.confirm(userID, wamid, agora)` e, se devolver o pedido, `CompleteTask` do domínio com o `userID` do vínculo e a ocorrência **do pedido guardado** (nunca do texto nem do modelo); "não" descarta o pedido. O "sim"/"não" nunca chega ao Gemini.
+
+*Idempotência por `wamid`.* `confirm` é atômico e marca o pedido com o `wamid` que confirmou: o mesmo `wamid` de novo (reentrega do SQS depois de a conclusão gravar mas o envio falhar) devolve o mesmo pedido, e como o `CompleteTask` do domínio é idempotente para o mesmo morador, a conclusão acontece uma vez só (sem esforço nem `fairnessDebt` em dobro) e a resposta sai igual; outro `wamid` depois disso recebe "Não há nada aguardando confirmação". Respostas fixas para falha do domínio (`taskUnavailable`, `entityNotFound`, `taskAlreadyCompleted` → "confira no app"); qualquer outro erro propaga e o SQS tenta de novo. O nome da tarefa entra na resposta sem `*_~` e em uma linha (vem de outros moradores). Nada do texto é registrado em log nem persistido.
+
+*Desvio de BACKEND.md seção 9 (versão anterior):* a ferramenta era `complete_task(occurrence_id)`, mas a saída das ferramentas não volta ao modelo, então ele nunca vê IDs; por isso recebe o **nome** e o código resolve a ocorrência.
 
 **Formatação** (`task-format.ts`): datas no fuso da casa (`localDateTime` em `dates.ts`, extensão só do servidor). O prazo é o fim **exclusivo** de `[availableAt, dueAt)`: prazo à meia-noite aparece como o dia anterior ("até dom 20/09" para a semana que termina na segunda 00:00); com horário, aparece o horário; vencido leva "(atrasada)". O ano só aparece quando não é o corrente. Esforço nunca é exibido. Nomes de outros moradores viram uma linha só, sem caracteres de controle, com no máximo 60 caracteres; no máximo 20 tarefas por lista ("… e mais N") e 3800 caracteres por resposta (o `WhatsAppSender` ainda corta em 4096).
 
@@ -432,7 +444,7 @@ Cuidados:
 
 | Etapa | O que muda |
 | --- | --- |
-| Concluir tarefa | Nova ferramenta `complete_task(occurrence_id)` → `CompleteTask`. **Confirmação obrigatória** antes de gravar ("Marcar *Limpar sala* como feita?"), guardando o pedido pendente por curto tempo. Idempotente por `wamid`. |
+| ✅ Concluir tarefa | **Implementado em memória** (seção 7.4): ferramenta `complete_task(task_name)` → `CompleteTask`, com **confirmação obrigatória** antes de gravar ("Marcar *Limpar sala* como feita?"), pedido pendente guardado por 5 minutos no port `PendingActionStore` e idempotência por `wamid`. Falta o adaptador DynamoDB do port (a cargo de quem faz o DynamoDB, seção 14) e validar o *function calling* real. |
 | Lembretes | Mensagens iniciadas pelo bot fora da janela de 24 h exigem *template* aprovado, com custo. Usar um agendador (EventBridge Scheduler) que enfileira lembretes. Por isso o *opt-in* explícito é gravado desde a v1. |
 | Trocas, assumir esporádica | Novas ferramentas sobre os casos de uso existentes. |
 
@@ -506,7 +518,7 @@ Para a infraestrutura (Node):
 3. Lambda `api` e autenticação (login Cognito do app ✅; *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; falta o `UserDirectory` em DynamoDB e o ponto de entrada da Lambda `api`); `Data/Remote` no app (trocar mocks em `AppContainer`).
 4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Os endpoints `POST /v1/me` e `POST /v1/me/whatsapp/link` já existem no handler `api` (em memória); falta a tela.*
 5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco, `GeminiMessageResponder`, `GraphWhatsAppSender`, limite de taxa e handlers no formato Lambda, com adaptadores em memória e Gemini/Graph falsos; adaptador SQS e leitor do segredo no Secrets Manager prontos com clientes falsos; falta o ponto de entrada de cada Lambda (AWS SDK e empacotamento em aberto).* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
-6. Concluir tarefas com confirmação e, por fim, lembretes.
+6. ✅ Concluir tarefas com confirmação (em memória, seção 7.4; falta o adaptador DynamoDB do `PendingActionStore`) e, por fim, lembretes.
 
 Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paralelo.
 
@@ -535,6 +547,7 @@ Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada 
 | Tabela DynamoDB e repositórios (domínio e ports) | `infra/` (Terraform), `src/adapters/dynamodb/` | a fazer (modelo na seção 4) |
 | Endpoints `POST /v1/me`, `/v1/me/whatsapp/link`, `GET`/`DELETE /v1/me/whatsapp` | `src/lambdas/api.ts` | ✅ em memória; tela no Perfil a fazer |
 | Gemini e ferramentas de leitura (`MessageResponder` definitivo) | `src/assistant/` | ✅ testado com cliente e `HttpFetch` falsos (seção 7.4), ligado em `composeWhatsAppWorker`; falta validar contra a API real |
+| Concluir tarefa com confirmação (`complete_task`, `PendingActionStore`, `parseConfirmation`, `resolveTask`) | `src/assistant/complete-task.ts`, `gemini-responder.ts`, port em `src/whatsapp/ports.ts`, `adapters/in-memory/pending-actions.ts`, contrato `test/contract/pending-actions.ts` | ✅ em memória, testado com Gemini falso (seção 7.4); **adaptador DynamoDB do `PendingActionStore` a cargo de quem implementa o DynamoDB** |
 | Intervalo de datas ("da semana") em `GetMyTasksUseCase` | `src/domain/use-cases/tasks.ts` | ✅ `range: "week" \| "all"`, fuso da casa, só a semana corrente; extensão só do servidor (ver [ALGORITMO.md](ALGORITMO.md)) |
 
 ### Verificação
@@ -578,9 +591,14 @@ Quem implementar o DynamoDB deve fazer cada port passar nos mesmos testes dos ad
 | `LinkTokenStore` | `save(token)` | `LINKTOKEN#<hash>` / `LINKTOKEN` | `PutItem` (`userID`, `expiresAt`, `ttl`) |
 | | `consume(tokenHash, at)` | | `UpdateItem SET usedAt = :at` com `attribute_exists(PK) AND attribute_not_exists(usedAt) AND expiresAt > :at` e `ReturnValues: ALL_NEW`; condição falha = `null` |
 | `RateCounter` | `increment(key, windowStart)` | `RATE#<key>` / `<windowStart>` | `UpdateItem ADD #count :one SET #ttl = :ttl` com `ReturnValues: UPDATED_NEW`; devolve `count` |
+| `PendingActionStore` | `save(pending)` | `PENDING#<userID>` / `COMPLETE` | `PutItem` (`occurrenceID`, `createdAt`, `expiresAt`, `ttl`; sem `confirmedByWamid`), substituindo o pedido anterior do morador |
+| | `confirm(userID, wamid, at)` | | `UpdateItem SET confirmedByWamid = :wamid` com `attribute_exists(PK) AND expiresAt > :at AND (attribute_not_exists(confirmedByWamid) OR confirmedByWamid = :wamid)` e `ReturnValues: ALL_NEW`; condição falha = `null` |
+| | `discard(userID)` | | `DeleteItem` (idempotente) |
 | `UserDirectory` | `userForSub(sub)` | `COGNITO#<sub>` | `GetItem` consistente |
 | | `ensureUser(sub, profile)` | `COGNITO#<sub>`, `USER#<id>` / `PROFILE` | `TransactWriteItems` com `Put` de `COGNITO#` (`attribute_not_exists(PK)`) e do perfil; se a condição falhar, `GetItem` consistente do `COGNITO#<sub>` |
 
 Campos do vínculo: `userID`, `phoneE164` (E.164 com `+`), `consentedAt`, `linkedAt`, todos em milissegundos (`Instant`). Não existe `status`: desvincular apaga os itens. Só o `ttl` é em segundos. O token só existe como SHA-256 em hexadecimal; o `ttl` do `LINKTOKEN#` deve ser posterior a `expiresAt` (o DynamoDB apaga com atraso, então a **condição** `expiresAt > :at` é que decide a validade, nunca a presença do item). Pelo mesmo motivo, `RATE#` e `WAMID#` não podem depender do TTL para a lógica: a janela entra na chave, e `claim`/`markProcessed` não leem `ttl`.
+
+Item `PENDING#`: **proposta de modelo feita aqui, sem alterar a seção 4** (o adaptador DynamoDB é de outra pessoa, que deve incorporá-la à seção 4 no mesmo commit do adaptador). Só `occurrenceID` e horários em milissegundos; `ttl` (segundos) pouco depois de `expiresAt`, e, como nos demais itens, a validade é decidida pela **condição** `expiresAt > :at`, nunca pela presença do item. Guardar o texto da mensagem ou o nome da tarefa está fora do contrato.
 
 Retenção: `WAMID#` com `ttl` de poucos dias (só serve à deduplicação; a Meta e o SQS reentregam em minutos ou horas), `RATE#` com `ttl` de alguns minutos além da janela, `LINKTOKEN#` com `ttl` pouco depois de `expiresAt`. O telefone em `RATE#<key>` é dado pessoal: usar o SHA-256 do número como `key` ❓ (o contrato do `RateCounter` não depende disso).

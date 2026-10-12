@@ -264,7 +264,9 @@ struct RootView: View {
                 viewModel:
                     container.makeProfileViewModel(
                         session: session
-                    )
+                    ),
+                whatsApp:
+                    container.makeWhatsAppConnectionViewModel()
             )
 
         }

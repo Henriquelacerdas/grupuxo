@@ -97,7 +97,7 @@ Moradores avaliam cômodos comuns; privados não participam. Resumo a cada 3 sem
 
 ## Roadmap e decisões abertas
 
-**WhatsApp:** integração com o WhatsApp dos moradores para consultar tarefas, receber lembretes e, depois, registrar conclusões sem abrir o app. Decidido: API oficial da Meta (Cloud API), v1 somente de consulta, vínculo do número por link `wa.me` com token e consentimento registrado no vínculo. Exige backend (ver [BACKEND.md](BACKEND.md)). Em aberto: custo de mensagens iniciadas pelo bot (lembretes) e um número de bot por ambiente.
+**WhatsApp:** integração com o WhatsApp dos moradores para consultar tarefas, receber lembretes e, depois, registrar conclusões sem abrir o app. Decidido: API oficial da Meta (Cloud API), v1 de consulta e, com confirmação ("Marcar X como feita? sim/não"), conclusão de tarefas (implementada em memória; ver [BACKEND.md](BACKEND.md) seção 7.4), vínculo do número por link `wa.me` com token e consentimento registrado no vínculo. Exige backend (ver [BACKEND.md](BACKEND.md)). Em aberto: custo de mensagens iniciadas pelo bot (lembretes) e um número de bot por ambiente.
 
 Futuro, sem bloquear a entrega atual: widget, Lembretes, Siri, NFC, lista de mercado, controle financeiro.
 

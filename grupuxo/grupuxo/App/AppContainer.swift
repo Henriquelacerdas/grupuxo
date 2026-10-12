@@ -13,6 +13,7 @@ final class AppContainer {
 
     let taskSwapRepository: any TaskSwapRepository
     let notificationRepository: any NotificationRepository
+    let whatsAppConnectionRepository: any WhatsAppConnectionRepository
 
     init(
         store: MockStore = MockStore(),
@@ -51,6 +52,23 @@ final class AppContainer {
 
         notificationRepository = MockNotificationRepository(
             store: store
+        )
+
+        // Mock até o app consumir a API do servidor (BACKEND.md seção 13, passo 3).
+        whatsAppConnectionRepository = MockWhatsAppConnectionRepository()
+    }
+
+    func makeWhatsAppConnectionViewModel() -> WhatsAppConnectionViewModel {
+        WhatsAppConnectionViewModel(
+            getConnection: GetWhatsAppConnectionUseCase(
+                repository: whatsAppConnectionRepository
+            ),
+            createInvitation: CreateWhatsAppInvitationUseCase(
+                repository: whatsAppConnectionRepository
+            ),
+            disconnect: DisconnectWhatsAppUseCase(
+                repository: whatsAppConnectionRepository
+            )
         )
     }
 
