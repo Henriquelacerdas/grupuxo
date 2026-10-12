@@ -62,6 +62,8 @@ Só vale depois que o adaptador existir. Rodar contra a tabela de `dev` (ou Dyna
 
 ## 5. Amplify (Cognito + Data) e casa real do app (`grupuxo/amplify`, `Data/Amplify`)
 
+> **Cancelada em 2026-10-12:** o Amplify Data não será implantado (o app vai direto para a `api`; [PLANO.md](PLANO.md), D1). P1–P9 não serão executados. Do Cognito, o login real (parte de P7) passa a ser conferido em M2 (seção 6), e P10 só importa se o `ampx` voltar a ser usado. A tabela fica como registro.
+
 Nada abaixo foi executado: o schema, a função `join-house` e os modelos Swift editados à mão só foram tipados/compilados localmente. `ampx sandbox`, `ampx deploy` e `ampx generate graphql-client-code` (este lê o stack implantado) criam, alteram ou consultam recursos na AWS e exigem **autorização explícita do dono, caso a caso**. O user pool `us-east-1_M9GpISkE3` é referenciado e nunca deve ser alterado ou recriado. Decisão e modelo: [ARQUITETURA.md](ARQUITETURA.md), "Casa real", e [BACKEND.md](BACKEND.md), decisão ✅ 10.
 
 | # | O que validar | Como |
@@ -76,3 +78,12 @@ Nada abaixo foi executado: o schema, a função `join-house` e os modelos Swift 
 | P8 | `HouseService`: sair da casa e remover morador com conta (a casa é atualizada por último e o saindo perde o acesso), e a corrida de um cômodo criado durante um `joinHouse` | Dois usuários em simuladores diferentes |
 | P9 | Listagens com filtro (`MemberRecord.userId`) respeitam o limite de 1000 itens com a regra de dono | Medir com muitos registros de teste |
 | P10 | `ampx` com Node 25 precisa de `NODE_OPTIONS=--no-experimental-webstorage` (o `@typescript/vfs` falha com `localStorage`); conferir a versão de Node recomendada pelo Amplify | Rodar `ampx --help` e o deploy na versão escolhida |
+
+## 6. Roteiros da trilha rápida (TestFlight)
+
+Marcos de [PLANO.md](PLANO.md), seção 3. Cada passo que toca AWS, Meta ou Google segue exigindo autorização explícita; anotar aqui data, versão e o que diferiu do código.
+
+| # | Roteiro | Valida |
+| --- | --- | --- |
+| M1 | `dev` implantado (T3) e casa semeada com o `userID` real do dono: `POST /v1/me` → `POST /v1/me/whatsapp/link` → enviar a mensagem do link ao número de teste → "minhas tarefas" responde com a escala da casa semeada; "terminei de …" + "sim" conclui | G1, G2, G8, G9, M1–M3, A1–A6, A8, A9, D1, D2 |
+| M2 | TestFlight interno, duas contas em dois aparelhos: criar casa, entrar pelo código, criar tarefa, ver a mesma escala no app e no WhatsApp, concluir pelo bot e ver concluída no app; sair da casa com a escala já criada (escrita dividida, `oversizedWrites: "split"`); trocar de conta no mesmo aparelho; sessão vencida volta ao login | Rotas da `api` (BACKEND.md §6.1), D3 (medir ações de `addMember`/`removeMember` reais), login real do Cognito (parte de P7) |

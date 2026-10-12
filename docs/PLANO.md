@@ -1,7 +1,15 @@
-# Plano: costura app ↔ backend do grupuxo (a partir de `merge-feat-login`)
+# Plano: WhatsApp no TestFlight externo o quanto antes (a partir de `merge-feat-login`)
 
 ## Contexto
-Duas frentes resolveram identidade, casa, moradores e convite de formas diferentes (Frente A: `backend/` TS + DynamoDB; Frente B: Amplify Data/AppSync no app). O merge (b4889da…ac6ff92) fez as duas coexistirem pela decisão ✅ 10. Auditei o código: o domínio TS e o Swift são sólidos e bem testados; **a costura é que é de nível demo**, e há problemas maiores que o "Refresh Token has expired". Este plano diz o que fazer, em que ordem, por quê e como verificar. Nada aqui toca AWS/Meta/Gemini sem autorização caso a caso.
+Duas frentes resolveram identidade, casa, moradores e convite de formas diferentes (Frente A: `backend/` TS + DynamoDB; Frente B: Amplify Data/AppSync no app). O merge (b4889da…ac6ff92) fez as duas coexistirem pela decisão ✅ 10. A auditoria (seção 4) concluiu que o domínio TS e o Swift são sólidos e que a costura do app era de nível demo; a Fase 1 consertou essa costura.
+
+**Objetivo novo (2026-10-12):** pôr em TestFlight externo, o quanto antes, uma **casa compartilhada real** em que os moradores veem pelo WhatsApp as **mesmas tarefas** do app. Robustez menor é aceita, desde que registrada como dívida (seção 2). Decisões do dono:
+
+- **Pular o Amplify Data** e ir direto para a `api` + DynamoDB do backend (D1 = b). O Amplify Data nunca foi implantado, então **não há o que migrar** (a pergunta 17 do BACKEND.md deixa de existir) e a antiga Fase 2 é cancelada.
+- Infra com **Terraform mínimo**, um ambiente só (`dev`).
+- Meta: hoje só há o **número de teste** da Cloud API, que responde a **no máximo 5 números destinatários** cadastrados no painel. A primeira rodada externa com WhatsApp fica limitada a esses 5; o número de produção corre em paralelo (T0).
+
+Nada aqui toca AWS/Meta/Gemini sem autorização caso a caso.
 
 Legenda: **FATO** = verificado no código/execução (arquivo:linha). **HIP** = hipótese, precisa de doc oficial ou teste real.
 
@@ -9,150 +17,160 @@ Legenda: **FATO** = verificado no código/execução (arquivo:linha). **HIP** = 
 
 ## 1. Veredito
 
-O domínio (Swift e TS) e o backend WhatsApp estão sólidos para seguir. A integração do app **não** está: hoje o app não é confiável nem para um teste interno com duas pessoas.
+O backend WhatsApp está pronto em código e testado com falsos: domínio, webhook, worker, Gemini, Graph, vínculo por token, limite de taxa e adaptadores DynamoDB (`src/adapters/dynamodb/`). O responder já acha a casa do morador vinculado e lista as tarefas (`assistant/gemini-responder.ts`: `houses(userID)` → `GetMyTasks`). O que separa o teste do TestFlight é:
 
-**Maior risco:** colocar nas mãos de moradores uma "casa compartilhada" em que as tarefas são **por aparelho e somem ao fechar o app** (FATO: `RootView.swift:21` cria `MockStore(state: MockSeed.empty())` em memória), cada celular calcula a sua própria escala, a seção de WhatsApp é falsa (FATO: `MockWhatsAppConnectionRepository.swift:18-19` "conecta" sozinho) e o bot não enxerga a casa. Isso destrói a confiança no produto antes de ele existir. O segundo maior risco é organizacional: já existe uma **terceira** implementação de persistência em andamento (`origin/banco_de_dados`), e investir em endurecer o Amplify Data (descartável) em vez do caminho definitivo (`api` + DynamoDB) repete o mesmo erro.
+1. **Backend:** comandos de casa (criar, entrar por código, sair), as rotas que o app usa, pontos de entrada das Lambdas, build e `infra/`. FATO: `addHouseMember` só cria usuário novo (`domain/commands/houses.ts:10-31`); a `api` só tem `/v1/me` e WhatsApp (`lambdas/api.ts:20-24`); não há `process.env`, empacotamento nem Terraform.
+2. **Limite de 100 ações por transação:** FATO `HouseStateStore.update` falha fechado acima disso (`adapters/dynamodb/house-state-store.ts:141`); `addMember` ~140 e `removeMember` ~110 na casa de demonstração, e ler tarefas roda `refreshSchedule` (grava), então casa parada também pode estourar. Sem um atalho, ninguém entra na casa.
+3. **App:** FATO nenhum `URLSession` nem `Data/Remote`; `AmplifyAuthSessionClient` descarta o access token (`AmplifyAuthSessionClient.swift:8-23`); sem configuração de URL da API. A troca é localizada: `AppContainer` tipa os repositórios como `any XRepository` (`AppContainer.swift:23-29`) e o `WhatsAppConnectionRepository` + `WhatsAppConnectionSection` já existem, só desmontados.
 
 ---
 
-## 2. Achados da auditoria (o que confirmei ou descartei)
+## 2. Atalhos aceitos e o que não se corta
 
-### Ambiente (bloqueia tudo)
-- **FATO: o repositório está no iCloud Drive e arquivos foram "despejados"** (`dataless`). `npm test` falha em 5 suítes de fixtures com `Unexpected end of JSON input` porque `backend/test/fixtures/*.json` estavam sem conteúdo local; o pack `.git/objects/pack/pack-3205…` também (git log quebra em b4889da). Não é bug de código. Risco: commits/merges corrompidos, testes falsos negativos. `origin/merge-feat-login` = `ac6ff92` (já está no GitHub, então dá para reclonar sem perda).
+**Atalhos** (dívida; remover antes de abrir para mais casas que as do teste):
+- **Escrita acima de 100 ações dividida** em várias transações: a primeira leva o `Update` do `META` condicionado a `version`, as seguintes não. Opção `oversizedWrites: "fail" | "split"` no `HouseStateStore`, `fail` como padrão e `split` ligado só no ponto de entrada. Risco: estado parcial se falhar no meio, e uma leitura concorrente pode ver a casa pela metade. Solução definitiva: D3 (seção 6), depois do teste.
+- Sem `Idempotency-Key` nas mutações (o domínio já é idempotente em concluir/atribuir).
+- Um ambiente só: `dev`, em `us-east-1` (mesma região do Cognito; pergunta 4 decidida provisoriamente). Estado do Terraform local, sem CI de deploy, sem WAF, alarme só da DLQ.
+- Telas sem rota no servidor **escondidas** no build de teste: trocas, notificações, esporádicas, renomear/apagar cômodo, morador sem conta.
+- Um morador, uma casa (regra v1 do bot): criar ou entrar com casa já existente é recusado.
 
-### Sessão e login
-- **FATO** `AuthService.checkSession` (`AuthService.swift:20-28`) só lê `session.isSignedIn`; não olha os tokens. **HIP (verificar na doc do Amplify Swift):** com refresh token vencido, `fetchAuthSession` devolve `isSignedIn == true` e os tokens falham com `AuthError.sessionExpired`. Resultado observado: o app entra no `HouseGateView`, `load()` falha e aparece o erro.
-- **FATO** a tela de erro do `HouseGateView` (`HouseGateView.swift:15-23`) só tem "Tentar novamente": **o usuário fica preso sem conseguir sair da conta**. É o seu sintoma.
-- **FATO** não há listener do Hub de auth (nenhum `Amplify.Hub` no app): sessão que expira com o app aberto não volta ao login.
-- **FATO** `signOut` com `.failed` (`AuthService.swift:67-68`) mantém o usuário logado sem feedback.
-- **FATO** troca de conta: `houses.reset()` roda no `onChange` (`ContentView.swift:23-26`), mas um `load()` em andamento da conta anterior pode terminar depois e repor a casa antiga (sem cancelamento nem conferência de usuário em `HouseService.load`, `HouseService.swift:48-70`). O `MockStore` não vaza entre contas porque o `RootView` sai da hierarquia no logout.
+**Não se corta:** validação do access token do Cognito (ID token rejeitado, `client_id` conferido), HMAC do webhook, `userID` sempre do token ou do vínculo, limite de taxa antes do vínculo e do Gemini, nada de conteúdo de mensagem em log, segredos só no Secrets Manager, IAM de menor privilégio, e cada chamada real autorizada item a item.
 
-### Composição do app (bug grave, não estava na sua lista)
-- **FATO** `RootView.init()` cria um **novo `AppContainer` + `MockStore` vazio a cada inicialização da struct** (`RootView.swift:20-30`; `container` é `let`, não `@State`). `HouseGateView` observa `HouseService` (`HouseGateView.swift:6`), então cada `@Published` (ex.: `isLoading` em todo `perform`) reavalia o corpo e chama `RootView()` de novo. **HIP de alta confiança (comportamento padrão do SwiftUI; confirmar com teste de UI/log):** depois de qualquer ação da casa, os ViewModels já criados (`@StateObject`) ficam no store antigo e as telas empurradas depois (`destination(for:)`) usam o store novo e vazio; o `.task(id: syncKey)` só ressincroniza se a chave mudar. Sintomas esperados: cômodo "não encontrado", tarefas sumindo, escalas diferentes entre abas.
-- **FATO** se `container.sync` falha, `syncWithHouse` só faz `return` (`RootView.swift:81-85`): spinner "Carregando sua casa…" para sempre.
-- **FATO** `uuid()` gera `UUID()` aleatório quando o id não é UUID (`RootView.swift:94-96`): o morador mudaria de id a cada sincronização e o rebalanceamento rodaria de novo. **HIP:** o `sub` do Cognito e os ids do AppSync são sempre UUID (verificar na doc; o `sub` costuma ser UUID v4). Mesmo assim, falhar fechado é melhor que inventar id.
-- **FATO** criar cômodo pelo `RoomEditor` grava primeiro no Mock e só depois no Amplify (`RootView.swift:172-177`); se o `addRoom` falhar, o próximo `sync` apaga o cômodo local e as tarefas dele (`AppContainer.swift:151-157`) sem avisar.
-- **FATO** `grupuxoApp.swift` é um segundo `App` sem `@main` (código morto; o `@main` é `DomesticApp`).
+---
+
+## 3. Trilha rápida
+
+Ordem e paralelismo: T0 começa já e corre em paralelo. T1 destrava T2 e T4, que andam juntas. T3 pode começar junto de T2 e entrega o primeiro marco (M1) só com as rotas que já existem e uma casa semeada.
+
+### T0 — Prazos externos (dono; começa já)
+- [ ] Número de produção na Cloud API e app da Meta em modo Live (exige URL de política de privacidade). **HIP:** se a verificação de empresa é obrigatória para responder a mensagens iniciadas pelo usuário; conferir na doc da Meta. Assinar o campo `messages` do webhook.
+- [ ] Chave do Gemini (projeto de teste) e conferir que `gemini-2.5-flash-lite` segue GA (M4).
+- [ ] Acesso à conta AWS para o `terraform apply` e para gravar os segredos.
+- [ ] App no App Store Connect, grupo de teste externo, e **conta de demonstração com casa semeada** para o Beta App Review (a revisão pede login).
+- [ ] Cadastrar no painel da Meta os até 5 números dos testadores com WhatsApp.
+
+### T1 — Contrato primeiro (~0,5 dia)
+- BACKEND.md §6.1 com as rotas de T2, JSON de entrada e saída, erros e códigos HTTP, revisado pelas duas frentes antes de qualquer código.
+- Teste de contrato TS↔Swift: um teste TS grava um JSON de exemplo de cada resposta (casa, cômodo, participação, `TaskItem`, `TaskDefinition`) em `backend/test/fixtures/api/`, e um teste Swift decodifica os mesmos arquivos com os DTOs de `Data/Remote`. Pega divergência de DTO como as fixtures pegam divergência de algoritmo.
+
+### T2 — Backend: domínio e `api` (~3–4 dias)
+1. Comandos de domínio (TS; regras de casa novas, sem equivalente no Swift):
+   - `createHouse(founderUserID, name, timezone)`: casa, cômodo "Casa toda" com o fundador e `accessCode` de um gerador injetado. No DynamoDB, criada pelo caminho condicional do `seedHouse` (`META` com `version = 0` e `ACCESSCODE#` com `attribute_not_exists`).
+   - `joinHouseByCode(userID, code)`: extrair de `addHouseMember` um `addExistingUserToHouse` usado pelos dois (mesmo replanejamento; as fixtures de `addHouseMember` protegem a extração). Busca da casa por `GetItem ACCESSCODE#<code>`.
+   - `leaveHouse(userID)` sobre `removeHouseMember`, permitindo a saída do próprio morador.
+2. `HouseStateStore`: opção `oversizedWrites` (seção 2), com teste no cliente falso (divisão, conflito na primeira transação, falha no meio).
+3. Rotas, todas com `userID` do token e `at` do servidor:
+   - Casa: `GET /v1/me/house` (casa, código, moradores, cômodos; 404 `no_house`), `POST /v1/houses`, `POST /v1/houses/join`, `DELETE /v1/me/house`.
+   - Cômodos: `POST /v1/houses/{id}/rooms`, `GET /v1/rooms/{id}` (participação), `POST` e `DELETE /v1/rooms/{id}/members`.
+   - Tarefas: `GET /v1/me/tasks`, `GET` e `POST /v1/rooms/{id}/tasks`, `GET` e `PATCH /v1/tasks/{id}`, `POST /v1/tasks/{id}/end`.
+   - Ocorrências: `POST /v1/occurrences/{id}/complete` e `/reopen`.
+4. Testes ponta a ponta do handler em memória e contra o DynamoDB com o cliente falso.
+
+### T3 — Deploy do bot (~2 dias; em paralelo com T2)
+1. Pontos de entrada `backend/src/main/{api,webhook,worker}.ts`: a única camada que lê `process.env` e importa `@aws-sdk`; embrulham o SDK nos clientes mínimos (`DynamoClient`, `SqsClient`, `SecretsManagerClient`), leem o segredo, montam os adaptadores DynamoDB e passam as retenções de TTL (sugestão: `WAMID#` 7 dias, `RATE#` janela + 5 min, `LINKTOKEN#` validade + 1 h). Teste de arquitetura atualizado para a nova camada.
+2. Build: `esbuild` (devDependency) gera um bundle por Lambda; o AWS SDK v3 fica externo (vem no runtime Node 22) e entra só como devDependency de tipos. Fecha as perguntas 13–15.
+3. `backend/infra/` (Terraform): tabela a partir de `table-definition.ts` (GSI1, TTL, sob demanda), SQS FIFO + DLQ (`ContentBasedDeduplication` desligada, `ReportBatchItemFailures`), segredos (valores gravados pelo dono fora do state), 3 Lambdas Node 22 com roles mínimas, 2 Function URLs `AuthType = NONE`, concorrência reservada, logs com retenção, alarme da DLQ.
+4. `backend/tools/seed-dev/`: roda `seedHouse` contra a tabela de `dev` com o `userID` real (o que o `POST /v1/me` devolveu); serve para M1 e para a conta do revisor da Apple. Só com autorização.
+5. **Marco M1:** o bot, no número de teste, responde "minhas tarefas" da casa semeada ao celular do dono. Valida, cada um com autorização: G1, G2, G8, G9, M1–M3, A1–A6, A8, A9, D1 e D2 (VALIDACAO-APIS-REAIS.md).
+
+### T4 — App na `api` (~3–4 dias; começa depois de T1)
+1. `Data/Remote`: `APIClient` (URLSession, JSON, `Authorization: Bearer`), `AccessTokenProvider` sobre o Amplify Auth (`fetchAuthSession` → `accessToken`; renovação pelo Amplify; 401 desloga), DTOs e `RemoteHouseRepository`, `RemoteRoomRepository`, `RemoteTaskRepository`, `RemoteWhatsAppConnectionRepository`. Métodos sem rota lançam um erro `unsupported`; os parâmetros `requestedBy`/`at` são ignorados (o servidor usa o token e o próprio relógio).
+2. URL base da `api` por `.xcconfig` → chave no `Info.plist`.
+3. `RemoteHouseSession` (`@MainActor`, `ObservableObject`) no lugar do `HouseService`: `POST /v1/me` com o nome → `GET /v1/me/house`; criar, entrar por código, sair, mostrar código. `HouseGateView`, onboarding e `HouseView` passam a usá-lo. `User.id` passa a ser o id do backend (D2), não o `sub`.
+4. `AppContainer` com os repositórios remotos; saem `RootModel.sync`, `AppContainer.sync` e o plugin API do Amplify (fica só o Auth). `Data/Amplify` e `grupuxo/amplify` são apagados na limpeza do fim da trilha.
+5. Reativar a `WhatsAppConnectionSection` com o repositório remoto. Esconder as telas da seção 2.
+6. Testes: decodificação dos JSON de T1, `APIClient` com `URLProtocol` falso (401, 404 `no_house`, erro de rede), `RemoteHouseSession` com cliente falso.
+
+### T5 — Rodadas de teste
+- **M2, TestFlight interno:** duas contas em dois aparelhos: criar casa, entrar por código, criar tarefa, ver a mesma escala no app e no WhatsApp, concluir pelo bot (com o "sim") e ver concluída no app. Roteiro anotado em VALIDACAO-APIS-REAIS.md §6.
+- **M3, TestFlight externo:** com até 5 números com WhatsApp enquanto for o número de teste. Com o número de produção pronto, basta trocar `BOT_PHONE_NUMBER` e o segredo: o link `wa.me` vem do servidor, sem novo build.
+
+---
+
+## 4. Achados da auditoria (contexto; o que ficou obsoleto está marcado)
+
+### Ambiente
+- **FATO (resolvido):** o repositório estava no iCloud Drive com arquivos "despejados" (`dataless`), o que quebrava fixtures e o pack do git. A cópia de trabalho atual está fora do iCloud.
+
+### Sessão e login (resolvido na Fase 1, itens 2 e 3)
+- `AuthService.checkSession` só lia `isSignedIn`; a tela de erro do `HouseGateView` prendia o usuário; não havia listener do Hub; `signOut` com `.failed` mantinha o usuário logado; um `load()` da conta anterior podia repor a casa antiga.
+
+### Composição do app (resolvido na Fase 1, itens 1, 4 e 5)
+- `RootView.init()` criava um `AppContainer` + `MockStore` novo a cada reavaliação; `syncWithHouse` com falha deixava spinner eterno; `uuid()` inventava id; cômodo era gravado no Mock antes do Amplify; `grupuxoApp.swift` era código morto.
 
 ### Identidade
-- **FATO** no app, `User.id` = `sub` (`RootView.swift:87`, `MemberRecord.userId`). No backend, `User.id` é um **UUID novo** e o `sub` é mapeado por `COGNITO#<sub>` (`adapters/in-memory/user-directory.ts:31`, `adapters/dynamodb/user-directory.ts:36`). O desenho do backend está certo (indireção), mas `BACKEND.md:228` ("migrar sem mapear identidades") está impreciso: a migração **tem** de passar por `ensureUser`.
-- **FATO** o backend não tem comando para criar casa nem para um usuário **existente** entrar por código: `addHouseMember` sempre cria um `User` novo sem conta (`domain/commands/houses.ts:10-31`); a `api` só tem `/v1/me` e WhatsApp (`lambdas/api.ts:21-23`). Ou seja, `POST /houses` e `/houses/join` ainda não existem nem no domínio.
-- Morador sem conta (`MemberRecord.userId == nil`) nunca vira conta: quem cria conta depois entra como outra pessoa e o "fantasma" continua recebendo tarefas. Sem solução em nenhuma das frentes.
+- **FATO** no app, `User.id` = `sub`; no backend, `User.id` é um UUID próprio e o `sub` é mapeado por `COGNITO#<sub>` (`adapters/dynamodb/user-directory.ts:36`). Com a trilha, o app passa a usar o id do backend (D2).
+- **FATO** o backend não tinha comando para criar casa nem para um usuário existente entrar por código (`domain/commands/houses.ts:10-31`). Coberto em T2.
+- Morador sem conta nunca vira conta (D4): fora da trilha, tela escondida.
 
-### Amplify Data: integridade e segurança (vale só se for implantar)
-- **FATO + HIP crítica: convite forjado dá acesso a qualquer casa.** Qualquer logado pode criar um `InviteCode` com `members:[ele]` e `houseId` de outra casa (a regra `ownersDefinedIn('members')` só exige que ele esteja em `members`; HIP, testar em P2). O `joinHouse` (IAM) só confere que o código existe e que a casa existe (`join-house/handler.ts:39-45`) e então põe o chamador na casa alheia. Exige conhecer o `houseId`, mas é escalada de privilégio.
-- **FATO: perda de atualização em entradas simultâneas.** `joinHouse` lê `house.members` e grava a lista inteira (`handler.ts:47-63`); dois moradores entrando juntos (caso real: código mandado no grupo) → o último sobrescreve e o outro fica com `MemberRecord` mas sem acesso.
-- **FATO: lista `members` desatualizada no cliente.** `addRoom`, `addResident` e `detach` usam o `house.members` carregado antes (`HouseService.swift:163,196,282`). Ex.: C entra; A (com tela antiga) remove B → `remaining = [A]` é gravado em todos os registros e **C é expulso sem saber**.
-- **FATO: sair da casa não é retomável.** `detach` apaga o próprio `MemberRecord` antes de atualizar a casa (`HouseService.swift:296-299`); se a última gravação falhar, `myMember` vira `nil` e `leaveHouse` não roda mais (`HouseService.swift:141`), mas o `sub` continua em `house.members`.
-- **FATO: busca da casa.** `load()` usa `list` com filtro e `limit: 1000` sem `nextToken` (`HouseService.swift:43,59,320-326`). **HIP (comportamento do DynamoDB/AppSync, verificar):** o filtro é aplicado depois de ler até 1000 itens, então quando a tabela de `MemberRecord` passar de ~1000 registros **somando todas as casas**, o usuário pode "não ter casa", cair no onboarding e criar uma segunda. O schema já tem `index('userId')` (`data/resource.ts:40`) e o app não usa.
-- **HIP:** com `ownersDefinedIn`, qualquer dono pode editar o campo `members` (acrescentar/remover outros). Aceitável no MVP (moradores com peso igual), mas também permite criar `MemberRecord`/`HouseRecord` com o `sub` de outra pessoa e "puxá-la" para uma casa (`load()` pega `memberships.first`). Baixo risco (exige o `sub` da vítima), registrar.
-- Erros reconhecidos por texto (`"Conditional"`, `INVALID_INVITE_CODE`, `HouseService.swift:130,272`): frágil, já está em P3/P4.
+### Amplify Data — **obsoleto** (não será implantado)
+Convite forjado dando acesso a qualquer casa, perda de atualização em entradas simultâneas no `joinHouse`, lista `members` desatualizada no cliente, saída não retomável, `list` com filtro depois de `limit: 1000`, edição livre de `members` e erros reconhecidos por texto. Ficam registrados como motivo para não implantar.
 
 ### Tarefas, histórico e telas
-- **FATO (resolvido na Fase 1.7: virou `endTask`)** `DeleteTask` (`MockTaskRepository.swift:497-503` → `TaskSchedulingService.deleteTask`, `TaskSchedulingService.swift:117-125`): sem `requestedBy`, sem checar participação no cômodo, apaga ocorrências concluídas e atribuições (histórico), e deixa `TaskSwapRequest`/`AppNotification` apontando para ocorrências que não existem. Não existe no TS (divergência Swift↔TS sem fixture). Contradiz a regra "definição e ocorrência separadas".
-- **FATO** `ProfileView` sem rota (ARQUITETURA.md:99); usa moradores do Mock, que o `sync` apaga. Código morto.
-- **FATO** seção de WhatsApp no `HouseView` (`HouseView.swift:31`) usa o mock que finge conectar.
-- **FATO** `xcodebuild test` falhava só em `TaskListPresentationTests/completionKeepsResidentAndUpdatesRoomState` (`grupuxoTests.swift:319`, asserção `!model.canComplete(completed)`). **Não era relógio** (a hipótese anterior estava errada): o commit `bc50f68` ("desmarcar tarefas") tirou `!isCompleted` de `RoomDetailViewModel.canComplete` de propósito, e `complete()` agora alterna. O teste estava desatualizado; foi reescrito para validar o desfazer (commit `3456562`). Resta uma inconsistência: `SporadicTasksViewModel.canComplete` ainda exige `!isCompleted`, ou seja, ali não há desfazer.
-- **FATO** `swift test` do pacote abortou com "input file … Room.swift was modified during the build": de novo o iCloud, não o código.
+- **FATO (resolvido na Fase 1.7):** `DeleteTask` apagava histórico; virou `endTask` nos dois lados.
+- **FATO (resolvido):** `ProfileView` sem rota, apagado; seção de WhatsApp falsa, escondida (volta em T4 com o repositório remoto).
+- **FATO (resolvido):** `completionKeepsResidentAndUpdatesRoomState` era teste desatualizado; `SporadicTasksViewModel` ganhou o desfazer.
 
-### Terceira frente (não estava no seu contexto)
-- **FATO** `origin/banco_de_dados` (5896a7c, 2026-10-11, outra pessoa): `backend/src/adapters/database/{db,create,search,whatsapp,setup-table}.js` com `@aws-sdk/lib-dynamodb`, tabela `HouseholdApp`, `SK: "METADATA"`, atributos `snake_case`, GSI `PhoneIndex` não documentado e um `setup-table.js` — um **segundo modelo DynamoDB**, incompatível com BACKEND.md §4 e com `src/adapters/dynamodb/` (já pronto e testado). Na branch, `src/domain/commands/houses.ts` importa esse banco de dentro do domínio, o que viola o CLAUDE.md (domínio puro, zero dependências, nenhuma chamada real).
-- **FATO** o tip da branch já é ancestral de `merge-feat-login`, mas `adapters/database/` e essas importações **não existem** no `HEAD` (o merge as descartou; o typecheck passa). Ou seja, nada a mesclar ou reverter no código atual; o risco que resta é a branch ser reaproveitada ou mesclada de novo. Aproveitável: só a ideia de cliente com endpoint local para DynamoDB Local (`db.js`), que o `DynamoClient` injetado já cobre.
-- **HIP:** se `setup-table.js` foi executado, existe uma tabela `HouseholdApp` na conta AWS (só perguntando à autora ou consultando a AWS, com autorização). É o padrão que gerou o merge difícil, e vai se repetir se não for tratado.
+### Terceira frente
+- **FATO** `origin/banco_de_dados` (5896a7c) trazia um segundo modelo DynamoDB (`HouseholdApp`, `snake_case`, `setup-table.js`) incompatível com BACKEND.md §4, importado de dentro do domínio. Nada disso existe no `HEAD`. **HIP:** se `setup-table.js` rodou, existe uma tabela `HouseholdApp` na conta AWS; perguntar à autora antes do `terraform apply` para não confundir as tabelas.
 
 ---
 
-## 3. Plano em fases
+## 5. Fases antigas, reclassificadas
 
-### Fase 0 — Higiene do ambiente (agora, ~0,5 dia)
-Objetivo: ter um repositório e uma suíte em que se possa confiar.
-1. Reclonar fora do iCloud (ex.: `~/dev/grupuxo`), `git fsck --full`, conferir que todas as branches locais com trabalho estão no GitHub (`backup/…`, `final-wpp`, `final-whatsapp`, `whatsapp`, `stash` não têm upstream: empurrar ou descartar conscientemente). Deixar a cópia do iCloud só como arquivo morto.
-2. Rodar as três suítes na cópia nova; registrar a linha de base.
-3. CI mínimo no GitHub Actions: `npm ci && npm run typecheck && npm test` (Node 22, não 25: o doc diz que só foi verificado no 25) e `swift test` do pacote. `xcodebuild test` no CI pode esperar.
-4. ✅ `completionKeepsResidentAndUpdatesRoomState` corrigido (era teste desatualizado em relação ao desfazer, não relógio; ver seção 2). CI mínima criada (`.github/workflows/ci.yml`); falta a primeira execução verde no GitHub.
-5. **Parar a terceira frente:** conversar com quem mantém `banco_de_dados`, não mesclar de novo (o tip já está no histórico, sem o código do banco), aproveitar a pessoa no que falta de verdade (pontos de entrada das Lambdas e Terraform, que usam o `src/adapters/dynamodb/` existente). Perguntar se `setup-table.js` rodou na AWS; se sim, registrar a tabela `HouseholdApp` e decidir apagá-la (com sua autorização).
-- Pronto quando: três suítes verdes na cópia nova e CI verde no PR de `merge-feat-login`.
+### Fase 0 — Higiene
+- ✅ Repositório fora do iCloud; ✅ CI mínima (`.github/workflows/ci.yml`). Falta a primeira execução verde no GitHub.
+- Ainda vale: conversar com quem mantém `banco_de_dados` (não mesclar de novo; aproveitar a pessoa em T3) e perguntar se `setup-table.js` rodou na AWS.
 
-### Fase 1 — Consertar a costura do app (agora, independe de deploy; ~3 dias) — ✅ feita no código; falta a verificação manual no simulador
-Objetivo: o app não perde estado sozinho, não prende o usuário e não mente.
-1. ✅ **Dono estável do container** (`121d8a0`). `RootModel` (`@StateObject`) guarda o `AppContainer`, a `AppSession` e o estado de sync; `ContentView` aplica `.id(houses.currentUserId)` para cada conta ter estado novo; `grupuxoApp.swift` apagado. Teste: `RootModelTests` (mesmo store e tarefas depois de várias sincronizações; dois modelos, dois stores). Não há teste de UI: a garantia de que o SwiftUI não recria o modelo é estrutural (`@StateObject`) e fica na verificação manual.
-2. ✅ **Sessão** (`923e083`). `AuthService` fala com `AuthSessionClient` (`AmplifyAuthSessionClient` é o único que importa Amplify/Hub): tokens `.expired`/`.signedOut` deslogam; sem rede (`.unavailable`) a sessão continua; Hub `sessionExpired`/`signedOut` desloga com o app aberto; `signOut` limpa o estado local mesmo com `.failed`. Testes com cliente falso (`AuthServiceSessionTests`). **HIP:** que o Hub dispare `sessionExpired` com o app aberto só se confirma com sessão vencida real.
-3. ✅ **Erros de carga** (`c38ddd2`). `HouseService.loadError` tipado (`.sessionExpired`/`.failed`) via `classify`, que desenrola `underlyingError`; sessão vencida desloga; "Sair da conta" na tela de erro; contador de geração faz um `load()` de outra conta descartar o resultado. Testes: `HouseServiceClassifyTests`. **Gap:** o descarte por geração não tem teste automático (o `HouseService` chama o `Amplify` estático). **HIP:** que o AppSync embrulhe `AuthError.sessionExpired` como erro subjacente.
-4. ✅ **Sincronização que falha fechado** (`6738f6d`). `HouseSnapshot.make` (puro) lança `SnapshotError.invalidID` em id que não é UUID (maiúsculas e minúsculas dão o mesmo UUID); `RootModel.syncState` (`.syncing/.synced/.failed`) e tela de erro com "Tentar novamente" e "Sair da conta".
-5. ✅ **Cômodo: remoto primeiro** (`d9d2229`). `onCreated` do `RoomEditor` lança; se o Amplify falha, o formulário mostra o erro e o `RootView` re-sincroniza, removendo o cômodo órfão do Mock (opção "desfazer o Mock": o `CreateRoomUseCase` gera o id internamente).
-6. ✅ **Honestidade de produto** (`2bbb0da`). `WhatsAppConnectionSection` escondida (`WhatsAppConnection*`, o mock e os testes ficam). **Pendente (decisão sua):** o aviso de que as tarefas ainda ficam só neste aparelho, se for distribuir para testadores.
-7. ✅ **`DeleteTask` → "encerrar tarefa"** (`b17bc87`; fecha a pergunta 18). `endTask` nos dois lados (Swift como referência e comando novo no TS, que nunca teve `deleteTask`), `TaskDefinition.endedAt`, fixtures `scheduling-end.json`. Mantém a ocorrência da vez, o histórico, o `fairnessDebt` e as atribuições históricas; remove só as futuras; não publica sucessora; recusa trocas pendentes que citam ocorrência removida, com notificação; sem `rebalance` (limitação registrada em ALGORITMO.md). UI: "Encerrar" com confirmação. No TS o repositório recebe o `roomID` (o DynamoDB não indexa definições) e o `AppNotification` ainda não tem `message`.
-8. ✅ **Perfil morto apagado** (`1837373`): `ProfileView`/`ProfileViewModel`/`makeProfileViewModel`; casos de uso e teste mantidos.
-9. ✅ **(extra) Desfazer nas esporádicas** (`ce8a39f`). `SporadicTasksViewModel.canComplete` sem `!isCompleted` e `complete` alterna, com teste. Nenhuma View chama o método hoje: o desfazer já existia em Minhas tarefas.
-- Pronto quando: ✅ "ação na casa não troca o store" (teste de unidade, não de UI); ✅ teste do `AuthService` com sessão expirada e cliente falso; ✅ testes do `endTask` (Swift + fixtures + contrato TS); ✅ nenhuma tela promete WhatsApp. Suítes verdes ao fechar: `npm test` (960), `swift test` do domínio e `xcodebuild test -only-testing:grupuxoTests`.
-- **Verificação manual no simulador (Amplify não implantado; pendente):**
-  - [ ] Modo avião: abrir com sessão salva continua logado; a tela de erro mostra "Tentar novamente" e "Sair da conta".
-  - [ ] "Sair da conta" sem rede limpa o estado local e volta ao login.
-  - [ ] Sessão vencida de verdade (Cognito), com o app aberto e fechado: volta ao login. Confirma as duas HIP (Hub e `underlyingError`).
-  - [ ] Trocar de conta com um `load()` em andamento: a casa da conta anterior não aparece.
-  - [ ] Criar cômodo em modo avião: erro visível no formulário e o cômodo não fica na lista.
-  - [ ] Criar tarefa → ação na casa (renomear/criar cômodo) → a tarefa continua nas duas abas.
-  - [ ] Encerrar tarefa: conferir a lista do cômodo, a "da vez" (continua até concluir) e as trocas pendentes (recusadas, com aviso).
-  - [ ] Nenhuma tela com WhatsApp.
+### Fase 1 — Costura do app — ✅ feita no código
+Itens entregues: dono estável do container (`121d8a0`), sessão (`923e083`), erros de carga (`c38ddd2`), sincronização que falha fechado (`6738f6d`), cômodo remoto primeiro (`d9d2229`), WhatsApp falso escondido (`2bbb0da`), `endTask` (`b17bc87`), perfil morto apagado (`1837373`), desfazer nas esporádicas (`ce8a39f`). Suítes verdes ao fechar: `npm test` (960), `swift test` do domínio e `xcodebuild test -only-testing:grupuxoTests`.
 
-### Fase 2 — Antes do primeiro deploy do Amplify Data (só se você decidir implantar; ~2 dias)
-Objetivo: não abrir buraco de segurança nem perder morador.
-1. `join-house`: recusar convite cujo `members` esteja vazio ou não seja subconjunto de `house.members` (função pura em `members.ts`, com teste). Fecha o convite forjado.
-2. `join-house`: gravar a **união** relida (`house.members` ∪ {sub}), depois reler e conferir que o `sub` está lá; senão repetir (até N vezes). Cada participante confere a própria presença, então entradas simultâneas convergem. Se `update` com `condition` for suportado pelo cliente Gen 2 (**HIP**, verificar), preferir condição em `updatedAt`.
-3. `HouseService`: reler casa e detalhes imediatamente antes de `detach`, `addRoom` e `addResident`; `remaining` sempre a partir da casa relida.
-4. `leaveHouse` retomável: se `myMember == nil` mas o `sub` está em `house.members`, completar a saída.
-5. `load()`: consulta pelo índice `userId` (documento GraphQL próprio, como o `joinHouse`); se houver várias casas, escolher de forma determinística (a mais antiga) e só aceitar casa cujo `members` contém o usuário.
-6. Ordem do deploy (cada passo com sua autorização): (a) `ampx sandbox` pessoal do dono, conferir o diff do CloudFormation (nenhuma mudança no user pool `us-east-1_M9GpISkE3`); (b) apagar registros antigos sem `members`; (c) `modelgen` e comparar com `Data/Amplify/Models` (P6); (d) roteiro P1–P9 com duas contas de teste, mais os casos novos: convite forjado, duas entradas simultâneas, remoção com tela velha; (e) só então `dev` compartilhado/TestFlight.
-- Pronto quando: P1–P9 e os 3 casos novos anotados em VALIDACAO-APIS-REAIS.md §5.
+Verificação manual que **continua valendo** (sessão e login, independem do Amplify Data):
+- [ ] Modo avião: abrir com sessão salva continua logado; a tela de erro mostra "Tentar novamente" e "Sair da conta".
+- [ ] "Sair da conta" sem rede limpa o estado local e volta ao login.
+- [ ] Sessão vencida de verdade (Cognito), com o app aberto e fechado: volta ao login. Confirma a HIP do Hub.
 
-### Fase 3 — Antes de ligar o WhatsApp (backend; maior bloco)
-Objetivo: o bot e o app falarem da **mesma** casa.
-1. Decidir a pergunta 1 (transação > 100 ações) — ver decisão D3. Sem isso, entrar/sair de casa no servidor falha fechado.
-2. Domínio TS: `createHouse(founderUserID, name, timezone)` (cria "Casa toda" e `ACCESSCODE#`), `joinHouseByCode(userID, code)` (usa o caminho de `addHouseMember` com usuário existente), `leaveHouse(userID)`. Fixtures: o replanejamento é o mesmo de `addHouseMember`/`removeHouseMember`, já coberto; só regras de casa novas.
-3. Pontos de entrada das Lambdas, empacotamento (perguntas 13–15) e Terraform da tabela/filas/Function URLs.
-4. Rotas: `POST /v1/houses`, `POST /v1/houses/join`, `GET /v1/me/house`, `DELETE /v1/me/house`, e as de tarefas da seção 6 que o app usa.
-5. Validações reais (D1–D6, A1–A9, G1–G9, M1–M6), cada uma autorizada por você.
-6. Vínculo: desvincular o WhatsApp ao sair da casa (pergunta 10) — recomendo sim.
-- Pronto quando: um morador cria casa e tarefa pela `api` em `dev`, outro entra pelo código, e o bot responde "minhas tarefas" igual ao app.
+Os demais itens da verificação antiga (troca de conta durante `load()`, cômodo em modo avião, tarefa que some depois de ação na casa, encerrar tarefa) passam a ser conferidos contra a `api`, em M2.
 
-### Fase 4 — Migração do app para a `api` (fim do Amplify Data)
-1. `Data/Remote` implementando os protocolos de repositório do domínio; `AppContainer` troca os Mocks. Enviar o **access token**; `User.id` passa a vir de `POST /v1/me`, não do `sub`.
-2. `HouseService` e `Data/Amplify` saem; `RootView.syncWithHouse` e `AppContainer.sync` saem.
-3. Migração dos dados do Amplify (se houver usuários reais): script único, idempotente, por casa: `ensureUser(sub)` de cada morador com conta → `seedHouse` com moradores sem conta como usuários sem `COGNITO#`; **código novo** (o `InviteCode` do Amplify morre; não tentar reaproveitar) e aviso no app; tarefas não migram (estão no aparelho). Rodar em `dev` com cópia, depois `prod`. Desligar o Amplify Data só depois de uma versão do app que não o usa estar adotada.
-4. O `GrupuxoDomain` Swift e o gerador de fixtures saem do caminho (regra do CLAUDE.md).
+### Fase 2 — Endurecer o Amplify Data — **cancelada**
+O Amplify Data não será implantado (D1 = b).
+
+### Fases 3 e 4 — Backend e migração do app
+O necessário para o teste entrou na trilha (T2–T4). Fica **para depois do teste**:
+- D3 definitivo, substituindo o `oversizedWrites: "split"`.
+- `Idempotency-Key`, ambiente `prod`, Terraform com estado remoto e CI de deploy, alarmes de 5xx.
+- Trocas, notificações e esporádicas no servidor, e as telas de volta.
+- Morador sem conta (D4) e desvincular o WhatsApp ao sair da casa (pergunta 10; recomendo sim).
+- O `GrupuxoDomain` Swift e o gerador de fixtures saem do caminho quando o app não usar mais o Mock (regra do CLAUDE.md).
 
 ---
 
-## 4. Decisões que você precisa tomar
+## 6. Decisões
 
-**D1. Implantar o Amplify Data ou ir direto para a `api`?**
-- (a) Implantar após a Fase 2: login + casa compartilhada logo; custa ~2 dias de código descartável endurecido e um script de migração, e entrega uma casa compartilhada com tarefas por aparelho (confusão garantida se chegar a usuários reais).
-- (b) **Recomendo:** não pôr o Amplify Data na frente de usuários reais. Fazer só a Fase 1 agora e concentrar a Frente B na Fase 3/4 (`api` + `Data/Remote`). Se precisar de demo interna, implantar no sandbox do dono após a Fase 2, sem TestFlight. Consequência: o app só fica "de verdade" quando a `api` existir, mas sem migração nem dois códigos de convite.
-
-**D2. Identidade:** manter `User.id` próprio + `COGNITO#<sub>` no backend (**recomendo**; desacopla do pool e permite unir contas Apple/e-mail depois) ou usar o `sub` como `User.id` (mais simples na migração, acoplado ao pool para sempre).
-
-**D3. Transação > 100 ações (pergunta 1):** **recomendo (c) agrupar a escala futura** (ocorrências pendentes + atribuições de uma tarefa num item, histórico imutável em itens separados): `addMember` passa a reescrever poucos itens e o modelo continua simples. (a) intenção com *roll-forward* é a mais geral, mas é a mais complexa; (b) lotes no domínio quebra a atomicidade que o domínio assume. Medir antes de decidir (D3 e D5 do checklist, ainda sem AWS: dá para medir com o cliente falso).
-
-**D4. Morador sem conta:** permitir "reivindicar" o registro ao entrar pelo código (escolher "sou eu" na lista) ou proibir moradores sem conta. Recomendo reivindicar, só no servidor (Fase 3).
-
-**D5. `DeleteTask`:** "encerrar" (recomendo, Fase 1.7) ou excluir de vez com permissão.
+- **D1. Amplify Data ou `api`?** ✅ `api` direto (2026-10-12).
+- **D2. Identidade:** `User.id` próprio + `COGNITO#<sub>` no backend (recomendado e adotado na trilha). O app deixa de usar o `sub` como id.
+- **D3. Transação > 100 ações (pergunta 1):** provisório = `split` (seção 2). Definitivo, depois do teste: **recomendo (c) agrupar a escala futura** (ocorrências pendentes + atribuições de uma tarefa num item, histórico imutável em itens separados). (a) intenção com *roll-forward* é a mais geral e a mais complexa; (b) lotes no domínio quebra a atomicidade.
+- **D4. Morador sem conta:** recomendo "reivindicar" o registro ao entrar pelo código, só no servidor. Fora da trilha.
+- **D5. `DeleteTask`:** ✅ "encerrar" (Fase 1.7).
 
 ---
 
-## 5. Riscos que o plano não elimina / o que monitorar
-- Comportamento real do Amplify/AppSync/Cognito marcado como HIP (sessão expirada, `ownersDefinedIn` em lista, filtro após `limit`, `condition` no update, `sub` sempre UUID): só teste real confirma.
-- Custo de `Query` da partição inteira cresce com o histórico (pergunta 2); monitorar RCU por requisição.
-- Limite do WhatsApp: nono dígito, janela de 24 h, template para lembretes.
+## 7. Riscos da trilha e o que monitorar
+- **Escrita dividida** deixando uma casa inconsistente: poucas casas no teste; monitorar `DynamoStoreError` e falhas da `api`; reconstruir pelo seed se preciso.
+- **Meta:** limite de 5 destinatários no número de teste; prazo do número de produção e do modo Live; nono dígito (G2).
+- **Beta App Review:** precisa de login de demonstração e de uma casa com tarefas; o recurso de WhatsApp pode ser questionado se o revisor não conseguir usá-lo (descrever no texto da revisão).
+- `refreshSchedule` de casa parada há semanas (gravações e custo; D3 e D5 do checklist).
 - Contas Apple e e-mail do mesmo morador são pessoas diferentes.
-- Monitorar: DLQ com mensagens, 5xx da `api`, `DynamoStoreError(conflict|tooManyWrites)`, 401/403 por versão do app, taxa de "casa não encontrada" no `load()`.
+- Monitorar: DLQ com mensagens, 5xx e 401 da `api`, latência do worker.
 
-## 6. Processo enxuto para as equipes não divergirem
-1. **Contrato antes de código:** qualquer coisa que cruze app↔servidor (rota, campo, id, erro) entra primeiro como PR só de doc em BACKEND.md §6 / ARQUITETURA.md, revisado por alguém de cada frente.
+## 8. Processo enxuto para as equipes não divergirem
+1. **Contrato antes de código:** qualquer coisa que cruze app↔servidor (rota, campo, id, erro) entra primeiro como PR só de doc em BACKEND.md §6 / ARQUITETURA.md, revisado por alguém de cada frente (T1).
 2. **Um dono por conceito:** identidade, casa e convite são da Frente A (servidor); a Frente B consome. Nada de segunda implementação "provisória" sem data de remoção escrita.
-3. **Branches curtas e CI obrigatório** (Fase 0.3) na `main`; merge semanal na `main` em vez de branches longas (hoje há ~10 branches locais sem upstream e a `origin/banco_de_dados` reinventando a persistência em paralelo).
+3. **Branches curtas e CI obrigatório** na `main`; merge semanal.
 4. Checklist de PR com os itens do CLAUDE.md que mais quebram: Swift↔TS + fixtures, docs no mesmo commit, nenhuma chamada real.
 5. Repositório fora de pasta sincronizada (iCloud/Dropbox).
 
 ## Verificação geral
-- `npm run typecheck && npm test` em `backend`, `swift test --package-path grupuxo/Packages/GrupuxoDomain`, `xcodebuild test … -only-testing:grupuxoTests`, todos na cópia fora do iCloud.
-- Testes reais só com autorização item a item, anotados em `docs/VALIDACAO-APIS-REAIS.md`.
+- `npm run typecheck && npm test` em `backend`, `swift test --package-path grupuxo/Packages/GrupuxoDomain`, `xcodebuild test … -only-testing:grupuxoTests`.
+- Teste de contrato JSON TS↔Swift (T1).
+- Testes reais só com autorização item a item, anotados em `docs/VALIDACAO-APIS-REAIS.md` (M1 e M2 na §6).
