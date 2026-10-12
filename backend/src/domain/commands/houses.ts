@@ -18,16 +18,26 @@ export function addHouseMember(
   }
   const user: User = { id: toUserID(ctx.newID()), name, email: null };
   state.users.push(user);
-  state.houseMemberships.push({ id: houseMembershipID(ctx.newID()), houseID, userID: user.id });
+  addExistingUserToHouse(ctx, state, user.id, houseID, date);
+  return user;
+}
+
+/**
+ * Põe um morador que já tem perfil na casa: cria a participação, entra nos cômodos comuns e rebalanceia a escala.
+ * Usado por `addHouseMember` (morador novo) e pela entrada por código.
+ */
+export function addExistingUserToHouse(
+  ctx: CommandContext, state: StoreState, userID: UserID, houseID: HouseID, date: Instant,
+): void {
+  state.houseMemberships.push({ id: houseMembershipID(ctx.newID()), houseID, userID });
   const scheduling = schedulingFor(ctx, state, houseID);
   // `rooms` é copiado: o serviço substitui elementos do array enquanto percorremos.
   for (const room of [...state.rooms]) {
     if (room.houseID === houseID && room.visibility === "common") {
-      scheduling.addMember(user.id, room.id, date, state, { replan: false });
+      scheduling.addMember(userID, room.id, date, state, { replan: false });
     }
   }
   scheduling.rebalance(houseID, scheduling.addingWeeks(1, scheduling.weekStart(date)), date, state);
-  return user;
 }
 
 export function removeHouseMember(
