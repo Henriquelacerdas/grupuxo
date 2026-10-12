@@ -13,13 +13,8 @@ struct HouseView: View {
     @State private var confirmLeave = false
     @State private var copied = false
     @FocusState private var focus: Field?
-    @StateObject private var whatsApp: WhatsAppConnectionViewModel
 
     private enum Field { case room, resident }
-
-    init(whatsApp: WhatsAppConnectionViewModel) {
-        _whatsApp = StateObject(wrappedValue: whatsApp)
-    }
 
     var body: some View {
         List {
@@ -28,7 +23,6 @@ struct HouseView: View {
             }
             roomsSection
             membersSection
-            WhatsAppConnectionSection(viewModel: whatsApp)
 
             if let message = houses.errorMessage {
                 Section {

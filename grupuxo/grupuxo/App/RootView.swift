@@ -287,10 +287,7 @@ struct RootView: View {
 
         case .settings:
             HouseGateView {
-                HouseView(
-                    whatsApp:
-                        container.makeWhatsAppConnectionViewModel()
-                )
+                HouseView()
             }
         }
 
