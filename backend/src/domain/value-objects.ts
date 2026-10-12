@@ -8,6 +8,18 @@ export type TaskOccurrenceStatus = "available" | "assigned" | "completed";
 export type RecurrenceFrequency = "daily" | "weekly" | "monthly" | "yearly";
 export type RoomColor = "red" | "orange" | "yellow" | "green" | "blue" | "purple" | "brown" | "gray" | "pink";
 
+/** Valores aceitos de cada enumeração, para estreitar entrada externa sem `as` (a ordem não tem significado). */
+export const ROOM_VISIBILITIES: readonly RoomVisibility[] = ["common", "privateRoom"];
+export const ROOM_CATEGORIES: readonly RoomCategory[] = [
+  "kitchen", "bathroom", "bedroom", "livingRoom", "laundry", "office", "outdoor", "other",
+];
+export const ROOM_COLORS: readonly RoomColor[] = ["red", "orange", "yellow", "green", "blue", "purple", "brown", "gray", "pink"];
+export const TASK_KINDS: readonly TaskKind[] = ["recurring", "sporadic"];
+export const ASSIGNMENT_POLICIES: readonly TaskAssignmentPolicy[] = [
+  "balancedAutomatically", "calendarRotation", "afterCompletion", "selfAssigned",
+];
+export const RECURRENCE_FREQUENCIES: readonly RecurrenceFrequency[] = ["daily", "weekly", "monthly", "yearly"];
+
 export const TASK_EFFORT_MIN = 1;
 export const TASK_EFFORT_MAX = 3;
 

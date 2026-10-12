@@ -8,7 +8,7 @@ import { markNotificationAsRead, notificationsFor } from "../../domain/commands/
 import { createRoom, roomFor, roomParticipation, roomsFor } from "../../domain/commands/rooms.ts";
 import {
   addRoomMember, claimTask, completeTask, createTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
-  roomTasks, sporadicTasks, userTasks,
+  occurrenceHouseFor, roomTasks, sporadicTasks, taskDefinitionFor, userTasks,
 } from "../../domain/commands/tasks.ts";
 import { DomainError } from "../../domain/errors.ts";
 import { emptyStoreState } from "../../domain/store-state.ts";
@@ -155,6 +155,16 @@ export class DynamoTaskRepository implements TaskRepository {
   async roomTasks(roomID: RoomID, requesting: UserID): Promise<TaskItem[]> {
     const houseID = await this.store.houseOf("room", roomID);
     return this.store.read(houseID, (s) => roomTasks(s, roomID, requesting));
+  }
+
+  async definition(roomID: RoomID, taskID: TaskDefinitionID, requesting: UserID): Promise<TaskDefinition> {
+    const houseID = await this.store.houseOf("room", roomID);
+    return this.store.read(houseID, (s) => taskDefinitionFor(s, roomID, taskID, requesting));
+  }
+
+  async houseOfOccurrence(occurrenceID: TaskOccurrenceID, requesting: UserID): Promise<HouseID> {
+    const houseID = await this.store.houseOf("occurrence", occurrenceID);
+    return this.store.read(houseID, (s) => occurrenceHouseFor(s, occurrenceID, requesting));
   }
 
   async sporadicTasks(houseID: HouseID, requesting: UserID): Promise<TaskItem[]> {

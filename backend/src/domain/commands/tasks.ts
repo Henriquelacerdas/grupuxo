@@ -26,6 +26,30 @@ function houseOfOccurrence(state: StoreState, occurrenceID: TaskOccurrenceID): H
   return houseOfRoom(state, definition.roomID);
 }
 
+/**
+ * Definição de uma tarefa do cômodo (inclusive encerrada). Quem não é da casa, ou não pode ver a tarefa, recebe o
+ * mesmo `entityNotFound` de uma tarefa que não existe.
+ */
+export function taskDefinitionFor(state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, userID: UserID): TaskDefinition {
+  const room = state.rooms.find((r) => r.id === roomID);
+  const definition = state.definitions.find((d) => d.id === taskID && d.roomID === roomID);
+  if (
+    room === undefined || definition === undefined ||
+    !state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === userID) ||
+    !eligibility.canView(definition, room, userID, state.roomMemberships)
+  ) {
+    throw new DomainError("entityNotFound");
+  }
+  return definition;
+}
+
+/** Casa da ocorrência, se o morador for dela; senão `entityNotFound` (igual a uma ocorrência que não existe). */
+export function occurrenceHouseFor(state: StoreState, occurrenceID: TaskOccurrenceID, userID: UserID): HouseID {
+  const houseID = houseOfOccurrence(state, occurrenceID);
+  if (!state.houseMemberships.some((m) => m.houseID === houseID && m.userID === userID)) throw new DomainError("entityNotFound");
+  return houseID;
+}
+
 /** Itens (definição + ocorrência + atribuição) para consultas de tarefas. */
 export function taskItems(state: StoreState): TaskItem[] {
   const definitionByID = uniqueMap(state.definitions, (d) => d.id);

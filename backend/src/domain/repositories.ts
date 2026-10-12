@@ -32,6 +32,10 @@ export interface TaskRepository {
   tasks(userID: UserID, houseID: HouseID): Promise<TaskItem[]>;
   roomTasks(roomID: RoomID, requesting: UserID): Promise<TaskItem[]>;
   sporadicTasks(houseID: HouseID, requesting: UserID): Promise<TaskItem[]>;
+  /** Definição da tarefa do cômodo (inclusive encerrada); `entityNotFound` se não existir ou o morador não puder vê-la. */
+  definition(roomID: RoomID, taskID: TaskDefinitionID, requesting: UserID): Promise<TaskDefinition>;
+  /** Casa da ocorrência, se o morador for dela; `entityNotFound` caso contrário (igual a ocorrência inexistente). */
+  houseOfOccurrence(occurrenceID: TaskOccurrenceID, requesting: UserID): Promise<HouseID>;
   create(definition: TaskDefinition, requestedBy: UserID, at: Instant): Promise<TaskDefinition>;
   /** Encerra a tarefa recorrente do cômodo (o cômodo escolhe a partição no DynamoDB, que não indexa definições): o histórico fica, as ocorrências futuras somem e as trocas pendentes que as citam são recusadas. */
   endTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, at: Instant): Promise<void>;

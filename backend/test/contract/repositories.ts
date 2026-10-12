@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { StoreState } from "../../src/domain/store-state.ts";
-import { absenceID, houseID as toHouseID, roomID as toRoomID, taskOccurrenceID, taskSwapRequestID, userID, type UserID } from "../../src/domain/ids.ts";
+import { absenceID, houseID as toHouseID, roomID as toRoomID, taskDefinitionID, taskOccurrenceID, taskSwapRequestID, userID, type UserID } from "../../src/domain/ids.ts";
 import { isActiveAssignment, isCompleted, isCurrentMember, type TaskItem, type User } from "../../src/domain/entities.ts";
 import { isDomainError } from "../../src/domain/errors.ts";
 import type {
@@ -449,6 +449,30 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     const after = await env.state();
     assert.ok(!after.rooms.some((r) => r.id === rooms.privateOffice.id));
     assert.ok(!after.houseMemberships.some((m) => m.userID === users.marina.id));
+  });
+  test(`${name}: ler a definição de uma tarefa: só quem pode ver a tarefa a encontra`, async () => {
+    const { env, rooms, users } = await setup(make);
+    const state = await env.state();
+    const kitchenTask = state.definitions.find((d) => d.roomID === rooms.kitchen.id);
+    const officeTask = state.definitions.find((d) => d.roomID === rooms.privateOffice.id);
+    assert.ok(kitchenTask !== undefined && officeTask !== undefined);
+    assert.deepEqual(await env.tasks.definition(rooms.kitchen.id, kitchenTask.id, users.leo.id), kitchenTask);
+    // O escritório é privado (Marina e Bia): Leo é da casa, mas não vê a tarefa.
+    assert.deepEqual(await env.tasks.definition(rooms.privateOffice.id, officeTask.id, users.bia.id), officeTask);
+    await assert.rejects(env.tasks.definition(rooms.privateOffice.id, officeTask.id, users.leo.id), code("entityNotFound"));
+    // Quem não é da casa, cômodo errado e ID inexistente dão o mesmo erro.
+    await assert.rejects(env.tasks.definition(rooms.kitchen.id, kitchenTask.id, userID(uuid(990))), code("entityNotFound"));
+    await assert.rejects(env.tasks.definition(rooms.bathroom.id, kitchenTask.id, users.leo.id), code("entityNotFound"));
+    await assert.rejects(env.tasks.definition(rooms.kitchen.id, taskDefinitionID(uuid(991)), users.leo.id), code("entityNotFound"));
+  });
+
+  test(`${name}: casa da ocorrência: só para quem é da casa, senão 'não encontrado'`, async () => {
+    const { env, house, users } = await setup(make);
+    const occurrence = (await env.state()).occurrences[0];
+    assert.ok(occurrence !== undefined);
+    assert.equal(await env.tasks.houseOfOccurrence(occurrence.id, users.leo.id), house.id);
+    await assert.rejects(env.tasks.houseOfOccurrence(occurrence.id, userID(uuid(990))), code("entityNotFound"));
+    await assert.rejects(env.tasks.houseOfOccurrence(taskOccurrenceID(uuid(992)), users.leo.id), code("entityNotFound"));
   });
 }
 
