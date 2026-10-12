@@ -16,17 +16,41 @@ class AuthService: ObservableObject {
         case error(String)
     }
     
+    private let client: any AuthSessionClient
+    private var eventsTask: Task<Void, Never>?
+
+    init(client: any AuthSessionClient = AmplifyAuthSessionClient()) {
+        self.client = client
+    }
+
+    deinit {
+        eventsTask?.cancel()
+    }
+
     // Verifica se o usuário já está logado ao abrir o app
     func checkSession() async {
+        startObservingSession()
         do {
-            let session = try await Amplify.Auth.fetchAuthSession()
-            self.isSignedIn = session.isSignedIn
+            let session = try await client.fetchSession()
+            // Sessão vencida ou encerrada desloga; sem rede (.unavailable) quem já está logado continua.
+            self.isSignedIn = session.isActive
         } catch {
+            // Não sabemos o estado: não derruba nem promove ninguém.
             print("Erro ao verificar sessão: \(error)")
-            self.isSignedIn = false
         }
     }
-    
+
+    /// Escuta o Hub: sessão vencida ou logout com o app aberto voltam ao login.
+    private func startObservingSession() {
+        guard eventsTask == nil else { return }
+        let events = client.events()
+        eventsTask = Task { [weak self] in
+            for await _ in events {
+                self?.isSignedIn = false
+            }
+        }
+    }
+
     // Faz o login
     func signIn(username: String, password: String) async -> SignInStatus {
         do {
@@ -56,20 +80,15 @@ class AuthService: ObservableObject {
         }
     }
     
-    // Faz o logout
+    // Faz o logout. Mesmo se o Cognito falhar (ex.: sem rede), o estado local é limpo.
     func signOut() async {
-        let result = await Amplify.Auth.signOut(options: .init(globalSignOut: false))
-
-        if let result = result as? AWSCognitoSignOutResult {
-            switch result {
-            case .complete, .partial:
-                isSignedIn = false   // ajuste para a propriedade que você já usa
-            case .failed(let error):
-                print("Erro no logout: \(error)")
-            }
+        let outcome = await client.signOut()
+        if outcome == .failed {
+            print("Logout remoto falhou; limpando o estado local.")
         }
+        isSignedIn = false
     }
-    
+
     // Faz o cadastro de um novo usuário
     func signUp(username: String, email: String, password: String) async -> Bool {
         // O Cognito geralmente exige o email como um atributo adicional
