@@ -284,7 +284,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 
 ### 6.1 Contrato das rotas (`src/lambdas/api.ts`)
 
-**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Implementadas: conta e WhatsApp, casa (T2.5a), cômodo (T2.5b) e tarefa (T2.5c); as de ocorrência estão marcadas abaixo. O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
+**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Todas as rotas abaixo estão implementadas e testadas em memória e no DynamoDB com o cliente falso (T2.5). Falta o ponto de entrada da Lambda (T3). O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
 
 **Convenções.** Tudo sob `/v1`, JSON UTF-8. `Authorization: Bearer <access token>` (esquema sem distinção de caixa); a autorização é feita na Lambda (a Function URL fica com `AuthType = NONE`). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo, da URL ou de cabeçalho; o `at` (data de referência) é do relógio do servidor, nunca do cliente. IDs são UUID em minúsculo; instantes são ISO 8601 em UTC **com milissegundos** (`2026-10-12T09:00:00.000Z`; o `.iso8601` padrão do Swift não decodifica isso, o app usa um formatador próprio). Corpos de até 4 KB; campos desconhecidos são ignorados. Rota e método são verificados antes do token. Sem `Idempotency-Key` na trilha (atalho, PLANO.md seção 2): as mutações de tarefa já são idempotentes no domínio; `POST /houses` e `POST /houses/join` repetidos respondem `409 already_in_house`.
 
@@ -317,7 +317,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | `POST /v1/rooms/{roomID}/members` | `{ "userID" }` (morador da casa) | `204`. |
 | `DELETE /v1/rooms/{roomID}/members/{userID}` | query opcional `confirmDeletion=true` | `204`. `409 room_deletion_confirmation_required`, `409 whole_house_protected` ("Casa toda" não permite saída individual). |
 
-#### Tarefas e ocorrências (tarefas implementadas; ocorrências em T2.5d)
+#### Tarefas e ocorrências (implementada)
 
 | Rota | Entrada | Resposta e erros |
 | --- | --- | --- |
@@ -631,7 +631,7 @@ Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada 
 | Pontos de entrada das Lambdas (embrulham o AWS SDK nos clientes mínimos, inclusive o `DynamoClient`, e passam as retenções de TTL) | | a fazer (dependem do empacotamento ❓) |
 | Repositórios do domínio e ports sobre o DynamoDB | `src/adapters/dynamodb/` (`client.ts`, `house-state-store.ts`, `repositories.ts`, `whatsapp-stores.ts`, `rate-counter.ts`, `pending-action-store.ts`, `user-directory.ts`), `test/support/fake-dynamo-client.ts`, `test/dynamodb/`, `test/contract/repositories.ts` | ✅ passam nos mesmos contratos dos adaptadores em memória, com **cliente falso**; teste diferencial (mesma sequência em memória e DynamoDB dá o mesmo estado); `addMember`/`removeMember` da casa de demonstração falham fechado (seção 4). Falta validar contra o DynamoDB real (D1–D6) |
 | Tabela DynamoDB (definição como dado puro em `table-definition.ts`) | `infra/` (Terraform) | a fazer; nada cria a tabela |
-| Endpoints `POST /v1/me`, `/v1/me/whatsapp/link`, `GET`/`DELETE /v1/me/whatsapp` | `src/lambdas/api.ts` | ✅ em memória; tela no Perfil a fazer |
+| Rotas da `api`: conta e WhatsApp (`POST /v1/me`, `/v1/me/whatsapp/link`, `GET`/`DELETE /v1/me/whatsapp`) e as da seção 6.1 (casa, cômodo, tarefa, ocorrência) | `src/lambdas/api.ts`, `api-router.ts`, `api-input.ts`, `api-routes.ts`, `api-http.ts`; testes em `test/lambdas/api*.ts` | ✅ em memória e DynamoDB (cliente falso, `oversizedWrites: "split"` ligado nos testes); tela no Perfil e `Data/Remote` a fazer (T4) |
 | Gemini e ferramentas de leitura (`MessageResponder` definitivo) | `src/assistant/` | ✅ testado com cliente e `HttpFetch` falsos (seção 7.4), ligado em `composeWhatsAppWorker`; falta validar contra a API real |
 | Concluir tarefa com confirmação (`complete_task`, `PendingActionStore`, `parseConfirmation`, `resolveTask`) | `src/assistant/complete-task.ts`, `gemini-responder.ts`, port em `src/whatsapp/ports.ts`, `adapters/in-memory/pending-actions.ts`, contrato `test/contract/pending-actions.ts` | ✅ em memória, testado com Gemini falso (seção 7.4); adaptador DynamoDB em `src/adapters/dynamodb/pending-action-store.ts` (cliente falso) |
 | Intervalo de datas ("da semana") em `GetMyTasksUseCase` | `src/domain/use-cases/tasks.ts` | ✅ `range: "week" \| "all"`, fuso da casa, só a semana corrente; extensão só do servidor (ver [ALGORITMO.md](ALGORITMO.md)) |
