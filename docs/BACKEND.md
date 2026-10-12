@@ -284,7 +284,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 
 ### 6.1 Contrato das rotas (`src/lambdas/api.ts`)
 
-**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Implementadas: conta e WhatsApp, casa (T2.5a) e cômodo (T2.5b); as de tarefa e ocorrência estão marcadas abaixo. O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
+**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Implementadas: conta e WhatsApp, casa (T2.5a), cômodo (T2.5b) e tarefa (T2.5c); as de ocorrência estão marcadas abaixo. O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
 
 **Convenções.** Tudo sob `/v1`, JSON UTF-8. `Authorization: Bearer <access token>` (esquema sem distinção de caixa); a autorização é feita na Lambda (a Function URL fica com `AuthType = NONE`). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo, da URL ou de cabeçalho; o `at` (data de referência) é do relógio do servidor, nunca do cliente. IDs são UUID em minúsculo; instantes são ISO 8601 em UTC **com milissegundos** (`2026-10-12T09:00:00.000Z`; o `.iso8601` padrão do Swift não decodifica isso, o app usa um formatador próprio). Corpos de até 4 KB; campos desconhecidos são ignorados. Rota e método são verificados antes do token. Sem `Idempotency-Key` na trilha (atalho, PLANO.md seção 2): as mutações de tarefa já são idempotentes no domínio; `POST /houses` e `POST /houses/join` repetidos respondem `409 already_in_house`.
 
@@ -317,7 +317,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | `POST /v1/rooms/{roomID}/members` | `{ "userID" }` (morador da casa) | `204`. |
 | `DELETE /v1/rooms/{roomID}/members/{userID}` | query opcional `confirmDeletion=true` | `204`. `409 room_deletion_confirmation_required`, `409 whole_house_protected` ("Casa toda" não permite saída individual). |
 
-#### Tarefas e ocorrências (T2)
+#### Tarefas e ocorrências (tarefas implementadas; ocorrências em T2.5d)
 
 | Rota | Entrada | Resposta e erros |
 | --- | --- | --- |
@@ -328,6 +328,8 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | `POST /v1/rooms/{roomID}/tasks/{taskID}/end` | | `204` (encerra: histórico fica, futuras somem). |
 | `POST /v1/occurrences/{occurrenceID}/complete` | | `204`; idempotente. |
 | `POST /v1/occurrences/{occurrenceID}/reopen` | | `204`. |
+
+Uma tarefa criada começa na próxima segunda-feira do fuso da casa (comportamento do domínio): até lá `GET /me/tasks` não a mostra, e `GET /rooms/{roomID}/tasks` já lista as ocorrências futuras. Quem não é da casa e quem não vê a tarefa (cômodo privado de que não participa) recebem `404 not_found` ao ler ou encerrar; `403 task_unavailable` é só para criar tarefa em cômodo da própria casa de que não se participa.
 
 Desvios do PLANO.md seção 3, decididos em T1: as rotas de tarefa por ID (`GET/PATCH /v1/tasks/{id}`, `POST /v1/tasks/{id}/end`) viram caminhos **sob o cômodo**, porque o DynamoDB não indexa `TASKDEF#` no `GSI1` (só o `roomID` acha a partição) e o servidor TS não tem `updateTaskDetails` nem `taskDefinition(id)`. **`PATCH` fica fora da trilha**: a edição de tarefa é escondida no build de teste (PLANO.md seção 2). `DELETE /rooms/{id}/members` recebe o `userID` no caminho (DELETE sem corpo).
 
