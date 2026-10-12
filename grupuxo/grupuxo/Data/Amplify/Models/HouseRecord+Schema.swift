@@ -7,8 +7,8 @@ extension HouseRecord {
    public enum CodingKeys: String, ModelKey {
     case id
     case name
-    case inviteCode
     case ownerId
+    case members
     case createdAt
     case updatedAt
   }
@@ -20,22 +20,21 @@ extension HouseRecord {
     let houseRecord = HouseRecord.keys
     
     model.authRules = [
-      rule(allow: .private, operations: [.create, .update, .delete, .read])
+      rule(allow: .owner, ownerField: "members", identityClaim: "sub", provider: .userPools, operations: [.create, .update, .delete, .read])
     ]
     
     model.listPluralName = "HouseRecords"
     model.syncPluralName = "HouseRecords"
     
     model.attributes(
-      .index(fields: ["inviteCode"], name: "houseRecordsByInviteCode"),
       .primaryKey(fields: [houseRecord.id])
     )
     
     model.fields(
       .field(houseRecord.id, is: .required, ofType: .string),
       .field(houseRecord.name, is: .required, ofType: .string),
-      .field(houseRecord.inviteCode, is: .required, ofType: .string),
       .field(houseRecord.ownerId, is: .required, ofType: .string),
+      .field(houseRecord.members, is: .required, ofType: .embeddedCollection(of: String.self)),
       .field(houseRecord.createdAt, is: .optional, isReadOnly: true, ofType: .dateTime),
       .field(houseRecord.updatedAt, is: .optional, isReadOnly: true, ofType: .dateTime)
     )
@@ -56,11 +55,11 @@ extension ModelPath where ModelType == HouseRecord {
   public var name: FieldPath<String>   {
       string("name") 
     }
-  public var inviteCode: FieldPath<String>   {
-      string("inviteCode") 
-    }
   public var ownerId: FieldPath<String>   {
       string("ownerId") 
+    }
+  public var members: FieldPath<String>   {
+      string("members") 
     }
   public var createdAt: FieldPath<Temporal.DateTime>   {
       datetime("createdAt") 

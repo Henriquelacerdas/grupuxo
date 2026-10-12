@@ -4,7 +4,7 @@
 
 Clean Architecture com SwiftUI + MVVM na apresentação, com o domínio num Swift Package local (`Packages/GrupuxoDomain`) e Data/Presentation/App no target do app (camadas como pastas). Swift 6 com concorrência estrita; deployment target iOS 26.5.
 
-Hoje os dados do app rodam sobre repositórios mockados. O login (Cognito via Amplify) existe, mas só controla o acesso à interface: a sessão (`AppSession`) ainda usa o usuário do `MockSeed`. No app, a distribuição de tarefas ainda roda on-device. O backend em Node.js + TypeScript (`backend/`, ver [BACKEND.md](BACKEND.md)) tem uma **segunda implementação** do domínio e do algoritmo, portada do `GrupuxoDomain` e verificada contra ele por fixtures de referência: é ela que vai calcular a escala no servidor (WhatsApp, Android e, depois, o próprio app). Enquanto o app usar o mock, o `GrupuxoDomain` Swift é o domínio do app e a **referência** do port. Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio.
+Hoje as **tarefas** do app rodam sobre repositórios mockados. O login (Cognito via Amplify) identifica o morador, e a **casa real** (casa, cômodos, moradores e código de convite) vem do Amplify Data por `HouseService`, uma camada **transitória**: o `RootView` copia essa casa para o `MockStore` (`AppContainer.sync`) e a `AppSession` passa a ter o morador e a casa reais (ver "Casa real (Amplify Data, transitório)" abaixo). No app, a distribuição de tarefas ainda roda on-device. O backend em Node.js + TypeScript (`backend/`, ver [BACKEND.md](BACKEND.md)) tem uma **segunda implementação** do domínio e do algoritmo, portada do `GrupuxoDomain` e verificada contra ele por fixtures de referência: é ela que vai calcular a escala no servidor (WhatsApp, Android e, depois, o próprio app). Enquanto o app usar o mock, o `GrupuxoDomain` Swift é o domínio do app e a **referência** do port. Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio.
 
 | Camada | Responsabilidade | Depende de |
 | --- | --- | --- |
@@ -31,11 +31,16 @@ GrupuxoDomain (pacote)/
   Services/     algoritmos e políticas (ver abaixo)
   Errors/       DomainError
 Data/Mock/      MockStore (actor), MockSeed, Mock{House,Room,Task,TaskSwap,Notification}Repository
-Data/Auth/      AuthService (Amplify/Cognito: login, cadastro, confirmação, Apple, sessão)
+Data/Auth/      AuthService (Amplify/Cognito: login, cadastro, confirmação, redefinição de senha, Apple, sessão)
+Data/Amplify/   HouseService (casa real sobre Amplify Data/AppSync) e Models/ (HouseRecord, RoomRecord,
+                MemberRecord, InviteCode: formato do modelgen; editados à mão até o próximo deploy)
+grupuxo/amplify/ backend Amplify Gen 2 (TypeScript): auth, data (schema), functions/join-house
+grupuxo/package.json toolchain `ampx` (não entra no app)
 Presentation/
   Features/     MyTasks, HouseManagement, RoomDetail, RoomEditor, TaskEditor,
                 SporadicTasks, TaskSwap, Profile   (cada uma: State + View + ViewModel)
-                Auth (LoginView, SignUpView, ConfirmSignUpView; sem ViewModel, usam AuthService)
+                Auth (LoginView, SignUpView, ConfirmSignUpView, ForgotPasswordView; sem ViewModel, usam AuthService)
+                HouseManagement também tem HouseGateView, OnboardingView e HouseView (sem ViewModel: usam HouseService)
   Navigation/   AppRoute, AppRouter
   DesignSystem/ DesignSystem, RoomIconView
 ```
@@ -91,7 +96,31 @@ Com uma casa ativa na sessão, o app tem duas abas (`AppTab`: `myTasks`, `house`
 - **Minhas tarefas** apenas consulta e age sobre ocorrências existentes (concluir, trocar). Sem botão, menu, atalho ou rota de criação.
 - **Gerenciar casa** contém criação de cômodos e tarefas, e o card de esporádicas (que não têm aba própria).
 - `TaskEditor` abre pela criação em Gerenciar casa ou pela manutenção dentro de um cômodo. Sem cômodo pré-selecionado, exige escolher um `roomID` antes de salvar.
+- `settings` (engrenagem/perfil) abre o `HouseView`: código de convite, cômodos e moradores reais, WhatsApp (`WhatsAppConnectionSection`), sair da casa e sair da conta. O `ProfileView` (moradores do mock) continua no código, mas nenhuma rota o abre.
 - Rotas (`AppRoute`) são tipadas e carregam só identificadores: `roomDetail`, `sporadicTasks`, `taskEditor(roomID:)`, `taskSwap(offeredOccurrenceID:)`, `notifications`, `settings`. Existir uma rota não autoriza qualquer tela a apresentá-la.
+
+## Casa real (Amplify Data, transitório)
+
+Decisão ✅ 10 em [BACKEND.md](BACKEND.md): o backend TypeScript (DynamoDB) é a fonte da verdade da casa; o Amplify Data só destrava login + entrada na casa até o app consumir a `api` (`POST /houses`, `POST /houses/join`), e então sai. Consequências: tarefas e escala **não** passam pelo Amplify (ficam no `MockStore`, recriadas a cada abertura); casas criadas aqui **não existem para o bot do WhatsApp** até serem migradas.
+
+Fluxo: `ContentView` → `HouseGateView` (carrega `HouseService`; sem casa mostra `OnboardingView`) → `RootView`, que observa `HouseService` e chama `AppContainer.sync(HouseSnapshot)` para refletir moradores e cômodos reais no `MockStore` (cômodos conhecidos mantêm ícone, cor e participantes; ids que não são UUID viram UUID novo a cada sincronização, então o Cognito `sub` e os ids do Amplify precisam ser UUID).
+
+Modelos (`grupuxo/amplify/data/resource.ts`):
+
+| Modelo | Campos | Observação |
+| --- | --- | --- |
+| `HouseRecord` | `name`, `ownerId`, `members` | `ownerId` é só informativo; todos os moradores têm o mesmo peso |
+| `RoomRecord` | `houseId`, `name`, `members` | índice por `houseId` |
+| `MemberRecord` | `houseId`, `userId?`, `name`, `role`, `members` | `userId` vazio = morador sem conta; `role` é sempre `MEMBER`, mantido por compatibilidade |
+| `InviteCode` | `houseId`, `members` | o `id` **é** o código (6 caracteres, sem `0/O/1/I`); o AppSync recusa criar um id existente, o que garante a unicidade |
+
+**Autorização por morador.** Cada registro da casa guarda `members`, a lista dos `sub` do Cognito dos moradores com conta, e usa `ownersDefinedIn('members').identityClaim('sub')`: só quem está na lista lê e grava. O AppSync não faz join entre modelos, então a lista é replicada em todos os registros. Consequências:
+
+- Criar a casa: o criador entra em `members` da casa, do código e do primeiro `MemberRecord`; se algo falha no meio, o `HouseService` desfaz o que criou.
+- Entrar por código: quem ainda não é morador não consegue ler o código nem se acrescentar. A mutation `joinHouse(code, memberName)` roda uma função (`functions/join-house`, IAM) que valida o código, acrescenta o `sub` a `members` do código, cômodos e moradores, cria o `MemberRecord` e, por último, atualiza a casa (é ela que dá o acesso). Repetir a chamada é idempotente. Código inexistente → erro `INVALID_INVITE_CODE`, traduzido pelo app em "Código de convite inválido."
+- Sair da casa ou remover um morador com conta: o `HouseService.detach` reescreve `members` nos outros registros, apaga o `MemberRecord` e atualiza a casa por último. O último morador com conta que sai apaga a casa, os cômodos, os moradores e o código.
+- Limitações conhecidas: um cômodo criado exatamente durante um `joinHouse` pode ficar sem o novo morador em `members`; a busca da casa do usuário (`MemberRecord.userId`) é uma listagem com filtro, limitada a 1000 itens (ok para o MVP); morador sem conta não faz login e só existe como nome.
+- `amplify_outputs.json` (IDs públicos do Cognito e do AppSync, sem credenciais) é gerado pelo `ampx` no deploy; o user pool `us-east-1_M9GpISkE3` é **referenciado** (`referenceAuth`), nunca criado nem alterado pelo Amplify. Até o dono implantar este schema, o cliente com os modelos atuais não funciona contra o AppSync que já existe.
 
 ## Modelo de dados
 
@@ -126,6 +155,7 @@ ViewModels acessam o domínio apenas por casos de uso.
 - **Tarefas:** `GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`, `GetTaskSuggestions`, `CreateTask`, `CompleteTask`, `ClaimSporadicTask`, `ReleaseSporadicTask`, `RefreshTaskSchedule`
 - **Cômodos:** `GetHouseRooms`, `GetRoomParticipation`, `CreateRoom`, `AddRoomMember`, `RemoveRoomMember`
 - **Casa:** `GetHouseMembers`, `AddHouseMember`, `RemoveHouseMember`
+- **Exclusão de tarefa:** `DeleteTask` (`TaskRepository.deleteTask`, só no app/Mock: apaga a definição, as ocorrências e as atribuições, ou seja, **também o histórico**, e não confere quem pede nem o acesso ao cômodo; revisar antes de levar ao servidor)
 - **Troca:** `GetTaskSwapCandidates`, `CreateTaskSwapRequest`, `AcceptTaskSwapRequest`, `RejectTaskSwapRequest`, `GetIncomingTaskSwapRequests`, `GetOutgoingTaskSwapRequests`
 - **Notificações:** `GetNotifications`, `MarkNotificationAsRead`
 
@@ -163,7 +193,7 @@ Conclusão e atribuição são idempotentes: repetir não duplica esforço, resp
 
 ## Autenticação, perfil e WhatsApp (futuro)
 
-- Sign in with Apple ficará em Data atrás de um contrato de autenticação em Domain. A UI funciona sem imagem (iniciais/avatar).
+- Login (e-mail/senha e Sign in with Apple pelo Hosted UI do Cognito) vive em `Data/Auth/AuthService`, sem contrato de autenticação no Domain. A UI funciona sem imagem (iniciais/avatar).
 - A integração com WhatsApp vive no backend TypeScript (`src/whatsapp/`, ports em `ports.ts`); o app só vai precisar do endpoint de vínculo (`POST /me/whatsapp/link`) e de uma tela no Perfil. Proposta e estado: [BACKEND.md](BACKEND.md).
 
 ## Convenções

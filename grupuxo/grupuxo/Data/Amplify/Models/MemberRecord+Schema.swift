@@ -10,6 +10,7 @@ extension MemberRecord {
     case userId
     case name
     case role
+    case members
     case createdAt
     case updatedAt
   }
@@ -21,7 +22,7 @@ extension MemberRecord {
     let memberRecord = MemberRecord.keys
     
     model.authRules = [
-      rule(allow: .private, operations: [.create, .update, .delete, .read])
+      rule(allow: .owner, ownerField: "members", identityClaim: "sub", provider: .userPools, operations: [.create, .update, .delete, .read])
     ]
     
     model.listPluralName = "MemberRecords"
@@ -39,6 +40,7 @@ extension MemberRecord {
       .field(memberRecord.userId, is: .optional, ofType: .string),
       .field(memberRecord.name, is: .required, ofType: .string),
       .field(memberRecord.role, is: .required, ofType: .string),
+      .field(memberRecord.members, is: .required, ofType: .embeddedCollection(of: String.self)),
       .field(memberRecord.createdAt, is: .optional, isReadOnly: true, ofType: .dateTime),
       .field(memberRecord.updatedAt, is: .optional, isReadOnly: true, ofType: .dateTime)
     )
@@ -67,6 +69,9 @@ extension ModelPath where ModelType == MemberRecord {
     }
   public var role: FieldPath<String>   {
       string("role") 
+    }
+  public var members: FieldPath<String>   {
+      string("members") 
     }
   public var createdAt: FieldPath<Temporal.DateTime>   {
       datetime("createdAt") 

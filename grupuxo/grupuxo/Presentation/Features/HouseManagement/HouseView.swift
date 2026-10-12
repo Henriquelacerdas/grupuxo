@@ -23,8 +23,8 @@ struct HouseView: View {
 
     var body: some View {
         List {
-            if let house = houses.house {
-                inviteSection(house)
+            if let house = houses.house, let code = houses.inviteCode {
+                inviteSection(house, code: code)
             }
             roomsSection
             membersSection
@@ -79,16 +79,16 @@ struct HouseView: View {
 
     // MARK: - Seções
 
-    private func inviteSection(_ house: HouseRecord) -> some View {
+    private func inviteSection(_ house: HouseRecord, code: String) -> some View {
         Section {
             HStack {
-                Text(house.inviteCode)
+                Text(code)
                     .font(.title.monospaced().bold())
                     .kerning(4)
                     .textSelection(.enabled)
                 Spacer()
                 Button {
-                    UIPasteboard.general.string = house.inviteCode
+                    UIPasteboard.general.string = code
                     copied = true
                     Task { try? await Task.sleep(for: .seconds(1.5)); copied = false }
                 } label: {
@@ -98,7 +98,7 @@ struct HouseView: View {
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Copiar código")
 
-                ShareLink(item: "Entre na casa \"\(house.name)\" no app usando o código: \(house.inviteCode)") {
+                ShareLink(item: "Entre na casa \"\(house.name)\" no app usando o código: \(code)") {
                     Image(systemName: "square.and.arrow.up")
                 }
                 .buttonStyle(.borderless)

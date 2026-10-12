@@ -11,5 +11,6 @@ final public class AmplifyModels: AmplifyModelRegistration {
     ModelRegistry.register(modelType: HouseRecord.self)
     ModelRegistry.register(modelType: RoomRecord.self)
     ModelRegistry.register(modelType: MemberRecord.self)
+    ModelRegistry.register(modelType: InviteCode.self)
   }
 }

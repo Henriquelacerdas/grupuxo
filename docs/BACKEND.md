@@ -6,7 +6,7 @@ Documentos relacionados: [ARQUITETURA.md](ARQUITETURA.md) (app), [ALGORITMO.md](
 
 ## 1. Objetivo e escopo
 
-Hoje os dados do app vivem no `MockStore`, em memória, sem persistência. Já existe login (Amazon Cognito via Amplify, e-mail/senha e Sign in with Apple), mas ele só libera a interface: a sessão ainda usa o morador do `MockSeed`, e o app não fala com nenhum servidor de dados. Este documento define:
+Hoje os dados do app vivem no `MockStore`, em memória, sem persistência. Já existe login (Amazon Cognito via Amplify, e-mail/senha e Sign in with Apple) e a casa real do app (casa, cômodos, moradores e código de convite) passa, por ora, pelo Amplify Data, uma camada transitória (decisão ✅ 10). As tarefas e a escala seguem no `MockStore`, e o app não fala com este backend. Este documento define:
 
 1. Um backend AWS que passa a ser a **fonte de verdade** dos dados.
 2. Um canal WhatsApp que atua como **mais um cliente** desse backend.
@@ -24,10 +24,11 @@ Fora de escopo: avaliação da casa, widget, Siri, lista de mercado e financeiro
 | ✅ 3 | LLM: **Gemini**, via API REST com *function calling* | Escolha do time. |
 | ✅ 4 | Vínculo do número: **link `wa.me` com token**, com código de verificação como plano B | Ver seção 8. |
 | ✅ 5 | O LLM só **interpreta a intenção**; nunca grava dados nem calcula escala | Segurança e previsibilidade. Toda leitura e escrita passa pelos casos de uso. |
-| ✅ 6 | Autenticação: **Amazon Cognito** (Amplify no app), com Apple como provedor federado | Já implementado no app (`Data/Auth/AuthService`, `amplify_outputs.json`, user pool em `us-east-1`). A `api` só valida o **access token** do Cognito (seção 5); o ID token é rejeitado. Confirmar com o time que é o caminho definitivo. |
+| ✅ 6 | Autenticação: **Amazon Cognito** (Amplify no app), com Apple como provedor federado | Já implementado no app (`Data/Auth/AuthService`, `amplify_outputs.json`, user pool em `us-east-1`). A `api` só valida o **access token** do Cognito (seção 5); o ID token é rejeitado. Confirmar com o time que é o caminho definitivo. O user pool `us-east-1_M9GpISkE3` é referenciado pelo Amplify (`referenceAuth`), não criado por ele nem por este backend. |
 | ✅ 7 | Stack do backend: **Node.js 22 + TypeScript** (`strict`, ESM), **zero dependências de runtime** (`node:crypto`, `Intl`, `node:test`); sem Temporal, Luxon, zod, ORM nem container de DI | O básico bem feito: menos superfície de supply chain e de atualização, bundle de Lambda mínimo. Validação de entrada na borda por funções de estreitamento escritas à mão. |
 | ✅ 8 | Infraestrutura como Código (IaC): **Terraform** | Padrão declarativo da indústria, reprodutibilidade de ambientes e controle de versão de toda a infraestrutura AWS (Lambdas com Function URL, SQS, DynamoDB, Secrets Manager). |
 | ✅ 9 | Entrada HTTP: **URL pública da Lambda (Lambda Function URL)**, **sem API Gateway** | Menos um serviço para configurar, pagar e manter; a URL é gerada pela própria Lambda. Cada Lambda HTTP (`api`, `whatsapp-webhook`) tem a sua URL. A autenticação já é feita no código (JWT do Cognito na `api`, assinatura HMAC no webhook), então a URL fica com `AuthType = NONE`. O evento chega no mesmo formato 2.0 do HTTP API, e por isso `src/lambdas/events.ts` não muda. Consequências na seção 3.2. |
+| ✅ 10 | Casa, cômodos, moradores e código de convite **do app** passam, por ora, pelo **Amplify Data** (AppSync/DynamoDB gerenciados pelo Amplify; `grupuxo/amplify`), só para destravar login e entrada na casa. O **DynamoDB deste backend (tabela única) continua sendo a fonte da verdade**; o Amplify Data é transitório e sai quando o app passar a usar `POST /houses` e `POST /houses/join` da `api`. Tarefas e escala **não** passam pelo Amplify | O bot do WhatsApp lê só deste DynamoDB (worker, `UserDirectory` e elegibilidade dependem do estado da partição da casa), e duas fontes de verdade para tarefas quebrariam a decisão ✅ 1. Ler o Amplify Data no worker exigiria adaptadores e IAM para tabelas geradas, com nomes que não controlamos, e `addMember`/`removeMember` continuariam sem solução (pergunta 1). **Consequência para o bot:** casas criadas pelo app via Amplify não existem aqui até serem migradas (pergunta 17); `InviteCode` (Amplify) e `ACCESSCODE#` (esta tabela) são códigos independentes. Autorização por morador e modelos: [ARQUITETURA.md](ARQUITETURA.md), "Casa real". |
 
 ## 3. Visão geral
 
@@ -168,7 +169,7 @@ Regras mantidas:
 | --- | --- | --- | --- | --- |
 | Perfil do morador (`User`) | `USER#<userId>` | `PROFILE` | `name`, `email` (ou `null`), `cognitoSub` e `createdAt` (só quando criado pelo `UserDirectory`) | Moradores de várias casas; carregado por `BatchGetItem` junto com a casa |
 | Unicidade do Cognito | `COGNITO#<sub>` | `COGNITO` | `userID` | `UserDirectory`: `sub` → morador, único (seção 5) |
-| Unicidade do código de acesso | `ACCESSCODE#<code>` | `ACCESSCODE` | `houseID` | Entrar na casa pelo código; criado na mesma transação da casa |
+| Unicidade do código de acesso | `ACCESSCODE#<code>` | `ACCESSCODE` | `houseID` | Entrar na casa pelo código; criado na mesma transação da casa. É o código **do backend**: enquanto o app usa o Amplify Data, o código que o morador vê é o `InviteCode` de lá, que não grava aqui (decisão ✅ 10) |
 | Vínculo do WhatsApp (por número) | `PHONE#<e164>` | `LINK` | `userID`, `consentedAt`, `linkedAt` | `linkForPhone`; um número, um morador |
 | Vínculo do WhatsApp (por morador) | `USER#<userId>` | `WHATSAPP` | `phoneE164`, `consentedAt`, `linkedAt` | `linkForUser`; um morador, um número |
 | Token de vínculo | `LINKTOKEN#<sha256>` | `LINKTOKEN` | `userID`, `expiresAt`, `usedAt`, `ttl` | Uso único (seção 8); o TTL apaga os vencidos |
@@ -224,7 +225,8 @@ Sem conexões persistentes: o SDK usa HTTPS com *keep-alive*, então não existe
 1. O app autentica no Cognito e passa a ter tokens (o Amplify cuida de renovação).
 2. Nas chamadas à API, envia o **access token** no cabeçalho `Authorization: Bearer`. O ID token **não é aceito**: o `token_use` do access token é `access`, ele carrega `client_id` (e não `aud`) e não expõe dados do perfil.
 3. A Lambda `api` valida o JWT com `CognitoJwtVerifier` (`src/auth/`), contra o JWKS do user pool. Sem endpoint `POST /v1/auth/apple`.
-4. Na primeira chamada autenticada, o app chama `POST /v1/me` com o `name`; o `UserDirectory.ensureUser` cria ou recupera o morador por `cognitoSub` (idempotente). As demais rotas resolvem o morador com `UserDirectory.userForSub` (conta que ainda não passou pelo `POST /me` → 403/404, decisão da Lambda `api`).
+4. Identidade no app: `Amplify.Auth.getCurrentUser().userId` é o `sub` do Cognito, o mesmo valor de `cognitoSub` aqui e de `MemberRecord.userId` / `members` no Amplify Data. É o que permitirá migrar uma casa do Amplify para esta tabela sem mapear identidades.
+5. Na primeira chamada autenticada, o app chama `POST /v1/me` com o `name`; o `UserDirectory.ensureUser` cria ou recupera o morador por `cognitoSub` (idempotente). As demais rotas resolvem o morador com `UserDirectory.userForSub` (conta que ainda não passou pelo `POST /me` → 403/404, decisão da Lambda `api`).
 
 ### Validação do token (`src/auth/`)
 
@@ -265,7 +267,7 @@ Um endpoint por ação de negócio, como os protocolos já fazem:
 
 | Recurso | Endpoints (exemplo) |
 | --- | --- |
-| Casa | `POST /houses`, `POST /houses/join` (código de acesso), `GET /houses/{id}/members` |
+| Casa | `POST /houses`, `POST /houses/join` (código de acesso), `GET /houses/{id}/members` (substituem o fluxo de casa do Amplify Data, decisão ✅ 10) |
 | Cômodos | `GET /houses/{id}/rooms`, `POST /houses/{id}/rooms`, `POST/DELETE /rooms/{id}/members` |
 | Tarefas | `GET /me/tasks`, `GET /rooms/{id}/tasks`, `POST /rooms/{id}/tasks` |
 | Ocorrências | `POST /occurrences/{id}/complete`, `/reopen`, `/claim`, `/release` |
@@ -515,12 +517,14 @@ Para a infraestrutura (Node):
 14. Runtime Node 22 nas Lambdas e como o time quer fixar a versão (`.nvmrc` e `engines` já indicam 22).
 15. **AWS SDK v3** (`@aws-sdk/client-dynamodb` ou `@aws-sdk/lib-dynamodb`, `client-sqs`, `client-secrets-manager`): são dependências de runtime e quebram "zero dependências". O runtime Node 22 do Lambda já traz o AWS SDK v3, então o SDK não precisa ser empacotado (só tipado, como dependência de desenvolvimento). Recomendação: o adaptador `src/adapters/dynamodb/` recebe um **cliente mínimo injetado** (uma interface própria com `get`, `query`, `put`, `update`, `delete`, `batchGet` e `transactWrite`), para o domínio e os testes não importarem o SDK; o ponto de entrada de cada Lambda instancia o SDK real. Para SQS e Secrets Manager isso já está feito: `SqsClient` e `SecretsManagerClient` (`src/adapters/aws/clients.ts`) são as interfaces mínimas e o ponto de entrada embrulha o SDK. Decisão pendente para o DynamoDB; nada foi instalado.
 16. ~~Onde fica o contador do limite de taxa?~~ Resolvido: na mesma tabela DynamoDB (itens `RATE#`, com TTL), sem serviço extra (seção 4).
+17. **Migração das casas do Amplify Data para esta tabela.** Casas criadas pelo app hoje não existem para o bot. Decidir como migrar (importar `HouseRecord`/`RoomRecord`/`MemberRecord` para `seedHouse`/comandos de domínio, mapeando `userId` → `cognitoSub`; moradores sem conta; código de convite novo) ou recriar as casas, e quando desligar o Amplify Data.
+18. **`DeleteTask` (feat/login):** hoje só no Mock, apaga ocorrências e atribuições (histórico) sem checar permissão. Decidir se existe no servidor, com que regras e o que acontece com o histórico e o `fairnessDebt`.
 
 ## 13. Ordem de entrega sugerida
 
 1. ✅ **Feito:** `GrupuxoDomain` extraído como Swift Package (`grupuxo/Packages/GrupuxoDomain`); o app continua funcionando com o mock. ✅ **Feito:** domínio e algoritmo portados para TypeScript (`backend/src/domain`), com fixtures de referência geradas do Swift e os cenários dos testes Swift traduzidos.
 2. Tabela DynamoDB (Terraform), adaptadores `src/adapters/dynamodb/` (repositórios do domínio e ports) e testes contra o mesmo conjunto de cenários do mock. *A fazer; o modelo de itens está na seção 4, as interfaces de repositório do domínio e os ports da seção 14 são o contrato, e os testes de contrato (`backend/test/contract`) são reutilizáveis: cada função recebe uma fábrica do adaptador.*
-3. Lambda `api` e autenticação (login Cognito do app ✅; *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; falta o `UserDirectory` em DynamoDB e o ponto de entrada da Lambda `api`); `Data/Remote` no app (trocar mocks em `AppContainer`).
+3. Lambda `api` e autenticação (login Cognito do app ✅; casa real do app via Amplify Data, transitória ✅ (código escrito, **ainda não implantado**), a ser trocada por `POST /houses` e `/houses/join` junto com `Data/Remote`; *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; falta o `UserDirectory` em DynamoDB e o ponto de entrada da Lambda `api`); `Data/Remote` no app (trocar mocks em `AppContainer`).
 4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Os endpoints `POST /v1/me` e `POST /v1/me/whatsapp/link` já existem no handler `api` (em memória); falta a tela.*
 5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco, `GeminiMessageResponder`, `GraphWhatsAppSender`, limite de taxa e handlers no formato Lambda, com adaptadores em memória e Gemini/Graph falsos; adaptador SQS e leitor do segredo no Secrets Manager prontos com clientes falsos; falta o ponto de entrada de cada Lambda (AWS SDK e empacotamento em aberto).* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
 6. ✅ Concluir tarefas com confirmação (em memória, seção 7.4; falta o adaptador DynamoDB do `PendingActionStore`) e, por fim, lembretes.
@@ -536,6 +540,7 @@ Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada 
 | Domínio e algoritmo (Húngaro, motor, otimizador da casa, agendamento, justiça, carga, elegibilidade, sugestões) | `src/domain/services/` | ✅ portados; fixtures de referência do Swift verdes |
 | Calendário por fuso (semana na segunda, horário de verão) | `src/domain/dates.ts` | ✅ verificado contra o `Calendar` do Foundation em seis fusos |
 | Comandos transacionais, casos de uso, repositórios (interfaces) | `src/domain/commands/`, `use-cases/`, `repositories.ts` | ✅ |
+| Casa real do app (transitória, fora deste backend): Amplify Data, autorização por `members`, mutation `joinHouse` | `grupuxo/amplify/`, `grupuxo/grupuxo/Data/Amplify/` | Código escrito e tipado; **não implantado nem executado** (ver [VALIDACAO-APIS-REAIS.md](VALIDACAO-APIS-REAIS.md), seção 5). Não alimenta este backend |
 | Verificação (GET) e eventos (POST) do webhook | `WebhookHandler` | ✅ testado |
 | Assinatura `X-Hub-Signature-256` (HMAC-SHA256, tempo constante, falha fechada com segredo vazio) | `SignatureVerifier` | ✅ testado, incluindo vetor gerado com `openssl` |
 | Extração de mensagens de texto (ignora `statuses`, mídia e outros campos) | `webhook-payload.ts` | ✅ testado, com decodificação tão rígida quanto o `Decodable` do Swift |

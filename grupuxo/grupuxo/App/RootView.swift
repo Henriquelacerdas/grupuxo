@@ -44,7 +44,7 @@ struct RootView: View {
 
     /// Muda sempre que moradores ou cômodos da casa real mudam.
     private var syncKey: [String] {
-        [houses.house?.id ?? ""]
+        [houses.house?.id ?? "", houses.inviteCode ?? ""]
             + houses.rooms.map { "r:\($0.id):\($0.name)" }
             + houses.members.map { "m:\($0.id):\($0.userId ?? "-"):\($0.name)" }
     }
@@ -69,7 +69,7 @@ struct RootView: View {
         let snapshot = HouseSnapshot(
             houseID: houseID,
             houseName: house.name,
-            inviteCode: house.inviteCode,
+            inviteCode: houses.inviteCode ?? "",
             residents: houses.members.map {
                 .init(id: Self.uuid($0.userId ?? $0.id), name: $0.name)
             },
@@ -86,7 +86,7 @@ struct RootView: View {
 
         session.currentUser = User(id: Self.uuid(me.userId ?? me.id), name: me.name, email: nil)
         session.currentHouse = House(
-            id: houseID, name: house.name, accessCode: house.inviteCode, createdAt: .now
+            id: houseID, name: house.name, accessCode: houses.inviteCode ?? "", createdAt: .now
         )
         isSynced = true
     }

@@ -8,6 +8,7 @@ extension RoomRecord {
     case id
     case houseId
     case name
+    case members
     case createdAt
     case updatedAt
   }
@@ -19,7 +20,7 @@ extension RoomRecord {
     let roomRecord = RoomRecord.keys
     
     model.authRules = [
-      rule(allow: .private, operations: [.create, .update, .delete, .read])
+      rule(allow: .owner, ownerField: "members", identityClaim: "sub", provider: .userPools, operations: [.create, .update, .delete, .read])
     ]
     
     model.listPluralName = "RoomRecords"
@@ -34,6 +35,7 @@ extension RoomRecord {
       .field(roomRecord.id, is: .required, ofType: .string),
       .field(roomRecord.houseId, is: .required, ofType: .string),
       .field(roomRecord.name, is: .required, ofType: .string),
+      .field(roomRecord.members, is: .required, ofType: .embeddedCollection(of: String.self)),
       .field(roomRecord.createdAt, is: .optional, isReadOnly: true, ofType: .dateTime),
       .field(roomRecord.updatedAt, is: .optional, isReadOnly: true, ofType: .dateTime)
     )
@@ -56,6 +58,9 @@ extension ModelPath where ModelType == RoomRecord {
     }
   public var name: FieldPath<String>   {
       string("name") 
+    }
+  public var members: FieldPath<String>   {
+      string("members") 
     }
   public var createdAt: FieldPath<Temporal.DateTime>   {
       datetime("createdAt") 
