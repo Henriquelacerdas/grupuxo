@@ -9,6 +9,12 @@ import type {
 export interface HouseRepository {
   addMember(name: string, houseID: HouseID, requestedBy: UserID, at: Instant): Promise<User>;
   removeMember(userID: UserID, houseID: HouseID, requestedBy: UserID, at: Instant, confirmRoomDeletion: boolean): Promise<void>;
+  /** Cria a casa com o fundador e o cômodo "Casa toda"; o código de convite vem de um gerador injetado no adaptador. */
+  create(founderID: UserID, name: string, timezone: string, at: Instant): Promise<House>;
+  /** Entra numa casa pelo código de convite (código inexistente ou malformado: `invalidAccessCode`). */
+  joinByCode(userID: UserID, code: string, at: Instant): Promise<House>;
+  /** O próprio morador sai da casa (`lastMember` se for o único). */
+  leave(userID: UserID, houseID: HouseID, at: Instant, confirmRoomDeletion: boolean): Promise<void>;
   house(id: HouseID): Promise<House>;
   houses(userID: UserID): Promise<House[]>;
   members(houseID: HouseID): Promise<User[]>;

@@ -14,6 +14,9 @@ import { schedulingFor, type CommandContext } from "./context.ts";
 const MAX_HOUSE_NAME_LENGTH = 80;
 const ACCESS_CODE_PATTERN = /^[A-Z0-9]{4,16}$/;
 
+/** Quantos códigos o adaptador gera antes de desistir de uma casa nova quando o código já é de outra casa. */
+export const ACCESS_CODE_ATTEMPTS = 5;
+
 export function addHouseMember(
   ctx: CommandContext, state: StoreState, rawName: string, houseID: HouseID, requestedBy: UserID, date: Instant,
 ): User {

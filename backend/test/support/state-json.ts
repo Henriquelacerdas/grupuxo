@@ -85,3 +85,12 @@ export function sequentialIDs(): () => string {
     return `ffffffff-ffff-4fff-8fff-${counter.toString(16).padStart(12, "0")}`;
   };
 }
+
+/** Códigos de convite previsíveis para testes: `CODE0001`, `CODE0002`... */
+export function sequentialAccessCodes(): () => string {
+  let counter = 0;
+  return () => {
+    counter += 1;
+    return `CODE${counter.toString().padStart(4, "0")}`;
+  };
+}

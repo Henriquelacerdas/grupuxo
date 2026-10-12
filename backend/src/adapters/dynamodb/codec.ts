@@ -80,6 +80,11 @@ export function houseIDFromGSISK(gsi1sk: string): HouseID {
 
 // ---------- Morador (global) ----------
 
+/** Casa dona de um código de convite (item `ACCESSCODE#<code>`). */
+export function decodeAccessCode(item: DynamoItem): HouseID {
+  return decoding(() => houseID(str(item, "houseID")));
+}
+
 export function encodeUser(user: User): DynamoItem {
   return { PK: userPK(user.id), SK: PROFILE_SK, name: user.name, email: user.email };
 }

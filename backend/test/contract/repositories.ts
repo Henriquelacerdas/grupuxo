@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { StoreState } from "../../src/domain/store-state.ts";
 import { absenceID, houseID as toHouseID, roomID as toRoomID, taskOccurrenceID, taskSwapRequestID, userID, type UserID } from "../../src/domain/ids.ts";
-import { isActiveAssignment, isCompleted, isCurrentMember, type TaskItem } from "../../src/domain/entities.ts";
+import { isActiveAssignment, isCompleted, isCurrentMember, type TaskItem, type User } from "../../src/domain/entities.ts";
 import { isDomainError } from "../../src/domain/errors.ts";
 import type {
   HouseRepository, NotificationRepository, RoomRepository, TaskRepository, TaskSwapRepository,
@@ -32,22 +32,36 @@ export interface RepositoryEnv {
   state(): Promise<StoreState>;
   /** Altera o estado fora das regras do domínio (preparação de cenário). */
   update(fn: (draft: StoreState) => void): Promise<void>;
+  /** Cadastra o perfil de um morador que ainda não está em nenhuma casa (a conta já existia no `UserDirectory`). */
+  registerUser(user: User): Promise<void>;
 }
 
 /** `state`: estado inicial diferente da demonstração do mundo (por exemplo, sem tarefas). */
-export type RepositoryEnvFactory = (world: World, state?: StoreState) => Promise<RepositoryEnv>;
+export type RepositoryEnvFactory = (world: World, state?: StoreState, accessCodes?: () => string) => Promise<RepositoryEnv>;
 
 const code = (c: Parameters<typeof isDomainError>[1]) => (error: unknown) => isDomainError(error, c);
 const SAO_PAULO = "America/Sao_Paulo";
+
+/** Gerador de códigos que devolve os valores dados, em ordem (o último se repete). */
+function codeSequence(...values: string[]): () => string {
+  let index = 0;
+  return () => {
+    const value = values[Math.min(index, values.length - 1)] ?? "";
+    index += 1;
+    return value;
+  };
+}
 
 /**
  * `withoutTasks`: casa sem tarefas. Trocar moradores replaneja a escala inteira (na demonstração, mais de 100 itens
  * mudam, o que o DynamoDB não aceita numa transação: ver "Limites" em BACKEND.md seção 4); sem tarefas o comando
  * é pequeno e prova o resto do comportamento.
  */
-async function setup(make: RepositoryEnvFactory, options: { readonly withoutTasks?: boolean } = {}) {
+async function setup(
+  make: RepositoryEnvFactory, options: { readonly withoutTasks?: boolean; readonly accessCodes?: () => string } = {},
+) {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await make(world, options.withoutTasks === true ? world.cleanState() : undefined);
+  const env = await make(world, options.withoutTasks === true ? world.cleanState() : undefined, options.accessCodes);
   return { world, env, ...world.seed, now: () => world.now };
 }
 
@@ -329,6 +343,112 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     assert.deepEqual(await env.state(), first);
     assert.ok((await env.tasks.tasks(users.marina.id, house.id)).length > 0);
     assert.deepEqual(await env.state(), first);
+  });
+  test(`${name}: criar casa: fundador, "Casa toda", fuso e código gerado`, async () => {
+    const { world, env } = await setup(make, { withoutTasks: true, accessCodes: codeSequence("novocod1") });
+    const founder = userID(uuid(901));
+    await env.registerUser({ id: founder, name: "Fundadora", email: null });
+    const house = await env.houses.create(founder, "  Casa nova \n", "America/Recife", world.now);
+    assert.equal(house.name, "Casa nova");
+    assert.equal(house.accessCode, "NOVOCOD1");
+    assert.equal(house.timezone, "America/Recife");
+    assert.equal(house.createdAt, world.now);
+    assert.deepEqual(await env.houses.house(house.id), house);
+    assert.deepEqual((await env.houses.houses(founder)).map((h) => h.id), [house.id]);
+    assert.deepEqual((await env.houses.members(house.id)).map((u) => [u.id, u.name]), [[founder, "Fundadora"]]);
+    const rooms = await env.rooms.rooms(house.id, founder);
+    assert.deepEqual(rooms.map((r) => [r.name, r.kind, r.visibility]), [["Casa toda", "wholeHouse", "common"]]);
+    const participation = await env.rooms.participation(rooms[0]?.id ?? toRoomID(uuid(0)), founder, world.now);
+    assert.equal(participation.isMember, true);
+    assert.equal(participation.memberCount, 1);
+    assert.deepEqual(participation.responsibleNames, ["Fundadora"]);
+    // Quem tem o código entra: o código recém-criado vale.
+    const friend = userID(uuid(902));
+    await env.registerUser({ id: friend, name: "Amigo", email: null });
+    assert.equal((await env.houses.joinByCode(friend, "novocod1", world.now)).id, house.id);
+  });
+
+  test(`${name}: criar casa com nome ou fuso inválido não grava nada`, async () => {
+    const { world, env } = await setup(make, { withoutTasks: true });
+    const founder = userID(uuid(901));
+    await env.registerUser({ id: founder, name: "Fundadora", email: null });
+    await assert.rejects(env.houses.create(founder, "  ", SAO_PAULO, world.now), code("invalidHouseName"));
+    await assert.rejects(env.houses.create(founder, "Casa", "Marte/Olympus", world.now), code("invalidTimezone"));
+    assert.deepEqual(await env.houses.houses(founder), []);
+  });
+
+  test(`${name}: código de convite que já é de outra casa é trocado por outro`, async () => {
+    const { world, env, house } = await setup(make, { withoutTasks: true, accessCodes: codeSequence("GRUPUXO", "grupuxo", "novocod2") });
+    const founder = userID(uuid(901));
+    await env.registerUser({ id: founder, name: "Fundadora", email: null });
+    const created = await env.houses.create(founder, "Casa nova", SAO_PAULO, world.now);
+    assert.equal(created.accessCode, "NOVOCOD2");
+    assert.notEqual(created.id, house.id);
+    assert.equal((await env.houses.house(house.id)).accessCode, "GRUPUXO");
+  });
+
+  test(`${name}: entrar por código põe o morador nos cômodos comuns e repetir não muda nada`, async () => {
+    const { world, env, house, rooms } = await setup(make, { withoutTasks: true });
+    const newcomer = userID(uuid(902));
+    await env.registerUser({ id: newcomer, name: "Nova", email: null });
+    const joined = await env.houses.joinByCode(newcomer, "  grupuxo ", world.now);
+    assert.equal(joined.id, house.id);
+    assert.ok((await env.houses.memberIDs(house.id)).includes(newcomer));
+    assert.deepEqual((await env.houses.houses(newcomer)).map((h) => h.id), [house.id]);
+    const state = await env.state();
+    const common = state.rooms.filter((r) => r.houseID === house.id && r.visibility === "common");
+    assert.ok(common.every((r) => state.roomMemberships.some((m) => m.roomID === r.id && m.userID === newcomer && isCurrentMember(m))));
+    assert.ok(!state.roomMemberships.some((m) => m.roomID === rooms.privateOffice.id && m.userID === newcomer));
+    assert.ok(state.users.some((u) => u.id === newcomer && u.name === "Nova"));
+    assert.equal((await env.houses.joinByCode(newcomer, "GRUPUXO", world.now)).id, house.id);
+    assert.deepEqual(await env.state(), state);
+  });
+
+  test(`${name}: código inexistente ou malformado e conta sem perfil são recusados sem gravar`, async () => {
+    const { world, env } = await setup(make, { withoutTasks: true });
+    const newcomer = userID(uuid(902));
+    await env.registerUser({ id: newcomer, name: "Nova", email: null });
+    const before = await env.state();
+    for (const bad of ["ZZZZZZZZ", "x", "", "GRUPUXO!"]) {
+      await assert.rejects(env.houses.joinByCode(newcomer, bad, world.now), code("invalidAccessCode"));
+    }
+    await assert.rejects(env.houses.joinByCode(userID(uuid(903)), "GRUPUXO", world.now), code("entityNotFound"));
+    assert.deepEqual(await env.state(), before);
+    assert.deepEqual(await env.houses.houses(newcomer), []);
+  });
+
+  test(`${name}: sair tira o morador da casa e dos cômodos; quem não é da casa não sai`, async () => {
+    const { world, env, house, users } = await setup(make, { withoutTasks: true });
+    await env.houses.leave(users.rafa.id, house.id, world.now, false);
+    assert.ok(!(await env.houses.memberIDs(house.id)).includes(users.rafa.id));
+    assert.deepEqual(await env.houses.houses(users.rafa.id), []);
+    const state = await env.state();
+    assert.ok(!state.roomMemberships.some((m) => m.userID === users.rafa.id && isCurrentMember(m)));
+    await assert.rejects(env.houses.leave(users.rafa.id, house.id, world.now, false), code("entityNotFound"));
+    assert.deepEqual(await env.state(), state);
+  });
+
+  test(`${name}: o último morador não sai da casa`, async () => {
+    const { world, env } = await setup(make, { withoutTasks: true });
+    const founder = userID(uuid(901));
+    await env.registerUser({ id: founder, name: "Fundadora", email: null });
+    const created = await env.houses.create(founder, "Casa nova", SAO_PAULO, world.now);
+    await assert.rejects(env.houses.leave(founder, created.id, world.now, true), code("lastMember"));
+    assert.deepEqual((await env.houses.houses(founder)).map((h) => h.id), [created.id]);
+  });
+
+  test(`${name}: sair sendo o último participante de um cômodo exige confirmação e o exclui`, async () => {
+    const { world, env, house, users, rooms } = await setup(make, { withoutTasks: true });
+    await env.update((draft) => {
+      draft.roomMemberships = draft.roomMemberships.filter((m) => !(m.roomID === rooms.privateOffice.id && m.userID === users.bia.id));
+    });
+    const before = await env.state();
+    await assert.rejects(env.houses.leave(users.marina.id, house.id, world.now, false), code("deletionConfirmationRequired"));
+    assert.deepEqual(await env.state(), before);
+    await env.houses.leave(users.marina.id, house.id, world.now, true);
+    const after = await env.state();
+    assert.ok(!after.rooms.some((r) => r.id === rooms.privateOffice.id));
+    assert.ok(!after.houseMemberships.some((m) => m.userID === users.marina.id));
   });
 }
 

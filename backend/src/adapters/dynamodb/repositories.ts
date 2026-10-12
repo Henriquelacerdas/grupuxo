@@ -1,6 +1,9 @@
 import { acceptSwapRequest, createSwapRequest, incomingRequests, outgoingRequests, rejectSwapRequest, swapCandidates } from "../../domain/commands/swaps.ts";
 import type { CommandContext } from "../../domain/commands/context.ts";
-import { addHouseMember, houseMemberIDs, houseMembers, removeHouseMember } from "../../domain/commands/houses.ts";
+import {
+  ACCESS_CODE_ATTEMPTS, addHouseMember, createHouse, houseMemberIDs, houseMembers, joinHouseByCode, leaveHouse,
+  normalizeAccessCode, removeHouseMember,
+} from "../../domain/commands/houses.ts";
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
 import { createRoom, roomFor, roomParticipation, roomsFor } from "../../domain/commands/rooms.ts";
 import {
@@ -8,6 +11,7 @@ import {
   roomTasks, sporadicTasks, userTasks,
 } from "../../domain/commands/tasks.ts";
 import { DomainError } from "../../domain/errors.ts";
+import { emptyStoreState } from "../../domain/store-state.ts";
 import type { Instant } from "../../domain/dates.ts";
 import type {
   AppNotification, House, Room, RoomMembership, RoomParticipation, TaskDefinition, TaskItem, TaskSwapRequest, User,
@@ -17,9 +21,10 @@ import type {
   HouseRepository, NotificationRepository, RoomRepository, TaskRepository, TaskSwapRepository,
 } from "../../domain/repositories.ts";
 import { MAX_BATCH_GET_KEYS, queryAll, type DynamoClient, type DynamoKey } from "./client.ts";
-import { decodeHouse, decodeNotification, houseOfNotificationItem, houseIDFromGSISK } from "./codec.ts";
+import { decodeAccessCode, decodeHouse, decodeNotification, houseOfNotificationItem, houseIDFromGSISK } from "./codec.ts";
+import { DynamoStoreError } from "./errors.ts";
 import type { HouseStateStore } from "./house-state-store.ts";
-import { GSI1, META_SK, SK_PREFIX, housePK, userPK } from "./keys.ts";
+import { ACCESS_CODE_SK, GSI1, META_SK, SK_PREFIX, accessCodePK, housePK, userPK } from "./keys.ts";
 import { str } from "./reader.ts";
 
 // Espelho de `adapters/in-memory/repositories.ts`: cada método só escolhe a casa e chama o mesmo comando de
@@ -29,10 +34,41 @@ export class DynamoHouseRepository implements HouseRepository {
   private readonly store: HouseStateStore;
   private readonly client: DynamoClient;
   private readonly ctx: CommandContext;
-  constructor(store: HouseStateStore, client: DynamoClient, ctx: CommandContext) {
+  private readonly newAccessCode: () => string;
+  constructor(store: HouseStateStore, client: DynamoClient, ctx: CommandContext, newAccessCode: () => string) {
     this.store = store;
     this.client = client;
     this.ctx = ctx;
+    this.newAccessCode = newAccessCode;
+  }
+
+  /** Cria a casa pelo caminho condicional do store; se o código já for de outra casa, tenta de novo com outro. */
+  async create(founderID: UserID, name: string, timezone: string, at: Instant): Promise<House> {
+    for (let attempt = 1; ; attempt += 1) {
+      const state = emptyStoreState();
+      const house = createHouse(this.ctx, state, founderID, name, timezone, this.newAccessCode, at);
+      try {
+        await this.store.createHouse(state);
+        return house;
+      } catch (error) {
+        const taken = error instanceof DynamoStoreError && error.code === "accessCodeTaken";
+        if (!taken || attempt >= ACCESS_CODE_ATTEMPTS) throw error;
+      }
+    }
+  }
+
+  async joinByCode(userID: UserID, code: string, at: Instant): Promise<House> {
+    const normalized = normalizeAccessCode(code);
+    if (normalized === null) throw new DomainError("invalidAccessCode");
+    const item = await this.client.get({ key: { PK: accessCodePK(normalized), SK: ACCESS_CODE_SK }, consistentRead: true });
+    if (item === undefined) throw new DomainError("invalidAccessCode");
+    return this.store.update(
+      decodeAccessCode(item), (s) => joinHouseByCode(this.ctx, s, userID, normalized, at), { extraProfileIDs: [userID] },
+    );
+  }
+
+  async leave(userID: UserID, houseID: HouseID, at: Instant, confirmRoomDeletion: boolean): Promise<void> {
+    await this.store.update(houseID, (s) => leaveHouse(this.ctx, s, userID, houseID, at, confirmRoomDeletion));
   }
 
   async addMember(name: string, houseID: HouseID, requestedBy: UserID, at: Instant): Promise<User> {

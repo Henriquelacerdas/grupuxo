@@ -1,6 +1,9 @@
 import { acceptSwapRequest, createSwapRequest, incomingRequests, outgoingRequests, rejectSwapRequest, swapCandidates } from "../../domain/commands/swaps.ts";
 import type { CommandContext } from "../../domain/commands/context.ts";
-import { addHouseMember, houseMemberIDs, houseMembers, removeHouseMember } from "../../domain/commands/houses.ts";
+import {
+  ACCESS_CODE_ATTEMPTS, addHouseMember, createHouse, houseMemberIDs, houseMembers, joinHouseByCode, leaveHouse,
+  normalizeAccessCode, removeHouseMember,
+} from "../../domain/commands/houses.ts";
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
 import { createRoom, roomFor, roomParticipation, roomsFor } from "../../domain/commands/rooms.ts";
 import {
@@ -21,9 +24,34 @@ import type { InMemoryStore } from "./store.ts";
 export class InMemoryHouseRepository implements HouseRepository {
   private readonly store: InMemoryStore;
   private readonly ctx: CommandContext;
-  constructor(store: InMemoryStore, ctx: CommandContext) {
+  private readonly newAccessCode: () => string;
+  constructor(store: InMemoryStore, ctx: CommandContext, newAccessCode: () => string) {
     this.store = store;
     this.ctx = ctx;
+    this.newAccessCode = newAccessCode;
+  }
+
+  async create(founderID: UserID, name: string, timezone: string, at: Instant): Promise<House> {
+    return this.store.update((s) => {
+      // O código é único entre as casas do armazenamento: gera outro se colidir (como o DynamoDB, com `ACCESSCODE#`).
+      let attempts = 0;
+      const unusedCode = (): string => {
+        attempts += 1;
+        const code = this.newAccessCode();
+        const taken = s.houses.some((h) => h.accessCode === normalizeAccessCode(code));
+        if (taken && attempts >= ACCESS_CODE_ATTEMPTS) throw new DomainError("invalidAccessCode");
+        return taken ? unusedCode() : code;
+      };
+      return createHouse(this.ctx, s, founderID, name, timezone, unusedCode, at);
+    });
+  }
+
+  async joinByCode(userID: UserID, code: string, at: Instant): Promise<House> {
+    return this.store.update((s) => joinHouseByCode(this.ctx, s, userID, code, at));
+  }
+
+  async leave(userID: UserID, houseID: HouseID, at: Instant, confirmRoomDeletion: boolean): Promise<void> {
+    this.store.update((s) => leaveHouse(this.ctx, s, userID, houseID, at, confirmRoomDeletion));
   }
 
   async addMember(name: string, houseID: HouseID, requestedBy: UserID, at: Instant): Promise<User> {

@@ -13,7 +13,7 @@ import type { StoreState } from "../../src/domain/store-state.ts";
 import { cloneStoreState } from "../../src/domain/store-state.ts";
 import { recurring, taskEffort, weeklyPeriodicity, type TaskAssignmentPolicy, type WeeklyPeriodicity } from "../../src/domain/value-objects.ts";
 import type { RecurrencePolicy } from "../../src/domain/value-objects.ts";
-import { sequentialIDs } from "./state-json.ts";
+import { sequentialAccessCodes, sequentialIDs } from "./state-json.ts";
 
 export interface WorldOptions {
   readonly timezone?: string;
@@ -73,7 +73,7 @@ export class World {
       store, ctx,
       tasks: new InMemoryTaskRepository(store, ctx),
       rooms: new InMemoryRoomRepository(store, ctx),
-      houses: new InMemoryHouseRepository(store, ctx),
+      houses: new InMemoryHouseRepository(store, ctx, sequentialAccessCodes()),
       swaps: new InMemoryTaskSwapRepository(store, ctx),
       notifications: new InMemoryNotificationRepository(store),
     };

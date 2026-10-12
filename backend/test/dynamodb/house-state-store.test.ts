@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { MAX_ATTEMPTS, HouseStateStore, type DynamoRuntime } from "../../src/adapters/dynamodb/house-state-store.ts";
 import { DynamoTransactionCanceledError } from "../../src/adapters/dynamodb/client.ts";
 import { DynamoStoreError } from "../../src/adapters/dynamodb/errors.ts";
+import { ACCESS_CODE_ATTEMPTS } from "../../src/domain/commands/houses.ts";
 import { DynamoTaskRepository, DynamoHouseRepository } from "../../src/adapters/dynamodb/repositories.ts";
 import { InMemoryStore } from "../../src/adapters/in-memory/store.ts";
 import { InMemoryTaskRepository } from "../../src/adapters/in-memory/repositories.ts";
@@ -11,6 +12,7 @@ import { isCompleted } from "../../src/domain/entities.ts";
 import { houseMembershipID, taskOccurrenceID, userID } from "../../src/domain/ids.ts";
 import { dynamoEnvironment, instantRuntime } from "./environment.ts";
 import { FakeDynamoClient } from "../support/fake-dynamo-client.ts";
+import { sequentialAccessCodes } from "../support/state-json.ts";
 import { uuid, World } from "../support/world.ts";
 
 const SAO_PAULO = "America/Sao_Paulo";
@@ -232,12 +234,44 @@ test("a casa só aparece quando o META é publicado: itens órfãos de uma carga
   const store = new HouseStateStore(client, instantRuntime);
   client.failNext = { operation: "transactWrite", error: new Error("queda de rede") };
   await assert.rejects(store.seedHouse(world.seed.state), /queda de rede/);
-  const houses = new DynamoHouseRepository(store, client, world.ctx);
+  const houses = new DynamoHouseRepository(store, client, world.ctx, sequentialAccessCodes());
   await assert.rejects(houses.house(world.seed.house.id), (error: unknown) => isDomainError(error, "entityNotFound"));
   assert.deepEqual(await houses.houses(world.seed.users.marina.id), []);
   // Repetir a carga completa funciona (itens órfãos são sobrescritos).
   await store.seedHouse(world.seed.state);
   assert.equal((await houses.house(world.seed.house.id)).id, world.seed.house.id);
+});
+
+test("criar casa: com o código sempre ocupado desiste depois das tentativas, sem publicar a casa", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const env = await dynamoEnvironment(world);
+  const founder = userID(uuid(901));
+  await env.registerUser({ id: founder, name: "Fundadora", email: null });
+  let generated = 0;
+  const houses = new DynamoHouseRepository(env.store, env.client, world.ctx, () => { generated += 1; return "GRUPUXO"; });
+  await assert.rejects(
+    houses.create(founder, "Casa nova", SAO_PAULO, world.now),
+    (error: unknown) => error instanceof DynamoStoreError && error.code === "accessCodeTaken",
+  );
+  assert.equal(generated, ACCESS_CODE_ATTEMPTS);
+  assert.deepEqual(await houses.houses(founder), []);
+});
+
+test("entrar por código: o perfil de quem entra é carregado e não regravado; sem o perfil falha fechado", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const env = await dynamoEnvironment(world, world.cleanState());
+  const newcomer = userID(uuid(902));
+  await env.registerUser({ id: newcomer, name: "Nova", email: null });
+  const transactions = env.client.transactions.length;
+  await env.houses.joinByCode(newcomer, "GRUPUXO", world.now);
+  const written = env.client.transactions.slice(transactions).flat();
+  assert.ok(written.length > 0);
+  assert.ok(!written.some((action) => action.kind === "put" && action.item["SK"] === "PROFILE"));
+  assert.ok(written.some((action) => action.kind === "put" && String(action.item["SK"]).startsWith("MEMBER#")));
+
+  const writes = env.client.writes;
+  await assert.rejects(env.houses.joinByCode(userID(uuid(903)), "GRUPUXO", world.now), (error: unknown) => isDomainError(error, "entityNotFound"));
+  assert.equal(env.client.writes, writes);
 });
 
 void taskOccurrenceID;
