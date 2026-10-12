@@ -423,8 +423,8 @@ final class SporadicTasksViewModel: ObservableObject {
         _ item: TaskItem
     ) -> Bool {
 
+        // Concluída continua acionável pelo responsável: concluir alterna, como em Minhas tarefas e no cômodo.
         !isCompleting
-            && !item.occurrence.isCompleted
             && item.assignment?.userID == userID
             && item.occurrence.availableAt <= .now
     }
@@ -434,6 +434,12 @@ final class SporadicTasksViewModel: ObservableObject {
     ) async {
 
         guard !isCompleting else {
+            return
+        }
+
+        guard case let .content(items) = state,
+              let item = items.first(where: { $0.task.id == occurrenceID })?.task,
+              canComplete(item) else {
             return
         }
 
@@ -449,7 +455,9 @@ final class SporadicTasksViewModel: ObservableObject {
                 occurrenceID:
                     occurrenceID,
                 userID:
-                    userID
+                    userID,
+                isCompleted:
+                    !item.occurrence.isCompleted
             )
 
             await load()
