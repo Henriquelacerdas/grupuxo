@@ -13,7 +13,15 @@ final class RootModel: ObservableObject {
     let container: AppContainer
     let session: AppSession
 
-    @Published private(set) var isSynced = false
+    enum SyncState: Equatable {
+        case syncing
+        case synced
+        case failed(String)
+    }
+
+    @Published private(set) var syncState: SyncState = .syncing
+
+    var isSynced: Bool { syncState == .synced }
 
     init(
         container: AppContainer = AppContainer(store: MockStore(state: MockSeed.empty())),
@@ -32,6 +40,34 @@ final class RootModel: ObservableObject {
         objectWillChange.send()
         session.currentUser = user
         session.currentHouse = house
-        isSynced = true
+        syncState = .synced
+    }
+
+    /// Converte a casa real e sincroniza. Falha fechado: id inválido ou erro do store deixam `.failed`
+    /// (com "Tentar novamente") em vez de uma sessão com ids inventados. Já sincronizado, mantém as
+    /// telas durante o novo sync (trocar por spinner reiniciaria a navegação).
+    func sync(
+        house: HouseRecord,
+        members: [MemberRecord],
+        rooms: [RoomRecord],
+        inviteCode: String?,
+        me: MemberRecord
+    ) async {
+        if case .failed = syncState { syncState = .syncing }
+        do {
+            let snapshot = try HouseSnapshot.make(
+                house: house, members: members, rooms: rooms, inviteCode: inviteCode
+            )
+            try await apply(
+                snapshot,
+                user: User(id: try HouseSnapshot.residentID(me), name: me.name, email: nil),
+                house: House(
+                    id: snapshot.houseID, name: house.name,
+                    accessCode: snapshot.inviteCode, createdAt: .now
+                )
+            )
+        } catch {
+            syncState = .failed(error.localizedDescription)
+        }
     }
 }

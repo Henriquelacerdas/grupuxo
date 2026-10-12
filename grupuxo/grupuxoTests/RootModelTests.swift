@@ -65,3 +65,84 @@ struct RootModelTests {
         #expect(secondState.rooms.isEmpty)
     }
 }
+
+@MainActor
+struct HouseSnapshotMakeTests {
+    private let houseID = UUID()
+    private let userID = UUID()
+    private let roomID = UUID()
+
+    private func records(
+        houseID: String? = nil, userID: String? = nil, roomID: String? = nil
+    ) -> (HouseRecord, [MemberRecord], [RoomRecord]) {
+        let hid = houseID ?? self.houseID.uuidString
+        return (
+            HouseRecord(id: hid, name: "Casa", ownerId: "o", members: []),
+            [MemberRecord(houseId: hid, userId: userID ?? self.userID.uuidString, name: "Ana", role: "MEMBER", members: [])],
+            [RoomRecord(id: roomID ?? self.roomID.uuidString, houseId: hid, name: "Cozinha", members: [])]
+        )
+    }
+
+    @Test func buildsSnapshotAndIgnoresCase() throws {
+        let (house, members, rooms) = records()
+        let upper = try HouseSnapshot.make(house: house, members: members, rooms: rooms, inviteCode: "ABC234")
+        let (houseL, membersL, roomsL) = records(
+            houseID: houseID.uuidString.lowercased(),
+            userID: userID.uuidString.lowercased(),
+            roomID: roomID.uuidString.lowercased()
+        )
+        let lower = try HouseSnapshot.make(house: houseL, members: membersL, rooms: roomsL, inviteCode: nil)
+        #expect(upper.houseID == houseID && lower.houseID == houseID)
+        #expect(upper.residents.first?.id == userID && lower.residents.first?.id == userID)
+        #expect(upper.rooms.first?.id == roomID && lower.rooms.first?.id == roomID)
+        #expect(lower.inviteCode == "")
+    }
+
+    @Test(arguments: ["house", "user", "room"])
+    func invalidIDThrows(which: String) {
+        let (house, members, rooms) = switch which {
+        case "house": records(houseID: "casa-1")
+        case "user": records(userID: "sub-que-nao-e-uuid")
+        default: records(roomID: "quarto")
+        }
+        #expect(throws: SnapshotError.self) {
+            try HouseSnapshot.make(house: house, members: members, rooms: rooms, inviteCode: nil)
+        }
+    }
+
+    @Test func invalidIDFailsClosedAndRetryConverges() async throws {
+        let model = RootModel()
+        let (house, members, rooms) = records(roomID: "quarto")
+        await model.sync(house: house, members: members, rooms: rooms, inviteCode: nil, me: members[0])
+
+        guard case .failed = model.syncState else {
+            Issue.record("id inválido deveria deixar .failed")
+            return
+        }
+        let untouched = await model.container.store.read { $0 }
+        #expect(untouched.rooms.isEmpty && untouched.houses.isEmpty && untouched.users.isEmpty)
+
+        let (_, _, goodRooms) = records()
+        await model.sync(house: house, members: members, rooms: goodRooms, inviteCode: "ABC234", me: members[0])
+        #expect(model.syncState == .synced)
+        let state = await model.container.store.read { $0 }
+        #expect(state.rooms.map(\.id) == [roomID])
+        #expect(model.session.currentUser.id == userID)
+    }
+
+    @Test func syncedStateSurvivesLaterFailure() async throws {
+        let model = RootModel()
+        let (house, members, rooms) = records()
+        await model.sync(house: house, members: members, rooms: rooms, inviteCode: nil, me: members[0])
+        #expect(model.isSynced)
+
+        let (_, _, badRooms) = records(roomID: "x")
+        await model.sync(house: house, members: members, rooms: badRooms, inviteCode: nil, me: members[0])
+        guard case .failed = model.syncState else {
+            Issue.record("falha deve ficar visível")
+            return
+        }
+        let state = await model.container.store.read { $0 }
+        #expect(state.rooms.map(\.id) == [roomID])
+    }
+}

@@ -6,6 +6,8 @@ struct RootView: View {
 
     @EnvironmentObject private var houses: HouseService
 
+    @EnvironmentObject private var authService: AuthService
+
     @StateObject private var model = RootModel()
 
     @State private var selectedTab: AppTab = .myTasks
@@ -27,10 +29,21 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if model.isSynced {
+            switch model.syncState {
+            case .synced:
                 tabs
-            } else {
+            case .syncing:
                 ProgressView("Carregando sua casa…")
+            case .failed(let message):
+                ContentUnavailableView {
+                    Label("Não foi possível abrir a casa", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(message)
+                } actions: {
+                    Button("Tentar novamente") { Task { await syncWithHouse() } }
+                        .buttonStyle(.borderedProminent)
+                    Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
+                }
             }
         }
         .task(id: syncKey) {
@@ -40,35 +53,10 @@ struct RootView: View {
 
     private func syncWithHouse() async {
         guard let house = houses.house, let me = houses.myMember else { return }
-
-        let houseID = Self.uuid(house.id)
-        let snapshot = HouseSnapshot(
-            houseID: houseID,
-            houseName: house.name,
-            inviteCode: houses.inviteCode ?? "",
-            residents: houses.members.map {
-                .init(id: Self.uuid($0.userId ?? $0.id), name: $0.name)
-            },
-            rooms: houses.rooms.map {
-                .init(id: Self.uuid($0.id), name: $0.name)
-            }
+        await model.sync(
+            house: house, members: houses.members, rooms: houses.rooms,
+            inviteCode: houses.inviteCode, me: me
         )
-
-        do {
-            try await model.apply(
-                snapshot,
-                user: User(id: Self.uuid(me.userId ?? me.id), name: me.name, email: nil),
-                house: House(
-                    id: houseID, name: house.name, accessCode: houses.inviteCode ?? "", createdAt: .now
-                )
-            )
-        } catch {
-            return
-        }
-    }
-
-    private static func uuid(_ string: String) -> UUID {
-        UUID(uuidString: string) ?? UUID()
     }
 
     private var tabs: some View {
