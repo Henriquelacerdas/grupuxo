@@ -273,7 +273,6 @@ enum MockSeed {
             for definition in definitions {
                 _ = try scheduling.create(
                     definition,
-                    requestedBy: currentUser.id,
                     at: start,
                     state: &schedule
                 )
