@@ -46,7 +46,7 @@ func enc(_ t: TaskDefinition) -> [String: Any] {
         "sourceSuggestionID": opt(t.sourceSuggestionID) { $0 }, "rotationQueue": ids(t.rotationQueue),
         "currentRotationIndex": t.currentRotationIndex, "nextScheduledAt": d(t.nextScheduledAt),
         "pendingRotation": opt(t.pendingRotation) { ["effectiveAt": d($0.effectiveAt), "queue": ids($0.queue)] as [String: Any] },
-        "calendarAnchor": d(t.calendarAnchor),
+        "calendarAnchor": d(t.calendarAnchor), "endedAt": d(t.endedAt),
     ]
 }
 
@@ -121,6 +121,7 @@ enum Step {
     case rebalance(boundary: Date, at: Date)
     case addAbsence(Absence)
     case suggestedResident(room: UUID, at: Date)
+    case endTask(UUID, requestedBy: UUID, at: Date)
 }
 
 func enc(_ ref: Ref) -> [String: Any] { ["def": id(ref.def), "n": ref.n] }
@@ -143,6 +144,7 @@ func enc(_ step: Step, house: UUID) -> [String: Any] {
     case let .rebalance(boundary, at): ["op": "rebalance", "houseID": id(house), "boundary": d(boundary), "at": d(at)]
     case let .addAbsence(a): ["op": "addAbsence", "absence": enc(a)]
     case let .suggestedResident(room, at): ["op": "suggestedResident", "roomID": id(room), "at": d(at)]
+    case let .endTask(definition, user, at): ["op": "endTask", "definitionID": id(definition), "requestedBy": id(user), "at": d(at)]
     }
 }
 
@@ -230,6 +232,9 @@ func apply(_ step: Step, service: TaskSchedulingService, state: inout TaskSchedu
     case let .rebalance(boundary, at): try service.rebalance(houseID: W.house, boundary: boundary, at: at, state: &state)
     case let .addAbsence(a): state.absences.append(a)
     case let .suggestedResident(room, at): return opt(try service.suggestedResident(roomID: room, at: at, state: state)) { id($0) }
+    case let .endTask(definition, user, at):
+        // O valor é só a quantidade: os IDs das ocorrências removidas são aleatórios.
+        return try service.endTask(definition, requestedBy: user, at: at, state: &state).count
     }
     return nil
 }
@@ -271,6 +276,7 @@ func generateScheduling(outDir: String) {
         ("scheduling-complete", completeScenarios()),
         ("scheduling-membership", membershipScenarios()),
         ("scheduling-calendar", calendarScenarios()),
+        ("scheduling-end", endScenarios()),
     ]
     for (name, scenarios) in groups {
         writeFixture(name: name, command: "scheduling", cases: scenarios.map(run), outDir: outDir)

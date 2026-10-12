@@ -40,6 +40,8 @@ struct MockTaskRepository: TaskRepository {
             return items(from: state).filter {
                 $0.definition.roomID == roomID
                     && $0.definition.kind != .sporadic
+                    // Encerrada: some depois de concluída; a ocorrência da vez continua até lá.
+                    && !($0.definition.endedAt != nil && $0.occurrence.isCompleted)
                     && (retained($0, userID: userID, state: state) || eligibilityPolicy.canView(
                         $0.definition,
                         room: room,
@@ -494,11 +496,30 @@ struct MockTaskRepository: TaskRepository {
         }
     }
 
-    func deleteTask(_ taskID: TaskDefinition.ID) async throws {
+    func endTask(_ taskID: TaskDefinition.ID, requestedBy userID: User.ID, at date: Date) async throws {
         try await store.update { state in
             var schedule = state.schedule
-            try scheduling.deleteTask(taskID, state: &schedule)
+            let removed = try scheduling.endTask(taskID, requestedBy: userID, at: date, state: &schedule)
             state.schedule = schedule
+            guard !removed.isEmpty else { return }
+
+            // O estado de agendamento não guarda trocas: as pendentes que citam uma ocorrência removida
+            // seriam impossíveis de aceitar, então viram recusadas e avisam quem pediu.
+            let taskName = state.definitions.first { $0.id == taskID }?.name ?? "A tarefa"
+            for index in state.taskSwapRequests.indices {
+                let request = state.taskSwapRequests[index]
+                guard request.isPending,
+                      removed.contains(request.offeredOccurrenceID) || removed.contains(request.requestedOccurrenceID)
+                else { continue }
+                state.taskSwapRequests[index].status = .rejected
+                state.taskSwapRequests[index].resolvedAt = date
+                state.notifications.append(AppNotification(
+                    id: UUID(), recipientUserID: request.requesterID, kind: .taskSwapRejected,
+                    swapRequestID: request.id,
+                    message: "A troca foi cancelada porque \(taskName) foi encerrada.",
+                    createdAt: date
+                ))
+            }
         }
     }
 

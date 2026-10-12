@@ -223,6 +223,7 @@ export function encodeDefinition(houseId: HouseID, definition: TaskDefinition): 
     sourceSuggestionID: definition.sourceSuggestionID, rotationQueue: definition.rotationQueue,
     currentRotationIndex: definition.currentRotationIndex, nextScheduledAt: definition.nextScheduledAt,
     pendingRotation: encodePendingRotation(definition.pendingRotation), calendarAnchor: definition.calendarAnchor,
+    endedAt: definition.endedAt,
   });
 }
 
@@ -235,7 +236,7 @@ export function decodeDefinition(item: DynamoItem): TaskDefinition {
     sourceSuggestionID: nullableStr(item, "sourceSuggestionID"), rotationQueue: userIDs(list(item, "rotationQueue")),
     currentRotationIndex: integer(item, "currentRotationIndex"), nextScheduledAt: nullableNum(item, "nextScheduledAt"),
     pendingRotation: decodePendingRotation(nullableRecord(item, "pendingRotation")),
-    calendarAnchor: nullableNum(item, "calendarAnchor"),
+    calendarAnchor: nullableNum(item, "calendarAnchor"), endedAt: nullableNum(item, "endedAt"),
   }));
 }
 

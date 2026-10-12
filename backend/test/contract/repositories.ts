@@ -274,6 +274,52 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     );
   });
 
+  test(`${name}: encerrar tarefa mantém a vez atual e o histórico, remove as futuras e recusa trocas pendentes`, async () => {
+    const { world, env, users, rooms } = await setup(make, { withoutTasks: true });
+    const ending = await env.tasks.create(world.definition(rooms.kitchen.id, { name: "Encerrar" }), users.marina.id, world.now);
+    const other = await env.tasks.create(world.definition(rooms.kitchen.id, { name: "Outra" }), users.marina.id, world.now);
+    const created = await env.state();
+    const endingOccurrences = created.occurrences.filter((o) => o.taskDefinitionID === ending.id);
+    const otherOccurrences = created.occurrences.filter((o) => o.taskDefinitionID === other.id);
+    const [current, future] = endingOccurrences;
+    const [otherCurrent] = otherOccurrences;
+    assert.ok(current !== undefined && future !== undefined && otherCurrent !== undefined);
+    const endedAt = world.now + 1000;
+    const requester = activeOwner(created, current);
+    const receiver = activeOwner(created, otherCurrent);
+    assert.ok(requester !== undefined && receiver !== undefined);
+    const swap = (offered: TaskItem["occurrence"], requested: TaskItem["occurrence"]) => ({
+      id: taskSwapRequestID(world.newID()), requesterID: requester, receiverID: receiver, offeredOccurrenceID: offered.id,
+      requestedOccurrenceID: requested.id, status: "pending" as const, createdAt: world.now, resolvedAt: null,
+    });
+    const onRemoved = swap(current, future);
+    const onKept = swap(current, otherCurrent);
+    await env.update((draft) => {
+      draft.taskSwapRequests.push(onRemoved, onKept);
+    });
+
+    await assert.rejects(env.tasks.endTask(rooms.kitchen.id, ending.id, userID(uuid(999)), endedAt), code("taskUnavailable"));
+    await assert.rejects(env.tasks.endTask(rooms.bathroom.id, ending.id, users.marina.id, endedAt), code("entityNotFound"));
+    await env.tasks.endTask(rooms.kitchen.id, ending.id, users.marina.id, endedAt);
+
+    const after = await env.state();
+    const kept = after.occurrences.filter((o) => o.taskDefinitionID === ending.id).filter((o) => o.availableAt <= endedAt);
+    assert.equal(after.occurrences.filter((o) => o.taskDefinitionID === ending.id).length, kept.length);
+    assert.ok(kept.some((o) => o.id === current.id));
+    assert.ok(!after.assignments.some((a) => a.occurrenceID === future.id));
+    assert.equal(after.definitions.find((d) => d.id === ending.id)?.endedAt, endedAt);
+    assert.deepEqual(after.occurrences.filter((o) => o.taskDefinitionID === other.id), otherOccurrences);
+    assert.equal(after.taskSwapRequests.find((r) => r.id === onRemoved.id)?.status, "rejected");
+    assert.equal(after.taskSwapRequests.find((r) => r.id === onRemoved.id)?.resolvedAt, endedAt);
+    assert.equal(after.taskSwapRequests.find((r) => r.id === onKept.id)?.status, "pending");
+    const notices = (await env.notifications.notifications(requester)).filter((n) => n.kind === "taskSwapRejected");
+    assert.deepEqual(notices.map((n) => n.swapRequestID), [onRemoved.id]);
+
+    // Idempotente: repetir não muda nada, nem a data de encerramento.
+    await env.tasks.endTask(rooms.kitchen.id, ending.id, users.marina.id, endedAt + 5000);
+    assert.deepEqual(await env.state(), after);
+  });
+
   test(`${name}: avançar semanas materializa a escala uma vez e repetir não grava de novo`, async () => {
     const { world, env, house, users } = await setup(make);
     world.now += 3 * 7 * 24 * 3_600_000;

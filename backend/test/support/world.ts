@@ -87,7 +87,7 @@ export class World {
       effort: taskEffort(options.effort ?? 3), kind: options.kind ?? "recurring",
       recurrence: options.recurrence ?? recurring("weekly", 1), assignmentPolicy: options.policy ?? "calendarRotation",
       sourceSuggestionID: null, rotationQueue: [], currentRotationIndex: 0, nextScheduledAt: null,
-      pendingRotation: null, calendarAnchor: null,
+      pendingRotation: null, calendarAnchor: null, endedAt: null,
     };
   }
 }

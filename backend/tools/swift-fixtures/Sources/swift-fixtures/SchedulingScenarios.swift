@@ -265,3 +265,59 @@ func calendarScenarios() -> [Scenario] {
     ]))
     return list
 }
+
+// MARK: Encerrar tarefa
+
+func endScenarios() -> [Scenario] {
+    var list: [Scenario] = []
+    let ref0 = Ref(def: W.def(1), n: 0), ref1 = Ref(def: W.def(1), n: 1)
+    list.append(Scenario(name: "encerrar semanal: mantém a vez atual e o histórico, remove as futuras", zone: "UTC", state: world(), steps: [
+        .create(task(1, room: W.kitchen, effort: 3), at: wed),
+        .complete(ref0, by: .assigneeOf(ref0), at: days(1)),
+        .endTask(W.def(1), requestedBy: W.user(1), at: days(8)),
+        .refresh(at: days(60)),
+        .complete(ref1, by: .assigneeOf(ref1), at: days(9)),
+        .refresh(at: days(90)),
+    ]))
+    list.append(Scenario(name: "encerrar por conclusão: concluir depois não publica sucessora", zone: "UTC", state: world(), steps: [
+        .create(task(1, room: W.kitchen, effort: 1, recurrence: .none, policy: .afterCompletion), at: wed),
+        .endTask(W.def(1), requestedBy: W.user(1), at: days(1)),
+        .complete(ref0, by: .assigneeOf(ref0), at: days(2)),
+        .refresh(at: days(20)),
+    ]))
+    list.append(Scenario(name: "encerrar: permissão, desconhecida, esporádica e repetição", zone: "UTC", state: world(kitchenMembers: 3), steps: [
+        .create(task(1, room: W.kitchen, effort: 2), at: wed),
+        .create(task(2, room: W.kitchen, effort: 1, kind: .sporadic, recurrence: .none, policy: .selfAssigned), at: wed),
+        .endTask(W.def(1), requestedBy: uid(77), at: days(1)),
+        .endTask(W.def(1), requestedBy: W.user(4), at: days(1)),
+        .endTask(W.def(9), requestedBy: W.user(1), at: days(1)),
+        .endTask(W.def(2), requestedBy: W.user(1), at: days(1)),
+        .endTask(W.def(1), requestedBy: W.user(1), at: days(2)),
+        .endTask(W.def(1), requestedBy: W.user(1), at: days(30)),
+        .refresh(at: days(60)),
+    ]))
+    let linked = RecurrencePolicy.weekly(WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 1))
+    list.append(Scenario(name: "encerrar vinculada ao cômodo: as outras seguem e as novas não contam a encerrada", zone: "UTC",
+        state: world(kitchen: WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 1), responsible: 2), steps: [
+        .create(task(1, room: W.kitchen, effort: 3, recurrence: linked), at: wed),
+        .create(task(2, room: W.kitchen, effort: 2, recurrence: linked), at: wed),
+        .create(task(3, room: W.kitchen, effort: 2, recurrence: linked), at: wed),
+        .endTask(W.def(2), requestedBy: W.user(1), at: days(1)),
+        .refresh(at: days(21)),
+        .create(task(4, room: W.kitchen, effort: 1, recurrence: linked), at: days(22)),
+        .refresh(at: days(60)),
+    ]))
+    list.append(Scenario(name: "encerrar e depois mudar moradores: o rebalance ignora a encerrada", zone: "America/Sao_Paulo",
+        state: world(kitchenMembers: 3), steps: [
+        .create(task(1, room: W.kitchen, effort: 3), at: wed),
+        .create(task(2, room: W.kitchen, effort: 2), at: wed),
+        .create(task(3, room: W.bathroom, effort: 2, recurrence: .none, policy: .afterCompletion), at: wed),
+        .endTask(W.def(1), requestedBy: W.user(1), at: days(8)),
+        .endTask(W.def(3), requestedBy: W.user(1), at: days(8)),
+        .addMember(W.user(4), room: W.kitchen, at: days(9)),
+        .removeMember(W.user(2), room: W.kitchen, at: days(10)),
+        .rebalance(boundary: days(14), at: days(10)),
+        .refresh(at: days(70)),
+    ]))
+    return list
+}

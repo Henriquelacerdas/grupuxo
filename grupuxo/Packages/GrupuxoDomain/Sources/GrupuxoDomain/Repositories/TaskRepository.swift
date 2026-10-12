@@ -29,10 +29,13 @@ public protocol TaskRepository: Sendable {
         requestedBy userID: User.ID
     ) async throws -> TaskDefinition
 
-    func deleteTask(
-        _ taskID: TaskDefinition.ID
+    /// Encerra a tarefa recorrente: o histórico fica, as ocorrências futuras somem e as trocas
+    /// pendentes que as citavam são recusadas.
+    func endTask(
+        _ taskID: TaskDefinition.ID,
+        requestedBy userID: User.ID,
+        at date: Date
     ) async throws
-
 
     func deleteSporadicTask(
         id: TaskDefinition.ID,

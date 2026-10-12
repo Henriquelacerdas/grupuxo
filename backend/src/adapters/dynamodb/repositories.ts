@@ -4,7 +4,7 @@ import { addHouseMember, houseMemberIDs, houseMembers, removeHouseMember } from 
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
 import { createRoom, roomFor, roomParticipation, roomsFor } from "../../domain/commands/rooms.ts";
 import {
-  addRoomMember, claimTask, completeTask, createTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
+  addRoomMember, claimTask, completeTask, createTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
   roomTasks, sporadicTasks, userTasks,
 } from "../../domain/commands/tasks.ts";
 import { DomainError } from "../../domain/errors.ts";
@@ -12,7 +12,7 @@ import type { Instant } from "../../domain/dates.ts";
 import type {
   AppNotification, House, Room, RoomMembership, RoomParticipation, TaskDefinition, TaskItem, TaskSwapRequest, User,
 } from "../../domain/entities.ts";
-import type { HouseID, NotificationID, RoomID, TaskOccurrenceID, TaskSwapRequestID, UserID } from "../../domain/ids.ts";
+import type { HouseID, NotificationID, RoomID, TaskDefinitionID, TaskOccurrenceID, TaskSwapRequestID, UserID } from "../../domain/ids.ts";
 import type {
   HouseRepository, NotificationRepository, RoomRepository, TaskRepository, TaskSwapRepository,
 } from "../../domain/repositories.ts";
@@ -132,6 +132,11 @@ export class DynamoTaskRepository implements TaskRepository {
   async create(definition: TaskDefinition, requestedBy: UserID, at: Instant): Promise<TaskDefinition> {
     const houseID = await this.store.houseOf("room", definition.roomID);
     return this.store.update(houseID, (s) => createTask(this.ctx, s, definition, requestedBy, at));
+  }
+
+  async endTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, at: Instant): Promise<void> {
+    const houseID = await this.store.houseOf("room", roomID);
+    await this.store.update(houseID, (s) => endTask(this.ctx, s, roomID, taskID, requestedBy, at));
   }
 
   async refreshSchedule(houseID: HouseID, at: Instant): Promise<void> {

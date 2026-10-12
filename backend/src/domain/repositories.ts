@@ -3,7 +3,7 @@ import type {
   AppNotification, House, Room, RoomMembership, RoomParticipation, TaskDefinition, TaskItem, TaskSwapRequest, User,
 } from "./entities.ts";
 import type {
-  HouseID, NotificationID, RoomID, TaskOccurrenceID, TaskSwapRequestID, UserID,
+  HouseID, NotificationID, RoomID, TaskDefinitionID, TaskOccurrenceID, TaskSwapRequestID, UserID,
 } from "./ids.ts";
 
 export interface HouseRepository {
@@ -27,6 +27,8 @@ export interface TaskRepository {
   roomTasks(roomID: RoomID, requesting: UserID): Promise<TaskItem[]>;
   sporadicTasks(houseID: HouseID, requesting: UserID): Promise<TaskItem[]>;
   create(definition: TaskDefinition, requestedBy: UserID, at: Instant): Promise<TaskDefinition>;
+  /** Encerra a tarefa recorrente do cômodo (o cômodo escolhe a partição no DynamoDB, que não indexa definições): o histórico fica, as ocorrências futuras somem e as trocas pendentes que as citam são recusadas. */
+  endTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, at: Instant): Promise<void>;
   refreshSchedule(houseID: HouseID, at: Instant): Promise<void>;
   addMember(userID: UserID, roomID: RoomID, at: Instant): Promise<void>;
   removeMember(userID: UserID, roomID: RoomID, at: Instant, confirmDeletion: boolean): Promise<void>;

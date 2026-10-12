@@ -281,7 +281,7 @@ final class AppContainer {
             completeTask: CompleteTaskUseCase(
                 repository: taskRepository
             ),
-            deleteTask: DeleteTaskUseCase(
+            endTask: EndTaskUseCase(
                 repository: taskRepository
             ),
             roomID: roomID,

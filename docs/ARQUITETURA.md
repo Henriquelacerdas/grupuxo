@@ -155,7 +155,7 @@ ViewModels acessam o domínio apenas por casos de uso.
 - **Tarefas:** `GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`, `GetTaskSuggestions`, `CreateTask`, `CompleteTask`, `ClaimSporadicTask`, `ReleaseSporadicTask`, `RefreshTaskSchedule`
 - **Cômodos:** `GetHouseRooms`, `GetRoomParticipation`, `CreateRoom`, `AddRoomMember`, `RemoveRoomMember`
 - **Casa:** `GetHouseMembers`, `AddHouseMember`, `RemoveHouseMember`
-- **Exclusão de tarefa:** `DeleteTask` (`TaskRepository.deleteTask`, só no app/Mock: apaga a definição, as ocorrências e as atribuições, ou seja, **também o histórico**, e não confere quem pede nem o acesso ao cômodo; revisar antes de levar ao servidor)
+- **Encerrar tarefa:** `EndTask` (`TaskRepository.endTask(_:requestedBy:at:)`; `TaskSchedulingService.endTask` no Swift e `endTask` em `domain/commands/tasks.ts` no servidor). Substituiu o antigo `DeleteTask`, que apagava também o histórico. Exige morador da casa e participante atual do cômodo, mantém a ocorrência da vez e o histórico, remove só as futuras e recusa as trocas pendentes que as citam (regras em [ALGORITMO.md](ALGORITMO.md)). No servidor o repositório recebe o `roomID` (o DynamoDB não indexa definições); a UI chama de "Encerrar".
 - **Troca:** `GetTaskSwapCandidates`, `CreateTaskSwapRequest`, `AcceptTaskSwapRequest`, `RejectTaskSwapRequest`, `GetIncomingTaskSwapRequests`, `GetOutgoingTaskSwapRequests`
 - **Notificações:** `GetNotifications`, `MarkNotificationAsRead`
 

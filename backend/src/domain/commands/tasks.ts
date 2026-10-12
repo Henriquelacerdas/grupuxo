@@ -5,7 +5,7 @@ import {
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
 import {
-  taskAssignmentID, type HouseID, type RoomID, type TaskOccurrenceID, type UserID,
+  notificationID, taskAssignmentID, type HouseID, type RoomID, type TaskDefinitionID, type TaskOccurrenceID, type UserID,
 } from "../ids.ts";
 import { TaskEligibilityPolicy } from "../services/eligibility.ts";
 import type { StoreState } from "../store-state.ts";
@@ -125,6 +125,27 @@ export function createTask(
     throw new DomainError("taskUnavailable");
   }
   return schedulingFor(ctx, state, room.houseID).create(definition, date, state);
+}
+
+/**
+ * Encerra a tarefa (ver `TaskSchedulingService.endTask`). As trocas pendentes que citam uma ocorrência removida seriam
+ * impossíveis de aceitar: viram recusadas e avisam quem pediu (o estado de agendamento não guarda trocas).
+ */
+export function endTask(
+  ctx: CommandContext, state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, date: Instant,
+): void {
+  const definition = state.definitions.find((d) => d.id === taskID && d.roomID === roomID);
+  if (definition === undefined) throw new DomainError("entityNotFound");
+  const removed = new Set(schedulingFor(ctx, state, houseOfRoom(state, definition.roomID)).endTask(taskID, requestedBy, date, state));
+  if (removed.size === 0) return;
+  state.taskSwapRequests.forEach((request, index) => {
+    if (request.status !== "pending" || !(removed.has(request.offeredOccurrenceID) || removed.has(request.requestedOccurrenceID))) return;
+    state.taskSwapRequests[index] = { ...request, status: "rejected", resolvedAt: date };
+    state.notifications.push({
+      id: notificationID(ctx.newID()), recipientUserID: request.requesterID, kind: "taskSwapRejected",
+      swapRequestID: request.id, createdAt: date, readAt: null,
+    });
+  });
 }
 
 export function completeTask(ctx: CommandContext, state: StoreState, occurrenceID: TaskOccurrenceID, userID: UserID, date: Instant): void {

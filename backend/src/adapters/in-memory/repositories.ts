@@ -4,13 +4,13 @@ import { addHouseMember, houseMemberIDs, houseMembers, removeHouseMember } from 
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
 import { createRoom, roomFor, roomParticipation, roomsFor } from "../../domain/commands/rooms.ts";
 import {
-  addRoomMember, claimTask, completeTask, createTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
+  addRoomMember, claimTask, completeTask, createTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
   roomTasks, sporadicTasks, userTasks,
 } from "../../domain/commands/tasks.ts";
 import { DomainError } from "../../domain/errors.ts";
 import type { Instant } from "../../domain/dates.ts";
 import type { House, Room, RoomMembership, RoomParticipation, TaskDefinition, TaskItem, TaskSwapRequest, User, AppNotification } from "../../domain/entities.ts";
-import type { HouseID, NotificationID, RoomID, TaskOccurrenceID, TaskSwapRequestID, UserID } from "../../domain/ids.ts";
+import type { HouseID, NotificationID, RoomID, TaskDefinitionID, TaskOccurrenceID, TaskSwapRequestID, UserID } from "../../domain/ids.ts";
 import type {
   HouseRepository, NotificationRepository, RoomRepository, TaskRepository, TaskSwapRepository,
 } from "../../domain/repositories.ts";
@@ -109,6 +109,10 @@ export class InMemoryTaskRepository implements TaskRepository {
 
   async create(definition: TaskDefinition, requestedBy: UserID, at: Instant): Promise<TaskDefinition> {
     return this.store.update((s) => createTask(this.ctx, s, definition, requestedBy, at));
+  }
+
+  async endTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, at: Instant): Promise<void> {
+    this.store.update((s) => endTask(this.ctx, s, roomID, taskID, requestedBy, at));
   }
 
   async refreshSchedule(houseID: HouseID, at: Instant): Promise<void> {

@@ -5,7 +5,7 @@ import {
   cloneSchedulingState, isActiveAssignment, type Absence, type SchedulingState, type TaskDefinition,
 } from "../src/domain/entities.ts";
 import { DomainError } from "../src/domain/errors.ts";
-import { houseID, roomID, taskOccurrenceID, userID, type TaskOccurrenceID, type UserID } from "../src/domain/ids.ts";
+import { houseID, roomID, taskDefinitionID, taskOccurrenceID, userID, type TaskOccurrenceID, type UserID } from "../src/domain/ids.ts";
 import { TaskSchedulingService } from "../src/domain/services/task-scheduling-service.ts";
 import { loadFixture, normalizeZero } from "./support/fixtures.ts";
 import {
@@ -73,11 +73,14 @@ function applyStep(service: TaskSchedulingService, state: SchedulingState, raw: 
     case "rebalance": service.rebalance(houseID(step["houseID"] as string), step["boundary"] as number, date, state); return undefined;
     case "addAbsence": state.absences.push(step["absence"] as Absence); return undefined;
     case "suggestedResident": return service.suggestedResident(roomID(step["roomID"] as string), date, state);
+    // O Swift devolve só a quantidade: os IDs das ocorrências removidas são aleatórios.
+    case "endTask":
+      return service.endTask(taskDefinitionID(step["definitionID"] as string), userID(step["requestedBy"] as string), date, state).length;
     default: throw new Error(`passo desconhecido: ${String(step["op"])}`);
   }
 }
 
-for (const file of ["scheduling-create", "scheduling-complete", "scheduling-membership", "scheduling-calendar"]) {
+for (const file of ["scheduling-create", "scheduling-complete", "scheduling-membership", "scheduling-calendar", "scheduling-end"]) {
   for (const c of loadFixture<Case>(file).cases) {
     test(`agendamento (Swift) [${file}]: ${c.name}`, () => {
       const service = new TaskSchedulingService({ calendar: createCalendar(c.zone), newID: sequentialIDs() });
