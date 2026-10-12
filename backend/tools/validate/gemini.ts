@@ -3,7 +3,7 @@ import { SYSTEM_INSTRUCTION } from "../../src/assistant/gemini-responder.ts";
 import {
   GeminiRequestError, HttpGeminiClient, type GeminiContent, type GeminiPart, type GeminiResponse,
 } from "../../src/assistant/gemini-client.ts";
-import { parseToolCall, READ_ONLY_FUNCTIONS } from "../../src/assistant/read-tools.ts";
+import { parseToolCall, ASSISTANT_FUNCTIONS } from "../../src/assistant/read-tools.ts";
 import {
   at, dryRunHttp, errorName, fetchHttp, field, isRecord, median, out, parseJson, rawRequest, readEnv, recording, runMain,
   safeScalar, shapeOf, type Handlers, type Recorded, type Recording,
@@ -51,7 +51,7 @@ const PROMPTS: readonly Prompt[] = [
 ];
 
 const KITCHEN = PROMPTS[1];
-const KNOWN_TOOLS = READ_ONLY_FUNCTIONS.map((declaration) => declaration.name);
+const KNOWN_TOOLS = ASSISTANT_FUNCTIONS.map((declaration) => declaration.name);
 
 function client(ctx: Context, overrides: { readonly apiKey?: string; readonly model?: string; readonly production?: boolean } = {}): HttpGeminiClient {
   return new HttpGeminiClient({
@@ -99,7 +99,7 @@ async function generate(
   ctx.rec.reset();
   let response: GeminiResponse | null = null;
   try {
-    response = await gemini.generate({ systemInstruction: SYSTEM_INSTRUCTION, contents, functions: READ_ONLY_FUNCTIONS });
+    response = await gemini.generate({ systemInstruction: SYSTEM_INSTRUCTION, contents, functions: ASSISTANT_FUNCTIONS });
   } catch (error) {
     if (error instanceof GeminiRequestError) out(`[${label}] cliente lançou: code=${error.code} status=${error.status ?? "-"}`);
     else out(`[${label}] erro inesperado (${errorName(error)})`);

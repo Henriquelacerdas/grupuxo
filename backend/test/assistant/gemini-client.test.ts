@@ -3,7 +3,7 @@ import { test } from "node:test";
 import {
   GeminiConfigurationError, GeminiRequestError, HttpGeminiClient, parseResponse, type GeminiRequest,
 } from "../../src/assistant/gemini-client.ts";
-import { READ_ONLY_FUNCTIONS } from "../../src/assistant/read-tools.ts";
+import { ASSISTANT_FUNCTIONS } from "../../src/assistant/read-tools.ts";
 import type { HttpFetch, HttpRequestInit, HttpResponse } from "../../src/http.ts";
 
 const API_KEY = "AIzaSy-chave-secreta-de-teste";
@@ -30,7 +30,7 @@ const textBody = (text: string): string => JSON.stringify({ candidates: [{ conte
 const request: GeminiRequest = {
   systemInstruction: "instrução fixa",
   contents: [{ role: "user", parts: [{ kind: "text", text: "quais são minhas tarefas?" }] }],
-  functions: READ_ONLY_FUNCTIONS,
+  functions: ASSISTANT_FUNCTIONS,
 };
 
 function client(http: HttpFetch, overrides: Partial<ConstructorParameters<typeof HttpGeminiClient>[0]> = {}): HttpGeminiClient {
@@ -94,16 +94,16 @@ test("POST na URL do modelo, com a chave só no cabeçalho, timeout, teto de tok
   assert.deepEqual(body, {
     systemInstruction: { parts: [{ text: "instrução fixa" }] },
     contents: [{ role: "user", parts: [{ text: "quais são minhas tarefas?" }] }],
-    tools: [{ functionDeclarations: JSON.parse(JSON.stringify(READ_ONLY_FUNCTIONS)) }],
+    tools: [{ functionDeclarations: JSON.parse(JSON.stringify(ASSISTANT_FUNCTIONS)) }],
     toolConfig: { functionCallingConfig: { mode: "AUTO" } },
     generationConfig: { maxOutputTokens: 256, temperature: 0 },
   });
 });
 
 test("as ferramentas declaradas não têm parâmetro de usuário nem de casa", () => {
-  assert.deepEqual(READ_ONLY_FUNCTIONS.map((f) => f.name), ["list_my_tasks", "list_room_tasks", "list_sporadic_tasks"]);
-  const parameterNames = READ_ONLY_FUNCTIONS.flatMap((f) => Object.keys(f.parameters?.properties ?? {}));
-  assert.deepEqual(parameterNames, ["range", "room_name"]);
+  assert.deepEqual(ASSISTANT_FUNCTIONS.map((f) => f.name), ["list_my_tasks", "list_room_tasks", "list_sporadic_tasks", "complete_task"]);
+  const parameterNames = ASSISTANT_FUNCTIONS.flatMap((f) => Object.keys(f.parameters?.properties ?? {}));
+  assert.deepEqual(parameterNames, ["range", "room_name", "task_name"]);
   assert.ok(!/user|house|casa|morador/i.test(parameterNames.join(" ")));
 });
 

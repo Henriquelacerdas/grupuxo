@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-const root = new URL("../", import.meta.url).pathname;
+// `fileURLToPath` decodifica `%20`/`~` do caminho (a pasta pode estar no iCloud); `.pathname` não decodifica e deixava todos os testes de arquitetura vazios.
+const root = fileURLToPath(new URL("../", import.meta.url));
 
 function sourceFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];

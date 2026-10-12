@@ -51,7 +51,7 @@ export class WhatsAppWorker {
       reply = linkReply;
     } else {
       const link = await links.linkForPhone(message.phoneE164);
-      reply = link !== null ? await responder.reply(message.text, link.userID) : WhatsAppWorker.unlinkedReply;
+      reply = link !== null ? await responder.reply(message.text, link.userID, { wamid: message.wamid }) : WhatsAppWorker.unlinkedReply;
     }
     await sender.send(reply, message.phoneE164);
     await inbox.markProcessed(message.wamid, now());

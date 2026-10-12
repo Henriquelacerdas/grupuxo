@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { SqsMessageQueue } from "../../src/adapters/aws/sqs-message-queue.ts";
 import { InMemoryRateCounter } from "../../src/adapters/in-memory/rate-counter.ts";
 import { InMemoryInboxStore, InMemoryLinkTokenStore, InMemoryWhatsAppLinkStore } from "../../src/adapters/in-memory/whatsapp.ts";
-import { GetMyTasksUseCase, GetRoomTasksUseCase, GetSporadicTasksUseCase } from "../../src/domain/use-cases/tasks.ts";
+import { InMemoryPendingActionStore } from "../../src/adapters/in-memory/pending-actions.ts";
+import { CompleteTaskUseCase, GetMyTasksUseCase, GetRoomTasksUseCase, GetSporadicTasksUseCase } from "../../src/domain/use-cases/tasks.ts";
 import { composeCognitoVerifier, composeWhatsAppWorker, type WorkerCompositionDependencies } from "../../src/lambdas/compose.ts";
 import { parseApiSettings, parseWorkerSecrets, parseWorkerSettings } from "../../src/lambdas/config.ts";
 import { createWorkerHandler } from "../../src/lambdas/worker.ts";
@@ -47,6 +48,8 @@ function workerDeps(http: HttpFetch, rateLimit = "2"): { world: World; links: In
       myTasks: new GetMyTasksUseCase(env.tasks, env.houses, now),
       roomTasks: new GetRoomTasksUseCase(env.tasks),
       sporadicTasks: new GetSporadicTasksUseCase(env.tasks),
+      complete: new CompleteTaskUseCase(env.tasks, now),
+      pending: new InMemoryPendingActionStore(),
     },
   };
   return { world, links, deps };

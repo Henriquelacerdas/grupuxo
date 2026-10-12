@@ -99,3 +99,28 @@ export function formatRoomTasks(roomName: string, items: readonly TaskItem[], ct
 export function formatSporadicTasks(items: readonly TaskItem[], ctx: FormatContext): string {
   return section("Tarefas avulsas:", items, "Não há tarefas avulsas.", ctx, { showRoom: true, showAssignee: true });
 }
+
+/** Nome para ir entre `*`: sem os caracteres que o WhatsApp interpreta como formatação (o nome vem de outros moradores). */
+function boldName(name: string): string {
+  return displayText(name.replace(/[*_~`]/g, ""));
+}
+
+export function formatCompletionPrompt(taskName: string): string {
+  return `Marcar *${boldName(taskName)}* como feita? Responda *sim* ou *não*.`;
+}
+
+export function formatCompleted(taskName: string): string {
+  return `Pronto, marquei *${boldName(taskName)}* como feita.`;
+}
+
+/** Tarefas que o morador pode escolher, para o pedido que não achou ou não distinguiu a tarefa. */
+export function formatTaskChoices(items: readonly TaskItem[]): string {
+  const names: string[] = [];
+  for (const item of items) {
+    const name = displayText(item.definition.name);
+    if (!names.includes(name)) names.push(name);
+  }
+  const shown = names.slice(0, MAX_LISTED_TASKS).map((name) => `• ${name}`);
+  const hidden = names.length - shown.length;
+  return (hidden > 0 ? [...shown, `… e mais ${hidden}.`] : shown).join("\n");
+}
