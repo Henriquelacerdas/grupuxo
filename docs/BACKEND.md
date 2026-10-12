@@ -608,6 +608,7 @@ Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada 
 | --- | --- | --- |
 | Domínio e algoritmo (Húngaro, motor, otimizador da casa, agendamento, justiça, carga, elegibilidade, sugestões) | `src/domain/services/` | ✅ portados; fixtures de referência do Swift verdes |
 | Calendário por fuso (semana na segunda, horário de verão) | `src/domain/dates.ts` | ✅ verificado contra o `Calendar` do Foundation em seis fusos |
+| Comandos de casa novos: `createHouse` (nome 1–80, fuso IANA, "Casa toda" e escala inicial), `joinHouseByCode` (código `^[A-Z0-9]{4,16}$`, sem caixa; idempotente), `leaveHouse` (o próprio morador; último morador → `lastMember`; reaproveita o miolo de `removeHouseMember`) | `src/domain/commands/houses.ts`, `test/house-commands.test.ts` | ✅ sem equivalente no Swift (regras de servidor); repositórios e rotas em T2.3–T2.5 |
 | Comandos transacionais, casos de uso, repositórios (interfaces) | `src/domain/commands/`, `use-cases/`, `repositories.ts` | ✅ |
 | Casa real do app (transitória, fora deste backend): Amplify Data, autorização por `members`, mutation `joinHouse` | `grupuxo/amplify/`, `grupuxo/grupuxo/Data/Amplify/` | Código escrito e tipado; **não implantado nem executado** (ver [VALIDACAO-APIS-REAIS.md](VALIDACAO-APIS-REAIS.md), seção 5). Não alimenta este backend |
 | Verificação (GET) e eventos (POST) do webhook | `WebhookHandler` | ✅ testado |
