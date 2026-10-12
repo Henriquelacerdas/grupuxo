@@ -129,7 +129,8 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
         if (parsed.responsibleCount !== undefined) input.responsibleCount = parsed.responsibleCount;
         if (parsed.icon !== undefined) input.icon = parsed.icon;
         if (parsed.color !== undefined) input.color = parsed.color;
-        if (parsed.participantIDs !== null) input.selectedParticipantIDs = new Set(parsed.participantIDs);
+        // Contrato: o criador entra sempre, mesmo que não esteja na lista.
+        if (parsed.participantIDs !== null) input.selectedParticipantIDs = new Set([...parsed.participantIDs, user]);
         return json(201, roomDTO(await createRoom.execute(input)));
       }
       case "roomParticipation":

@@ -284,7 +284,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 
 ### 6.1 Contrato das rotas (`src/lambdas/api.ts`)
 
-**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Implementadas: conta e WhatsApp, e as rotas de casa (T2.5a); as de cômodo, tarefa e ocorrência estão marcadas abaixo. O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
+**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Implementadas: conta e WhatsApp, casa (T2.5a) e cômodo (T2.5b); as de tarefa e ocorrência estão marcadas abaixo. O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
 
 **Convenções.** Tudo sob `/v1`, JSON UTF-8. `Authorization: Bearer <access token>` (esquema sem distinção de caixa); a autorização é feita na Lambda (a Function URL fica com `AuthType = NONE`). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo, da URL ou de cabeçalho; o `at` (data de referência) é do relógio do servidor, nunca do cliente. IDs são UUID em minúsculo; instantes são ISO 8601 em UTC **com milissegundos** (`2026-10-12T09:00:00.000Z`; o `.iso8601` padrão do Swift não decodifica isso, o app usa um formatador próprio). Corpos de até 4 KB; campos desconhecidos são ignorados. Rota e método são verificados antes do token. Sem `Idempotency-Key` na trilha (atalho, PLANO.md seção 2): as mutações de tarefa já são idempotentes no domínio; `POST /houses` e `POST /houses/join` repetidos respondem `409 already_in_house`.
 
@@ -308,11 +308,11 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | `POST /v1/houses/join` | `{ "code" }` | `200 MyHouse`. Código inexistente ou malformado → `404 invalid_code` (uniforme); `409 already_in_house`. Replaneja a escala da casa. |
 | `DELETE /v1/me/house` | query opcional `confirmRoomDeletion=true` | `204`. Sem casa → `404 no_house`; último morador → `409 last_member`; o morador é o último participante de um cômodo, que seria excluído → `409 room_deletion_confirmation_required` (o app confirma e repete com a query). Replaneja a escala. |
 
-#### Cômodos (T2)
+#### Cômodos (implementada)
 
 | Rota | Entrada | Resposta e erros |
 | --- | --- | --- |
-| `POST /v1/houses/{houseID}/rooms` | `{ "name", "visibility": "common" \| "privateRoom", "category"?, "periodicity"?: { "executionsPerPeriod", "intervalWeeks" }, "responsibleCount"?, "icon"?, "color"?, "participantIDs"?: [UUID] }` (`participantIDs` só em cômodo privado; o criador entra sempre) | `201 Room`. `400 invalid_room_name`, `400 invalid_room_participants`, `400 invalid_schedule`; casa de outro → `404`. |
+| `POST /v1/houses/{houseID}/rooms` | `{ "name", "visibility": "common" \| "privateRoom", "category"?, "periodicity"?: { "executionsPerPeriod", "intervalWeeks" }, "responsibleCount"?, "icon"?, "color"?, "participantIDs"?: [UUID] }` (`participantIDs` só vale em cômodo privado, em comum é ignorado; o criador entra sempre, mesmo que não esteja na lista) | `201 Room`. `400 invalid_room_name`, `400 invalid_room_participants`, `400 invalid_schedule`; casa de outro → `404`. |
 | `GET /v1/rooms/{roomID}` | | `200 RoomParticipation` (inicializa a escala se preciso). |
 | `POST /v1/rooms/{roomID}/members` | `{ "userID" }` (morador da casa) | `204`. |
 | `DELETE /v1/rooms/{roomID}/members/{userID}` | query opcional `confirmDeletion=true` | `204`. `409 room_deletion_confirmation_required`, `409 whole_house_protected` ("Casa toda" não permite saída individual). |
