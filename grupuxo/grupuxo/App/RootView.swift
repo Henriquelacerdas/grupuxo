@@ -6,41 +6,17 @@ struct RootView: View {
 
     @EnvironmentObject private var houses: HouseService
 
-    private let container: AppContainer
-
-    @StateObject private var session: AppSession
+    @StateObject private var model = RootModel()
 
     @State private var selectedTab: AppTab = .myTasks
 
     @State private var tasksPath: [AppRoute] = []
 
     @State private var housePath: [AppRoute] = []
-    @State private var isSynced: Bool
 
-    init() {
-        container = AppContainer(store: MockStore(state: MockSeed.empty()))
+    private var container: AppContainer { model.container }
 
-        _session = StateObject(
-            wrappedValue: AppSession(
-                currentUser: User(id: UUID(), name: "", email: nil),
-                currentHouse: House(id: UUID(), name: "", accessCode: "", createdAt: .now)
-            )
-        )
-        _isSynced = State(initialValue: false)
-    }
-
-    init(
-        container: AppContainer,
-        session: AppSession
-    ) {
-
-        self.container = container
-
-        _session = StateObject(
-            wrappedValue: session
-        )
-        _isSynced = State(initialValue: true)
-    }
+    private var session: AppSession { model.session }
 
     /// Muda sempre que moradores ou cômodos da casa real mudam.
     private var syncKey: [String] {
@@ -51,7 +27,7 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if isSynced {
+            if model.isSynced {
                 tabs
             } else {
                 ProgressView("Carregando sua casa…")
@@ -79,16 +55,16 @@ struct RootView: View {
         )
 
         do {
-            try await container.sync(snapshot)
+            try await model.apply(
+                snapshot,
+                user: User(id: Self.uuid(me.userId ?? me.id), name: me.name, email: nil),
+                house: House(
+                    id: houseID, name: house.name, accessCode: houses.inviteCode ?? "", createdAt: .now
+                )
+            )
         } catch {
             return
         }
-
-        session.currentUser = User(id: Self.uuid(me.userId ?? me.id), name: me.name, email: nil)
-        session.currentHouse = House(
-            id: houseID, name: house.name, accessCode: houses.inviteCode ?? "", createdAt: .now
-        )
-        isSynced = true
     }
 
     private static func uuid(_ string: String) -> UUID {

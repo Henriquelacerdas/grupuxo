@@ -9,7 +9,9 @@ struct ContentView: View {
             if authService.isSignedIn {
                 // Logado: sem casa → Onboarding; com casa → app principal (abas)
                 HouseGateView {
+                    // Estado novo por conta: sem o id, trocar de usuário reaproveitaria o store do anterior.
                     RootView()
+                        .id(houses.currentUserId)
                 }
             } else {
                 // Se não estiver logado, mostra a interface de autenticação
