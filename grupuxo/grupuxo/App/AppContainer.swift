@@ -199,24 +199,6 @@ final class AppContainer {
         }
     }
 
-    func makeProfileViewModel(
-        session: AppSession
-    ) -> ProfileViewModel {
-        ProfileViewModel(
-            getMembers: GetHouseMembersUseCase(
-                repository: houseRepository
-            ),
-            addMember: AddHouseMemberUseCase(
-                repository: houseRepository
-            ),
-            removeMember: RemoveHouseMemberUseCase(
-                repository: houseRepository
-            ),
-            houseID: session.currentHouse.id,
-            currentUserID: session.currentUser.id
-        )
-    }
-
     func makeAddRoomMemberUseCase() -> AddRoomMemberUseCase {
         AddRoomMemberUseCase(
             repository: taskRepository

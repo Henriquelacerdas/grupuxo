@@ -38,7 +38,8 @@ grupuxo/amplify/ backend Amplify Gen 2 (TypeScript): auth, data (schema), functi
 grupuxo/package.json toolchain `ampx` (não entra no app)
 Presentation/
   Features/     MyTasks, HouseManagement, RoomDetail, RoomEditor, TaskEditor,
-                SporadicTasks, TaskSwap, Profile   (cada uma: State + View + ViewModel)
+                SporadicTasks, TaskSwap   (cada uma: State + View + ViewModel)
+                Profile (só os arquivos de vínculo do WhatsApp, sem tela: a seção está escondida)
                 Auth (LoginView, SignUpView, ConfirmSignUpView, ForgotPasswordView; sem ViewModel, usam AuthService)
                 HouseManagement também tem HouseGateView, OnboardingView e HouseView (sem ViewModel: usam HouseService)
   Navigation/   AppRoute, AppRouter
@@ -96,7 +97,7 @@ Com uma casa ativa na sessão, o app tem duas abas (`AppTab`: `myTasks`, `house`
 - **Minhas tarefas** apenas consulta e age sobre ocorrências existentes (concluir, trocar). Sem botão, menu, atalho ou rota de criação.
 - **Gerenciar casa** contém criação de cômodos e tarefas, e o card de esporádicas (que não têm aba própria).
 - `TaskEditor` abre pela criação em Gerenciar casa ou pela manutenção dentro de um cômodo. Sem cômodo pré-selecionado, exige escolher um `roomID` antes de salvar.
-- `settings` (engrenagem/perfil) abre o `HouseView`: código de convite, cômodos e moradores reais, sair da casa e sair da conta. A seção de WhatsApp (`WhatsAppConnectionSection`) está **escondida** até a `api` existir (sem ela o app só simularia o vínculo); `WhatsAppConnection*` e o mock continuam no código e nos testes. O `ProfileView` (moradores do mock) continua no código, mas nenhuma rota o abre.
+- `settings` (engrenagem/perfil) abre o `HouseView`: código de convite, cômodos e moradores reais, sair da casa e sair da conta. A seção de WhatsApp (`WhatsAppConnectionSection`) está **escondida** até a `api` existir (sem ela o app só simularia o vínculo); `WhatsAppConnection*` e o mock continuam no código e nos testes. O antigo `ProfileView` (moradores do mock) foi removido; `GetHouseMembers`, `AddHouseMember` e `RemoveHouseMember` continuam como casos de uso.
 - Rotas (`AppRoute`) são tipadas e carregam só identificadores: `roomDetail`, `sporadicTasks`, `taskEditor(roomID:)`, `taskSwap(offeredOccurrenceID:)`, `notifications`, `settings`. Existir uma rota não autoriza qualquer tela a apresentá-la.
 
 ## Casa real (Amplify Data, transitório)
