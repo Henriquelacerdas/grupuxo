@@ -87,7 +87,8 @@ backend/                 projeto Node.js + TypeScript (zero dependências de run
   src/whatsapp/graph-sender.ts  WhatsAppSender real (Graph API), com HttpFetch injetado          ✅ (testado com falso; sem chamada real)
   src/adapters/in-memory/   store transacional, repositórios, ports do WhatsApp e seed (dev/testes) ✅
   src/adapters/aws/         SqsMessageQueue e SecretStringReader sobre clientes mínimos injetados     ✅ (cliente falso; sem chamada real)
-  src/adapters/dynamodb/    repositórios DynamoDB (implementam as interfaces do domínio e os ports)    a fazer
+  src/adapters/dynamodb/    repositórios DynamoDB (implementam as interfaces do domínio e os ports) sobre
+                            um cliente mínimo injetado                                              ✅ (cliente falso; sem chamada real)
   src/lambdas/              handlers webhook, worker e api, conversão de eventos (Function URL, payload 2.0,
                             SQS), config.ts (ambiente e segredos) e compose.ts (composição)           ✅ (sem ponto de entrada: ver 3.1)
   test/                     testes; contract/ (contratos dos ports); fixtures/ (casos dourados do Swift)  ✅
@@ -116,7 +117,7 @@ São funções de fábrica `create…Handler(dependências) => (evento: unknown)
 | `config.ts` | `parseWorkerSettings`, `parseApiSettings` (variáveis de ambiente) e `parseWebhookSecrets`/`parseWorkerSecrets` (o `SecretString` do segredo, JSON com as chaves da seção 10). Nada tem valor padrão escondido; o erro nomeia a variável, nunca o valor. |
 | `compose.ts` | `composeWhatsAppWorker` (`WhatsAppWorker` + `GeminiMessageResponder` + `GraphWhatsAppSender` + `MessageRateLimiter`, falha fechada na criação) e `composeCognitoVerifier` (`CognitoJwtVerifier` + `HttpJwksSource`). |
 
-Variáveis de ambiente: **worker** `GEMINI_MODEL`, `WHATSAPP_GRAPH_VERSION`, `RATE_LIMIT_MAX_MESSAGES`, `RATE_LIMIT_WINDOW_SECONDS` (sugestão inicial: 10 mensagens por 60 s); **api** `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `BOT_PHONE_NUMBER`; **api e worker** `TABLE_NAME` (nome da tabela DynamoDB do ambiente; ainda não lida por `config.ts`, entra junto com o adaptador). Segredos (Secrets Manager, seção 10): **webhook** `VERIFY_TOKEN` e `WHATSAPP_APP_SECRET`; **worker** `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID` e `GEMINI_API_KEY`.
+Variáveis de ambiente: **worker** `GEMINI_MODEL`, `WHATSAPP_GRAPH_VERSION`, `RATE_LIMIT_MAX_MESSAGES`, `RATE_LIMIT_WINDOW_SECONDS` (sugestão inicial: 10 mensagens por 60 s); **api** `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `BOT_PHONE_NUMBER`; **api e worker** `TABLE_NAME` (nome da tabela DynamoDB do ambiente; lida por `config.ts`, e o ponto de entrada liga o cliente DynamoDB a ela: o cliente mínimo é **ligado a uma tabela**, nenhuma operação carrega o nome). Segredos (Secrets Manager, seção 10): **webhook** `VERIFY_TOKEN` e `WHATSAPP_APP_SECRET`; **worker** `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID` e `GEMINI_API_KEY`.
 
 Regras mantidas:
 
@@ -151,27 +152,28 @@ Regras mantidas:
 | Entidade | `PK` | `SK` | `GSI1PK` / `GSI1SK` | Atributos principais |
 | --- | --- | --- | --- | --- |
 | `House` | `HOUSE#<houseId>` | `META` | | `name`, `accessCode`, `timezone` (IANA), `createdAt`, **`version`** (número; bloqueio otimista) |
-| `HouseMembership` | `HOUSE#<houseId>` | `MEMBER#<id>` | `USER#<userId>` / `HOUSE#<houseId>` | `userID`, `joinedAt`, `leftAt` |
-| `Room` | `HOUSE#<houseId>` | `ROOM#<id>` | | `name`, `kind`, `category`, `visibility`, `periodicity`, `responsibleCount`, `calendarAnchor`, `scheduleVersions`, `icon`, `color` |
+| `HouseMembership` | `HOUSE#<houseId>` | `MEMBER#<id>` | `USER#<userId>` / `HOUSE#<houseId>` | `userID` (a entidade não tem `joinedAt` nem `leftAt`: sair da casa apaga o item) |
+| `Room` | `HOUSE#<houseId>` | `ROOM#<id>` | `ROOM#<id>` / `HOUSE#<houseId>` | `name`, `kind`, `category`, `visibility`, `executionsPerPeriod`, `intervalWeeks` (a `periodicity`), `responsibleCount`, `calendarAnchor`, `scheduleVersions`, `icon`, `color` |
 | `RoomMembership` | `HOUSE#<houseId>` | `ROOMMEMBER#<id>` | | `roomID`, `userID`, `fairnessDebt`, `leftAt`, `rotationChanges` |
-| `TaskDefinition` | `HOUSE#<houseId>` | `TASKDEF#<id>` | | `roomID`, `name`, `details`, `effort` (1–3), `kind`, `recurrence`, `assignmentPolicy`, `rotationQueue`, `currentRotationIndex`, `nextScheduledAt`, `pendingRotation`, `calendarAnchor` |
-| `TaskOccurrence` | `HOUSE#<houseId>` | `OCC#<id>` | | `taskDefinitionID`, `availableAt`, `dueAt`, `status`, `completedAt`, `completedByUserID`, `completionDebtImpacts`, `didPublishSuccessor`, `effortSnapshot` |
+| `TaskDefinition` | `HOUSE#<houseId>` | `TASKDEF#<id>` | | `roomID`, `name`, `details`, `effort` (1–3), `kind`, `recurrence` (mapa), `assignmentPolicy`, `sourceSuggestionID`, `rotationQueue`, `currentRotationIndex`, `nextScheduledAt`, `pendingRotation`, `calendarAnchor` |
+| `TaskOccurrence` | `HOUSE#<houseId>` | `OCC#<id>` | `OCC#<id>` / `HOUSE#<houseId>` | `taskDefinitionID`, `availableAt`, `dueAt`, `status`, `completedAt`, `completedByUserID`, `completionDebtImpacts`, `didPublishSuccessor`, `effortSnapshot` |
 | `TaskAssignment` | `HOUSE#<houseId>` | `ASSIGN#<id>` | | `occurrenceID`, `userID`, `assignedAt`, `endedAt`, `supersededAt` |
-| `TaskSwapRequest` | `HOUSE#<houseId>` | `SWAP#<id>` | | `requesterID`, `receiverID`, ocorrências oferecida/pedida, `status`, `createdAt`, `resolvedAt` |
-| `AppNotification` | `HOUSE#<houseId>` | `NOTIF#<id>` | `USER#<recipientUserId>` / `NOTIF#<createdAt>#<id>` | `kind`, `swapRequestID`, `createdAt`, `readAt` |
+| `TaskSwapRequest` | `HOUSE#<houseId>` | `SWAP#<id>` | `SWAP#<id>` / `HOUSE#<houseId>` | `requesterID`, `receiverID`, ocorrências oferecida/pedida, `status`, `createdAt`, `resolvedAt` |
+| `AppNotification` | `HOUSE#<houseId>` | `NOTIF#<id>` | `USER#<recipientUserId>` / `NOTIF#<createdAt, 16 dígitos>#<id>` | `recipientUserID`, `kind`, `swapRequestID`, `createdAt`, `readAt` |
 | `Absence` | `HOUSE#<houseId>` | `ABSENCE#<id>` | | `membershipID`, `startsAt`, `endsAt`, `reason` |
 
 **Itens globais** (fora da partição da casa):
 
 | Item | `PK` | `SK` | Atributos | Para quê |
 | --- | --- | --- | --- | --- |
-| Perfil do morador (`User`) | `USER#<userId>` | `PROFILE` | `name`, `email`, `cognitoSub` (opcional), `createdAt` | Moradores de várias casas; carregado por `BatchGetItem` junto com a casa |
+| Perfil do morador (`User`) | `USER#<userId>` | `PROFILE` | `name`, `email` (ou `null`), `cognitoSub` e `createdAt` (só quando criado pelo `UserDirectory`) | Moradores de várias casas; carregado por `BatchGetItem` junto com a casa |
 | Unicidade do Cognito | `COGNITO#<sub>` | `COGNITO` | `userID` | `UserDirectory`: `sub` → morador, único (seção 5) |
 | Unicidade do código de acesso | `ACCESSCODE#<code>` | `ACCESSCODE` | `houseID` | Entrar na casa pelo código; criado na mesma transação da casa |
 | Vínculo do WhatsApp (por número) | `PHONE#<e164>` | `LINK` | `userID`, `consentedAt`, `linkedAt` | `linkForPhone`; um número, um morador |
 | Vínculo do WhatsApp (por morador) | `USER#<userId>` | `WHATSAPP` | `phoneE164`, `consentedAt`, `linkedAt` | `linkForUser`; um morador, um número |
 | Token de vínculo | `LINKTOKEN#<sha256>` | `LINKTOKEN` | `userID`, `expiresAt`, `usedAt`, `ttl` | Uso único (seção 8); o TTL apaga os vencidos |
 | Caixa de entrada | `WAMID#<wamid>` | `INBOX` | `receivedAt`, `processedAt`, `ttl` | Idempotência do worker (seção 7.2); só `wamid` e horários |
+| Pedido de conclusão pendente | `PENDING#<userId>` | `COMPLETE` | `userID`, `occurrenceID`, `createdAt`, `expiresAt`, `confirmedByWamid` (ausente até confirmar), `ttl` | `PendingActionStore` (seção 7.4); só ID e horários, nunca texto nem nome de tarefa |
 | Contador do limite de taxa | `RATE#<telefone ou hash>` | `<windowStart>` | `count`, `ttl` | `RateCounter` (seção 7.3); o TTL apaga as janelas antigas |
 
 Padrões de acesso:
@@ -181,6 +183,7 @@ Padrões de acesso:
 | Estado inteiro de uma casa (`StoreState`) | `Query PK = HOUSE#<id>` com `ConsistentRead` (paginado) + `BatchGetItem` dos `USER#<id>/PROFILE` dos membros |
 | Casas de um morador (`houses(userID)`) | `Query GSI1 GSI1PK = USER#<id>` com `begins_with(GSI1SK, "HOUSE#")` |
 | Notificações de um morador | `Query GSI1 GSI1PK = USER#<id>` com `begins_with(GSI1SK, "NOTIF#")`, mais recentes primeiro |
+| Casa de uma sala, ocorrência ou troca, dado só o ID | `Query GSI1 GSI1PK = ROOM#<id>` / `OCC#<id>` / `SWAP#<id>`; o `GSI1SK` é `HOUSE#<houseId>`. O índice é eventualmente consistente: se vier vazio, o adaptador espera um instante e busca **uma** segunda vez; depois falha com `entityNotFound`, sem gravar nada |
 | Casa pelo código de acesso | `GetItem ACCESSCODE#<code>` |
 | Morador pelo `sub` do Cognito | `GetItem COGNITO#<sub>` |
 
@@ -198,17 +201,19 @@ Cada comando transacional (`create`, `complete`, `refreshSchedule`, `addMember`,
 
 1. Carregar a partição da casa (`Query` consistente) e os perfis dos membros; montar o `StoreState` e guardar o `version` lido do item `META`.
 2. Executar o comando de domínio (`src/domain/commands/`, puro e síncrono, sem I/O) sobre uma cópia, exatamente como no `InMemoryStore.update`.
-3. Calcular a diferença entre o estado lido e o novo: itens novos ou alterados viram `Put`, itens removidos viram `Delete`. Se não houver diferença, **nada é gravado** (uma consulta que chama `refreshSchedule` sem materializar nada continua sendo só leitura).
-4. Gravar tudo num único `TransactWriteItems`, com um `Update` no `META` condicionado a `version = :lido` (e `SET version = version + 1`). Se outro pedido gravou a casa no meio, a transação é cancelada (`TransactionCanceledException` com `ConditionalCheckFailed`), nada é aplicado e o adaptador **recarrega e repete** (até 3 tentativas com *jitter*); esgotadas, o erro propaga (a `api` responde 500/409 e o SQS tenta de novo). Qualquer outro erro também não aplica nada.
+3. Calcular a diferença entre o estado lido e o novo (os dois **re-codificados** pelo mesmo codec, então um item cujo conteúdo não mudou nunca é regravado): itens novos ou alterados viram `Put`, itens removidos viram `Delete`. Se não houver diferença, **nada é gravado** (uma consulta que chama `refreshSchedule` sem materializar nada continua sendo só leitura).
+4. Gravar tudo num único `TransactWriteItems`, com um `Update` no `META` condicionado a `version = :lido` (e `SET version = version + 1`). Se outro pedido gravou a casa no meio, a transação é cancelada (`TransactionCanceledException` com `ConditionalCheckFailed` **na ação 0**, o `META`, que é sempre a primeira), nada é aplicado e o adaptador **recarrega e repete** (até 3 tentativas, `MAX_ATTEMPTS`, com *jitter* de `sleep` e `random` injetados); esgotadas, `DynamoStoreError("conflict")` (a `api` responde 500/409 e o SQS tenta de novo). Cancelamento por outra ação (por exemplo o `Put` condicional de um perfil novo) e qualquer outro erro propagam sem repetir e sem aplicar nada. Os perfis novos (`USER#/PROFILE`) entram na mesma transação com `attribute_not_exists(PK)`; alterar um perfil existente, ou a própria casa, por um comando de domínio não é suportado (`DynamoStoreError("unsupportedChange")`).
 
 Mutações de escala são por casa, então o conflito nunca envolve casas diferentes. Conclusão e atribuição continuam **idempotentes**: repetir não duplica esforço nem `fairnessDebt`. Isso é essencial porque o WhatsApp entrega *at-least-once* e porque o bloqueio otimista repete o comando.
 
 Limites do DynamoDB a respeitar no adaptador:
 
-- `TransactWriteItems` aceita **até 100 ações e 4 MB** por chamada. Um comando que gere mais (por exemplo, `refreshSchedule` de uma casa parada há muitas semanas) deve **falhar fechado** com erro explícito, nunca gravar em partes. Medir com casas reais ❓ (pergunta 1 da seção 12).
+- `TransactWriteItems` aceita **até 100 ações e 4 MB** por chamada. Um comando que gere mais (`META` + itens alterados + perfis novos > 100) **falha fechado** com `DynamoStoreError("tooManyWrites")`, nunca grava em partes. **Medido na casa de demonstração (4 moradores, 9 tarefas): `addMember` altera ~140 itens e `removeMember` ~110, porque trocar um morador replaneja a escala inteira, então esses dois comandos não cabem numa transação** (consultas, conclusão, assumir/devolver, trocas, criar tarefa e cômodo, e `refreshSchedule` de poucas semanas cabem, e estão cobertos por teste). Entrar e sair de casa pelo servidor depende de decidir entre um registro de intenção com *roll-forward*, materializar a escala em lotes ou agrupar itens (pergunta 1 da seção 12); até lá, o app segue usando o mock para isso.
 - Item de no máximo 400 KB: folgado, porque cada entidade é um item.
 - A `Query` da casa lê o histórico inteiro de ocorrências; o custo cresce com o tempo. Na v1 isso é barato (leituras são cobradas por 4 KB); se pesar, arquivar ocorrências antigas concluídas numa partição `HOUSEARCHIVE#<id>` ❓.
 - O GSI é eventualmente consistente: `houses(userID)` logo depois de entrar numa casa pode demorar frações de segundo. Nada transacional depende do GSI.
+
+Carga inicial: `HouseStateStore.seedHouse(state)` (desenvolvimento e testes; não é operação do domínio) confere que o ID e o `accessCode` ainda não existem, grava os perfis e os itens em lotes de 25 e **só no fim** publica a casa (`META` com `version = 0` e `ACCESSCODE#` numa transação condicional); uma carga interrompida deixa itens órfãos inertes (nenhuma consulta os enxerga sem o `META`) e pode ser repetida.
 
 Sem conexões persistentes: o SDK usa HTTPS com *keep-alive*, então não existe pool de conexões nem proxy. Fuso: o `timezone` (IANA) do item `META` é lido na carga do estado e define o calendário do serviço de agendamento. O contrato que o código do WhatsApp espera está na seção 14.
 
@@ -487,7 +492,7 @@ Dados pessoais tratados: nome, e-mail, número de telefone e conteúdo das mensa
 
 Para a modelagem e a infraestrutura de dados (DynamoDB):
 
-1. Quantas ações e quantos KB gera um `refreshSchedule` de uma casa parada há semanas? O limite de 100 ações por `TransactWriteItems` (seção 4) falha fechado; medir com casas reais e decidir se o comando passa a materializar em lotes limitados.
+1. `addMember` (~140 itens) e `removeMember` (~110) da casa de demonstração **excedem** as 100 ações de um `TransactWriteItems` (medido; seção 4), então falham fechado no DynamoDB. Decidir entre (a) registro de intenção (`INTENT#`) gravado de forma condicional e aplicado em transações idempotentes com *roll-forward* por quem o encontrar, (b) materializar a escala em lotes menores no domínio, ou (c) agrupar atribuições em menos itens. Medir também `refreshSchedule` de casas paradas há muitas semanas.
 2. Arquivar ocorrências antigas concluídas numa partição `HOUSEARCHIVE#<id>` quando a `Query` da casa pesar (seção 4)?
 3. PITR em `prod` (custo por GB) e o prazo de retenção dos backups, que também são dado pessoal (seção 11).
 4. Região da tabela e das Lambdas: `sa-east-1` ou `us-east-1`? O Cognito já está em `us-east-1`, o que favorece manter tudo lá; `sa-east-1` favorece a latência e a LGPD.
@@ -538,16 +543,17 @@ Código em `backend/` (`npm test`). Tudo roda com adaptadores em memória; nada 
 | Ports e adaptadores em memória | `src/whatsapp/ports.ts`, `src/adapters/in-memory/` | ✅ com testes de contrato reutilizáveis |
 | Vínculo por token: gerar convite, reconhecer o token, vincular, rejeitar número já vinculado | `LinkTokenCodec`, `WhatsAppLinker` | ✅ testado (em memória) |
 | Validação do JWT do Cognito (`TokenVerifier`, `CognitoJwtVerifier`, JWKS com cache) | `src/auth/` | ✅ testado com chaves RSA geradas no teste, sem rede (só access token; ID token rejeitado) |
-| `UserDirectory` (conta Cognito → morador) | `src/auth/user-directory.ts`, `src/adapters/in-memory/user-directory.ts` | ✅ port, adaptador em memória e contrato (`test/contract/user-directory.ts`); DynamoDB a fazer |
+| `UserDirectory` (conta Cognito → morador) | `src/auth/user-directory.ts`, `src/adapters/in-memory/user-directory.ts`, `src/adapters/dynamodb/user-directory.ts` | ✅ port, adaptadores em memória e DynamoDB (cliente falso) e contrato (`test/contract/user-directory.ts`) |
 | Envio pela Graph API | `src/whatsapp/graph-sender.ts` | ✅ testado com `HttpFetch` falso (seção 7.5); falta validar contra a API real |
-| Limite de taxa por número | `src/whatsapp/rate-limit.ts`, port `RateCounter`, `adapters/in-memory/rate-counter.ts`, contrato `test/contract/rate-counter.ts` | ✅ em memória; DynamoDB (itens `RATE#`) a fazer |
+| Limite de taxa por número | `src/whatsapp/rate-limit.ts`, port `RateCounter`, `adapters/in-memory/rate-counter.ts`, contrato `test/contract/rate-counter.ts` | ✅ em memória e DynamoDB (itens `RATE#`, cliente falso) |
 | Handlers Lambda (`webhook`, `worker`, `api`), eventos, config, composição | `src/lambdas/` | ✅ testados ponta a ponta em memória (seção 3.1) |
 | Adaptador SQS (`MessageQueue`) e leitura do Secrets Manager | `src/adapters/aws/`, contrato `test/contract/message-queue.ts` | ✅ com clientes mínimos falsos; falta validar contra a AWS real (VALIDACAO-APIS-REAIS.md A8, A9) |
-| Pontos de entrada das Lambdas (embrulham o AWS SDK nos clientes mínimos) | | a fazer (dependem do empacotamento e do cliente DynamoDB ❓) |
-| Tabela DynamoDB e repositórios (domínio e ports) | `infra/` (Terraform), `src/adapters/dynamodb/` | a fazer (modelo na seção 4) |
+| Pontos de entrada das Lambdas (embrulham o AWS SDK nos clientes mínimos, inclusive o `DynamoClient`, e passam as retenções de TTL) | | a fazer (dependem do empacotamento ❓) |
+| Repositórios do domínio e ports sobre o DynamoDB | `src/adapters/dynamodb/` (`client.ts`, `house-state-store.ts`, `repositories.ts`, `whatsapp-stores.ts`, `rate-counter.ts`, `pending-action-store.ts`, `user-directory.ts`), `test/support/fake-dynamo-client.ts`, `test/dynamodb/`, `test/contract/repositories.ts` | ✅ passam nos mesmos contratos dos adaptadores em memória, com **cliente falso**; teste diferencial (mesma sequência em memória e DynamoDB dá o mesmo estado); `addMember`/`removeMember` da casa de demonstração falham fechado (seção 4). Falta validar contra o DynamoDB real (D1–D6) |
+| Tabela DynamoDB (definição como dado puro em `table-definition.ts`) | `infra/` (Terraform) | a fazer; nada cria a tabela |
 | Endpoints `POST /v1/me`, `/v1/me/whatsapp/link`, `GET`/`DELETE /v1/me/whatsapp` | `src/lambdas/api.ts` | ✅ em memória; tela no Perfil a fazer |
 | Gemini e ferramentas de leitura (`MessageResponder` definitivo) | `src/assistant/` | ✅ testado com cliente e `HttpFetch` falsos (seção 7.4), ligado em `composeWhatsAppWorker`; falta validar contra a API real |
-| Concluir tarefa com confirmação (`complete_task`, `PendingActionStore`, `parseConfirmation`, `resolveTask`) | `src/assistant/complete-task.ts`, `gemini-responder.ts`, port em `src/whatsapp/ports.ts`, `adapters/in-memory/pending-actions.ts`, contrato `test/contract/pending-actions.ts` | ✅ em memória, testado com Gemini falso (seção 7.4); **adaptador DynamoDB do `PendingActionStore` a cargo de quem implementa o DynamoDB** |
+| Concluir tarefa com confirmação (`complete_task`, `PendingActionStore`, `parseConfirmation`, `resolveTask`) | `src/assistant/complete-task.ts`, `gemini-responder.ts`, port em `src/whatsapp/ports.ts`, `adapters/in-memory/pending-actions.ts`, contrato `test/contract/pending-actions.ts` | ✅ em memória, testado com Gemini falso (seção 7.4); adaptador DynamoDB em `src/adapters/dynamodb/pending-action-store.ts` (cliente falso) |
 | Intervalo de datas ("da semana") em `GetMyTasksUseCase` | `src/domain/use-cases/tasks.ts` | ✅ `range: "week" \| "all"`, fuso da casa, só a semana corrente; extensão só do servidor (ver [ALGORITMO.md](ALGORITMO.md)) |
 
 ### Verificação
@@ -564,7 +570,8 @@ Requer Node 22.18 ou superior (execução de `.ts` por *type stripping*, sem `ts
 
 - **Fixtures de referência** (`test/*.fixtures.test.ts`, `test/fixtures/*.json`): casos gerados do `GrupuxoDomain` Swift por `tools/swift-fixtures` (`regenerate.sh`) e comparados com `deepStrictEqual`. Detalhes e pontos de cuidado em [ALGORITMO.md](ALGORITMO.md).
 - **Cenários portados** dos testes Swift (app, domínio e backend) para `node:test`, mais testes novos para o que o Swift não cobria (calendário por fuso, trocas, notificações, assumir/devolver, decodificação rígida do webhook, arquitetura).
-- **Contratos** (`test/contract/stores.ts`): uma função por port que recebe uma fábrica do adaptador. O adaptador DynamoDB deve passar nos mesmos testes (incluindo os concorrentes).
+- **Contratos** (`test/contract/*.ts`): uma função por port que recebe uma fábrica do adaptador, e `repositories.ts` para os repositórios do domínio; rodam contra o adaptador em memória e contra o DynamoDB com o cliente falso (`test/dynamodb/`), incluindo os concorrentes, o bloqueio otimista, o limite de 100 ações, o GSI atrasado e um teste diferencial.
+- **Cliente DynamoDB falso** (`test/support/fake-dynamo-client.ts`): tabela com índice `GSI1` esparso, expressões de condição/atualização/chave, paginação, `TransactWriteItems` atômico com motivo por ação e limites de 100 ações/chaves; tem testes próprios. Ele imita o subconjunto de expressões que o adaptador usa: divergências do DynamoDB real só aparecem em D1–D6.
 
 ### Comportamentos decididos na implementação
 
@@ -578,7 +585,7 @@ Requer Node 22.18 ou superior (execução de `.ts` por *type stripping*, sem `ts
 
 ### Contrato dos ports com os itens do DynamoDB
 
-Quem implementar o DynamoDB deve fazer cada port passar nos mesmos testes dos adaptadores em memória (`backend/test/contract/`). Chaves e atributos estão na seção 4. Toda unicidade é uma **escrita condicional**; `ConditionalCheckFailedException` (ou `TransactionCanceledException` com `ConditionalCheckFailed`) é traduzida no adaptador, nunca vaza para o domínio.
+Os adaptadores de `src/adapters/dynamodb/` passam nos mesmos testes dos adaptadores em memória (`backend/test/contract/`). Chaves e atributos estão na seção 4. Toda unicidade é uma **escrita condicional**; `ConditionalCheckFailedException` (ou `TransactionCanceledException` com `ConditionalCheckFailed`) é traduzida no adaptador, nunca vaza para o domínio.
 
 | Port | Método | Itens | Operação esperada |
 | --- | --- | --- | --- |
@@ -599,6 +606,6 @@ Quem implementar o DynamoDB deve fazer cada port passar nos mesmos testes dos ad
 
 Campos do vínculo: `userID`, `phoneE164` (E.164 com `+`), `consentedAt`, `linkedAt`, todos em milissegundos (`Instant`). Não existe `status`: desvincular apaga os itens. Só o `ttl` é em segundos. O token só existe como SHA-256 em hexadecimal; o `ttl` do `LINKTOKEN#` deve ser posterior a `expiresAt` (o DynamoDB apaga com atraso, então a **condição** `expiresAt > :at` é que decide a validade, nunca a presença do item). Pelo mesmo motivo, `RATE#` e `WAMID#` não podem depender do TTL para a lógica: a janela entra na chave, e `claim`/`markProcessed` não leem `ttl`.
 
-Item `PENDING#`: **proposta de modelo feita aqui, sem alterar a seção 4** (o adaptador DynamoDB é de outra pessoa, que deve incorporá-la à seção 4 no mesmo commit do adaptador). Só `occurrenceID` e horários em milissegundos; `ttl` (segundos) pouco depois de `expiresAt`, e, como nos demais itens, a validade é decidida pela **condição** `expiresAt > :at`, nunca pela presença do item. Guardar o texto da mensagem ou o nome da tarefa está fora do contrato.
+Item `PENDING#` (agora também na seção 4): só `occurrenceID` e horários em milissegundos; `ttl` (segundos) pouco depois de `expiresAt`, e, como nos demais itens, a validade é decidida pela **condição** `expiresAt > :at`, nunca pela presença do item. Guardar o texto da mensagem ou o nome da tarefa está fora do contrato.
 
-Retenção: `WAMID#` com `ttl` de poucos dias (só serve à deduplicação; a Meta e o SQS reentregam em minutos ou horas), `RATE#` com `ttl` de alguns minutos além da janela, `LINKTOKEN#` com `ttl` pouco depois de `expiresAt`. O telefone em `RATE#<key>` é dado pessoal: usar o SHA-256 do número como `key` ❓ (o contrato do `RateCounter` não depende disso).
+Retenção (opções **obrigatórias** do construtor de cada adaptador, em segundos, sem padrão no código; valores a decidir no ponto de entrada, sugestão inicial entre parênteses): `WAMID#` com `ttl` de poucos dias (7 dias) (só serve à deduplicação; a Meta e o SQS reentregam em minutos ou horas), `RATE#` com `ttl` de alguns minutos além da janela, `LINKTOKEN#` com `ttl` pouco depois de `expiresAt`. O telefone em `RATE#<key>` é dado pessoal: usar o SHA-256 do número como `key` ❓ (o contrato do `RateCounter` não depende disso).

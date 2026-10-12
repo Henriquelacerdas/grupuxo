@@ -115,6 +115,26 @@ test("o adaptador AWS não usa node:*, ambiente, relógio nem rede globais (clie
   assert.deepEqual(offenders, []);
 });
 
+test("o adaptador DynamoDB não usa node:*, ambiente, relógio, rede nem AWS SDK, e não força tipos com `as`", () => {
+  const offenders: string[] = [];
+  const forbidden = [
+    /\bDate\.now\s*\(/, /new Date\(/, /Math\.random/, /randomUUID/, /\bprocess\./, /(?<![.\w])fetch\s*\(/, /globalThis/,
+    /\bsetTimeout\b/, /from\s+["']node:/, /from\s+["']@aws-sdk/,
+  ];
+  const files = sourceFiles(join(root, "src/adapters/dynamodb"));
+  assert.ok(files.length > 0);
+  for (const file of files) {
+    const text = withoutComments(readFileSync(file, "utf8"));
+    for (const pattern of forbidden) if (pattern.test(text)) offenders.push(`${file}: ${String(pattern)}`);
+    // Dado externo se estreita à mão (BACKEND.md seção 4): `as const` é o único `as` permitido.
+    for (const line of text.split("\n")) {
+      if (/^\s*(import|export)\b/.test(line)) continue;
+      if (/[)\]\w>]\s+as\s+(?!const\b)\w/.test(line)) offenders.push(`${file}: cast \`as\` em "${line.trim()}"`);
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
+
 test("o assistente não usa node:* (só o domínio e os ports)", () => {
   const offenders = sourceFiles(join(root, "src/assistant")).filter((file) => /from\s+["']node:/.test(withoutComments(readFileSync(file, "utf8"))));
   assert.deepEqual(offenders, []);

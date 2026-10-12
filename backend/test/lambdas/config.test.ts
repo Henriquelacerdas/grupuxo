@@ -6,14 +6,15 @@ import {
 
 const workerEnv: Environment = {
   GEMINI_MODEL: "gemini-2.5-flash-lite", WHATSAPP_GRAPH_VERSION: "v25.0", RATE_LIMIT_MAX_MESSAGES: "10", RATE_LIMIT_WINDOW_SECONDS: "60",
+  TABLE_NAME: "grupuxo-dev",
 };
-const apiEnv: Environment = { COGNITO_USER_POOL_ID: "us-east-1_M9GpISkE3", COGNITO_CLIENT_ID: "21gqeeehhmeufpipk84e3cc7tu", BOT_PHONE_NUMBER: "+5511900000000" };
+const apiEnv: Environment = { COGNITO_USER_POOL_ID: "us-east-1_M9GpISkE3", COGNITO_CLIENT_ID: "21gqeeehhmeufpipk84e3cc7tu", BOT_PHONE_NUMBER: "+5511900000000", TABLE_NAME: "grupuxo-dev" };
 
 const configError = (variable: string) => (error: unknown) => error instanceof LambdaConfigError && error.variable === variable;
 
-test("configuração do worker: lê as quatro variáveis, sem padrões escondidos", () => {
+test("configuração do worker: lê as cinco variáveis, sem padrões escondidos", () => {
   assert.deepEqual(parseWorkerSettings(workerEnv), {
-    geminiModel: "gemini-2.5-flash-lite", graphVersion: "v25.0", rateLimit: { limit: 10, windowSeconds: 60 },
+    geminiModel: "gemini-2.5-flash-lite", graphVersion: "v25.0", rateLimit: { limit: 10, windowSeconds: 60 }, tableName: "grupuxo-dev",
   });
   for (const name of Object.keys(workerEnv)) {
     assert.throws(() => parseWorkerSettings({ ...workerEnv, [name]: undefined }), configError(name), name);
@@ -29,10 +30,11 @@ test("limite de taxa: só inteiros positivos em texto simples", () => {
   }
 });
 
-test("configuração da api: pool, client e número do bot", () => {
+test("configuração da api: pool, client, número do bot e tabela", () => {
   const settings = parseApiSettings(apiEnv);
   assert.deepEqual(settings.cognito, { userPoolID: "us-east-1_M9GpISkE3", clientID: "21gqeeehhmeufpipk84e3cc7tu" });
   assert.equal(settings.link.botPhoneNumber, "5511900000000");
+  assert.equal(settings.tableName, "grupuxo-dev");
   for (const name of Object.keys(apiEnv)) assert.throws(() => parseApiSettings({ ...apiEnv, [name]: undefined }), configError(name), name);
   for (const value of ["abc", "123", "+55 11 90000-0000", "1".repeat(16)]) {
     assert.throws(() => parseApiSettings({ ...apiEnv, BOT_PHONE_NUMBER: value }), configError("BOT_PHONE_NUMBER"), value);
