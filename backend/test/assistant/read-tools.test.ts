@@ -36,8 +36,16 @@ test("list_room_tasks: room_name é texto de 1 a 80 caracteres, sem espaços nas
 });
 
 test("ferramenta desconhecida é recusada, inclusive nomes que parecem ferramentas de escrita", () => {
-  for (const name of ["", "complete_task", "list_tasks_of_user", "LIST_MY_TASKS", "list_my_tasks ", "__proto__", "constructor", "toString"]) {
+  for (const name of ["", "delete_task", "complete_all_tasks", "list_tasks_of_user", "LIST_MY_TASKS", "list_my_tasks ", "__proto__", "constructor", "toString"]) {
     assert.deepEqual(parseToolCall(name, {}), { ok: false, problem: "unknown_tool" }, name);
+  }
+});
+
+test("complete_task: só lê task_name (texto de 1 a 80 caracteres); ocorrência, usuário e casa inventados são ignorados", () => {
+  const injected = { task_name: "  lavar a louça ", occurrence_id: uuid(5), user_id: uuid(7), house_id: uuid(8) };
+  assert.deepEqual(parseToolCall("complete_task", injected), { ok: true, invocation: { tool: "complete_task", taskName: "lavar a louça" } });
+  for (const bad of [{}, { task_name: 3 }, { task_name: "   " }, { task_name: "x".repeat(81) }, { occurrence_id: uuid(5) }, null, "lavar"]) {
+    assert.deepEqual(parseToolCall("complete_task", bad), { ok: false, problem: "invalid_task_name" });
   }
 });
 

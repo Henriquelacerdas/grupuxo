@@ -1,3 +1,6 @@
+import { InMemoryPendingActionStore } from "../../src/adapters/in-memory/pending-actions.ts";
+import type { Env } from "../support/world.ts";
+import { CompleteTaskUseCase, GetMyTasksUseCase, GetRoomTasksUseCase, GetSporadicTasksUseCase } from "../../src/domain/use-cases/tasks.ts";
 import type { GeminiClient, GeminiPart, GeminiRequest, GeminiResponse } from "../../src/assistant/gemini-client.ts";
 import type { Instant } from "../../src/domain/dates.ts";
 import { taskItem, type TaskItem, type User } from "../../src/domain/entities.ts";
@@ -65,4 +68,25 @@ export function item(name: string, options: ItemOptions = {}): TaskItem {
       : { id: taskAssignmentID(uuid(counter++)), occurrenceID, userID: assignee.id, assignedAt: availableAt, endedAt: null, supersededAt: null },
     assignee,
   );
+}
+
+let wamidCounter = 0;
+
+/** Contexto de uma mensagem nova (cada `wamid` é único), para os testes que não tratam de idempotência. */
+export function fresh(): { readonly wamid: string } {
+  wamidCounter += 1;
+  return { wamid: `wamid.T${wamidCounter}` };
+}
+
+/** Casos de uso reais sobre o `Env` em memória e um `PendingActionStore` em memória. */
+export function assistantDependencies(env: Env, now: () => Instant) {
+  return {
+    houses: env.houses,
+    rooms: env.rooms,
+    myTasks: new GetMyTasksUseCase(env.tasks, env.houses, now),
+    roomTasks: new GetRoomTasksUseCase(env.tasks),
+    sporadicTasks: new GetSporadicTasksUseCase(env.tasks),
+    complete: new CompleteTaskUseCase(env.tasks, now),
+    pending: new InMemoryPendingActionStore(),
+  };
 }

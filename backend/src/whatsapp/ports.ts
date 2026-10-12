@@ -1,5 +1,5 @@
 import type { Instant } from "../domain/dates.ts";
-import type { UserID } from "../domain/ids.ts";
+import type { TaskOccurrenceID, UserID } from "../domain/ids.ts";
 import type { IncomingMessage } from "./incoming-message.ts";
 
 // Persistência e integrações externas entram só por estes ports. A implementação DynamoDB deve passar nos
@@ -81,15 +81,55 @@ export interface MessageQueue {
 }
 
 /**
+ * Conclusão de tarefa aguardando o "sim" do morador (item `PENDING#<userID>`/`COMPLETE`). Guarda só o ID da
+ * ocorrência e horários: nunca o texto da mensagem nem o nome da tarefa (relido do domínio ao confirmar).
+ */
+export interface PendingCompletion {
+  readonly userID: UserID;
+  readonly occurrenceID: TaskOccurrenceID;
+  readonly createdAt: Instant;
+  /** Depois deste instante o pedido não vale mais (`confirm` devolve `null`). */
+  readonly expiresAt: Instant;
+  /** `wamid` da mensagem que confirmou; `null` enquanto ninguém confirmou. */
+  readonly confirmedByWamid: string | null;
+}
+
+/**
+ * Pedido de conclusão pendente de confirmação, no máximo um por morador. A decisão sim/não é tomada por código,
+ * nunca pelo modelo. No DynamoDB (a cargo de quem implementa o adaptador, BACKEND.md seção 14): `PutItem`
+ * em `PENDING#<userID>`/`COMPLETE` com `ttl`; `confirm` é um `UpdateItem` condicional.
+ */
+export interface PendingActionStore {
+  /** Guarda o pedido (com `confirmedByWamid` nulo), substituindo o que o morador já tinha. */
+  save(pending: PendingCompletion): Promise<void>;
+  /**
+   * Atômico. Se há pedido do morador, ainda dentro da validade em `at` (`expiresAt > at`) e ainda não confirmado
+   * por outro `wamid`, marca `confirmedByWamid = wamid` e devolve o pedido; senão `null`. Repetir com o **mesmo**
+   * `wamid` (reentrega depois de uma falha) devolve o mesmo pedido, para a conclusão idempotente poder ser
+   * repetida; outro `wamid` depois da confirmação recebe `null`. No DynamoDB: `UpdateItem SET confirmedByWamid = :w`
+   * com `attribute_exists(PK) AND expiresAt > :at AND (attribute_not_exists(confirmedByWamid) OR confirmedByWamid = :w)`
+   * e `ReturnValues: ALL_NEW`; condição falha = `null`.
+   */
+  confirm(userID: UserID, wamid: string, at: Instant): Promise<PendingCompletion | null>;
+  /** Idempotente: sem pedido, não faz nada. */
+  discard(userID: UserID): Promise<void>;
+}
+
+/** Contexto da mensagem que o responder atende: a chave de idempotência das ações que gravam. */
+export interface ReplyContext {
+  readonly wamid: string;
+}
+
+/**
  * Decide a resposta para uma mensagem de um morador já identificado. O `userID` vem do vínculo do número,
- * nunca do texto. O Gemini com as ferramentas de leitura será a implementação definitiva.
+ * nunca do texto. O Gemini com as ferramentas do assistente é a implementação definitiva.
  */
 export interface MessageResponder {
-  reply(text: string, userID: UserID): Promise<string>;
+  reply(text: string, userID: UserID, context: ReplyContext): Promise<string>;
 }
 
 export class EchoResponder implements MessageResponder {
-  async reply(text: string, _userID: UserID): Promise<string> {
+  async reply(text: string, _userID: UserID, _context: ReplyContext): Promise<string> {
     return `Você disse: ${text}`;
   }
 }

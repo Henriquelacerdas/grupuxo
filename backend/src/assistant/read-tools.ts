@@ -3,15 +3,18 @@ import { compareIDs } from "../domain/ids.ts";
 import type { TaskRange } from "../domain/use-cases/tasks.ts";
 import type { GeminiFunctionDeclaration } from "./gemini-client.ts";
 
-// Ferramentas de leitura expostas ao Gemini. Nenhuma declaração tem parâmetro de usuário ou de casa: o
-// `GeminiMessageResponder` injeta os dois a partir do vínculo do número. Tudo o que o modelo devolve (nome da
-// ferramenta e argumentos) é entrada não confiável e passa por `parseToolCall`.
+// Ferramentas expostas ao Gemini: três de leitura e `complete_task`, que só *pede* a conclusão (a gravação
+// acontece depois, quando o morador responde "sim", decidida por código). Nenhuma declaração tem parâmetro de
+// usuário, de casa nem de ocorrência: o `GeminiMessageResponder` injeta o usuário e a casa a partir do vínculo do
+// número e resolve a tarefa pelo nome. Tudo o que o modelo devolve (nome da ferramenta e argumentos) é entrada
+// não confiável e passa por `parseToolCall`.
 
 export const LIST_MY_TASKS = "list_my_tasks";
 export const LIST_ROOM_TASKS = "list_room_tasks";
 export const LIST_SPORADIC_TASKS = "list_sporadic_tasks";
+export const COMPLETE_TASK = "complete_task";
 
-export const READ_ONLY_FUNCTIONS: readonly GeminiFunctionDeclaration[] = [
+export const ASSISTANT_FUNCTIONS: readonly GeminiFunctionDeclaration[] = [
   {
     name: LIST_MY_TASKS,
     description: "Lista as tarefas do próprio morador que enviou a mensagem.",
@@ -42,21 +45,35 @@ export const READ_ONLY_FUNCTIONS: readonly GeminiFunctionDeclaration[] = [
     name: LIST_SPORADIC_TASKS,
     description: "Lista as tarefas avulsas (esporádicas) da casa, que qualquer morador elegível pode assumir.",
   },
+  {
+    name: COMPLETE_TASK,
+    description:
+      "Pede para marcar como feita uma tarefa do próprio morador, quando ele diz que terminou. Não conclui nada: o sistema pergunta se ele confirma.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        task_name: { type: "STRING", description: "Nome da tarefa, como o morador escreveu (por exemplo: lavar a louça)." },
+      },
+      required: ["task_name"],
+    },
+  },
 ];
 
 export type ToolInvocation =
   | { readonly tool: typeof LIST_MY_TASKS; readonly range: TaskRange }
   | { readonly tool: typeof LIST_ROOM_TASKS; readonly roomName: string }
-  | { readonly tool: typeof LIST_SPORADIC_TASKS };
+  | { readonly tool: typeof LIST_SPORADIC_TASKS }
+  | { readonly tool: typeof COMPLETE_TASK; readonly taskName: string };
 
 /** Motivos fixos (sem eco do que o modelo mandou): voltam ao modelo como dado quando ele pode corrigir a chamada. */
-export type ToolProblem = "unknown_tool" | "invalid_range" | "invalid_room_name";
+export type ToolProblem = "unknown_tool" | "invalid_range" | "invalid_room_name" | "invalid_task_name";
 
 export type ToolParseResult =
   | { readonly ok: true; readonly invocation: ToolInvocation }
   | { readonly ok: false; readonly problem: ToolProblem };
 
 export const MAX_ROOM_NAME_CHARS = 80;
+export const MAX_TASK_NAME_CHARS = 80;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -87,6 +104,13 @@ export function parseToolCall(name: string, args: unknown): ToolParseResult {
     }
     case LIST_SPORADIC_TASKS:
       return { ok: true, invocation: { tool: LIST_SPORADIC_TASKS } };
+    case COMPLETE_TASK: {
+      const taskName = argument(args, "task_name");
+      if (typeof taskName !== "string") return { ok: false, problem: "invalid_task_name" };
+      const trimmedName = taskName.trim();
+      if (trimmedName === "" || Array.from(trimmedName).length > MAX_TASK_NAME_CHARS) return { ok: false, problem: "invalid_task_name" };
+      return { ok: true, invocation: { tool: COMPLETE_TASK, taskName: trimmedName } };
+    }
     default:
       return { ok: false, problem: "unknown_tool" };
   }
@@ -101,6 +125,9 @@ export function invocationKey(invocation: ToolInvocation): string {
       return `${LIST_ROOM_TASKS}:${normalizeRoomName(invocation.roomName)}`;
     case LIST_SPORADIC_TASKS:
       return LIST_SPORADIC_TASKS;
+    case COMPLETE_TASK:
+      // Um único pedido de conclusão por mensagem, qualquer que seja o nome: o morador confirma um de cada vez.
+      return COMPLETE_TASK;
   }
 }
 

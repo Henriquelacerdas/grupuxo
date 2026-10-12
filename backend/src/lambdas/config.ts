@@ -38,6 +38,8 @@ export interface WorkerSettings {
   readonly graphVersion: string;
   /** `RATE_LIMIT_MAX_MESSAGES` por `RATE_LIMIT_WINDOW_SECONDS`, por número. Sugestão inicial: 10 por 60 s. */
   readonly rateLimit: { readonly limit: number; readonly windowSeconds: number };
+  /** `TABLE_NAME`: tabela DynamoDB do ambiente (`grupuxo-dev`, `grupuxo-prod`); o ponto de entrada liga o cliente a ela. */
+  readonly tableName: string;
 }
 
 export function parseWorkerSettings(env: Environment): WorkerSettings {
@@ -45,6 +47,7 @@ export function parseWorkerSettings(env: Environment): WorkerSettings {
     geminiModel: required(env, "GEMINI_MODEL"),
     graphVersion: required(env, "WHATSAPP_GRAPH_VERSION"),
     rateLimit: { limit: positiveInteger(env, "RATE_LIMIT_MAX_MESSAGES"), windowSeconds: positiveInteger(env, "RATE_LIMIT_WINDOW_SECONDS") },
+    tableName: required(env, "TABLE_NAME"),
   };
 }
 
@@ -52,6 +55,8 @@ export function parseWorkerSettings(env: Environment): WorkerSettings {
 export interface ApiSettings {
   readonly cognito: CognitoVerifierConfig;
   readonly link: LinkConfig;
+  /** `TABLE_NAME`: tabela DynamoDB do ambiente. */
+  readonly tableName: string;
 }
 
 export function parseApiSettings(env: Environment): ApiSettings {
@@ -65,7 +70,7 @@ export function parseApiSettings(env: Environment): ApiSettings {
     throw new LambdaConfigError("BOT_PHONE_NUMBER", "invalid");
   }
   // O formato do pool e do client é conferido por `CognitoJwtVerifier` ao ser criado (falha fechada).
-  return { cognito: { userPoolID, clientID }, link };
+  return { cognito: { userPoolID, clientID }, link, tableName: required(env, "TABLE_NAME") };
 }
 
 /** Segredos da Lambda `webhook` (`VERIFY_TOKEN` e `WHATSAPP_APP_SECRET` do Secrets Manager). */

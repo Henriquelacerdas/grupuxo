@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-const root = new URL("../", import.meta.url).pathname;
+// `fileURLToPath` decodifica `%20`/`~` do caminho (a pasta pode estar no iCloud); `.pathname` não decodifica e deixava todos os testes de arquitetura vazios.
+const root = fileURLToPath(new URL("../", import.meta.url));
 
 function sourceFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
@@ -109,6 +111,26 @@ test("o adaptador AWS não usa node:*, ambiente, relógio nem rede globais (clie
   for (const file of sourceFiles(join(root, "src/adapters/aws"))) {
     const text = withoutComments(readFileSync(file, "utf8"));
     for (const pattern of forbidden) if (pattern.test(text)) offenders.push(`${file}: ${String(pattern)}`);
+  }
+  assert.deepEqual(offenders, []);
+});
+
+test("o adaptador DynamoDB não usa node:*, ambiente, relógio, rede nem AWS SDK, e não força tipos com `as`", () => {
+  const offenders: string[] = [];
+  const forbidden = [
+    /\bDate\.now\s*\(/, /new Date\(/, /Math\.random/, /randomUUID/, /\bprocess\./, /(?<![.\w])fetch\s*\(/, /globalThis/,
+    /\bsetTimeout\b/, /from\s+["']node:/, /from\s+["']@aws-sdk/,
+  ];
+  const files = sourceFiles(join(root, "src/adapters/dynamodb"));
+  assert.ok(files.length > 0);
+  for (const file of files) {
+    const text = withoutComments(readFileSync(file, "utf8"));
+    for (const pattern of forbidden) if (pattern.test(text)) offenders.push(`${file}: ${String(pattern)}`);
+    // Dado externo se estreita à mão (BACKEND.md seção 4): `as const` é o único `as` permitido.
+    for (const line of text.split("\n")) {
+      if (/^\s*(import|export)\b/.test(line)) continue;
+      if (/[)\]\w>]\s+as\s+(?!const\b)\w/.test(line)) offenders.push(`${file}: cast \`as\` em "${line.trim()}"`);
+    }
   }
   assert.deepEqual(offenders, []);
 });
