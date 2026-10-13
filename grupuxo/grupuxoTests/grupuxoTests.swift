@@ -303,11 +303,12 @@ struct TaskListPresentationTests {
     @Test func deadlinesSortAscendingWithUndatedTasksLast() async throws {
         var seed = MockSeed.make()
         let roomID = MockSeed.kitchen.id
-        let definition = seed.definitions.first { $0.roomID == roomID }!
+        let definitions = Array(seed.definitions.filter { $0.roomID == roomID && $0.kind != .sporadic }.prefix(3))
+        #expect(definitions.count == 3)
         let dates: [Date?] = [nil, Date(timeIntervalSince1970: 300), Date(timeIntervalSince1970: 100)]
-        seed.occurrences = dates.map {
+        seed.occurrences = zip(definitions, dates).map { definition, dueAt in
             TaskOccurrence(id: UUID(), taskDefinitionID: definition.id, availableAt: .distantPast,
-                           dueAt: $0, status: .available, completedAt: nil, completedByUserID: nil,
+                           dueAt: dueAt, status: .available, completedAt: nil, completedByUserID: nil,
                            effortSnapshot: definition.effort)
         }
         let container = AppContainer(store: MockStore(state: seed))

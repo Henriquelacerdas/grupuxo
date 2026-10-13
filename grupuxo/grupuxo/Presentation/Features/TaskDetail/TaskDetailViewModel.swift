@@ -13,11 +13,13 @@ import GrupuxoDomain
 final class TaskDetailViewModel: ObservableObject {
 
     @Published private(set) var state: TaskDetailState = .idle
+    @Published private(set) var upcoming: [UpcomingAssignment] = []
     @Published private(set) var isSaving = false
     @Published var actionError: String?
 
     private let getTaskDefinition: GetTaskDefinitionUseCase
     private let updateTaskDetails: UpdateTaskDetailsUseCase
+    private let getUpcomingAssignments: GetTaskUpcomingAssignmentsUseCase
 
     private let taskDefinitionID: TaskDefinition.ID
     private let userID: User.ID
@@ -25,12 +27,14 @@ final class TaskDetailViewModel: ObservableObject {
     init(
         getTaskDefinition: GetTaskDefinitionUseCase,
         updateTaskDetails: UpdateTaskDetailsUseCase,
+        getUpcomingAssignments: GetTaskUpcomingAssignmentsUseCase,
         taskDefinitionID: TaskDefinition.ID,
         userID: User.ID
     ) {
 
         self.getTaskDefinition = getTaskDefinition
         self.updateTaskDetails = updateTaskDetails
+        self.getUpcomingAssignments = getUpcomingAssignments
         self.taskDefinitionID = taskDefinitionID
         self.userID = userID
 
@@ -48,6 +52,12 @@ final class TaskDetailViewModel: ObservableObject {
             )
 
             state = .content(definition)
+
+            // The queue is secondary: a failure here must not hide the task itself.
+            upcoming = (try? await getUpcomingAssignments(
+                taskDefinitionID: taskDefinitionID,
+                requesting: userID
+            )) ?? []
 
         } catch {
 

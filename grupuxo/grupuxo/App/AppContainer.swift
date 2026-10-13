@@ -276,6 +276,9 @@ final class AppContainer {
             updateTaskDetails: UpdateTaskDetailsUseCase(
                 repository: taskRepository
             ),
+            getUpcomingAssignments: GetTaskUpcomingAssignmentsUseCase(
+                repository: taskRepository
+            ),
             taskDefinitionID: taskDefinitionID,
             userID: session.currentUser.id
         )

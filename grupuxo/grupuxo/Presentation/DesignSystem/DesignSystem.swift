@@ -111,10 +111,16 @@ struct TaskRow: View {
                 Image(
                     systemName:
                         item.occurrence.isCompleted
-                        ? "checkmark.square.fill"
-                        : "square"
+                        ? "checkmark.circle.fill"
+                        : "circle"
                 )
                 .font(.title2)
+                .foregroundStyle(
+                    item.occurrence.isCompleted
+                    ? AnyShapeStyle(.tint)
+                    : AnyShapeStyle(.secondary)
+                )
+                .contentTransition(.symbolEffect(.replace))
                 .frame(width: 44, height: 44)
 
             }

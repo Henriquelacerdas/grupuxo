@@ -45,10 +45,6 @@ struct HouseManagementView: View {
 
             case let .content(content):
 
-                if #unavailable(iOS 26) {
-                    houseNameRow
-                }
-
                 sporadicTasksRow(content.sporadic)
 
                 roomsHeaderRow
@@ -81,7 +77,6 @@ struct HouseManagementView: View {
         .background(Color(uiColor: .systemGroupedBackground))
 
         .navigationTitle("Casa")
-        .houseSubtitle(viewModel.houseName)
 
         .toolbar {
 
@@ -166,15 +161,6 @@ struct HouseManagementView: View {
         .plainCardRow()
     }
 
-    /// Antes do iOS 26 não existe subtítulo na barra de navegação.
-    private var houseNameRow: some View {
-
-        Text(viewModel.houseName)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .plainCardRow()
-    }
-
     private var roomsHeaderRow: some View {
 
         Text("Cômodos")
@@ -247,16 +233,6 @@ struct HouseManagementView: View {
 }
 
 private extension View {
-
-    @ViewBuilder
-    func houseSubtitle(_ name: String) -> some View {
-
-        if #available(iOS 26, *) {
-            navigationSubtitle(name)
-        } else {
-            self
-        }
-    }
 
     @ViewBuilder
     func prominentToolbarButtonStyle() -> some View {
