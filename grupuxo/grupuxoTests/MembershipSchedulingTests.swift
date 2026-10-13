@@ -53,26 +53,31 @@ struct MembershipSchedulingTests {
     @Test @MainActor func myTasksKeepsCompletedTasksLastAndAllowsUndo() async throws {
         let store = MockStore()
         let repository = MockTaskRepository(store: store, scheduling: service)
+        let roomRepository = MockRoomRepository(store: store, scheduling: service)
         let seed = MockSeed.make()
         let user = seed.users[0].id
         let house = seed.houses[0].id
-        let viewModel = MyTasksViewModel(getMyTasks: GetMyTasksUseCase(repository: repository),
-                                        completeTask: CompleteTaskUseCase(repository: repository),
-                                        userID: user, houseID: house)
+        let viewModel = MyTasksViewModel(
+            getMyTasksOverview: GetMyTasksOverviewUseCase(roomRepository: roomRepository, taskRepository: repository),
+            completeTask: CompleteTaskUseCase(repository: repository),
+            user: seed.users[0], houseName: seed.houses[0].name, houseID: house)
         await viewModel.load()
-        guard case let .content(tasks) = viewModel.state,
-              let item = tasks.first(where: { viewModel.canComplete($0) && !$0.occurrence.isCompleted }) else {
+        guard case let .content(content) = viewModel.state,
+              let item = content.allItems.first(where: { viewModel.canComplete($0) && !$0.occurrence.isCompleted }) else {
             Issue.record("Expected an assigned task"); return
         }
         await viewModel.complete(item.id)
         #expect(viewModel.actionError == nil)
         guard case let .content(completed) = viewModel.state,
-              let retained = completed.first(where: { $0.id == item.id }) else {
+              let retained = completed.item(item.id) else {
             Issue.record("Completed task disappeared"); return
         }
         #expect(retained.occurrence.isCompleted)
         #expect(viewModel.canComplete(retained))
-        #expect(completed.suffix(from: completed.firstIndex(where: { $0.occurrence.isCompleted })!).allSatisfy { $0.occurrence.isCompleted })
+        for rows in completed.cycles.map(\.rows) + [completed.extras, completed.sporadics] {
+            let firstCompleted = rows.firstIndex { $0.item.occurrence.isCompleted } ?? rows.endIndex
+            #expect(rows[firstCompleted...].allSatisfy { $0.item.occurrence.isCompleted })
+        }
         await viewModel.complete(item.id)
         #expect(viewModel.actionError == nil)
         let reloaded = try await repository.tasks(for: user, in: house)

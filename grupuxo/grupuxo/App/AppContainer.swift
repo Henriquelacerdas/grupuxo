@@ -117,14 +117,17 @@ final class AppContainer {
         session: AppSession
     ) -> MyTasksViewModel {
         MyTasksViewModel(
-            getMyTasks: GetMyTasksUseCase(
-                repository: taskRepository
+            getMyTasksOverview: GetMyTasksOverviewUseCase(
+                roomRepository: roomRepository,
+                taskRepository: taskRepository
             ),
             completeTask: CompleteTaskUseCase(
                 repository: taskRepository
             ),
-            userID: session.currentUser.id,
-            houseID: session.currentHouse.id
+            user: session.currentUser,
+            houseName: session.currentHouse.name,
+            houseID: session.currentHouse.id,
+            calendar: calendar
         )
     }
 

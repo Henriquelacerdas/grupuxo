@@ -59,14 +59,42 @@ extension ProgressViewStyle where Self == CycleProgressViewStyle {
 extension View {
 
     /// Cartão com fundo agrupado secundário, que acompanha modo escuro e contraste do sistema.
-    func cardBackground() -> some View {
+    /// Sobre fundo não agrupado (lista `.plain`), passe `Color(uiColor: .secondarySystemBackground)`.
+    func cardBackground(
+        _ fill: Color = Color(uiColor: .secondarySystemGroupedBackground)
+    ) -> some View {
         background(
-            Color(uiColor: .secondarySystemGroupedBackground),
+            fill,
             in: RoundedRectangle(
                 cornerRadius: DesignSystem.cardCornerRadius,
                 style: .continuous
             )
         )
+    }
+
+    /// A linha da lista vira só um espaço: o fundo e o arredondamento ficam no cartão.
+    func plainCardRow() -> some View {
+        listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(
+                EdgeInsets(
+                    top: 0,
+                    leading: DesignSystem.Spacing.large,
+                    bottom: 0,
+                    trailing: DesignSystem.Spacing.large
+                )
+            )
+    }
+
+    /// Botão de ação principal da barra de navegação (vidro no iOS 26, preenchido antes).
+    @ViewBuilder
+    func prominentToolbarButtonStyle() -> some View {
+
+        if #available(iOS 26, *) {
+            buttonStyle(.glassProminent)
+        } else {
+            buttonStyle(.borderedProminent)
+        }
     }
 }
 
@@ -82,11 +110,13 @@ struct EmptyStateView: View {
 struct ResidentAvatar: View {
     let user: User
 
+    @ScaledMetric(relativeTo: .caption) private var diameter: CGFloat = 36
+
     var body: some View {
         Text(user.name.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init).joined())
             .font(.caption.bold())
             .foregroundStyle(.tint)
-            .frame(width: 36, height: 36)
+            .frame(width: diameter, height: diameter)
             .background(.tint.opacity(0.12), in: Circle())
             .accessibilityHidden(true)
     }

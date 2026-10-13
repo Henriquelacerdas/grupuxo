@@ -231,30 +231,3 @@ struct HouseManagementView: View {
         )
     }
 }
-
-private extension View {
-
-    @ViewBuilder
-    func prominentToolbarButtonStyle() -> some View {
-
-        if #available(iOS 26, *) {
-            buttonStyle(.glassProminent)
-        } else {
-            buttonStyle(.borderedProminent)
-        }
-    }
-
-    /// A linha da lista vira só um espaço: o fundo e o arredondamento ficam no cartão.
-    func plainCardRow() -> some View {
-        listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-            .listRowInsets(
-                EdgeInsets(
-                    top: 0,
-                    leading: DesignSystem.Spacing.large,
-                    bottom: 0,
-                    trailing: DesignSystem.Spacing.large
-                )
-            )
-    }
-}

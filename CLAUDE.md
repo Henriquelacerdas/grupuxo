@@ -46,7 +46,7 @@ Enquanto o app usar o mock, o `GrupuxoDomain` Swift continua sendo o domínio do
 - Swift 6 com concorrência estrita: sem `Task.detached` nem `@unchecked Sendable` para contornar erros.
 - Toda mutação de escala roda **dentro** de uma transação com cópia, commit e rollback (`MockStore.update` no Swift, `InMemoryStore.update` no TypeScript), sem `await` no meio.
 - Definição (`TaskDefinition`) e ocorrência (`TaskOccurrence`) são separadas; alterar a definição não reescreve o histórico.
-- Criar tarefa só existe em Gerenciar casa, nunca em Minhas tarefas.
+- Criar tarefa só pelo `TaskCreationSheetView`: em Gerenciar casa e no botão "+" de Minhas tarefas (a mesma sheet, sem fluxo próprio de criação em Minhas tarefas).
 - Esforço (1–3) é carga interna: não exibir como pontuação ou gamificação.
 - TypeScript: `strict` (com `noUncheckedIndexedAccess` e `exactOptionalPropertyTypes`), sem `any`, sem `@ts-ignore`/`@ts-expect-error`, sem `as` para forçar tipo em dado externo (use `unknown` e estreitamento escrito à mão). Entidades `readonly` e atualização imutável. Sem Temporal, Luxon, zod, ORM nem bibliotecas utilitárias. Datas só pelo módulo `src/domain/dates.ts` (instantes em milissegundos, calendário por fuso IANA; nunca somar múltiplos de 24 h para andar dias locais).
 - Todo desempate do algoritmo é explícito e por ID (texto do UUID em minúsculo); nunca dependa da ordem de `Map`/`Set`/objeto.

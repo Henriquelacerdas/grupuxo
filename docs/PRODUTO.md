@@ -31,7 +31,13 @@ A barra principal tem duas abas. Sino (notificações) e perfil (configurações
 
 ### Minhas tarefas
 
-Responsabilidades do usuário: tarefas periódicas, gerais e esporádicas assumidas. Permite consultar prazo, esforço, responsável e estado; concluir (e desmarcar); e pedir **troca** de tarefa com outro morador. **Não permite criar tarefas.**
+Responsabilidades do usuário, em três seções recolhíveis sob o card "Resumo da semana" (convite à avaliação anônima da semana; Depois/Avaliar ainda não fazem nada):
+
+- **Seu ciclo**: os cômodos de que o morador é responsável neste ciclo, cada um com o prazo ("Termina domingo"), o progresso do cômodo ("2 de 5") e as tarefas de mesma periodicidade do cômodo.
+- **Tarefas extras**: tarefas recorrentes de um cômodo com periodicidade diferente da do cômodo, com o nome do cômodo e o dia do prazo.
+- **Tarefas únicas**: as esporádicas que o morador assumiu na aba Casa, com o nome do cômodo.
+
+Permite consultar prazo, responsável e estado; concluir (e desmarcar); e pedir **troca** de tarefa com outro morador (ação de deslizar na linha). Tarefas concluídas ficam marcadas até o fim do ciclo (seu ciclo) ou da semana (extras e únicas). O botão "+" da barra abre a mesma sheet de criação de tarefa da aba Casa; o avatar abre as configurações e o sino, as notificações.
 
 ### Gerenciar casa
 

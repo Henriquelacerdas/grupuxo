@@ -91,7 +91,7 @@ public struct GetHouseOverviewUseCase: Sendable {
         for room in rooms {
             let participation = try await roomRepository.participation(in: room.id, requesting: userID, at: date)
             let progress = participation.isMember
-                ? try await cycleProgress(for: participation, userID: userID)
+                ? try await taskRepository.cycleProgress(of: participation, requesting: userID)
                 : nil
             overviews.append(RoomOverview(
                 room: participation.room,
@@ -111,11 +111,14 @@ public struct GetHouseOverviewUseCase: Sendable {
 
         return HouseOverview(sporadicTasks: sporadic, rooms: overviews)
     }
+}
+
+extension TaskRepository {
 
     /// Conta as ocorrências do ciclo atual das tarefas que seguem a escala do cômodo.
-    private func cycleProgress(for participation: RoomParticipation, userID: User.ID) async throws -> CycleProgress {
+    func cycleProgress(of participation: RoomParticipation, requesting userID: User.ID) async throws -> CycleProgress {
         let room = participation.room
-        let cycleTasks = try await taskRepository.tasks(in: room.id, requesting: userID).filter {
+        let cycleTasks = try await tasks(in: room.id, requesting: userID).filter {
             $0.definition.isLinked(to: room)
                 && $0.occurrence.availableAt >= participation.periodStart
                 && $0.occurrence.availableAt < participation.periodEnd

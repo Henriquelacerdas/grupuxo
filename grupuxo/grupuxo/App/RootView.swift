@@ -51,6 +51,14 @@ struct RootView: View {
                         container.makeMyTasksViewModel(
                             session: session
                         ),
+                    makeTaskEditorViewModel: {
+
+                        container.makeTaskEditorViewModel(
+                            roomID: nil,
+                            session: session
+                        )
+
+                    },
                     onRequestSwap: { occurrenceID in
 
                         tasksPath.append(

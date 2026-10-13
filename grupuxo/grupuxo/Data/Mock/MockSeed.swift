@@ -272,7 +272,7 @@ enum MockSeed {
 
     /// Tarefas do ciclo de cada cômodo já concluídas no seed, para a barra de progresso da tela Casa.
     private nonisolated static let seededProgress: [(room: Room, completed: Int)] = [
-        (bathroom, 4),
+        (bathroom, 2),
         (kitchen, 2),
         (livingRoom, 1)
     ]
@@ -280,46 +280,36 @@ enum MockSeed {
     private nonisolated static var recurringDefinitions: [TaskDefinition] {
 
         [
-            // Banheiro: 6 tarefas no ciclo.
+            // Banheiro: 4 tarefas no ciclo.
             definition("Higienizar o banheiro", "Vaso, pia e espelho", room: bathroom, effort: 3, policy: .calendarRotation),
             definition("Repor papel higiênico", "Conferir o armário", room: bathroom, effort: 1, policy: .balancedAutomatically),
             definition("Lavar o box", "Paredes e ralo", room: bathroom, effort: 2, policy: .balancedAutomatically),
-            definition("Trocar as toalhas", "Toalhas de rosto e banho", room: bathroom, effort: 1, policy: .balancedAutomatically),
-            definition("Limpar o espelho", "Pano úmido e secar", room: bathroom, effort: 1, policy: .calendarRotation),
             definition("Esvaziar o lixo do banheiro", "Trocar o saco", room: bathroom, effort: 1, policy: .balancedAutomatically),
 
-            // Cozinha: 5 tarefas no ciclo, mais uma extra (afterCompletion).
+            // Cozinha: 4 tarefas no ciclo, mais uma extra (afterCompletion).
             definition("Lavar a louça", "Limpar pia e escorredor", room: kitchen, effort: 2, policy: .balancedAutomatically),
             definition("Limpar o fogão", "Bocas e bancada ao redor", room: kitchen, effort: 2, policy: .calendarRotation),
             definition("Limpar a geladeira", "Prateleiras e gavetas", room: kitchen, effort: 3, policy: .calendarRotation),
             definition("Varrer a cozinha", "Incluindo embaixo da mesa", room: kitchen, effort: 1, policy: .balancedAutomatically),
-            definition("Esvaziar o lixo da cozinha", "Separar recicláveis", room: kitchen, effort: 1, policy: .balancedAutomatically),
             definition("Limpar bancada", "Passar pano e retirar migalhas", room: kitchen, effort: 1, policy: .afterCompletion),
 
-            // Sala de Estar: 8 tarefas no ciclo.
+            // Sala de Estar: 4 tarefas no ciclo.
             definition("Aspirar a sala", "Incluindo embaixo do sofá", room: livingRoom, effort: 2, policy: .calendarRotation),
             definition("Passar pano no chão", "Sala inteira", room: livingRoom, effort: 2, policy: .calendarRotation),
             definition("Tirar o pó dos móveis", "Estante, mesa e rack", room: livingRoom, effort: 1, policy: .balancedAutomatically),
-            definition("Organizar o sofá", "Almofadas e mantas", room: livingRoom, effort: 1, policy: .balancedAutomatically),
             definition("Limpar a TV e o painel", "Pano seco", room: livingRoom, effort: 1, policy: .balancedAutomatically),
-            definition("Regar as plantas", "Conferir os vasos", room: livingRoom, effort: 1, policy: .balancedAutomatically),
-            definition("Organizar a estante", "Livros e objetos", room: livingRoom, effort: 1, policy: .balancedAutomatically),
-            definition("Limpar as janelas", "Vidros e trilhos", room: livingRoom, effort: 2, policy: .calendarRotation),
 
-            // Garagem: 4 tarefas, ciclo de duas semanas.
+            // Garagem: 3 tarefas, ciclo de duas semanas.
             definition("Varrer a garagem", "Folhas e poeira", room: garage, effort: 2, policy: .balancedAutomatically),
             definition("Lavar o chão da garagem", "Mangueira e vassoura", room: garage, effort: 3, policy: .calendarRotation),
             definition("Organizar as ferramentas", "Caixa e prateleiras", room: garage, effort: 1, policy: .balancedAutomatically),
-            definition("Levar os recicláveis ao ponto de coleta", "Separar vidro e papel", room: garage, effort: 1, policy: .balancedAutomatically),
 
             // Demais cômodos.
             definition("Tirar o lixo", "Separar recicláveis", room: wholeHouseRoom, effort: 1, policy: .balancedAutomatically),
             definition("Lavar roupas de cama", "Trocar e lavar os lençóis", room: laundry, effort: 2, policy: .afterCompletion),
             definition("Limpar o filtro da máquina", "Retirar fiapos", room: laundry, effort: 1, policy: .calendarRotation),
             definition("Organizar documentos", "Tarefa do escritório privado", room: privateOffice, effort: 1, policy: .calendarRotation),
-            definition("Limpar a mesa", "Pano úmido", room: privateOffice, effort: 1, policy: .balancedAutomatically),
             definition("Arrumar a cama", "Lençol e travesseiros", room: bedroom, effort: 1, policy: .balancedAutomatically),
-            definition("Trocar os lençóis", "Lavar e recolocar", room: bedroom, effort: 2, policy: .calendarRotation),
             definition("Higienizar o banheiro 2", "Vaso, pia e box", room: secondBathroom, effort: 2, policy: .calendarRotation)
         ]
     }
@@ -330,7 +320,6 @@ enum MockSeed {
         [
             definition("Chamar encanador", "Vazamento embaixo da pia", room: kitchen, effort: 1, kind: .sporadic, policy: .selfAssigned),
             definition("Trocar resistência do chuveiro", "Comprar a peça antes", room: bathroom, effort: 2, kind: .sporadic, policy: .selfAssigned),
-            definition("Trocar a lâmpada da sala", "Tarefa avulsa de manutenção", room: livingRoom, effort: 2, kind: .sporadic, policy: .selfAssigned),
             definition("Consertar o portão da garagem", "Dobradiça solta", room: garage, effort: 3, kind: .sporadic, policy: .selfAssigned),
             definition("Desentupir o ralo da lavanderia", "Água não escoa", room: laundry, effort: 2, kind: .sporadic, policy: .selfAssigned)
         ]

@@ -91,10 +91,10 @@ struct HouseOverviewTests {
             try #require(overview.rooms.first { $0.room.id == room.id }).cycleProgress
         }
 
-        #expect(try progress(MockSeed.bathroom) == CycleProgress(completed: 4, total: 6))
-        #expect(try progress(MockSeed.kitchen) == CycleProgress(completed: 2, total: 5))
-        #expect(try progress(MockSeed.livingRoom) == CycleProgress(completed: 1, total: 8))
-        #expect(try progress(MockSeed.garage) == CycleProgress(completed: 0, total: 4))
+        #expect(try progress(MockSeed.bathroom) == CycleProgress(completed: 2, total: 4))
+        #expect(try progress(MockSeed.kitchen) == CycleProgress(completed: 2, total: 4))
+        #expect(try progress(MockSeed.livingRoom) == CycleProgress(completed: 1, total: 4))
+        #expect(try progress(MockSeed.garage) == CycleProgress(completed: 0, total: 3))
     }
 
     @Test func cycleProgressFractionIsBoundedAndSafeWithoutTasks() {
@@ -176,7 +176,7 @@ struct HouseOverviewTests {
         #expect(!kitchen.isPrivate)
         #expect(kitchen.responsibles?.isEmpty == false)
         #expect(kitchen.deadline.hasPrefix("Termina"))
-        #expect(kitchen.progress == CycleProgress(completed: 2, total: 5))
+        #expect(kitchen.progress == CycleProgress(completed: 2, total: 4))
     }
 
     @Test @MainActor func privateRoomsWithoutAccessAreRestrictedAndReflectPendingRequests() async throws {
@@ -237,7 +237,7 @@ struct HouseOverviewTests {
 
         let content = try await loadedContent(makeModel())
 
-        #expect(content.sporadic.totalCount == 5)
+        #expect(content.sporadic.totalCount == 4)
         #expect(content.sporadic.rows.count == SporadicSummary.maxVisibleRows)
 
         let tasks = content.sporadic.rows.compactMap { row -> (icon: String, color: RoomColor)? in
@@ -254,7 +254,7 @@ struct HouseOverviewTests {
             return
         }
 
-        #expect(count == 5 - (SporadicSummary.maxVisibleRows - 1))
+        #expect(count == 4 - (SporadicSummary.maxVisibleRows - 1))
     }
 
     @Test @MainActor func sporadicSummaryWithFewTasksHasNoOverflow() async throws {
