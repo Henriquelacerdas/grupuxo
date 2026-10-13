@@ -115,6 +115,19 @@ test("o adaptador AWS não usa node:*, ambiente, relógio nem rede globais (clie
   assert.deepEqual(offenders, []);
 });
 
+test("só o ponto de entrada (src/main) lê process.env e importa o AWS SDK, e ninguém importa o ponto de entrada", () => {
+  const offenders: string[] = [];
+  const main = join(root, "src/main");
+  for (const file of sourceFiles(join(root, "src"))) {
+    if (file.startsWith(main)) continue;
+    const text = withoutComments(readFileSync(file, "utf8"));
+    for (const pattern of [/\bprocess\.env\b/, /from\s+["']@aws-sdk/]) if (pattern.test(text)) offenders.push(`${file}: ${String(pattern)}`);
+    for (const { specifier, target } of srcImports(file)) if (target.startsWith("main/")) offenders.push(`${file}: ${specifier}`);
+  }
+  assert.ok(sourceFiles(main).length > 0);
+  assert.deepEqual(offenders, []);
+});
+
 test("o adaptador DynamoDB não usa node:*, ambiente, relógio, rede nem AWS SDK, e não força tipos com `as`", () => {
   const offenders: string[] = [];
   const forbidden = [

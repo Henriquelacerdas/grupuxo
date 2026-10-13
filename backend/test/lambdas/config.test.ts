@@ -6,16 +6,18 @@ import {
 
 const workerEnv: Environment = {
   GEMINI_MODEL: "gemini-2.5-flash-lite", WHATSAPP_GRAPH_VERSION: "v25.0", RATE_LIMIT_MAX_MESSAGES: "10", RATE_LIMIT_WINDOW_SECONDS: "60",
-  TABLE_NAME: "grupuxo-dev",
+  TABLE_NAME: "grupuxo-dev", BOT_PHONE_NUMBER: "+5511900000000",
 };
 const apiEnv: Environment = { COGNITO_USER_POOL_ID: "us-east-1_M9GpISkE3", COGNITO_CLIENT_ID: "21gqeeehhmeufpipk84e3cc7tu", BOT_PHONE_NUMBER: "+5511900000000", TABLE_NAME: "grupuxo-dev" };
 
 const configError = (variable: string) => (error: unknown) => error instanceof LambdaConfigError && error.variable === variable;
 
-test("configuração do worker: lê as cinco variáveis, sem padrões escondidos", () => {
+test("configuração do worker: lê as seis variáveis, sem padrões escondidos", () => {
   assert.deepEqual(parseWorkerSettings(workerEnv), {
     geminiModel: "gemini-2.5-flash-lite", graphVersion: "v25.0", rateLimit: { limit: 10, windowSeconds: 60 }, tableName: "grupuxo-dev",
+    link: { botPhoneNumber: "5511900000000", tokenLifetimeSeconds: 900 },
   });
+  assert.throws(() => parseWorkerSettings({ ...workerEnv, BOT_PHONE_NUMBER: "abc" }), configError("BOT_PHONE_NUMBER"));
   for (const name of Object.keys(workerEnv)) {
     assert.throws(() => parseWorkerSettings({ ...workerEnv, [name]: undefined }), configError(name), name);
     assert.throws(() => parseWorkerSettings({ ...workerEnv, [name]: "" }), configError(name), name);
