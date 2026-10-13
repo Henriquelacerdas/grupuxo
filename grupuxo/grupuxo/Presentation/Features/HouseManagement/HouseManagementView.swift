@@ -14,12 +14,18 @@ struct HouseManagementView: View {
     let onSelectRoom: (Room.ID) -> Void
     let onSelectSporadicTasks: () -> Void
 
+    /// Destinos do menu "…"; enquanto forem nulos, os itens aparecem desabilitados.
+    let onReorderRooms: (() -> Void)?
+    let onOpenHouseSettings: (() -> Void)?
+
     init(
         viewModel: HouseManagementViewModel,
         makeTaskEditorViewModel: @escaping () -> TaskEditorViewModel,
         makeRoomEditorViewModel: @escaping () -> RoomEditorViewModel,
         onSelectRoom: @escaping (Room.ID) -> Void,
-        onSelectSporadicTasks: @escaping () -> Void
+        onSelectSporadicTasks: @escaping () -> Void,
+        onReorderRooms: (() -> Void)? = nil,
+        onOpenHouseSettings: (() -> Void)? = nil
     ) {
 
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -29,6 +35,29 @@ struct HouseManagementView: View {
 
         self.onSelectRoom = onSelectRoom
         self.onSelectSporadicTasks = onSelectSporadicTasks
+        self.onReorderRooms = onReorderRooms
+        self.onOpenHouseSettings = onOpenHouseSettings
+    }
+
+    private var addMenu: some View {
+
+        Menu {
+
+            Button("Nova Tarefa", systemImage: "checklist") {
+                isPresentingTaskCreationSheet = true
+            }
+            .accessibilityIdentifier("createTask")
+
+            Button("Novo Cômodo", systemImage: "rectangle.inset.bottomright.filled") {
+                isPresentingRoomCreationSheet = true
+            }
+            .accessibilityIdentifier("createRoom")
+
+        } label: {
+            Image(systemName: "plus")
+        }
+        .accessibilityLabel("Adicionar")
+        .accessibilityIdentifier("addMenu")
     }
 
     var body: some View {
@@ -80,27 +109,38 @@ struct HouseManagementView: View {
 
         .toolbar {
 
-            ToolbarItem(placement: .topBarTrailing) {
+            // Como o ✓ do Reordenar: o sistema deixa o botão da confirmação azul e redondo.
+            ToolbarItem(placement: .confirmationAction) {
+                addMenu
+            }
 
-                Button(
-                    "Adicionar tarefa",
-                    systemImage: "plus"
-                ) {
-                    isPresentingTaskCreationSheet = true
-                }
-                .prominentToolbarButtonStyle()
-                .accessibilityIdentifier("createTask")
+            // Separa os dois botões em cápsulas de vidro distintas (iOS 26).
+            if #available(iOS 26, *) {
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
 
             ToolbarItem(placement: .topBarTrailing) {
 
-                Button {
-                    isPresentingRoomCreationSheet = true
+                Menu {
+
+                    Button {
+                        onReorderRooms?()
+                    } label: {
+                        Label("Reordenar", systemImage: "line.3.horizontal")
+                    }
+                    .disabled(onReorderRooms == nil)
+
+                    Button {
+                        onOpenHouseSettings?()
+                    } label: {
+                        Label("Ajustes da Casa", systemImage: "gearshape")
+                    }
+                    .disabled(onOpenHouseSettings == nil)
+
                 } label: {
-                    Image(systemName: "rectangle.stack.badge.plus")
+                    Label("Mais opções", systemImage: "ellipsis")
                 }
-                .accessibilityLabel("Adicionar cômodo")
-                .accessibilityIdentifier("createRoom")
+                .accessibilityIdentifier("houseMenu")
             }
         }
 
