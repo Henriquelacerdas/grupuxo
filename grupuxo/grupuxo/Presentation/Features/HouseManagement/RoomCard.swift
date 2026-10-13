@@ -9,14 +9,14 @@ struct RoomCard: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 64
+    @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 56
     @ScaledMetric(relativeTo: .body) private var symbolColumnWidth: CGFloat = 22
 
     var body: some View {
 
         VStack(
             alignment: .leading,
-            spacing: DesignSystem.Spacing.medium
+            spacing: DesignSystem.Spacing.small
         ) {
 
             mainContent
@@ -24,7 +24,8 @@ struct RoomCard: View {
             progressSection
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(DesignSystem.Spacing.large)
+        .padding(.horizontal, DesignSystem.Spacing.large)
+        .padding(.vertical, DesignSystem.Spacing.medium)
         .cardBackground()
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
@@ -175,13 +176,13 @@ struct RestrictedRoomCard: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 52
+    @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 48
 
     var body: some View {
 
         VStack(
             alignment: .leading,
-            spacing: DesignSystem.Spacing.medium
+            spacing: DesignSystem.Spacing.small
         ) {
 
             header
@@ -192,7 +193,8 @@ struct RestrictedRoomCard: View {
                 .controlSize(.large)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(DesignSystem.Spacing.large)
+        .padding(.horizontal, DesignSystem.Spacing.large)
+        .padding(.vertical, DesignSystem.Spacing.medium)
         .cardBackground()
     }
 
