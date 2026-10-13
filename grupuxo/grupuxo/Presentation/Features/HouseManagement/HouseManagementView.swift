@@ -35,57 +35,57 @@ struct HouseManagementView: View {
 
         List {
 
-            Section {
+            switch viewModel.state {
 
-                Button(action: onSelectSporadicTasks) {
+            case .idle, .loading:
 
-                    HStack(spacing: DesignSystem.contentSpacing) {
-
-                        Image(systemName: "sparkles")
-                            .font(.title2)
-                            .foregroundStyle(.tint)
-
-                        VStack(
-                            alignment: .leading,
-                            spacing: DesignSystem.Spacing.extraSmall
-                        ) {
-
-                            Text("Tarefas esporádicas")
-                                .font(.headline)
-
-                            Text("Veja tarefas disponíveis para assumir")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.tertiary)
-                    }
-                    .padding(.vertical, DesignSystem.Spacing.small)
+                statusRow {
+                    ProgressView("Carregando cômodos…")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Abrir tarefas esporádicas")
-            }
 
-            Section("Cômodos") {
-                roomsContent
+            case let .content(content):
+
+                if #unavailable(iOS 26) {
+                    houseNameRow
+                }
+
+                sporadicTasksRow(content.sporadic)
+
+                roomsHeaderRow
+
+                ForEach(content.rooms) { row in
+                    roomRow(row)
+                }
+
+            case .empty:
+
+                statusRow {
+                    Text("Nenhum cômodo cadastrado.")
+                        .foregroundStyle(.secondary)
+                }
+
+            case let .failure(message):
+
+                statusRow {
+                    Label(
+                        message,
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .foregroundStyle(.red)
+                }
             }
         }
+        .listStyle(.plain)
+        .listRowSpacing(DesignSystem.Spacing.medium)
+        .scrollContentBackground(.hidden)
+        .background(Color(uiColor: .systemGroupedBackground))
+
         .navigationTitle("Casa")
+        .houseSubtitle(viewModel.houseName)
 
         .toolbar {
 
-            ToolbarItemGroup(placement: .topBarTrailing) {
-
-                Button {
-                    isPresentingRoomCreationSheet = true
-                } label: {
-                    Image(systemName: "square.grid.2x2")
-                }
-                .accessibilityLabel("Adicionar cômodo")
-                .accessibilityIdentifier("createRoom")
+            ToolbarItem(placement: .topBarTrailing) {
 
                 Button(
                     "Adicionar tarefa",
@@ -93,7 +93,19 @@ struct HouseManagementView: View {
                 ) {
                     isPresentingTaskCreationSheet = true
                 }
+                .prominentToolbarButtonStyle()
                 .accessibilityIdentifier("createTask")
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+
+                Button {
+                    isPresentingRoomCreationSheet = true
+                } label: {
+                    Image(systemName: "rectangle.stack.badge.plus")
+                }
+                .accessibilityLabel("Adicionar cômodo")
+                .accessibilityIdentifier("createRoom")
             }
         }
 
@@ -124,6 +136,16 @@ struct HouseManagementView: View {
             .presentationDragIndicator(.hidden)
         }
 
+        .alert(
+            "Não foi possível concluir",
+            isPresented: actionErrorBinding,
+            presenting: viewModel.actionError
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { message in
+            Text(message)
+        }
+
         .task {
             await viewModel.load()
         }
@@ -133,74 +155,130 @@ struct HouseManagementView: View {
         }
     }
 
+    private func sporadicTasksRow(
+        _ summary: SporadicSummary
+    ) -> some View {
+
+        SporadicTasksCard(
+            summary: summary,
+            onSelect: onSelectSporadicTasks
+        )
+        .plainCardRow()
+    }
+
+    /// Antes do iOS 26 não existe subtítulo na barra de navegação.
+    private var houseNameRow: some View {
+
+        Text(viewModel.houseName)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .plainCardRow()
+    }
+
+    private var roomsHeaderRow: some View {
+
+        Text("Cômodos")
+            .font(.title3.bold())
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, DesignSystem.Spacing.small)
+            .accessibilityAddTraits(.isHeader)
+            .plainCardRow()
+    }
+
     @ViewBuilder
-    private var roomsContent: some View {
+    private func roomRow(
+        _ row: RoomRow
+    ) -> some View {
 
-        switch viewModel.state {
+        switch row.access {
 
-        case .idle, .loading:
+        case let .member(member):
 
-            HStack {
-
-                Spacer()
-
-                ProgressView("Carregando cômodos…")
-
-                Spacer()
+            Button {
+                onSelectRoom(row.id)
+            } label: {
+                RoomCard(row: row, member: member)
             }
+            .buttonStyle(.plain)
+            .plainCardRow()
 
-        case let .content(rooms):
+        case let .restricted(requestPending):
 
-            ForEach(rooms) { room in
-
-                Button {
-                    onSelectRoom(room.id)
-                } label: {
-
-                    HStack(
-                        spacing: DesignSystem.contentSpacing
-                    ) {
-
-                        RoomIconView(
-                            icon: room.icon,
-                            color: room.color,
-                            size: 40
-                        )
-
-                        Text(room.name)
-                            .foregroundStyle(.primary)
-                    }
+            RestrictedRoomCard(
+                row: row,
+                requestPending: requestPending,
+                onRequest: {
+                    Task { await viewModel.requestAccess(to: row.id) }
+                },
+                onCancel: {
+                    Task { await viewModel.cancelAccessRequest(for: row.id) }
                 }
-                .accessibilityLabel(room.name)
-            }
-
-        case .empty:
-
-            Text("Nenhum cômodo cadastrado.")
-                .foregroundStyle(.secondary)
-
-        case let .failure(message):
-
-            Label(
-                message,
-                systemImage: "exclamationmark.triangle"
             )
-            .foregroundStyle(.red)
+            .plainCardRow()
         }
     }
 
-    private var existingRoomNames: [String] {
+    private func statusRow<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
 
-        switch viewModel.state {
+        HStack {
 
-        case let .content(rooms):
-            return rooms.map(\.name)
+            Spacer()
 
-        case .idle,
-             .loading,
-             .empty,
-             .failure:
-            return []
+            content()
+
+            Spacer()
         }
+        .plainCardRow()
+    }
+
+    private var existingRoomNames: [String] {
+        viewModel.roomNames
+    }
+
+    private var actionErrorBinding: Binding<Bool> {
+
+        Binding(
+            get: { viewModel.actionError != nil },
+            set: { if !$0 { viewModel.actionError = nil } }
+        )
+    }
+}
+
+private extension View {
+
+    @ViewBuilder
+    func houseSubtitle(_ name: String) -> some View {
+
+        if #available(iOS 26, *) {
+            navigationSubtitle(name)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func prominentToolbarButtonStyle() -> some View {
+
+        if #available(iOS 26, *) {
+            buttonStyle(.glassProminent)
+        } else {
+            buttonStyle(.borderedProminent)
+        }
+    }
+
+    /// A linha da lista vira só um espaço: o fundo e o arredondamento ficam no cartão.
+    func plainCardRow() -> some View {
+        listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(
+                EdgeInsets(
+                    top: 0,
+                    leading: DesignSystem.Spacing.large,
+                    bottom: 0,
+                    trailing: DesignSystem.Spacing.large
+                )
+            )
     }
 }

@@ -15,6 +15,7 @@ public enum DomainError: Error, LocalizedError, Equatable, Sendable {
     case invalidRoomParticipants
     case taskAlreadyCompleted
     case taskUnavailable
+    case roomAccessNotRequestable
 
     public var errorDescription: String? {
 
@@ -47,6 +48,9 @@ public enum DomainError: Error, LocalizedError, Equatable, Sendable {
 
         case .taskUnavailable:
             "Esta tarefa não está disponível."
+
+        case .roomAccessNotRequestable:
+            "Só é possível pedir para entrar em cômodos privados de que você não participa."
         }
     }
 }

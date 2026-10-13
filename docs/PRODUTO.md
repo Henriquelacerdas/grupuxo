@@ -40,7 +40,8 @@ Organização coletiva:
 - Ver todos os cômodos; entrar em privados; sair dos participantes (exceto Casa toda).
 - Criar cômodos (ícone, periodicidade, responsáveis, visibilidade).
 - Criar e editar tarefas, com **sugestões por tipo de cômodo** (`TaskSuggestionCatalog`).
-- Card de **tarefas esporádicas** (não aparecem dentro do cômodo na interface, mas mantêm `roomID` nos dados).
+- Card de **Tarefas Únicas** (esporádicas): as primeiras tarefas abertas, cada uma com o ícone e a cor do cômodo, e "+N Outras" quando sobram (não aparecem dentro do cômodo na interface, mas mantêm `roomID` nos dados).
+- Um card por cômodo. Para quem participa: ícone, nome, responsáveis do ciclo ("Você e Gabriel M.", ou seja, quem tem as tarefas de mesma periodicidade do cômodo; o morador logado aparece como "Você" e os demais como "Nome S."), quando o ciclo termina ("Termina hoje", "amanhã", dia da semana ou "em N dias"), barra de progresso na cor do cômodo e "X de Y tarefas feitas" (fração das tarefas do ciclo atual já concluídas). Cadeado: só em cômodo privado; aberto quando o morador participa, fechado quando não participa. Quem não participa de um cômodo privado vê só ícone, nome, "Cômodo Privado" e um botão: "Pedir para entrar" ou, com pedido aberto, "Cancelar solicitação". O pedido ainda não tem aprovação por parte dos participantes; ele só registra a intenção e pode ser cancelado.
 
 ### Configurações e notificações
 

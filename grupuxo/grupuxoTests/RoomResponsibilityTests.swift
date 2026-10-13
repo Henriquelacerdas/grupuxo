@@ -208,6 +208,16 @@ struct RoomResponsibilityTests {
 
     @Test func houseRemovalConfirmsPrivateCascadeAndKeepsCommonRoomsCommon() async throws {
         var seed = MockSeed.make()
+        // Só o escritório deve ser excluído em cascata: os demais cômodos privados do seed saem do cenário.
+        let otherPrivate = Set(seed.rooms.filter { $0.visibility == .privateRoom && $0.id != MockSeed.privateOffice.id }.map(\.id))
+        seed.rooms.removeAll { otherPrivate.contains($0.id) }
+        seed.roomMemberships.removeAll { otherPrivate.contains($0.roomID) }
+        seed.definitions.removeAll { otherPrivate.contains($0.roomID) }
+        let keptDefinitions = Set(seed.definitions.map(\.id))
+        seed.occurrences.removeAll { !keptDefinitions.contains($0.taskDefinitionID) }
+        let keptOccurrences = Set(seed.occurrences.map(\.id))
+        seed.assignments.removeAll { !keptOccurrences.contains($0.occurrenceID) }
+        seed.roomAccessRequests.removeAll()
         seed.roomMemberships.removeAll { $0.roomID == MockSeed.privateOffice.id }
         seed.roomMemberships.append(RoomMembership(id: UUID(), roomID: MockSeed.privateOffice.id, userID: MockSeed.rafa.id))
         let store = MockStore(state: seed)

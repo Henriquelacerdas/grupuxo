@@ -14,6 +14,60 @@ enum DesignSystem {
     static let contentSpacing = Spacing.large
     static let minimumTouchTarget: CGFloat = 44
     static let cornerRadius: CGFloat = 12
+    static let cardCornerRadius: CGFloat = 24
+}
+
+/// Barra de progresso do ciclo: trilho neutro e preenchimento na cor do cômodo.
+/// Sem progresso a barra mostra só a ponta arredondada, para o trilho não parecer vazio.
+struct CycleProgressViewStyle: ProgressViewStyle {
+
+    let tint: Color
+
+    @ScaledMetric(relativeTo: .caption) private var barHeight: CGFloat = 6
+
+    func makeBody(configuration: Configuration) -> some View {
+
+        let fraction = min(max(configuration.fractionCompleted ?? 0, 0), 1)
+
+        Capsule()
+            .fill(Color(uiColor: .systemFill))
+            .frame(height: barHeight)
+            .overlay(alignment: .leading) {
+
+                GeometryReader { proxy in
+
+                    Capsule()
+                        .fill(tint)
+                        .frame(width: max(barHeight, proxy.size.width * fraction))
+                }
+            }
+            .accessibilityElement()
+            .accessibilityLabel("Progresso do ciclo")
+            .accessibilityValue(
+                fraction.formatted(.percent.precision(.fractionLength(0)))
+            )
+    }
+}
+
+extension ProgressViewStyle where Self == CycleProgressViewStyle {
+
+    static func cycle(tint: Color) -> CycleProgressViewStyle {
+        CycleProgressViewStyle(tint: tint)
+    }
+}
+
+extension View {
+
+    /// Cartão com fundo agrupado secundário, que acompanha modo escuro e contraste do sistema.
+    func cardBackground() -> some View {
+        background(
+            Color(uiColor: .secondarySystemGroupedBackground),
+            in: RoundedRectangle(
+                cornerRadius: DesignSystem.cardCornerRadius,
+                style: .continuous
+            )
+        )
+    }
 }
 
 struct EmptyStateView: View {

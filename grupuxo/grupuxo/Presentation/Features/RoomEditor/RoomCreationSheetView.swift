@@ -822,12 +822,16 @@ private enum RoomCreationColor:
              .mint:
             return .green
 
-        case .teal,
-             .cyan:
-            return .blue
+        case .teal:
+            return .teal
 
-        case .indigo,
-             .purple:
+        case .cyan:
+            return .cyan
+
+        case .indigo:
+            return .indigo
+
+        case .purple:
             return .purple
 
         case .pink:
@@ -870,6 +874,15 @@ private enum RoomCreationColor:
 
         case .pink:
             self = .pink
+
+        case .teal:
+            self = .teal
+
+        case .indigo:
+            self = .indigo
+
+        case .cyan:
+            self = .cyan
         }
     }
 }

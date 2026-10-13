@@ -2,9 +2,7 @@ import Foundation
 
 extension TaskSchedulingService {
     public func isRoomLinked(_ definition: TaskDefinition, state: TaskSchedulingState) -> Bool {
-        definition.kind == .recurring && definition.assignmentPolicy != .afterCompletion
-            && definition.assignmentPolicy != .selfAssigned
-            && state.rooms.contains { $0.id == definition.roomID && definition.recurrence.weeklyPeriodicity == $0.periodicity }
+        state.rooms.contains { definition.isLinked(to: $0) }
     }
 
     public func initializeRooms(houseID: House.ID, at date: Date, state: inout TaskSchedulingState) throws {

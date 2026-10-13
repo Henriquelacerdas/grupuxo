@@ -52,6 +52,19 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
     }
 }
 
+extension TaskDefinition {
+
+    /// Uma tarefa está ligada ao cômodo quando segue a escala dele: recorrente, distribuída
+    /// pelo algoritmo e com a mesma periodicidade do cômodo. As demais são tarefas extras.
+    public func isLinked(to room: Room) -> Bool {
+        kind == .recurring
+            && assignmentPolicy != .afterCompletion
+            && assignmentPolicy != .selfAssigned
+            && roomID == room.id
+            && recurrence.weeklyPeriodicity == room.periodicity
+    }
+}
+
 public struct PendingRotation: Hashable, Codable, Sendable {
     public let effectiveAt: Date
     public let queue: [User.ID]

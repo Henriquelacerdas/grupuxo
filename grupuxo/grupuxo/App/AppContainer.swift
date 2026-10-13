@@ -10,6 +10,7 @@ final class AppContainer {
     let houseRepository: any HouseRepository
     let roomRepository: any RoomRepository
     let taskRepository: any TaskRepository
+    let roomAccessRequestRepository: any RoomAccessRequestRepository
 
     let taskSwapRepository: any TaskSwapRepository
     let notificationRepository: any NotificationRepository
@@ -44,6 +45,10 @@ final class AppContainer {
         taskRepository = MockTaskRepository(
             store: store,
             scheduling: scheduling
+        )
+
+        roomAccessRequestRepository = MockRoomAccessRequestRepository(
+            store: store
         )
 
         taskSwapRepository = MockTaskSwapRepository(
@@ -127,11 +132,21 @@ final class AppContainer {
         session: AppSession
     ) -> HouseManagementViewModel {
         HouseManagementViewModel(
-            getHouseRooms: GetHouseRoomsUseCase(
-                repository: roomRepository
+            getHouseOverview: GetHouseOverviewUseCase(
+                roomRepository: roomRepository,
+                taskRepository: taskRepository,
+                accessRequestRepository: roomAccessRequestRepository
             ),
+            requestRoomAccess: RequestRoomAccessUseCase(
+                repository: roomAccessRequestRepository
+            ),
+            cancelRoomAccessRequest: CancelRoomAccessRequestUseCase(
+                repository: roomAccessRequestRepository
+            ),
+            houseName: session.currentHouse.name,
             houseID: session.currentHouse.id,
-            userID: session.currentUser.id
+            userID: session.currentUser.id,
+            calendar: calendar
         )
     }
 

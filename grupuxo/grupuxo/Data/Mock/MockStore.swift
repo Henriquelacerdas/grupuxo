@@ -14,6 +14,7 @@ actor MockStore {
 
         var taskSwapRequests: [TaskSwapRequest]
         var notifications: [AppNotification]
+        var roomAccessRequests: [RoomAccessRequest] = []
 
         var schedule: TaskSchedulingState {
             get {

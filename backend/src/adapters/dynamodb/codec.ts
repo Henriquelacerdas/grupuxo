@@ -28,7 +28,7 @@ const ROOM_VISIBILITIES: readonly RoomVisibility[] = ["common", "privateRoom"];
 const ROOM_CATEGORIES: readonly RoomCategory[] = [
   "kitchen", "bathroom", "bedroom", "livingRoom", "laundry", "office", "outdoor", "other",
 ];
-const ROOM_COLORS: readonly RoomColor[] = ["red", "orange", "yellow", "green", "blue", "purple", "brown", "gray", "pink"];
+const ROOM_COLORS: readonly RoomColor[] = ["red", "orange", "yellow", "green", "blue", "purple", "brown", "gray", "pink", "teal", "indigo", "cyan"];
 const TASK_KINDS: readonly TaskKind[] = ["recurring", "sporadic"];
 const ASSIGNMENT_POLICIES: readonly TaskAssignmentPolicy[] = [
   "balancedAutomatically", "calendarRotation", "afterCompletion", "selfAssigned",

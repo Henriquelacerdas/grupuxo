@@ -320,7 +320,7 @@ struct TaskListPresentationTests {
         let container = AppContainer()
         let user = try await container.store.read { state in
             let ids = Set(state.definitions.filter { $0.roomID == MockSeed.kitchen.id }.map(\.id))
-            let occurrence = try #require(state.occurrences.first { ids.contains($0.taskDefinitionID) && $0.availableAt <= .now })
+            let occurrence = try #require(state.occurrences.first { ids.contains($0.taskDefinitionID) && $0.availableAt <= .now && !$0.isCompleted })
             let owner = try #require(state.assignments.first { $0.occurrenceID == occurrence.id && $0.isActive }?.userID)
             return try #require(state.users.first { $0.id == owner })
         }

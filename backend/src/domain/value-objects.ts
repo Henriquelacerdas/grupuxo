@@ -6,7 +6,7 @@ export type RoomCategory =
 export type TaskAssignmentPolicy = "balancedAutomatically" | "calendarRotation" | "afterCompletion" | "selfAssigned";
 export type TaskOccurrenceStatus = "available" | "assigned" | "completed";
 export type RecurrenceFrequency = "daily" | "weekly" | "monthly" | "yearly";
-export type RoomColor = "red" | "orange" | "yellow" | "green" | "blue" | "purple" | "brown" | "gray" | "pink";
+export type RoomColor = "red" | "orange" | "yellow" | "green" | "blue" | "purple" | "brown" | "gray" | "pink" | "teal" | "indigo" | "cyan";
 
 export const TASK_EFFORT_MIN = 1;
 export const TASK_EFFORT_MAX = 3;

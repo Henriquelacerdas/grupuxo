@@ -89,7 +89,7 @@ Diferenças deliberadas em relação ao Swift:
 Com uma casa ativa na sessão, o app tem duas abas (`AppTab`: `myTasks`, `house`). Sino e perfil, no canto superior direito, abrem notificações e configurações.
 
 - **Minhas tarefas** apenas consulta e age sobre ocorrências existentes (concluir, trocar). Sem botão, menu, atalho ou rota de criação.
-- **Gerenciar casa** contém criação de cômodos e tarefas, e o card de esporádicas (que não têm aba própria).
+- **Gerenciar casa** (aba Casa) contém criação de cômodos e tarefas, o card de Tarefas Únicas (esporádicas, que não têm aba própria) e um card por cômodo com responsáveis, fim do ciclo e progresso (tarefas concluídas do ciclo atual); cômodos privados sem acesso mostram só o pedido de entrada. A tela lê tudo por `GetHouseOverview`, que compõe os repositórios existentes (cômodos, participação, tarefas do cômodo, esporádicas e pedidos de entrada); `TaskDefinition.isLinked(to:)` define quais tarefas contam no ciclo do cômodo. `RequestRoomAccess` e `CancelRoomAccessRequest` (sobre `RoomAccessRequestRepository`, hoje só mock) registram e cancelam o pedido de entrada em cômodo privado; ainda não há aprovação.
 - `TaskEditor` abre pela criação em Gerenciar casa ou pela manutenção dentro de um cômodo. Sem cômodo pré-selecionado, exige escolher um `roomID` antes de salvar.
 - Rotas (`AppRoute`) são tipadas e carregam só identificadores: `roomDetail`, `sporadicTasks`, `taskEditor(roomID:)`, `taskSwap(offeredOccurrenceID:)`, `notifications`, `settings`. Existir uma rota não autoriza qualquer tela a apresentá-la.
 
@@ -124,7 +124,7 @@ Regras estruturais:
 ViewModels acessam o domínio apenas por casos de uso.
 
 - **Tarefas:** `GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`, `GetTaskSuggestions`, `CreateTask`, `CompleteTask`, `ClaimSporadicTask`, `ReleaseSporadicTask`, `RefreshTaskSchedule`
-- **Cômodos:** `GetHouseRooms`, `GetRoomParticipation`, `CreateRoom`, `AddRoomMember`, `RemoveRoomMember`
+- **Cômodos:** `GetHouseRooms`, `GetHouseOverview`, `GetRoomParticipation`, `CreateRoom`, `AddRoomMember`, `RemoveRoomMember`, `RequestRoomAccess`, `CancelRoomAccessRequest`
 - **Casa:** `GetHouseMembers`, `AddHouseMember`, `RemoveHouseMember`
 - **Troca:** `GetTaskSwapCandidates`, `CreateTaskSwapRequest`, `AcceptTaskSwapRequest`, `RejectTaskSwapRequest`, `GetIncomingTaskSwapRequests`, `GetOutgoingTaskSwapRequests`
 - **Notificações:** `GetNotifications`, `MarkNotificationAsRead`
