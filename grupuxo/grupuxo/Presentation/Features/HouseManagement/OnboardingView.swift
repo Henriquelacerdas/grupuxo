@@ -9,7 +9,7 @@ struct OnboardingView: View {
         var id: Self { self }
     }
 
-    @EnvironmentObject private var houses: HouseService
+    @EnvironmentObject private var houses: RemoteHouseSession
     @EnvironmentObject private var authService: AuthService
 
     @State private var mode: Mode = .create

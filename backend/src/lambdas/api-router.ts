@@ -4,14 +4,14 @@
 export type Method = "GET" | "POST" | "DELETE";
 
 export type RouteName =
-  | "registerAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp"
+  | "registerAccount" | "myAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp"
   | "myHouse" | "leaveHouse" | "createHouse" | "joinHouse"
   | "createRoom" | "roomParticipation" | "addRoomMember" | "removeRoomMember"
   | "myTasks" | "roomTasks" | "createTask" | "taskDefinition" | "endTask"
   | "completeOccurrence" | "reopenOccurrence";
 
 /** Rotas de conta e de WhatsApp (tratadas em `api.ts`); as demais são de casa, cômodo, tarefa e ocorrência. */
-export type AccountRouteName = "registerAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp";
+export type AccountRouteName = "registerAccount" | "myAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp";
 export type AppRouteName = Exclude<RouteName, AccountRouteName>;
 
 export type RouteParam = "houseID" | "roomID" | "userID" | "taskID" | "occurrenceID";
@@ -29,6 +29,7 @@ const param = (name: RouteParam): Segment => ({ param: name });
 /** A ordem importa só para o cabeçalho `allow` do 405 (métodos na ordem desta tabela). */
 const ROUTES: readonly RouteDefinition[] = [
   { name: "registerAccount", method: "POST", pattern: ["me"] },
+  { name: "myAccount", method: "GET", pattern: ["me"] },
   { name: "issueWhatsAppLink", method: "POST", pattern: ["me", "whatsapp", "link"] },
   { name: "whatsAppStatus", method: "GET", pattern: ["me", "whatsapp"] },
   { name: "unlinkWhatsApp", method: "DELETE", pattern: ["me", "whatsapp"] },

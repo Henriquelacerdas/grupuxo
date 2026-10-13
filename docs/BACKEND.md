@@ -294,6 +294,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 
 | Rota | Resposta |
 | --- | --- |
+| `GET /v1/me` | `200 { "id" }`: o id do morador do token (o app precisa dele para saber quem é "eu" nas listas). Conta não registrada → `403 account_not_registered`. |
 | `POST /v1/me` | Corpo `{ "name" }` → `200 { "id" }` (idempotente; não sobrescreve o nome de conta existente). Nome ou corpo inválido → `400 invalid_name`. |
 | `POST /v1/me/whatsapp/link` | `200 { "url", "expiresAt" }` com o link `wa.me`; número já conectado → `409 already_linked`. |
 | `GET /v1/me/whatsapp` | `200 { "linked": false }` ou `{ "linked": true, "phone": "+55•••••••8888", "linkedAt" }` (telefone mascarado). |
@@ -525,6 +526,16 @@ Cuidados:
 | ✅ Concluir tarefa | **Implementado em memória** (seção 7.4): ferramenta `complete_task(task_name)` → `CompleteTask`, com **confirmação obrigatória** antes de gravar ("Marcar *Limpar sala* como feita?"), pedido pendente guardado por 5 minutos no port `PendingActionStore` e idempotência por `wamid`. Falta o adaptador DynamoDB do port (a cargo de quem faz o DynamoDB, seção 14) e validar o *function calling* real. |
 | Lembretes | Mensagens iniciadas pelo bot fora da janela de 24 h exigem *template* aprovado, com custo. Usar um agendador (EventBridge Scheduler) que enfileira lembretes. Por isso o *opt-in* explícito é gravado desde a v1. |
 | Trocas, assumir esporádica | Novas ferramentas sobre os casos de uso existentes. |
+
+## 9.1 Modo local de demonstração (sem AWS)
+
+Para mostrar o WhatsApp funcionando no TestFlight sem esperar o deploy da AWS, o backend roda **num processo só** no Mac do dono (`npm run start:local`, `src/main/server.ts`), exposto por um túnel HTTPS (Cloudflare Tunnel) para a Meta e para o app. É a mesma composição das Lambdas (`src/main/local-app.ts` chama `createApiHandler`, `createWebhookHandler` e `composeWhatsAppWorker`), com três trocas:
+
+- **Banco:** `src/adapters/local/local-database.ts`, os adaptadores em memória de sempre (`InMemoryStore` e os stores do WhatsApp) gravados num único `data/db.json` (escrita atômica por arquivo temporário + `rename`, com atraso de 200 ms e `flush` no desligamento). Arquivo ilegível ou fora do formato falha fechado (nunca recomeça vazio por cima). Janelas antigas do contador e `wamid` com mais de 7 dias são descartados ao gravar. Backup = copiar o arquivo.
+- **Fila:** `InProcessMessageQueue` no lugar do SQS FIFO: ordem por telefone, três tentativas, depois descarta (linha fixa em `stderr`). Sem persistência: o que está pendente numa queda se perde (a Meta reentrega o que não recebeu 200).
+- **Segredos:** variáveis de ambiente (`.env`, ver `backend/.env.example`) com os mesmos nomes do segredo da AWS. `TABLE_NAME` é preenchida com `local` e ignorada.
+
+Continuam externos: o JWKS público do Cognito (a `api` valida o access token do user pool existente; só HTTPS de saída, sem credencial AWS), a Graph API e o Gemini. Limites: um processo só, sem alta disponibilidade, o Mac precisa estar ligado; tudo no disco local (`data/`, fora do git). O caminho de produção (DynamoDB, SQS, Lambda, Terraform) segue no repositório, intacto, e é retomado depois do teste.
 
 ## 10. Segredos e infraestrutura
 

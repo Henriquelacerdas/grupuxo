@@ -25,6 +25,7 @@ private final class FakeAuthSessionClient: AuthSessionClient {
 
     func fetchSession() async throws -> AuthSessionSnapshot { try fetchResult.get() }
     func signOut() async -> AuthSignOutOutcome { signOutOutcome }
+    func clearStaleSession() async {}
     func events() -> AsyncStream<AuthSessionEvent> { stream }
     func send(_ event: AuthSessionEvent) { continuation.yield(event) }
 }

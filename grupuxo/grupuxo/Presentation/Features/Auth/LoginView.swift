@@ -34,7 +34,7 @@ struct LoginView: View {
                         signInError = ""
                         let status = await authService.signIn(username: username, password: password)
                         switch status {
-                        case .success:
+                        case .success, .cancelled:
                             break // App reage ao authService.isSignedIn
                         case .confirmSignUp:
                             showConfirmSignUp = true
@@ -79,7 +79,10 @@ struct LoginView: View {
                 // Botão nativo da Apple
                 Button {
                     Task {
-                        await authService.signInWithApple()
+                        signInError = ""
+                        if case .error(let msg) = await authService.signInWithApple() {
+                            signInError = msg
+                        }
                     }
                 } label: {
                     HStack {

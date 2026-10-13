@@ -125,11 +125,23 @@ test("rota desconhecida: 404; método errado: 405 com a lista de métodos permit
   assert.equal((await call("GET", "/v1/me/", { token: null })).statusCode, 404);
   assert.equal((await call("GET", "/v1/__proto__", { token: null })).statusCode, 404);
   assert.equal((await call("GET", "/v1/constructor", { token: null })).statusCode, 404);
-  const wrong = await call("GET", "/v1/me", { token: null });
+  const wrong = await call("DELETE", "/v1/me", { token: null });
   assert.equal(wrong.statusCode, 405);
-  assert.equal(wrong.headers?.["allow"], "POST");
+  assert.equal(wrong.headers?.["allow"], "POST, GET");
   assert.equal((await call("PUT", "/v1/me/whatsapp", { token: null })).headers?.["allow"], "GET, DELETE");
   assert.equal((await call("GET", "/v1/me/whatsapp/link", { token: null })).statusCode, 405);
+});
+
+test("GET /v1/me devolve o id da conta registrada; sem registro, 403; sem token, 401", async () => {
+  const { call } = setup();
+  assert.equal((await call("GET", "/v1/me", { token: null })).statusCode, 401);
+  const before = await call("GET", "/v1/me");
+  assert.equal(before.statusCode, 403);
+  assert.deepEqual(parsed(before), { error: "account_not_registered" });
+  const created = parsed(await call("POST", "/v1/me", { body: '{"name":"Ana"}' }));
+  const mine = await call("GET", "/v1/me");
+  assert.equal(mine.statusCode, 200);
+  assert.deepEqual(parsed(mine), { id: created["id"] });
 });
 
 test("o método é aceito em qualquer caixa", async () => {

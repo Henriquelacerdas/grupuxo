@@ -1,26 +1,26 @@
+import GrupuxoDomain
 import SwiftUI
 
-/// Configuração da casa: código de convite, cômodos, moradores e sair da casa.
+/// Configuração da casa: código de convite, cômodos, moradores, WhatsApp e sair da casa.
+/// Cômodos e moradores aparecem só para consulta: criar cômodo fica em Casa, e entrar na casa é pelo código.
 struct HouseView: View {
-    @EnvironmentObject private var houses: HouseService
+    @EnvironmentObject private var houses: RemoteHouseSession
     @EnvironmentObject private var authService: AuthService
 
-    @State private var newRoomName = ""
-    @State private var newResidentName = ""
-    @State private var roomToRename: RoomRecord?
-    @State private var renameText = ""
-    @State private var memberToRemove: MemberRecord?
+    @StateObject private var whatsApp: WhatsAppConnectionViewModel
     @State private var confirmLeave = false
     @State private var copied = false
-    @FocusState private var focus: Field?
 
-    private enum Field { case room, resident }
+    init(whatsAppViewModel: WhatsAppConnectionViewModel) {
+        _whatsApp = StateObject(wrappedValue: whatsAppViewModel)
+    }
 
     var body: some View {
         List {
-            if let house = houses.house, let code = houses.inviteCode {
-                inviteSection(house, code: code)
+            if let house = houses.house {
+                inviteSection(house)
             }
+            WhatsAppConnectionSection(viewModel: whatsApp)
             roomsSection
             membersSection
 
@@ -36,13 +36,13 @@ struct HouseView: View {
                     confirmLeave = true
                 }
                 .disabled(houses.isLoading)
-                
+
                 Button("Sair da conta", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                     Task { await authService.signOut() }
                 }
             } footer: {
-                if houses.members.filter({ $0.userId != nil }).count <= 1 {
-                    Text("Você é o único morador com conta: sair apaga a casa, os cômodos e os moradores.")
+                if houses.members.count <= 1 {
+                    Text("Você é o único morador: não dá para sair da casa antes de alguém entrar.")
                 }
             }
         }
@@ -53,28 +53,27 @@ struct HouseView: View {
             }
         }
         .refreshable { await houses.refresh() }
-        .alert("Renomear cômodo", isPresented: isPresented($roomToRename)) {
-            TextField("Nome", text: $renameText)
-            Button("Salvar") {
-                if let room = roomToRename { Task { await houses.renameRoom(room, to: renameText) } }
-            }
-            Button("Cancelar", role: .cancel) {}
-        }
-        .alert("Remover morador?", isPresented: isPresented($memberToRemove), presenting: memberToRemove) { member in
-            Button("Remover", role: .destructive) { Task { await houses.removeMember(member) } }
-            Button("Cancelar", role: .cancel) {}
-        } message: { member in
-            Text("\(member.name) deixará de fazer parte da casa.")
-        }
         .confirmationDialog("Sair da casa?", isPresented: $confirmLeave, titleVisibility: .visible) {
             Button("Sair da casa", role: .destructive) { Task { await houses.leaveHouse() } }
+        }
+        .confirmationDialog(
+            "Cômodos serão excluídos",
+            isPresented: $houses.leaveNeedsConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Sair e excluir os cômodos", role: .destructive) {
+                Task { await houses.leaveHouse(confirmRoomDeletion: true) }
+            }
+        } message: {
+            Text("Você é o último participante de algum cômodo. Se sair, o cômodo e as tarefas dele serão excluídos.")
         }
     }
 
     // MARK: - Seções
 
-    private func inviteSection(_ house: HouseRecord, code: String) -> some View {
-        Section {
+    private func inviteSection(_ house: House) -> some View {
+        let code = house.accessCode
+        return Section {
             HStack {
                 Text(code)
                     .font(.title.monospaced().bold())
@@ -110,37 +109,8 @@ struct HouseView: View {
             if houses.rooms.isEmpty {
                 Text("Nenhum cômodo ainda.").foregroundStyle(.secondary)
             }
-            ForEach(houses.rooms, id: \.id) { room in
-                Label(room.name, systemImage: "square.split.bottomrightquarter")
-                    .swipeActions {
-                        Button("Excluir", role: .destructive) { Task { await houses.deleteRoom(room) } }
-                        Button("Renomear") {
-                            renameText = room.name
-                            roomToRename = room
-                        }
-                        .tint(.orange)
-                    }
-                    .contextMenu {
-                        Button("Renomear", systemImage: "pencil") {
-                            renameText = room.name
-                            roomToRename = room
-                        }
-                        Button("Excluir", systemImage: "trash", role: .destructive) {
-                            Task { await houses.deleteRoom(room) }
-                        }
-                    }
-            }
-            HStack {
-                TextField("Novo cômodo (ex.: Cozinha)", text: $newRoomName)
-                    .textInputAutocapitalization(.sentences)
-                    .focused($focus, equals: .room)
-                    .submitLabel(.done)
-                    .onSubmit(addRoom)
-                Button("Adicionar", systemImage: "plus.circle.fill", action: addRoom)
-                    .labelStyle(.iconOnly)
-                    .font(.title3)
-                    .buttonStyle(.borderless)
-                    .disabled(newRoomName.isBlank || houses.isLoading)
+            ForEach(houses.rooms) { room in
+                Label(room.name, systemImage: room.icon)
             }
         } header: {
             Text("Cômodos (\(houses.rooms.count))")
@@ -149,68 +119,17 @@ struct HouseView: View {
 
     private var membersSection: some View {
         Section {
-            ForEach(houses.members, id: \.id) { member in
-                MemberRow(member: member, isMe: member.id == houses.myMember?.id)
-                    .swipeActions {
-                        if canRemove(member) {
-                            Button("Remover", role: .destructive) { memberToRemove = member }
-                        }
-                    }
-                    .contextMenu {
-                        if canRemove(member) {
-                            Button("Remover", systemImage: "person.badge.minus", role: .destructive) {
-                                memberToRemove = member
-                            }
-                        }
-                    }
-            }
-            HStack {
-                TextField("Morador sem conta (nome)", text: $newResidentName)
-                    .textContentType(.name)
-                    .textInputAutocapitalization(.words)
-                    .focused($focus, equals: .resident)
-                    .submitLabel(.done)
-                    .onSubmit(addResident)
-                Button("Adicionar", systemImage: "person.crop.circle.badge.plus", action: addResident)
-                    .labelStyle(.iconOnly)
-                    .font(.title3)
-                    .buttonStyle(.borderless)
-                    .disabled(newResidentName.isBlank || houses.isLoading)
+            ForEach(houses.members) { member in
+                MemberRow(member: member, isMe: member.id == houses.me?.id)
             }
         } header: {
             Text("Moradores (\(houses.members.count))")
-        } footer: {
-            Text("Moradores com conta entram pelo código. Use o campo acima para quem não usa o app.")
         }
-    }
-
-    // MARK: - Ações
-
-    private func canRemove(_ member: MemberRecord) -> Bool {
-        member.id != houses.myMember?.id
-    }
-
-    private func addRoom() {
-        let name = newRoomName
-        guard !name.isBlank else { return }
-        newRoomName = ""
-        Task { await houses.addRoom(name: name) }
-    }
-
-    private func addResident() {
-        let name = newResidentName
-        guard !name.isBlank else { return }
-        newResidentName = ""
-        Task { await houses.addResident(name: name) }
-    }
-
-    private func isPresented<T>(_ binding: Binding<T?>) -> Binding<Bool> {
-        Binding(get: { binding.wrappedValue != nil }, set: { if !$0 { binding.wrappedValue = nil } })
     }
 }
 
 private struct MemberRow: View {
-    let member: MemberRecord
+    let member: User
     let isMe: Bool
 
     var body: some View {
@@ -219,19 +138,10 @@ private struct MemberRow: View {
                 .font(.headline)
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
-                .background(Circle().fill(member.userId == nil ? Color.gray : Color.accentColor))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(isMe ? "\(member.name) (você)" : member.name)
-                Text(member.userId == nil ? "Sem conta" : "Com conta")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+                .background(Circle().fill(Color.accentColor))
+            Text(isMe ? "\(member.name) (você)" : member.name)
             Spacer()
         }
         .accessibilityElement(children: .combine)
     }
-}
-
-private extension String {
-    var isBlank: Bool { trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 }

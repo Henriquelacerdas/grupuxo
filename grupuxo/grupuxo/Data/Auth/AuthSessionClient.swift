@@ -35,6 +35,9 @@ enum AuthSignOutOutcome: Equatable, Sendable {
 protocol AuthSessionClient: Sendable {
     func fetchSession() async throws -> AuthSessionSnapshot
     func signOut() async -> AuthSignOutOutcome
+    /// Se o Amplify ainda guarda uma sessão que o app já descartou (tokens vencidos, evento do Hub),
+    /// sai só localmente: sem isso qualquer `signIn*` falha com "already a user in signedIn state".
+    func clearStaleSession() async
     /// Eventos do Hub; terminar o stream remove o listener.
     func events() -> AsyncStream<AuthSessionEvent>
 }

@@ -20,6 +20,19 @@ export class InMemoryUserDirectory implements UserDirectory {
     for (const [sub, id] of known) this.bySub.set(sub, id);
   }
 
+  /** Pares `[cognitoSub, userID]` (o morador em si está no `StoreState`). */
+  snapshot(): [CognitoSub, UserID][] {
+    return [...this.bySub];
+  }
+
+  restore(entries: readonly (readonly [CognitoSub, UserID])[]): void {
+    this.bySub.clear();
+    for (const [sub, id] of entries) this.bySub.set(sub, id);
+  }
+
+  /** Chamado depois de cada mudança do mapa (persistência local). */
+  onChange: (() => void) | null = null;
+
   async userForSub(cognitoSub: CognitoSub): Promise<UserID | null> {
     return this.bySub.get(cognitoSub) ?? null;
   }
@@ -33,6 +46,7 @@ export class InMemoryUserDirectory implements UserDirectory {
       state.users.push({ id, name: profile.name, email: null });
     });
     this.bySub.set(cognitoSub, id);
+    this.onChange?.();
     return id;
   }
 }

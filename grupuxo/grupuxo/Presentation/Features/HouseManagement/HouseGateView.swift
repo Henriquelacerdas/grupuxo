@@ -1,9 +1,10 @@
+import GrupuxoDomain
 import SwiftUI
 
 /// Decide o que mostrar para o usuário logado:
 /// carregando → erro → Onboarding (sem casa) → conteúdo do app (com casa).
 struct HouseGateView<Content: View>: View {
-    @EnvironmentObject private var houses: HouseService
+    @EnvironmentObject private var houses: RemoteHouseSession
     @EnvironmentObject private var authService: AuthService
     @ViewBuilder var content: () -> Content
 

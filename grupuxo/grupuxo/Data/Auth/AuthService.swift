@@ -13,6 +13,8 @@ class AuthService: ObservableObject {
         case confirmSignUp
         case resetPassword
         case invalidCredentials
+        /// O usuário fechou a folha de login (Apple); não é erro.
+        case cancelled
         case error(String)
     }
     
@@ -53,6 +55,7 @@ class AuthService: ObservableObject {
 
     // Faz o login
     func signIn(username: String, password: String) async -> SignInStatus {
+        await client.clearStaleSession()
         do {
             let result = try await Amplify.Auth.signIn(username: username, password: password)
             if result.isSignedIn {
@@ -157,28 +160,39 @@ class AuthService: ObservableObject {
         }
     }
     
-    func signInWithApple() async {
+    func signInWithApple() async -> SignInStatus {
         // Pega a janela principal do app para ancorar a tela da Apple
         guard let window = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .flatMap({ $0.windows })
             .first(where: { $0.isKeyWindow }) else {
             print("Erro: Não encontrou a janela principal do app.")
-            return
+            return .error("Não foi possível abrir o login com a Apple.")
         }
-        
+
+        await client.clearStaleSession()
         do {
             let result = try await Amplify.Auth.signInWithWebUI(
                 for: .apple,
                 presentationAnchor: window
             )
-            
-            if result.isSignedIn {
-                self.isSignedIn = true
-                print("Login com Apple realizado com sucesso!")
+
+            guard result.isSignedIn else {
+                return .error("O login com a Apple não foi concluído.")
             }
+            self.isSignedIn = true
+            print("Login com Apple realizado com sucesso!")
+            return .success
+        } catch let error as AuthError {
+            if case .service(_, _, let underlying) = error,
+               let cognito = underlying as? AWSCognitoAuthError, cognito == .userCancelled {
+                return .cancelled
+            }
+            print("Erro no login com Apple: \(error)")
+            return .error(error.errorDescription)
         } catch {
             print("Erro no login com Apple: \(error)")
+            return .error(error.localizedDescription)
         }
     }
 }

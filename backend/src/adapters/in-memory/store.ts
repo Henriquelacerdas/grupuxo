@@ -22,6 +22,15 @@ export class InMemoryStore {
     const draft = cloneStoreState(this.state);
     const result = fn(draft);
     this.state = draft;
+    this.onChange?.();
     return result;
+  }
+
+  /** Chamado depois de cada `update` publicado (persistência local). */
+  onChange: (() => void) | null = null;
+
+  /** Cópia do estado atual, para gravar em disco. */
+  snapshot(): StoreState {
+    return cloneStoreState(this.state);
   }
 }

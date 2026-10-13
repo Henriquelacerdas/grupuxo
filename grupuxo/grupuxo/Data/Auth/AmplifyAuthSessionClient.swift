@@ -37,6 +37,11 @@ struct AmplifyAuthSessionClient: AuthSessionClient {
         }
     }
 
+    func clearStaleSession() async {
+        guard let session = try? await Amplify.Auth.fetchAuthSession(), session.isSignedIn else { return }
+        _ = await Amplify.Auth.signOut(options: .init(globalSignOut: false))
+    }
+
     func events() -> AsyncStream<AuthSessionEvent> {
         AsyncStream { continuation in
             let token = Amplify.Hub.listen(to: .auth) { payload in

@@ -59,6 +59,7 @@ export function createApiHandler(deps: ApiDependencies): (event: unknown) => Pro
       // As demais rotas exigem que a conta já tenha passado pelo `POST /v1/me`.
       const user = await deps.users.userForSub(cognitoSub);
       if (user === null) return failure(403, "account_not_registered");
+      if (match.name === "myAccount") return json(200, { id: user });
       if (isAccountRoute(match.name)) return await whatsAppRoute(deps, match.name, user);
       return await appRoutes(match.name, { user, params: match.params, query: request.queryParameters, body: request.body });
     } catch (error) {
@@ -69,7 +70,7 @@ export function createApiHandler(deps: ApiDependencies): (event: unknown) => Pro
   };
 }
 
-type WhatsAppRouteName = Exclude<AccountRouteName, "registerAccount">;
+type WhatsAppRouteName = Exclude<AccountRouteName, "registerAccount" | "myAccount">;
 
 function isAccountRoute(name: RouteName): name is WhatsAppRouteName {
   return name === "issueWhatsAppLink" || name === "whatsAppStatus" || name === "unlinkWhatsApp";

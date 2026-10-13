@@ -64,6 +64,8 @@ Ordem e paralelismo: T0 começa já e corre em paralelo. T1 destrava T2 e T4, qu
 
 Pontos da implementação que o dono deve conhecer: o criador de cômodo privado entra sempre (união na rota, como diz a §6.1); uma tarefa criada começa na próxima segunda-feira (comportamento do domínio, anotado na §6.1); `already_in_house`/`no_house` leem o `GSI1`, eventualmente consistente (anotado na §6.1 e em D6 do checklist). Nenhuma fixture de API mudou, e o contrato da §6.1 não foi alterado (só notas).
 
+> **Mudança de rota (2026-10-13):** para o TestFlight externo o dono trocou o deploy na AWS por um **servidor local** (BACKEND.md §9.1): um processo `node` no Mac com banco em arquivo JSON, túnel Cloudflare para a Meta e para o app. O código está em `backend/src/main/server.ts`, `src/adapters/local/` e `test/local/`. O T3 abaixo (Terraform/DynamoDB/SQS/Lambda) fica **adiado**, não removido. Os itens 3 (Terraform) e o `seed-dev` na tabela real não são necessários para o teste.
+
 ### T3 — Deploy do bot (~2 dias; em paralelo com T2) — código pronto (2026-10-12), deploy aguardando o dono
 
 **Conta AWS nova (2026-10-12):** sem acesso à conta antiga (580100736070), o `dev` vai para a conta **641328361775** (login por IAM Identity Center, perfil `grupuxo-dev`). O user pool do app (`us-east-1_M9GpISkE3`) continua na conta antiga e não muda: a `api` valida os tokens dele pelo JWKS público. Itens 1–4 escritos e testados localmente; o passo a passo do deploy está em `backend/infra/README.md`. Segredo: `grupuxo/dev/whatsapp`.
@@ -74,7 +76,10 @@ Pontos da implementação que o dono deve conhecer: o criador de cômodo privado
 4. ✅ (escrito; roda só com autorização) `backend/tools/seed-dev/seed.ts`: `house` cria a casa de demonstração (o dono no lugar da Marina, código de convite aleatório) e imprime o link `wa.me` de vínculo; `link <userID>` gera outro. O vínculo pelo token usa o `from` real da Meta (evita o nono dígito na gravação). Para a conta do revisor da Apple, falta ligar o morador ao `COGNITO#<sub>` (depende de T4).
 5. **Marco M1:** o bot, no número de teste, responde "minhas tarefas" da casa semeada ao celular do dono. Valida, cada um com autorização: G1, G2, G8, G9, M1–M3, A1–A6, A8, A9, D1 e D2 (VALIDACAO-APIS-REAIS.md).
 
-### T4 — App na `api` (~3–4 dias; começa depois de T1)
+### T4 — App na `api` (~3–4 dias; começa depois de T1) — **código pronto (2026-10-13)**, falta validar no aparelho com o servidor local
+
+> Feito: itens 1, 3, 4 (sem o apagão de `grupuxo/amplify`), 5 e 6; `GET /v1/me` acrescentado à api (o app precisa do próprio id). Item 2 parcial: `GRUPUXO_API_BASE_URL` existe (Debug localhost; Release ainda `CONFIGURE-ME`). Telas escondidas: trocas, notificações, esporádicas, edição de tarefa, "tarefa única" no editor, renomear/excluir cômodo e morador sem conta. O repositório de trocas e o de notificações seguem no Mock só para compilar.
+
 1. `Data/Remote`: `APIClient` (URLSession, JSON, `Authorization: Bearer`), `AccessTokenProvider` sobre o Amplify Auth (`fetchAuthSession` → `accessToken`; renovação pelo Amplify; 401 desloga), DTOs e `RemoteHouseRepository`, `RemoteRoomRepository`, `RemoteTaskRepository`, `RemoteWhatsAppConnectionRepository`. Métodos sem rota lançam um erro `unsupported`; os parâmetros `requestedBy`/`at` são ignorados (o servidor usa o token e o próprio relógio).
 2. URL base da `api` por `.xcconfig` → chave no `Info.plist`.
 3. `RemoteHouseSession` (`@MainActor`, `ObservableObject`) no lugar do `HouseService`: `POST /v1/me` com o nome → `GET /v1/me/house`; criar, entrar por código, sair, mostrar código. `HouseGateView`, onboarding e `HouseView` passam a usá-lo. `User.id` passa a ser o id do backend (D2), não o `sub`.

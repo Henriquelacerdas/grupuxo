@@ -1,17 +1,20 @@
+import GrupuxoDomain
 import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var authService: AuthService
-    @EnvironmentObject var houses: HouseService
+    @EnvironmentObject var houses: RemoteHouseSession
 
     var body: some View {
         Group {
             if authService.isSignedIn {
                 // Logado: sem casa → Onboarding; com casa → app principal (abas)
                 HouseGateView {
-                    // Estado novo por conta: sem o id, trocar de usuário reaproveitaria o store do anterior.
-                    RootView()
-                        .id(houses.currentUserId)
+                    if let api = houses.api, let me = houses.me, let house = houses.house {
+                        // Estado novo por conta e por casa: sem o id, trocar de usuário reaproveitaria o anterior.
+                        RootView(api: api, user: me, house: house)
+                            .id("\(me.id)-\(house.id)")
+                    }
                 }
             } else {
                 // Se não estiver logado, mostra a interface de autenticação

@@ -1,24 +1,12 @@
 import Foundation
 import GrupuxoDomain
 
-/// Retrato da casa real (Amplify) usado para alimentar o store em memória.
-struct HouseSnapshot: Sendable {
-    struct Resident: Sendable { let id: UUID; let name: String }
-    struct RoomInfo: Sendable { let id: UUID; let name: String }
-
-    let houseID: UUID
-    let houseName: String
-    let inviteCode: String
-    let residents: [Resident]
-    let rooms: [RoomInfo]
-}
-
 @MainActor
 final class AppContainer {
 
+    /// Só alimenta os repositórios de trocas e notificações (ainda sem rota na `api`; as telas ficam escondidas).
     let store: MockStore
     private let calendar: Calendar
-    private let scheduling: TaskSchedulingService
 
     let houseRepository: any HouseRepository
     let roomRepository: any RoomRepository
@@ -28,13 +16,41 @@ final class AppContainer {
     let notificationRepository: any NotificationRepository
     let whatsAppConnectionRepository: any WhatsAppConnectionRepository
 
-    init(
-        store: MockStore = MockStore(),
-        calendar: Calendar = Calendar(identifier: .gregorian)
+    private init(
+        store: MockStore,
+        calendar: Calendar,
+        houseRepository: any HouseRepository,
+        roomRepository: any RoomRepository,
+        taskRepository: any TaskRepository,
+        whatsAppConnectionRepository: any WhatsAppConnectionRepository
     ) {
         self.store = store
         self.calendar = calendar
+        self.houseRepository = houseRepository
+        self.roomRepository = roomRepository
+        self.taskRepository = taskRepository
+        self.whatsAppConnectionRepository = whatsAppConnectionRepository
+        taskSwapRepository = MockTaskSwapRepository(store: store)
+        notificationRepository = MockNotificationRepository(store: store)
+    }
 
+    /// Container sobre a `api` do servidor: casa, cômodos, tarefas e WhatsApp são reais.
+    convenience init(api: APIClient, calendar: Calendar = Calendar(identifier: .gregorian)) {
+        self.init(
+            store: MockStore(state: MockSeed.empty()),
+            calendar: calendar,
+            houseRepository: RemoteHouseRepository(api: api),
+            roomRepository: RemoteRoomRepository(api: api),
+            taskRepository: RemoteTaskRepository(api: api),
+            whatsAppConnectionRepository: RemoteWhatsAppConnectionRepository(api: api)
+        )
+    }
+
+    /// Container sobre o `MockStore` em memória (testes e pré-visualizações).
+    convenience init(
+        store: MockStore = MockStore(),
+        calendar: Calendar = Calendar(identifier: .gregorian)
+    ) {
         let scheduling = TaskSchedulingService(
             distribution: TaskDistributionEngine(
                 optimizer: HungarianAlgorithm()
@@ -43,33 +59,14 @@ final class AppContainer {
             rotation: RotationCalculator(),
             calendar: calendar
         )
-        self.scheduling = scheduling
-
-        roomRepository = MockRoomRepository(
+        self.init(
             store: store,
-            scheduling: scheduling
+            calendar: calendar,
+            houseRepository: MockHouseRepository(store: store, scheduling: scheduling),
+            roomRepository: MockRoomRepository(store: store, scheduling: scheduling),
+            taskRepository: MockTaskRepository(store: store, scheduling: scheduling),
+            whatsAppConnectionRepository: MockWhatsAppConnectionRepository()
         )
-
-        houseRepository = MockHouseRepository(
-            store: store,
-            scheduling: scheduling
-        )
-
-        taskRepository = MockTaskRepository(
-            store: store,
-            scheduling: scheduling
-        )
-
-        taskSwapRepository = MockTaskSwapRepository(
-            store: store
-        )
-
-        notificationRepository = MockNotificationRepository(
-            store: store
-        )
-
-        // Mock até o app consumir a API do servidor (BACKEND.md seção 13, passo 3).
-        whatsAppConnectionRepository = MockWhatsAppConnectionRepository()
     }
 
     func makeWhatsAppConnectionViewModel() -> WhatsAppConnectionViewModel {
@@ -84,119 +81,6 @@ final class AppContainer {
                 repository: whatsAppConnectionRepository
             )
         )
-    }
-
-    // MARK: - Sincronização com a casa real
-
-    /// Reflete moradores e cômodos reais no store. Cômodos já conhecidos mantêm
-    /// seus dados (ícone, cor, participantes); os que sumiram são removidos.
-    func sync(_ snapshot: HouseSnapshot, at date: Date = .now) async throws {
-        let scheduling = self.scheduling
-
-        try await store.update { state in
-            let houseID = snapshot.houseID
-
-            if let index = state.houses.firstIndex(where: { $0.id == houseID }) {
-                state.houses[index].name = snapshot.houseName
-                state.houses[index].accessCode = snapshot.inviteCode
-            } else {
-                state.houses.append(House(
-                    id: houseID, name: snapshot.houseName,
-                    accessCode: snapshot.inviteCode, createdAt: date
-                ))
-            }
-
-            let wantedUsers = Set(snapshot.residents.map(\.id))
-            var changed = false
-
-            for resident in snapshot.residents {
-                if let index = state.users.firstIndex(where: { $0.id == resident.id }) {
-                    state.users[index].name = resident.name
-                } else {
-                    state.users.append(User(id: resident.id, name: resident.name, email: nil))
-                }
-            }
-
-            var schedule = state.schedule
-
-            // Moradores removidos.
-            let removed = schedule.houseMemberships.filter {
-                $0.houseID == houseID && !wantedUsers.contains($0.userID)
-            }
-            for membership in removed {
-                let roomIDs = schedule.rooms.filter { $0.houseID == houseID }.map(\.id)
-                for roomID in roomIDs {
-                    try scheduling.removeMember(
-                        userID: membership.userID, roomID: roomID, at: date,
-                        confirmDeletion: true, houseChange: true, replan: false, state: &schedule
-                    )
-                }
-                schedule.houseMemberships.removeAll { $0.id == membership.id }
-                schedule.absences.removeAll { $0.membershipID == membership.id }
-                changed = true
-            }
-            let removedUsers = Set(removed.map(\.userID))
-            state.users.removeAll { removedUsers.contains($0.id) }
-
-            // Moradores novos.
-            let known = Set(schedule.houseMemberships.filter { $0.houseID == houseID }.map(\.userID))
-            let addedUsers = snapshot.residents.map(\.id).filter { !known.contains($0) }
-            for userID in addedUsers {
-                schedule.houseMemberships.append(
-                    HouseMembership(id: UUID(), houseID: houseID, userID: userID)
-                )
-                changed = true
-            }
-
-            // Cômodos removidos.
-            let wantedRooms = Set(snapshot.rooms.map(\.id))
-            let staleRooms = schedule.rooms.filter { $0.houseID == houseID && !wantedRooms.contains($0.id) }
-            for room in staleRooms {
-                scheduling.deleteRoom(room.id, state: &schedule)
-                changed = true
-            }
-
-            // Cômodos novos / renomeados.
-            let allUsers = snapshot.residents.map(\.id)
-            var newRoomIDs = Set<UUID>()
-            for info in snapshot.rooms {
-                if let index = schedule.rooms.firstIndex(where: { $0.id == info.id }) {
-                    schedule.rooms[index].name = info.name
-                } else {
-                    schedule.rooms.append(Room(
-                        id: info.id, houseID: houseID, name: info.name,
-                        kind: .standard, category: .other, visibility: .common,
-                        calendarAnchor: try scheduling.weekStart(date),
-                        icon: "square.split.bottomrightquarter", color: .blue
-                    ))
-                    schedule.roomMemberships.append(contentsOf: allUsers.map {
-                        RoomMembership(id: UUID(), roomID: info.id, userID: $0)
-                    })
-                    newRoomIDs.insert(info.id)
-                    changed = true
-                }
-            }
-
-            // Moradores novos entram nos cômodos comuns que já existiam.
-            for room in schedule.rooms where room.houseID == houseID
-                && room.visibility == .common && !newRoomIDs.contains(room.id) {
-                for userID in addedUsers {
-                    try scheduling.addMember(
-                        userID: userID, roomID: room.id, at: date, replan: false, state: &schedule
-                    )
-                }
-            }
-
-            try scheduling.initializeRooms(houseID: houseID, at: date, state: &schedule)
-            if changed {
-                try scheduling.rebalance(
-                    houseID: houseID,
-                    boundary: scheduling.addingWeeks(1, to: scheduling.weekStart(date)),
-                    at: date, state: &schedule
-                )
-            }
-            state.schedule = schedule
-        }
     }
 
     func makeAddRoomMemberUseCase() -> AddRoomMemberUseCase {

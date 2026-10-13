@@ -4,11 +4,7 @@ import GrupuxoDomain
 @MainActor
 struct RootView: View {
 
-    @EnvironmentObject private var houses: HouseService
-
-    @EnvironmentObject private var authService: AuthService
-
-    @StateObject private var model = RootModel()
+    @StateObject private var model: RootModel
 
     @State private var selectedTab: AppTab = .myTasks
 
@@ -16,47 +12,16 @@ struct RootView: View {
 
     @State private var housePath: [AppRoute] = []
 
+    init(api: APIClient, user: User, house: House) {
+        _model = StateObject(wrappedValue: RootModel(api: api, user: user, house: house))
+    }
+
     private var container: AppContainer { model.container }
 
     private var session: AppSession { model.session }
 
-    /// Muda sempre que moradores ou cômodos da casa real mudam.
-    private var syncKey: [String] {
-        [houses.house?.id ?? "", houses.inviteCode ?? ""]
-            + houses.rooms.map { "r:\($0.id):\($0.name)" }
-            + houses.members.map { "m:\($0.id):\($0.userId ?? "-"):\($0.name)" }
-    }
-
     var body: some View {
-        Group {
-            switch model.syncState {
-            case .synced:
-                tabs
-            case .syncing:
-                ProgressView("Carregando sua casa…")
-            case .failed(let message):
-                ContentUnavailableView {
-                    Label("Não foi possível abrir a casa", systemImage: "exclamationmark.triangle")
-                } description: {
-                    Text(message)
-                } actions: {
-                    Button("Tentar novamente") { Task { await syncWithHouse() } }
-                        .buttonStyle(.borderedProminent)
-                    Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
-                }
-            }
-        }
-        .task(id: syncKey) {
-            await syncWithHouse()
-        }
-    }
-
-    private func syncWithHouse() async {
-        guard let house = houses.house, let me = houses.myMember else { return }
-        await model.sync(
-            house: house, members: houses.members, rooms: houses.rooms,
-            inviteCode: houses.inviteCode, me: me
-        )
+        tabs
     }
 
     private var tabs: some View {
@@ -70,22 +35,9 @@ struct RootView: View {
                         container.makeMyTasksViewModel(
                             session: session
                         ),
-                    onRequestSwap: { occurrenceID in
-
-                        tasksPath.append(
-                            .taskSwap(
-                                offeredOccurrenceID: occurrenceID
-                            )
-                        )
-
-                    },
-                    onSelectNotifications: {
-
-                        tasksPath.append(
-                            .notifications
-                        )
-
-                    },
+                    // Trocas e notificações ainda não têm rota na `api`: ficam escondidas neste build.
+                    onRequestSwap: nil,
+                    onSelectNotifications: nil,
                     onSelectProfile: {
                         tasksPath.append(.settings)
                     },
@@ -132,20 +84,7 @@ struct RootView: View {
                     makeRoomEditorViewModel: {
 
                         container.makeRoomEditorViewModel(
-                            session: session,
-                            onCreated: { room in
-                                do {
-                                    try await houses.addRoomOrThrow(
-                                        name: room.name,
-                                        id: room.id.uuidString
-                                    )
-                                } catch {
-                                    // O Mock já criou o cômodo: re-sincroniza com a casa real para
-                                    // removê-lo e deixa o erro aparecer no formulário.
-                                    await syncWithHouse()
-                                    throw error
-                                }
-                            }
+                            session: session
                         )
 
                     },
@@ -158,13 +97,8 @@ struct RootView: View {
                         )
 
                     },
-                    onSelectSporadicTasks: {
-
-                        housePath.append(
-                            .sporadicTasks
-                        )
-
-                    }
+                    // Tarefas esporádicas ainda não têm rota na `api`.
+                    onSelectSporadicTasks: nil
                 )
                 .navigationDestination(
                     for: AppRoute.self
@@ -234,7 +168,9 @@ struct RootView: View {
                         taskDefinitionID:
                             taskDefinitionID,
                         session: session
-                    )
+                    ),
+                // Sem `PATCH` na `api`: a tela só mostra os detalhes.
+                allowsEditing: false
             )
 
         case .sporadicTasks:
@@ -286,9 +222,7 @@ struct RootView: View {
             )
 
         case .settings:
-            HouseGateView {
-                HouseView()
-            }
+            HouseView(whatsAppViewModel: container.makeWhatsAppConnectionViewModel())
         }
 
     }
