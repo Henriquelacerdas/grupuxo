@@ -44,7 +44,7 @@ Ordem e paralelismo: T0 começa já e corre em paralelo. T1 destrava T2 e T4, qu
 
 ### T0 — Prazos externos (dono; começa já)
 - [ ] Número de produção na Cloud API e app da Meta em modo Live (exige URL de política de privacidade). **HIP:** se a verificação de empresa é obrigatória para responder a mensagens iniciadas pelo usuário; conferir na doc da Meta. Assinar o campo `messages` do webhook.
-- [ ] Chave do Gemini (projeto de teste) e conferir que `gemini-2.5-flash-lite` segue GA (M4).
+- [ ] Chave do Gemini (projeto de teste). **`gemini-2.5-flash-lite` é desligado na Gemini API em 2026-10-16** (página de descontinuações do Google); o `dev` usa o substituto indicado, `gemini-3.1-flash-lite` (o cliente já devolve o `thoughtSignature` que os modelos com raciocínio exigem). Validar M1–M3 com ele.
 - [ ] Acesso à conta AWS para o `terraform apply` e para gravar os segredos.
 - [ ] App no App Store Connect, grupo de teste externo, e **conta de demonstração com casa semeada** para o Beta App Review (a revisão pede login).
 - [ ] Cadastrar no painel da Meta os até 5 números dos testadores com WhatsApp.

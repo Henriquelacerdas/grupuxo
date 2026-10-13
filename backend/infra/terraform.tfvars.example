@@ -2,7 +2,7 @@
 # Secrets Manager, gravados pelo dono no console (README).
 account_id                = "641328361775"
 aws_profile               = "grupuxo-dev"
-gemini_model              = "gemini-2.5-flash-lite"
+gemini_model              = "gemini-3.1-flash-lite"
 graph_version             = "v25.0"
 bot_phone_number          = "+15550000000"
 rate_limit_max_messages   = 10

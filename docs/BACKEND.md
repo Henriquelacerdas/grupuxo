@@ -576,7 +576,7 @@ Para o produto:
 
 6. ~~Cognito ou validação própria do token da Apple?~~ Resolvido: Cognito (decisão ✅ 6). Falta decidir se contas Apple e e-mail/senha do mesmo morador podem ser unificadas.
 7. Notificações push (APNs) entram antes ou depois do WhatsApp?
-8. ~~Qual modelo Gemini usar?~~ Resolvido: configurável por `GEMINI_MODEL` (sem valor, o cliente falha fechado); padrão recomendado `gemini-2.5-flash-lite` (seção 7.4).
+8. ~~Qual modelo Gemini usar?~~ Resolvido: configurável por `GEMINI_MODEL` (sem valor, o cliente falha fechado); padrão recomendado `gemini-2.5-flash-lite` (seção 7.4), **desligado em 2026-10-16**: o `dev` usa `gemini-3.1-flash-lite`.
 9. Um número de bot por ambiente ou um único número de produção?
 10. O que acontece com o vínculo quando o morador sai da casa (desvincular automaticamente)?
 11. ~~Um morador pode estar em mais de uma casa?~~ Decisão do WhatsApp v1: uma casa por morador. Com várias casas o bot manda usar o app; sem nenhuma, orienta a criar ou entrar numa (seção 7.4). O app/modelo de dados podem seguir permitindo várias.
