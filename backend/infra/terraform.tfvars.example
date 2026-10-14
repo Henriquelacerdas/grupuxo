@@ -1,7 +1,7 @@
 # Copie para terraform.tfvars (ignorado pelo git) e preencha. Nada aqui é segredo: os segredos vão só no
 # Secrets Manager, gravados pelo dono no console (README).
-account_id                = "641328361775"
-aws_profile               = "grupuxo-dev"
+account_id                = "580100736070"
+aws_profile               = "default"
 gemini_model              = "gemini-3.1-flash-lite"
 graph_version             = "v25.0"
 bot_phone_number          = "+15550000000"

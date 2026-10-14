@@ -1,6 +1,6 @@
 # Infra `dev` (Terraform)
 
-Um ambiente só (`dev`, `us-east-1`), estado local, conta AWS **641328361775**. O provider recusa qualquer outra conta (`allowed_account_ids`). Cria:
+Um ambiente só (`dev`, `us-east-1`), estado local, conta AWS **580100736070** (a mesma do user pool Cognito `us-east-1_M9GpISkE3`). O provider recusa qualquer outra conta (`allowed_account_ids`). Cria:
 
 - Tabela DynamoDB `grupuxo-dev` (PK/SK, `GSI1`, TTL `ttl`, sob demanda), igual a `src/adapters/dynamodb/table-definition.ts`.
 - Fila SQS FIFO `grupuxo-dev-whatsapp.fifo` com a DLQ e o alarme da DLQ.
@@ -15,9 +15,8 @@ Nada aqui roda sem autorização explícita do dono (CLAUDE.md).
 ```sh
 brew install awscli
 brew tap hashicorp/tap && brew install hashicorp/tap/terraform
-aws configure sso --profile grupuxo-dev   # portal do IAM Identity Center, conta 641328361775, região us-east-1
-aws sso login --profile grupuxo-dev
-aws sts get-caller-identity --profile grupuxo-dev   # confere a conta
+aws configure                     # chaves do usuário IAM de deploy, região us-east-1 (perfil default)
+aws sts get-caller-identity       # confere: Account 580100736070
 ```
 
 ## 2. Build e deploy
@@ -68,7 +67,7 @@ As Lambdas leem o segredo uma vez por instância. Trocou o valor? Uma instância
 
 ```sh
 cd backend
-AWS_PROFILE=grupuxo-dev AWS_REGION=us-east-1 TABLE_NAME=grupuxo-dev BOT_PHONE_NUMBER=+1555... \
+AWS_PROFILE=default AWS_REGION=us-east-1 TABLE_NAME=grupuxo-dev BOT_PHONE_NUMBER=+1555... \
   node tools/seed-dev/seed.ts house --name "Seu nome"
 ```
 
@@ -87,9 +86,9 @@ Só o Debug usa esse endereço; o Release continua `CONFIGURE-ME` (falha fechado
 ## Diagnóstico
 
 ```sh
-aws logs tail /aws/lambda/grupuxo-dev-webhook --since 15m --profile grupuxo-dev
-aws logs tail /aws/lambda/grupuxo-dev-worker --since 15m --profile grupuxo-dev
-aws sqs get-queue-attributes --queue-url "$(terraform output -raw dlq_url)" --attribute-names ApproximateNumberOfMessages --profile grupuxo-dev
+aws logs tail /aws/lambda/grupuxo-dev-webhook --since 15m
+aws logs tail /aws/lambda/grupuxo-dev-worker --since 15m
+aws sqs get-queue-attributes --queue-url "$(terraform output -raw dlq_url)" --attribute-names ApproximateNumberOfMessages
 ```
 
 O código não registra conteúdo de mensagem: os logs só mostram erros e a duração das invocações.

@@ -4,7 +4,7 @@ variable "account_id" {
 }
 
 variable "aws_profile" {
-  description = "Perfil local do AWS CLI (login SSO)."
+  description = "Perfil local do AWS CLI (usuário IAM de deploy na conta do ambiente)."
   type        = string
   default     = "grupuxo-dev"
 }
