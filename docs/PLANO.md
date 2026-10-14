@@ -40,6 +40,10 @@ O backend WhatsApp está pronto em código e testado com falsos: domínio, webho
 
 ## 3. Trilha rápida
 
+> **Integração na `main` (2026-10-14, branch `integra-main-vidal`):** `merge-feat-login` → `trilha-rapida-t1-t2` → `t3-deploy-bot` entraram por fast-forward, mais três commits de limpeza: (1) o servidor local com banco em arquivo JSON foi **removido** (o DynamoDB é a persistência; o T3 volta a ser o caminho do teste); (2) as sobras do Amplify Data saíram (`grupuxo/amplify` só com `auth`, `amplify_outputs.json` só com `auth`, `AWSAPIPlugin` desvinculado); (3) o endereço da `api` no app passou para `grupuxo/Config/Grupuxo.xcconfig` + `Local.xcconfig` (fora do git). A `nova-UI` entra depois, em PR próprio, sobre a `main`.
+>
+> **Estado da AWS (conta 641328361775):** um `terraform apply` parcial (2026-10-13) criou só os 3 log groups `/aws/lambda/grupuxo-dev-*` e as 3 roles IAM `grupuxo-dev-*` com as policies de log. Tabela, fila, DLQ, segredo, Lambdas e Function URLs ainda não existem. O `terraform.tfstate` local (fora do git) é o único registro disso: não apagar; o próximo `plan` deve só **criar** o que falta.
+
 Ordem e paralelismo: T0 começa já e corre em paralelo. T1 destrava T2 e T4, que andam juntas. T3 pode começar junto de T2 e entrega o primeiro marco (M1) só com as rotas que já existem e uma casa semeada.
 
 ### T0 — Prazos externos (dono; começa já)
@@ -76,7 +80,7 @@ Pontos da implementação que o dono deve conhecer: o criador de cômodo privado
 
 ### T4 — App na `api` (~3–4 dias; começa depois de T1) — **código pronto (2026-10-13)**, falta validar no aparelho contra o `dev` na AWS (T3)
 
-> Feito: itens 1, 3, 4 (sem o apagão de `grupuxo/amplify`), 5 e 6; `GET /v1/me` acrescentado à api (o app precisa do próprio id). Item 2 parcial: `GRUPUXO_API_BASE_URL` existe (Debug localhost; Release ainda `CONFIGURE-ME`). Telas escondidas: trocas, notificações, esporádicas, edição de tarefa, "tarefa única" no editor, renomear/excluir cômodo e morador sem conta. O repositório de trocas e o de notificações seguem no Mock só para compilar.
+> Feito: itens 1, 3, 4 (sem o apagão de `grupuxo/amplify`), 5 e 6; `GET /v1/me` acrescentado à api (o app precisa do próprio id). Item 2 ✅ (2026-10-14): `grupuxo/Config/Grupuxo.xcconfig`, com a Function URL do `dev` em `Config/Local.xcconfig` (fora do git); Release ainda `CONFIGURE-ME`. Telas escondidas: trocas, notificações, esporádicas, edição de tarefa, "tarefa única" no editor, renomear/excluir cômodo e morador sem conta. O repositório de trocas e o de notificações seguem no Mock só para compilar.
 
 1. `Data/Remote`: `APIClient` (URLSession, JSON, `Authorization: Bearer`), `AccessTokenProvider` sobre o Amplify Auth (`fetchAuthSession` → `accessToken`; renovação pelo Amplify; 401 desloga), DTOs e `RemoteHouseRepository`, `RemoteRoomRepository`, `RemoteTaskRepository`, `RemoteWhatsAppConnectionRepository`. Métodos sem rota lançam um erro `unsupported`; os parâmetros `requestedBy`/`at` são ignorados (o servidor usa o token e o próprio relógio).
 2. URL base da `api` por `.xcconfig` → chave no `Info.plist`.
@@ -160,6 +164,8 @@ O necessário para o teste entrou na trilha (T2–T4). Fica **para depois do tes
 ---
 
 ## 7. Riscos da trilha e o que monitorar
+- **User pool Cognito numa conta sem acesso** (`us-east-1_M9GpISkE3`, conta 580100736070): a `api` valida os tokens pelo JWKS público, então funciona, mas não dá para mudar o app client, o Sign in with Apple, políticas de senha nem apagar usuários. Recriar o pool na conta 641328361775 (Terraform) antes de usuários reais; as contas de teste se recadastram e o `amplify_outputs.json` muda.
+- **Estado do Terraform só no Mac do dono:** mover para S3 com bloqueio antes de outra pessoa rodar `plan`/`apply`.
 - **Escrita dividida** deixando uma casa inconsistente: poucas casas no teste; monitorar `DynamoStoreError` e falhas da `api`; reconstruir pelo seed se preciso.
 - **Meta:** limite de 5 destinatários no número de teste; prazo do número de produção e do modo Live; nono dígito (G2).
 - **Beta App Review:** precisa de login de demonstração e de uma casa com tarefas; o recurso de WhatsApp pode ser questionado se o revisor não conseguir usá-lo (descrever no texto da revisão).

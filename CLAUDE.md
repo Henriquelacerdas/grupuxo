@@ -36,11 +36,11 @@ Fluxo no app: View → ViewModel → UseCase → Repository → Data. No backend
 
 ## Duas implementações do algoritmo (Swift e TypeScript)
 
-Enquanto o app usar o mock, o `GrupuxoDomain` Swift continua sendo o domínio do app **e a referência** do TypeScript. Regra de mudança:
+O app já usa a `api` para casa, cômodos, tarefas e WhatsApp, mas trocas e notificações ainda rodam no Mock (sem rota no servidor). Até isso acabar, o `GrupuxoDomain` Swift continua sendo **a referência** do TypeScript. Regra de mudança:
 
 - Mudou regra de distribuição, saldo, calendário ou política de elegibilidade? Altere o Swift (referência), altere o TypeScript, **regenere as fixtures** (`backend/tools/swift-fixtures/regenerate.sh`) e rode `npm test`. As fixtures comparam o resultado dos dois com `deepStrictEqual`.
 - Fixture divergente: o Swift é a referência até se entender a diferença. Descubra se é bug do port ou comportamento do Swift a registrar em `docs/ALGORITMO.md`; não "conserte" o TypeScript para passar sem entender.
-- Quando o app passar a consumir a API do servidor, o `GrupuxoDomain` Swift e o gerador de fixtures saem do caminho e o TypeScript fica como única implementação.
+- Quando nada do app depender mais do Mock, o `GrupuxoDomain` Swift e o gerador de fixtures saem do caminho e o TypeScript fica como única implementação.
 
 ## Regras
 
