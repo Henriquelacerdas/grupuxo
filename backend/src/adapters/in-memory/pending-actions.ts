@@ -9,21 +9,9 @@ import type { PendingActionStore, PendingCompletion } from "../../whatsapp/ports
  */
 export class InMemoryPendingActionStore implements PendingActionStore {
   private readonly byUser = new Map<UserID, PendingCompletion>();
-  /** Chamado depois de cada mudança (persistência local). */
-  onChange: (() => void) | null = null;
-
-  snapshot(): PendingCompletion[] {
-    return [...this.byUser.values()];
-  }
-
-  restore(pendings: readonly PendingCompletion[]): void {
-    this.byUser.clear();
-    for (const pending of pendings) this.byUser.set(pending.userID, pending);
-  }
 
   async save(pending: PendingCompletion): Promise<void> {
     this.byUser.set(pending.userID, { ...pending, confirmedByWamid: null });
-    this.onChange?.();
   }
 
   async confirm(userID: UserID, wamid: string, at: Instant): Promise<PendingCompletion | null> {
@@ -32,12 +20,10 @@ export class InMemoryPendingActionStore implements PendingActionStore {
     if (pending.confirmedByWamid !== null && pending.confirmedByWamid !== wamid) return null;
     const confirmed: PendingCompletion = { ...pending, confirmedByWamid: wamid };
     this.byUser.set(userID, confirmed);
-    this.onChange?.();
     return confirmed;
   }
 
   async discard(userID: UserID): Promise<void> {
     this.byUser.delete(userID);
-    this.onChange?.();
   }
 }

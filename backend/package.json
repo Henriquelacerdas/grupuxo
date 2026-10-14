@@ -11,8 +11,7 @@
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
-    "test:fixtures": "node --test \"test/**/*.fixtures.test.ts\"",
-    "start:local": "node --env-file=.env src/main/server.ts"
+    "test:fixtures": "node --test \"test/**/*.fixtures.test.ts\""
   },
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "3.1142.0",

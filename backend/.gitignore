@@ -3,4 +3,3 @@ node_modules
 tools/swift-fixtures/.build
 .DS_Store
 .env
-data/
