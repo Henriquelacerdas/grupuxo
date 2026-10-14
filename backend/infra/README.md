@@ -3,7 +3,7 @@
 Um ambiente só (`dev`, `us-east-1`), estado local, conta AWS **580100736070** (a mesma do user pool Cognito `us-east-1_M9GpISkE3`). O provider recusa qualquer outra conta (`allowed_account_ids`). Cria:
 
 - Tabela DynamoDB `grupuxo-dev` (PK/SK, `GSI1`, TTL `ttl`, sob demanda), igual a `src/adapters/dynamodb/table-definition.ts`.
-- Fila SQS FIFO `grupuxo-dev-whatsapp.fifo` com a DLQ e o alarme da DLQ.
+- Fila SQS FIFO `grupuxo-dev-whatsapp.fifo` com a DLQ (o alarme `grupuxo-dev-whatsapp-dlq-not-empty` existe na conta, mas fora do Terraform: o usuário de deploy não lê tags do CloudWatch).
 - Segredo `grupuxo/dev/whatsapp` **sem valor** (o dono grava; o valor nunca entra no estado).
 - Lambdas `grupuxo-dev-webhook`, `-worker` e `-api` (Node 22, arm64), roles de menor privilégio e logs com 14 dias de retenção.
 - Function URLs públicas para `webhook` e `api`, cada uma com as duas permissões que a AWS exige desde out/2025.
@@ -18,6 +18,10 @@ brew tap hashicorp/tap && brew install hashicorp/tap/terraform
 aws configure                     # chaves do usuário IAM de deploy, região us-east-1 (perfil default)
 aws sts get-caller-identity       # confere: Account 580100736070
 ```
+
+O usuário IAM de deploy precisa, além de DynamoDB, SQS e Secrets Manager, da policy [`deploy-policy.json`](deploy-policy.json) (roles, Lambdas, Function URLs e log groups, só `grupuxo-dev-*`). Sem `cloudwatch:ListTagsForResource` o alarme da DLQ fica fora do Terraform (`storage.tf`).
+
+Se o `apply` cair no meio da criação das permissões das Function URLs (`ResourceConflictException`, statement já existe), importe em vez de recriar: `terraform import 'aws_lambda_permission.url_invoke_function_url["api"]' grupuxo-dev-api/FunctionURLAllowPublicAccess` (idem `url_invoke_function` com `FunctionURLAllowInvokeAction`, e para `webhook`).
 
 ## 2. Build e deploy
 

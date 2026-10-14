@@ -73,17 +73,6 @@ resource "aws_secretsmanager_secret" "whatsapp" {
   description = "WHATSAPP_TOKEN, WHATSAPP_APP_SECRET, PHONE_NUMBER_ID, VERIFY_TOKEN, GEMINI_API_KEY (BACKEND.md seção 10)"
 }
 
-# Alarme da DLQ (único alarme da trilha). Sem ação: aparece no console do CloudWatch.
-resource "aws_cloudwatch_metric_alarm" "whatsapp_dlq" {
-  alarm_name          = "${local.name}-whatsapp-dlq-not-empty"
-  alarm_description   = "Mensagens do WhatsApp que o worker não conseguiu processar."
-  namespace           = "AWS/SQS"
-  metric_name         = "ApproximateNumberOfMessagesVisible"
-  dimensions          = { QueueName = aws_sqs_queue.whatsapp_dlq.name }
-  statistic           = "Maximum"
-  period              = 300
-  evaluation_periods  = 1
-  threshold           = 0
-  comparison_operator = "GreaterThanThreshold"
-  treat_missing_data  = "notBreaching"
-}
+# Sem alarme da DLQ no Terraform: o usuário de deploy não tem cloudwatch:ListTagsForResource, que o provider exige.
+# O alarme grupuxo-dev-whatsapp-dlq-not-empty criado antes continua na conta, fora do Terraform. Fila com
+# mensagens: ver `dlq_url` (README, Diagnóstico).
