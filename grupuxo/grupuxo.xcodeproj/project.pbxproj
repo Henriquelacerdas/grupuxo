@@ -34,6 +34,7 @@
 		A5AC27BD3058135C006C8F79 /* grupuxo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = grupuxo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5AC27CA3058135D006C8F79 /* grupuxoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = grupuxoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5AC27D43058135D006C8F79 /* grupuxoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = grupuxoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5C0FF013070000000C0FFEE /* Grupuxo.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Grupuxo.xcconfig; path = Config/Grupuxo.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -93,6 +94,7 @@
 		A5AC27B43058135C006C8F79 = {
 			isa = PBXGroup;
 			children = (
+				A5C0FF013070000000C0FFEE /* Grupuxo.xcconfig */,
 				A5AC27BF3058135C006C8F79 /* grupuxo */,
 				A5AC27CD3058135D006C8F79 /* grupuxoTests */,
 				A5AC27D73058135D006C8F79 /* grupuxoUITests */,
@@ -409,6 +411,7 @@
 		};
 		A5AC27DF3058135D006C8F79 /* Debug configuration for PBXNativeTarget "grupuxo" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A5C0FF013070000000C0FFEE /* Grupuxo.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -418,7 +421,6 @@
 				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				GRUPUXO_API_BASE_URL = "http://localhost:8787";
 				INFOPLIST_FILE = grupuxo/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -449,6 +451,7 @@
 		};
 		A5AC27E03058135D006C8F79 /* Release configuration for PBXNativeTarget "grupuxo" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A5C0FF013070000000C0FFEE /* Grupuxo.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -458,7 +461,6 @@
 				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				GRUPUXO_API_BASE_URL = "https://CONFIGURE-ME.example.com";
 				INFOPLIST_FILE = grupuxo/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

@@ -74,6 +74,16 @@ AWS_PROFILE=grupuxo-dev AWS_REGION=us-east-1 TABLE_NAME=grupuxo-dev BOT_PHONE_NU
 
 Cria a casa (moradores, cômodos e tarefas da demonstração, com você no lugar da Marina) e imprime um link `wa.me` válido por 15 minutos. Abra no celular cadastrado e envie a mensagem como está: o bot confirma o vínculo. Depois, pergunte "quais são minhas tarefas?". Para outro link: `node tools/seed-dev/seed.ts link <seu userID>`. Rode `house` uma vez só (cada execução cria uma casa nova).
 
+## 6. App apontando para o `dev`
+
+```sh
+cd grupuxo
+cp Config/Local.xcconfig.example Config/Local.xcconfig   # fora do git
+terraform -chdir=../backend/infra output -raw api_url  # cole no lugar de SEU-ID..., trocando `//` por `/$()/`
+```
+
+Só o Debug usa esse endereço; o Release continua `CONFIGURE-ME` (falha fechado) até existir `prod`.
+
 ## Diagnóstico
 
 ```sh
