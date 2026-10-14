@@ -4,8 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "sandbox": "ampx sandbox --outputs-out-dir ./grupuxo",
-    "models": "ampx generate graphql-client-code --format modelgen --model-target swift --out ./grupuxo/Data/Amplify/Models"
+    "sandbox": "ampx sandbox --outputs-out-dir ./grupuxo"
   },
   "devDependencies": {
     "@aws-amplify/backend": "^1.25.1",
