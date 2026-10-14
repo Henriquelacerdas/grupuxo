@@ -7,6 +7,8 @@ struct HouseManagementView: View {
 
     @State private var isPresentingTaskCreationSheet = false
     @State private var isPresentingRoomCreationSheet = false
+    @State private var isPresentingReorderSheet = false
+    @State private var orderedRoomIDs: [Room.ID] = []
 
     let makeTaskEditorViewModel: () -> TaskEditorViewModel
     let makeRoomEditorViewModel: () -> RoomEditorViewModel
@@ -14,7 +16,7 @@ struct HouseManagementView: View {
     let onSelectRoom: (Room.ID) -> Void
     let onSelectSporadicTasks: () -> Void
 
-    /// Destinos do menu "…"; enquanto forem nulos, os itens aparecem desabilitados.
+    /// Mantidos por compatibilidade com os destinos adicionados na branch remota.
     let onReorderRooms: (() -> Void)?
     let onOpenHouseSettings: (() -> Void)?
 
@@ -27,7 +29,6 @@ struct HouseManagementView: View {
         onReorderRooms: (() -> Void)? = nil,
         onOpenHouseSettings: (() -> Void)? = nil
     ) {
-
         _viewModel = StateObject(wrappedValue: viewModel)
 
         self.makeTaskEditorViewModel = makeTaskEditorViewModel
@@ -40,57 +41,57 @@ struct HouseManagementView: View {
     }
 
     private var addMenu: some View {
-
         Menu {
-
-            Button("Nova Tarefa", systemImage: "checklist") {
+            Button(
+                "Nova Tarefa",
+                systemImage: "checklist"
+            ) {
                 isPresentingTaskCreationSheet = true
             }
             .accessibilityIdentifier("createTask")
 
-            Button("Novo Cômodo", systemImage: "rectangle.inset.bottomright.filled") {
+            Button(
+                "Novo Cômodo",
+                systemImage: "square.split.bottomrightquarter"
+            ) {
                 isPresentingRoomCreationSheet = true
             }
             .accessibilityIdentifier("createRoom")
-
         } label: {
             Image(systemName: "plus")
         }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.circle)
+        .tint(.accentColor)
         .accessibilityLabel("Adicionar")
         .accessibilityIdentifier("addMenu")
     }
 
     var body: some View {
-
         List {
-
             switch viewModel.state {
 
             case .idle, .loading:
-
                 statusRow {
                     ProgressView("Carregando cômodos…")
                 }
 
             case let .content(content):
-
                 sporadicTasksRow(content.sporadic)
 
                 roomsHeaderRow
 
-                ForEach(content.rooms) { row in
+                ForEach(orderedRoomRows(content.rooms)) { row in
                     roomRow(row)
                 }
 
             case .empty:
-
                 statusRow {
                     Text("Nenhum cômodo cadastrado.")
                         .foregroundStyle(.secondary)
                 }
 
             case let .failure(message):
-
                 statusRow {
                     Label(
                         message,
@@ -104,87 +105,89 @@ struct HouseManagementView: View {
         .listRowSpacing(DesignSystem.Spacing.medium)
         .scrollContentBackground(.hidden)
         .background(Color(uiColor: .systemGroupedBackground))
-
         .navigationTitle("Casa")
-
         .toolbar {
-
-            // Como o ✓ do Reordenar: o sistema deixa o botão da confirmação azul e redondo.
-            ToolbarItem(placement: .confirmationAction) {
+            ToolbarItem(placement: .topBarTrailing) {
                 addMenu
             }
 
-            // Separa os dois botões em cápsulas de vidro distintas (iOS 26).
             if #available(iOS 26, *) {
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarSpacer(
+                    .fixed,
+                    placement: .topBarTrailing
+                )
             }
 
             ToolbarItem(placement: .topBarTrailing) {
-
                 Menu {
-
-                    Button {
-                        onReorderRooms?()
-                    } label: {
-                        Label("Reordenar", systemImage: "line.3.horizontal")
+                    Button(
+                        "Reordenar",
+                        systemImage: "line.3.horizontal"
+                    ) {
+                        isPresentingReorderSheet = true
                     }
-                    .disabled(onReorderRooms == nil)
 
-                    Button {
+                    Button(
+                        "Ajustes da Casa",
+                        systemImage: "gear"
+                    ) {
                         onOpenHouseSettings?()
-                    } label: {
-                        Label("Ajustes da Casa", systemImage: "gearshape")
                     }
                     .disabled(onOpenHouseSettings == nil)
-
                 } label: {
-                    Label("Mais opções", systemImage: "ellipsis")
+                    Image(systemName: "ellipsis")
                 }
-                .accessibilityIdentifier("houseMenu")
+                .accessibilityLabel("Mais opções")
+                .accessibilityIdentifier("houseOptionsMenu")
             }
         }
-
         .sheet(
             isPresented: $isPresentingTaskCreationSheet
         ) {
-
             TaskCreationSheetView(
                 viewModel: makeTaskEditorViewModel()
             )
             .presentationDragIndicator(.visible)
         }
-
         .sheet(
             isPresented: $isPresentingRoomCreationSheet,
             onDismiss: {
-
                 Task {
                     await viewModel.load()
                 }
             }
         ) {
-
             RoomCreationSheetView(
                 viewModel: makeRoomEditorViewModel(),
                 existingRoomNames: existingRoomNames
             )
             .presentationDragIndicator(.hidden)
         }
-
+        .sheet(
+            isPresented: $isPresentingReorderSheet
+        ) {
+            ReordenarComodosView(
+                rooms: reorderRoomItems,
+                onSave: { newOrder in
+                    orderedRoomIDs = newOrder.map(\.id)
+                }
+            )
+        }
         .alert(
             "Não foi possível concluir",
             isPresented: actionErrorBinding,
             presenting: viewModel.actionError
         ) { _ in
-            Button("OK", role: .cancel) {}
+            Button(
+                "OK",
+                role: .cancel
+            ) {}
         } message: { message in
             Text(message)
         }
-
         .task {
             await viewModel.load()
         }
-
         .refreshable {
             await viewModel.load()
         }
@@ -193,7 +196,6 @@ struct HouseManagementView: View {
     private func sporadicTasksRow(
         _ summary: SporadicSummary
     ) -> some View {
-
         SporadicTasksCard(
             summary: summary,
             onSelect: onSelectSporadicTasks
@@ -202,11 +204,16 @@ struct HouseManagementView: View {
     }
 
     private var roomsHeaderRow: some View {
-
         Text("Cômodos")
             .font(.title3.bold())
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, DesignSystem.Spacing.small)
+            .frame(
+                maxWidth: .infinity,
+                alignment: .leading
+            )
+            .padding(
+                .top,
+                DesignSystem.Spacing.small
+            )
             .accessibilityAddTraits(.isHeader)
             .plainCardRow()
     }
@@ -215,29 +222,37 @@ struct HouseManagementView: View {
     private func roomRow(
         _ row: RoomRow
     ) -> some View {
-
         switch row.access {
 
         case let .member(member):
-
             Button {
                 onSelectRoom(row.id)
             } label: {
-                RoomCard(row: row, member: member)
+                RoomCard(
+                    row: row,
+                    member: member
+                )
             }
             .buttonStyle(.plain)
             .plainCardRow()
 
         case let .restricted(requestPending):
-
             RestrictedRoomCard(
                 row: row,
                 requestPending: requestPending,
                 onRequest: {
-                    Task { await viewModel.requestAccess(to: row.id) }
+                    Task {
+                        await viewModel.requestAccess(
+                            to: row.id
+                        )
+                    }
                 },
                 onCancel: {
-                    Task { await viewModel.cancelAccessRequest(for: row.id) }
+                    Task {
+                        await viewModel.cancelAccessRequest(
+                            for: row.id
+                        )
+                    }
                 }
             )
             .plainCardRow()
@@ -247,16 +262,124 @@ struct HouseManagementView: View {
     private func statusRow<Content: View>(
         @ViewBuilder content: () -> Content
     ) -> some View {
-
         HStack {
-
             Spacer()
-
             content()
-
             Spacer()
         }
         .plainCardRow()
+    }
+
+    // MARK: - Reordenação
+
+    private var reorderRoomItems: [RoomItem] {
+        guard case let .content(content) = viewModel.state else {
+            return []
+        }
+
+        return orderedRoomRows(content.rooms)
+            .compactMap { row in
+                guard case let .member(member) = row.access else {
+                    return nil
+                }
+
+                return RoomItem(
+                    id: row.id,
+                    name: row.name,
+                    symbol: row.icon,
+                    color: color(for: row.color),
+                    isPrivate: member.isPrivate
+                )
+            }
+    }
+
+    private func orderedRoomRows(
+        _ rows: [RoomRow]
+    ) -> [RoomRow] {
+        guard !orderedRoomIDs.isEmpty else {
+            return rows
+        }
+
+        let memberRows = rows.filter { row in
+            if case .member = row.access {
+                return true
+            }
+
+            return false
+        }
+
+        let memberByID = Dictionary(
+            uniqueKeysWithValues: memberRows.map {
+                ($0.id, $0)
+            }
+        )
+
+        var orderedMembers = orderedRoomIDs.compactMap {
+            memberByID[$0]
+        }
+
+        let alreadyOrdered = Set(
+            orderedMembers.map(\.id)
+        )
+
+        orderedMembers.append(
+            contentsOf: memberRows.filter {
+                !alreadyOrdered.contains($0.id)
+            }
+        )
+
+        var iterator = orderedMembers.makeIterator()
+
+        return rows.map { row in
+            if case .member = row.access {
+                return iterator.next() ?? row
+            }
+
+            return row
+        }
+    }
+
+    private func color(
+        for roomColor: RoomColor
+    ) -> Color {
+        switch roomColor {
+
+        case .red:
+            return .red
+
+        case .orange:
+            return .orange
+
+        case .yellow:
+            return .yellow
+
+        case .green:
+            return .green
+
+        case .blue:
+            return .blue
+
+        case .purple:
+            return .purple
+
+        case .brown:
+            return .brown
+
+        case .gray:
+            return .gray
+
+        case .pink:
+            return .pink
+
+        case .teal:
+            return .teal
+
+        case .indigo:
+            return .indigo
+
+        case .cyan:
+            return .cyan
+        }
     }
 
     private var existingRoomNames: [String] {
@@ -264,10 +387,15 @@ struct HouseManagementView: View {
     }
 
     private var actionErrorBinding: Binding<Bool> {
-
         Binding(
-            get: { viewModel.actionError != nil },
-            set: { if !$0 { viewModel.actionError = nil } }
+            get: {
+                viewModel.actionError != nil
+            },
+            set: {
+                if !$0 {
+                    viewModel.actionError = nil
+                }
+            }
         )
     }
 }

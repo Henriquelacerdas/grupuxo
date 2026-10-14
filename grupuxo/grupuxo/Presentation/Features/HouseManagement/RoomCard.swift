@@ -16,7 +16,7 @@ struct RoomCard: View {
 
         VStack(
             alignment: .leading,
-            spacing: DesignSystem.Spacing.small
+            spacing: DesignSystem.Spacing.medium
         ) {
 
             mainContent
