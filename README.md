@@ -2,7 +2,7 @@
 
 App iOS (SwiftUI) que distribui tarefas domésticas entre moradores de casas compartilhadas e repúblicas, equilibrando o esforço semanal e respeitando a participação de cada um nos cômodos.
 
-**Estado atual:** o app tem login (Amazon Cognito via Amplify, e-mail/senha e Sign in with Apple), mas os dados continuam mockados, sem backend de dados nem sincronização. No app, as regras de distribuição ainda rodam no dispositivo. O login ainda é só uma porta de entrada: o morador exibido vem do `MockSeed`, não da conta autenticada. O backend em Node.js + TypeScript (`backend/`) já tem o domínio e o algoritmo portados, verificados contra o Swift por fixtures de referência, e a integração com o WhatsApp (webhook, worker, vínculo por token e contratos, tudo em memória, sem DynamoDB nem AWS ainda), conforme [docs/BACKEND.md](docs/BACKEND.md).
+**Estado atual:** o app tem login (Amazon Cognito via Amplify, e-mail/senha e Sign in with Apple) e, depois do login, cria ou entra numa **casa real** por código de convite (Amplify Data, `grupuxo/amplify`, camada transitória). Moradores e cômodos vêm dessa casa; as **tarefas continuam mockadas** (em memória, sem persistência) e as regras de distribuição ainda rodam no dispositivo. O schema de autorização por morador e a função de convite estão escritos mas **ainda não foram implantados na AWS**. O backend em Node.js + TypeScript (`backend/`) já tem o domínio e o algoritmo portados, verificados contra o Swift por fixtures de referência, e a integração com o WhatsApp (webhook, worker, vínculo por token e contratos, tudo em memória, sem DynamoDB nem AWS ainda), conforme [docs/BACKEND.md](docs/BACKEND.md).
 
 ## Funcionalidades
 
@@ -28,7 +28,9 @@ Requisitos: Xcode com o SDK e o runtime iOS 26.5 (deployment target do app: iOS 
 
 1. Abra `grupuxo/grupuxo.xcodeproj`.
 2. Selecione o scheme `grupuxo` e um simulador iPhone.
-3. Execute (⌘R). Os dados de demonstração são gerados na inicialização por `MockSeed`.
+3. Execute (⌘R). Entre com uma conta; sem casa, o app pede para criar ou entrar por código. As tarefas de demonstração vêm do `MockStore`/`MockSeed`.
+
+O app usa `grupuxo/grupuxo/amplify_outputs.json` (IDs públicos do Cognito e do AppSync, sem credenciais). Ele só é regenerado pelo dono do projeto depois de implantar o backend Amplify (`grupuxo/amplify`); implantar (`ampx sandbox`/`ampx deploy`) cria recursos na AWS e exige autorização explícita. Sem o deploy do schema atual, as telas de casa não funcionam contra o AppSync existente.
 
 ## Testes
 
@@ -54,6 +56,16 @@ npm test
 ```
 
 Para regenerar as fixtures depois de mudar o algoritmo (precisa do toolchain Swift): `backend/tools/swift-fixtures/regenerate.sh`.
+
+Toolchain do Amplify (schema e função de convite em TypeScript), só para tipar e gerar código local:
+
+```sh
+cd grupuxo
+npm install --ignore-scripts
+npx tsc --noEmit -p amplify   # só o import de '$amplify/env/join-house' falha: ele é gerado no deploy
+```
+
+Com Node 25, `ampx` precisa de `NODE_OPTIONS=--no-experimental-webstorage`.
 
 ## Roadmap
 

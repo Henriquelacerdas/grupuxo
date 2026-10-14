@@ -13,6 +13,13 @@ import {
   CLIENT_ID, FakeJwksSource, NOW, SUB, USER_POOL_ID, accessClaims, generateKey, idClaims, signJWT,
 } from "../auth/support.ts";
 import { sequentialIDs } from "../support/state-json.ts";
+import { DynamoStoreError } from "../../src/adapters/dynamodb/errors.ts";
+import { InMemoryHouseRepository } from "../../src/adapters/in-memory/repositories.ts";
+import type { House } from "../../src/domain/entities.ts";
+import { DomainError, type DomainErrorCode } from "../../src/domain/errors.ts";
+import { userID } from "../../src/domain/ids.ts";
+import { storageOrDomainFailure } from "../../src/lambdas/api-http.ts";
+import { inMemoryApiDeps } from "./api-support.ts";
 import { httpEvent } from "./support.ts";
 
 const key = generateKey("kid-1");
@@ -27,10 +34,11 @@ function emptyState(): StoreState {
 function setup() {
   const jwks = new FakeJwksSource([key]);
   const verifier = new CognitoJwtVerifier({ userPoolID: USER_POOL_ID, clientID: CLIENT_ID }, { jwks, now: () => NOW });
-  const users = new InMemoryUserDirectory(new InMemoryStore(emptyState()), sequentialIDs());
+  const store = new InMemoryStore(emptyState());
+  const users = new InMemoryUserDirectory(store, sequentialIDs());
   const links = new InMemoryWhatsAppLinkStore();
   const linker = new WhatsAppLinker(createLinkConfig("5511900000000"), new InMemoryLinkTokenStore(), links, () => NOW);
-  const handler = createApiHandler({ verifier, users, linker, links });
+  const handler = createApiHandler({ verifier, users, linker, links, ...inMemoryApiDeps(store) });
   const call = (method: string, path: string, options: { token?: string | null; body?: string; headers?: Record<string, string> } = {}) =>
     handler(httpEvent({
       method, path,
@@ -100,6 +108,7 @@ test("erro inesperado: 500 sem detalhe", async () => {
     users: { userForSub: async () => { throw new Error("senha do banco: hunter2"); }, ensureUser: async () => { throw new Error("hunter2"); } },
     linker: { issueInvitation: async () => { throw new Error("hunter2"); } },
     links: { linkForUser: async () => null, remove: async () => undefined },
+    ...inMemoryApiDeps(new InMemoryStore(emptyState())),
   });
   const response = await handler(httpEvent({ method: "GET", path: "/v1/me/whatsapp", headers: { authorization: "Bearer x" } }));
   assert.equal(response.statusCode, 500);
@@ -116,11 +125,23 @@ test("rota desconhecida: 404; método errado: 405 com a lista de métodos permit
   assert.equal((await call("GET", "/v1/me/", { token: null })).statusCode, 404);
   assert.equal((await call("GET", "/v1/__proto__", { token: null })).statusCode, 404);
   assert.equal((await call("GET", "/v1/constructor", { token: null })).statusCode, 404);
-  const wrong = await call("GET", "/v1/me", { token: null });
+  const wrong = await call("DELETE", "/v1/me", { token: null });
   assert.equal(wrong.statusCode, 405);
-  assert.equal(wrong.headers?.["allow"], "POST");
+  assert.equal(wrong.headers?.["allow"], "POST, GET");
   assert.equal((await call("PUT", "/v1/me/whatsapp", { token: null })).headers?.["allow"], "GET, DELETE");
   assert.equal((await call("GET", "/v1/me/whatsapp/link", { token: null })).statusCode, 405);
+});
+
+test("GET /v1/me devolve o id da conta registrada; sem registro, 403; sem token, 401", async () => {
+  const { call } = setup();
+  assert.equal((await call("GET", "/v1/me", { token: null })).statusCode, 401);
+  const before = await call("GET", "/v1/me");
+  assert.equal(before.statusCode, 403);
+  assert.deepEqual(parsed(before), { error: "account_not_registered" });
+  const created = parsed(await call("POST", "/v1/me", { body: '{"name":"Ana"}' }));
+  const mine = await call("GET", "/v1/me");
+  assert.equal(mine.statusCode, 200);
+  assert.deepEqual(parsed(mine), { id: created["id"] });
 });
 
 test("o método é aceito em qualquer caixa", async () => {
@@ -258,4 +279,56 @@ test("cada conta só enxerga e mexe no próprio vínculo", async () => {
 test("maskPhone mantém o código do país e os 4 últimos dígitos", () => {
   assert.equal(maskPhone("+5511999998888"), "+55•••••••8888");
   assert.equal(maskPhone("+14155552671"), "+14•••••2671");
+});
+
+// --- mapeamento de erros (BACKEND.md seção 6.1) ---
+
+test("cada erro de domínio vira o status e o código da tabela da seção 6.1", () => {
+  const expected: readonly (readonly [DomainErrorCode, number, string])[] = [
+    ["entityNotFound", 404, "not_found"], ["taskUnavailable", 403, "task_unavailable"],
+    ["taskAlreadyCompleted", 409, "task_already_completed"], ["deletionConfirmationRequired", 409, "room_deletion_confirmation_required"],
+    ["wholeHouseProtected", 409, "whole_house_protected"], ["noEligibleMembers", 409, "no_eligible_members"],
+    ["invalidDistribution", 409, "invalid_distribution"], ["invalidTaskName", 400, "invalid_task_name"],
+    ["invalidRoomName", 400, "invalid_room_name"], ["invalidRoomParticipants", 400, "invalid_room_participants"],
+    ["invalidSchedule", 400, "invalid_schedule"], ["invalidDateInterval", 400, "invalid_date_interval"],
+    ["invalidHouseName", 400, "invalid_house_name"], ["invalidTimezone", 400, "invalid_timezone"],
+    ["invalidAccessCode", 404, "invalid_code"], ["lastMember", 409, "last_member"],
+    // Nenhuma rota os produz: se algum dia chegarem, são 500 sem detalhe.
+    ["invalidResidentName", 500, "internal"], ["cannotRemoveCurrentUser", 500, "internal"],
+  ];
+  for (const [code, status, error] of expected) {
+    const response = storageOrDomainFailure(new DomainError(code));
+    assert.deepEqual([response?.statusCode, response?.body], [status, JSON.stringify({ error })], code);
+  }
+});
+
+test("erros do armazenamento: conflito é 409 conflict; os demais e os desconhecidos viram 500 sem detalhe", async () => {
+  class FailingHouses extends InMemoryHouseRepository {
+    failure: Error = new Error("ainda não definido");
+    override async houses(): Promise<House[]> {
+      throw this.failure;
+    }
+  }
+  const store = new InMemoryStore(emptyState());
+  const deps = inMemoryApiDeps(store);
+  const houses = new FailingHouses(store, { now: () => 0, newID: deps.newID }, () => "ABCD1234");
+  const handler = createApiHandler({
+    verifier: { verify: async () => ({ cognitoSub: sub }) },
+    users: { userForSub: async () => userID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), ensureUser: async () => userID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa") },
+    linker: { issueInvitation: async () => { throw new Error("não usado"); } },
+    links: { linkForUser: async () => null, remove: async () => undefined },
+    ...deps, houses,
+  });
+  const cases: readonly (readonly [Error, number, string])[] = [
+    [new DynamoStoreError("conflict"), 409, "conflict"],
+    [new DynamoStoreError("partialWrite"), 500, "internal"],
+    [new DynamoStoreError("tooManyWrites"), 500, "internal"],
+    [new Error("senha do banco: hunter2"), 500, "internal"],
+  ];
+  for (const [failure, status, error] of cases) {
+    houses.failure = failure;
+    const response = await handler(httpEvent({ method: "GET", path: "/v1/me/house", headers: { authorization: "Bearer x" } }));
+    assert.deepEqual([response.statusCode, parsed(response)], [status, { error }]);
+    assert.ok(!response.body.includes("hunter2"));
+  }
 });

@@ -1,7 +1,7 @@
 import { DomainError } from "../../domain/errors.ts";
 import type { House } from "../../domain/entities.ts";
 import { userID, type HouseID, type UserID } from "../../domain/ids.ts";
-import { cloneStoreState, type StoreState } from "../../domain/store-state.ts";
+import { cloneStoreState, emptyStoreState, type StoreState } from "../../domain/store-state.ts";
 import {
   MAX_BATCH_GET_KEYS, MAX_TRANSACT_ACTIONS, DynamoConditionFailedError, DynamoTransactionCanceledError, queryAll,
   type DynamoClient, type DynamoItem, type DynamoKey, type DynamoTransactAction, type DynamoValue,
@@ -32,6 +32,27 @@ const SEED_PARALLELISM = 25;
 
 export type LookupKind = keyof typeof lookupPK;
 
+/** O que fazer com um comando que gera mais ações do que cabem numa transação (BACKEND.md seção 4). */
+export type OversizedWrites = "fail" | "split";
+
+export interface HouseStateStoreOptions {
+  /**
+   * `fail` (padrão): falha fechado, sem gravar (`tooManyWrites`). `split`: divide a escrita em várias transações
+   * (atalho provisório do TestFlight, PLANO.md seção 2): a primeira leva o `META` condicionado a `version`; se uma
+   * transação seguinte falhar, a casa fica pela metade (`partialWrite`).
+   */
+  readonly oversizedWrites?: OversizedWrites;
+}
+
+/** Opções de `update`. */
+export interface UpdateOptions {
+  /**
+   * Perfis a carregar mesmo que a casa ainda não os cite (quem está entrando): o perfil existe na tabela, então
+   * não vira um `Put` novo e o comando de domínio o encontra em `state.users`.
+   */
+  readonly extraProfileIDs?: readonly UserID[];
+}
+
 interface LoadedHouse {
   /** `false` se a partição não tem o item `META` (casa inexistente). */
   readonly exists: boolean;
@@ -40,13 +61,6 @@ interface LoadedHouse {
   /** Itens da partição, **re-codificados** do estado lido (comparação canônica), por `SK`. */
   readonly baseline: ReadonlyMap<string, DynamoItem>;
   readonly profileIDs: ReadonlySet<UserID>;
-}
-
-function emptyState(): StoreState {
-  return {
-    users: [], houses: [], houseMemberships: [], rooms: [], roomMemberships: [], definitions: [], occurrences: [],
-    assignments: [], absences: [], taskSwapRequests: [], notifications: [],
-  };
 }
 
 function equalValues(a: DynamoValue | undefined, b: DynamoValue | undefined): boolean {
@@ -100,6 +114,20 @@ function encodePartition(houseID: HouseID, state: StoreState): Map<string, Dynam
   return items;
 }
 
+/**
+ * Divide as ações em transações de até `MAX_TRANSACT_ACTIONS`. O `META` (ação 0) fica na primeira, e os `Put`
+ * condicionais de perfil novo vêm logo depois dele, para que uma condição violada falhe antes de qualquer
+ * gravação. Sem excesso, devolve uma só transação, na ordem original.
+ */
+function splitTransactions(actions: readonly DynamoTransactAction[]): DynamoTransactAction[][] {
+  if (actions.length <= MAX_TRANSACT_ACTIONS) return [[...actions]];
+  const [meta, ...others] = actions;
+  const isNewProfile = (action: DynamoTransactAction): boolean =>
+    action.kind === "put" && action.item["SK"] === PROFILE_SK && action.condition !== undefined;
+  const ordered = [...(meta === undefined ? [] : [meta]), ...others.filter(isNewProfile), ...others.filter((a) => !isNewProfile(a))];
+  return chunks(ordered, MAX_TRANSACT_ACTIONS);
+}
+
 function chunks<T>(items: readonly T[], size: number): T[][] {
   const result: T[][] = [];
   for (let index = 0; index < items.length; index += size) result.push(items.slice(index, index + size));
@@ -114,41 +142,55 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
 export class HouseStateStore {
   private readonly client: DynamoClient;
   private readonly runtime: DynamoRuntime;
+  private readonly oversizedWrites: OversizedWrites;
 
-  constructor(client: DynamoClient, runtime: DynamoRuntime) {
+  constructor(client: DynamoClient, runtime: DynamoRuntime, options: HouseStateStoreOptions = {}) {
     this.client = client;
     this.runtime = runtime;
+    this.oversizedWrites = options.oversizedWrites ?? "fail";
   }
 
   /** Leitura consistente; nunca grava. */
   async read<T>(houseID: HouseID, fn: (state: StoreState) => T): Promise<T> {
-    const loaded = await this.load(houseID);
+    const loaded = await this.load(houseID, []);
     return fn(cloneStoreState(loaded.state));
   }
 
   /**
    * Transação por cópia: `fn` recebe um rascunho do estado e pode lançar (nada é gravado). Sem diferença, nada é
    * gravado. Conflito de `version` recarrega e repete, até `MAX_ATTEMPTS`; esgotado, `DynamoStoreError("conflict")`.
+   * Acima de 100 ações: `tooManyWrites` (padrão) ou, com `oversizedWrites: "split"`, várias transações em sequência
+   * (só o conflito na primeira repete; falha depois dela é `partialWrite`).
    */
-  async update<T>(houseID: HouseID, fn: (draft: StoreState) => T): Promise<T> {
+  async update<T>(houseID: HouseID, fn: (draft: StoreState) => T, options: UpdateOptions = {}): Promise<T> {
     for (let attempt = 1; ; attempt += 1) {
-      const loaded = await this.load(houseID);
+      const loaded = await this.load(houseID, options.extraProfileIDs ?? []);
       const draft = cloneStoreState(loaded.state);
       const result = fn(draft);
       const actions = this.diff(houseID, loaded, draft);
       if (actions.length === 0) return result;
       if (!loaded.exists) throw new DomainError("entityNotFound");
-      if (actions.length > MAX_TRANSACT_ACTIONS) throw new DynamoStoreError("tooManyWrites");
+      if (actions.length > MAX_TRANSACT_ACTIONS && this.oversizedWrites === "fail") throw new DynamoStoreError("tooManyWrites");
+      const [first = [], ...rest] = splitTransactions(actions);
       try {
-        await this.client.transactWrite(actions);
-        return result;
+        await this.client.transactWrite(first);
       } catch (error) {
         // A ação 0 é sempre o `META` condicionado a `version`: só a falha dela é conflito de concorrência.
         const conflict = error instanceof DynamoTransactionCanceledError && error.reasons[0] === "ConditionalCheckFailed";
         if (!conflict) throw error;
         if (attempt >= MAX_ATTEMPTS) throw new DynamoStoreError("conflict");
         await this.runtime.sleep(Math.floor(this.runtime.random() * MAX_JITTER_MS * attempt));
+        continue;
       }
+      // A primeira transação (com o `META`) já foi aplicada: daqui em diante não há como repetir nem desfazer.
+      for (const batch of rest) {
+        try {
+          await this.client.transactWrite(batch);
+        } catch {
+          throw new DynamoStoreError("partialWrite");
+        }
+      }
+      return result;
     }
   }
 
@@ -166,12 +208,20 @@ export class HouseStateStore {
     throw new DomainError("entityNotFound");
   }
 
-  /**
-   * Carga inicial de uma casa (desenvolvimento e testes; não é uma operação do domínio). Falha cedo se o ID ou o
-   * código de acesso já existirem. Os itens entram em lotes de 25 e a casa só "aparece" (`META` + `ACCESSCODE#`,
-   * numa transação) no fim; uma falha no meio deixa itens órfãos, inertes até a casa ser publicada.
-   */
+  /** Carga inicial de uma casa (desenvolvimento e testes): o mesmo caminho condicional de `createHouse`. */
   async seedHouse(state: StoreState): Promise<void> {
+    await this.createHouse(state);
+  }
+
+  /**
+   * Grava uma casa nova (`state` com exatamente uma casa, a do `META`, e tudo o que ela tem). É o único caminho que
+   * cria uma casa, porque `update` exige o `META`. Falha cedo se o ID ou o código de acesso já existirem
+   * (`houseExists`, `accessCodeTaken`). Os itens entram em lotes de 25 e a casa só "aparece" (`META` com
+   * `version = 0` + `ACCESSCODE#`, numa transação condicional) no fim; uma falha no meio deixa itens órfãos,
+   * inertes até a casa ser publicada, e repetir a carga os sobrescreve. Perfis de `state.users` entram só se
+   * ainda não existirem (os de moradores com conta já estão na tabela).
+   */
+  async createHouse(state: StoreState): Promise<void> {
     const house = state.houses[0];
     if (state.houses.length !== 1 || house === undefined) throw new DynamoStoreError("unsupportedChange");
     const pk = housePK(house.id);
@@ -246,12 +296,12 @@ export class HouseStateStore {
     return [meta, ...changes];
   }
 
-  private async load(houseID: HouseID): Promise<LoadedHouse> {
+  private async load(houseID: HouseID, extraProfileIDs: readonly UserID[]): Promise<LoadedHouse> {
     const items = await queryAll(this.client, {
       keyCondition: "#pk = :pk", names: { "#pk": "PK" }, values: { ":pk": housePK(houseID) },
       consistentRead: true, scanForward: true,
     });
-    const state = emptyState();
+    const state = emptyStoreState();
     let house: House | undefined;
     let version = 0;
     for (const item of items) {
@@ -271,7 +321,7 @@ export class HouseStateStore {
       else if (sk.startsWith(SK_PREFIX.notification)) state.notifications.push(decodeNotification(item));
       else if (sk.startsWith(SK_PREFIX.absence)) state.absences.push(decodeAbsence(item));
     }
-    const wanted = [...referencedUserIDs(state)].sort();
+    const wanted = [...new Set([...referencedUserIDs(state), ...extraProfileIDs])].sort();
     const profiles = await this.loadProfiles(wanted);
     state.users.push(...profiles);
     return {

@@ -61,7 +61,7 @@ export class TaskSchedulingService {
     if (isBlank(input.name)) throw new DomainError("invalidTaskName");
     const target = this.room(input, state);
     this.initializeRooms(target.houseID, date, state);
-    const definition: DefinitionDraft = { ...input };
+    const definition: DefinitionDraft = { ...input, endedAt: null }; // uma definição nova nunca nasce encerrada
     const linked = this.isRoomLinked(definition, state);
     if (linked) definition.calendarAnchor = this.room(definition, state).calendarAnchor;
     else if (definition.recurrence.kind === "weekly") definition.calendarAnchor = this.weekStart(date);
@@ -123,6 +123,36 @@ export class TaskSchedulingService {
     return created;
   }
 
+  /**
+   * Encerra uma tarefa recorrente sem apagar histórico. Quem pede precisa ser morador da casa e participante atual
+   * do cômodo (mesma regra de `create`). Idempotente. Mantém a ocorrência já disponível e não concluída (a tarefa só
+   * passa à próxima pessoa depois de concluída, e depois disso nada é publicado, nem a sucessora de `afterCompletion`);
+   * remove só as ainda não disponíveis (`availableAt > date`) e suas atribuições. Concluídas, `fairnessDebt` e
+   * atribuições históricas ficam. Sem `rebalance`. Devolve as ocorrências removidas: as trocas pendentes que as citem
+   * são recusadas por quem guarda as trocas (`commands/tasks.ts`).
+   */
+  endTask(taskID: TaskDefinitionID, requestedBy: UserID, date: Instant, state: SchedulingState): TaskOccurrenceID[] {
+    const index = state.definitions.findIndex((d) => d.id === taskID);
+    const definition = state.definitions[index];
+    if (definition === undefined) throw new DomainError("entityNotFound");
+    const room = this.room(definition, state);
+    if (
+      definition.kind !== "recurring" ||
+      !state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === requestedBy) ||
+      !state.roomMemberships.some((m) => m.roomID === room.id && m.userID === requestedBy && isCurrentMember(m))
+    ) {
+      throw new DomainError("taskUnavailable");
+    }
+    if (definition.endedAt !== null) return [];
+    const removed = new Set(
+      state.occurrences.filter((o) => o.taskDefinitionID === taskID && !isCompleted(o) && o.availableAt > date).map((o) => o.id),
+    );
+    state.occurrences = state.occurrences.filter((o) => !removed.has(o.id));
+    state.assignments = state.assignments.filter((a) => !removed.has(a.occurrenceID));
+    state.definitions[index] = { ...definition, endedAt: date, nextScheduledAt: null, pendingRotation: null };
+    return [...removed];
+  }
+
   complete(occurrenceID: TaskOccurrenceID, userID: UserID, date: Instant, state: SchedulingState): void {
     const index = state.occurrences.findIndex((o) => o.id === occurrenceID);
     const occurrence = state.occurrences[index];
@@ -172,7 +202,7 @@ export class TaskSchedulingService {
       }
     }
     if (definition.kind === "recurring" && definition.assignmentPolicy === "afterCompletion" &&
-      occurrence.didPublishSuccessor !== true) {
+      definition.endedAt === null && occurrence.didPublishSuccessor !== true) {
       this.activatePending(definition, date);
       // Definições legadas não têm fila: estabelece-a uma vez, preservando a vez de quem executou.
       if (definition.rotationQueue.length === 0) {
@@ -226,7 +256,7 @@ export class TaskSchedulingService {
     const count = state.definitions.length;
     for (let i = 0; i < count; i++) {
       const current = at(state.definitions, i);
-      if (!roomIDs.has(current.roomID)) continue;
+      if (!roomIDs.has(current.roomID) || current.endedAt !== null) continue;
       const definition: DefinitionDraft = { ...current };
       if (definition.kind === "recurring" && definition.assignmentPolicy === "afterCompletion") {
         this.activatePending(definition, date);
@@ -325,7 +355,9 @@ export class TaskSchedulingService {
     const end = this.addingWeeks(HORIZON_WEEKS, forecastStart);
     const indices: number[] = [];
     state.definitions.forEach((d, i) => {
-      if (roomIDs.has(d.roomID) && d.kind === "recurring" && d.assignmentPolicy !== "selfAssigned") indices.push(i);
+      if (roomIDs.has(d.roomID) && d.kind === "recurring" && d.assignmentPolicy !== "selfAssigned" && d.endedAt === null) {
+        indices.push(i);
+      }
     });
     indices.sort((a, b) => compareIDs(at(state.definitions, a).id, at(state.definitions, b).id));
     const calendarIndices: number[] = [];
@@ -522,7 +554,7 @@ export class TaskSchedulingService {
 
   extend(definition: DefinitionDraft, end: Instant, state: SchedulingState): void {
     const first = definition.nextScheduledAt;
-    if (first === null) return;
+    if (definition.endedAt !== null || first === null) return;
     for (const date of this.scheduledDates(first, definition, end)) {
       const next = this.nextDate(date, definition);
       this.publish(definition, date, next, state);
@@ -704,7 +736,7 @@ export class TaskSchedulingService {
   // MARK: Escala compartilhada do cômodo
 
   isRoomLinked(definition: TaskDefinition, state: SchedulingState): boolean {
-    if (definition.kind !== "recurring" || definition.assignmentPolicy === "afterCompletion" ||
+    if (definition.endedAt !== null || definition.kind !== "recurring" || definition.assignmentPolicy === "afterCompletion" ||
       definition.assignmentPolicy === "selfAssigned") return false;
     const period = weeklyPeriodicityOf(definition.recurrence);
     return state.rooms.some((r) => r.id === definition.roomID && period !== null && samePeriodicity(period, r.periodicity));

@@ -1,0 +1,32 @@
+{
+  "definition": {
+    "id": "ffffffff-ffff-4fff-8fff-00000000002a",
+    "roomID": "ffffffff-ffff-4fff-8fff-000000000009",
+    "name": "Trocar a lâmpada da sala",
+    "details": "Tarefa avulsa de manutenção",
+    "effort": 2,
+    "kind": "sporadic",
+    "recurrence": {
+      "kind": "none"
+    },
+    "assignmentPolicy": "selfAssigned",
+    "calendarAnchor": null,
+    "endedAt": null
+  },
+  "occurrence": {
+    "id": "ffffffff-ffff-4fff-8fff-0000000000f3",
+    "taskDefinitionID": "ffffffff-ffff-4fff-8fff-00000000002a",
+    "availableAt": "2026-10-12T03:00:00.000Z",
+    "dueAt": null,
+    "status": "available",
+    "completedAt": null,
+    "completedByUserID": null,
+    "effort": 2
+  },
+  "assignment": null,
+  "assignee": null,
+  "suggestedAssignee": {
+    "id": "ffffffff-ffff-4fff-8fff-000000000001",
+    "name": "Marina"
+  }
+}

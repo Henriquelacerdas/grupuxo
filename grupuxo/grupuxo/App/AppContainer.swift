@@ -4,6 +4,7 @@ import GrupuxoDomain
 @MainActor
 final class AppContainer {
 
+    /// Só alimenta os repositórios de trocas e notificações (ainda sem rota na `api`; as telas ficam escondidas).
     let store: MockStore
     private let calendar: Calendar
 
@@ -15,13 +16,41 @@ final class AppContainer {
     let notificationRepository: any NotificationRepository
     let whatsAppConnectionRepository: any WhatsAppConnectionRepository
 
-    init(
-        store: MockStore = MockStore(),
-        calendar: Calendar = Calendar(identifier: .gregorian)
+    private init(
+        store: MockStore,
+        calendar: Calendar,
+        houseRepository: any HouseRepository,
+        roomRepository: any RoomRepository,
+        taskRepository: any TaskRepository,
+        whatsAppConnectionRepository: any WhatsAppConnectionRepository
     ) {
         self.store = store
         self.calendar = calendar
+        self.houseRepository = houseRepository
+        self.roomRepository = roomRepository
+        self.taskRepository = taskRepository
+        self.whatsAppConnectionRepository = whatsAppConnectionRepository
+        taskSwapRepository = MockTaskSwapRepository(store: store)
+        notificationRepository = MockNotificationRepository(store: store)
+    }
 
+    /// Container sobre a `api` do servidor: casa, cômodos, tarefas e WhatsApp são reais.
+    convenience init(api: APIClient, calendar: Calendar = Calendar(identifier: .gregorian)) {
+        self.init(
+            store: MockStore(state: MockSeed.empty()),
+            calendar: calendar,
+            houseRepository: RemoteHouseRepository(api: api),
+            roomRepository: RemoteRoomRepository(api: api),
+            taskRepository: RemoteTaskRepository(api: api),
+            whatsAppConnectionRepository: RemoteWhatsAppConnectionRepository(api: api)
+        )
+    }
+
+    /// Container sobre o `MockStore` em memória (testes e pré-visualizações).
+    convenience init(
+        store: MockStore = MockStore(),
+        calendar: Calendar = Calendar(identifier: .gregorian)
+    ) {
         let scheduling = TaskSchedulingService(
             distribution: TaskDistributionEngine(
                 optimizer: HungarianAlgorithm()
@@ -30,32 +59,14 @@ final class AppContainer {
             rotation: RotationCalculator(),
             calendar: calendar
         )
-
-        roomRepository = MockRoomRepository(
+        self.init(
             store: store,
-            scheduling: scheduling
+            calendar: calendar,
+            houseRepository: MockHouseRepository(store: store, scheduling: scheduling),
+            roomRepository: MockRoomRepository(store: store, scheduling: scheduling),
+            taskRepository: MockTaskRepository(store: store, scheduling: scheduling),
+            whatsAppConnectionRepository: MockWhatsAppConnectionRepository()
         )
-
-        houseRepository = MockHouseRepository(
-            store: store,
-            scheduling: scheduling
-        )
-
-        taskRepository = MockTaskRepository(
-            store: store,
-            scheduling: scheduling
-        )
-
-        taskSwapRepository = MockTaskSwapRepository(
-            store: store
-        )
-
-        notificationRepository = MockNotificationRepository(
-            store: store
-        )
-
-        // Mock até o app consumir a API do servidor (BACKEND.md seção 13, passo 3).
-        whatsAppConnectionRepository = MockWhatsAppConnectionRepository()
     }
 
     func makeWhatsAppConnectionViewModel() -> WhatsAppConnectionViewModel {
@@ -69,24 +80,6 @@ final class AppContainer {
             disconnect: DisconnectWhatsAppUseCase(
                 repository: whatsAppConnectionRepository
             )
-        )
-    }
-
-    func makeProfileViewModel(
-        session: AppSession
-    ) -> ProfileViewModel {
-        ProfileViewModel(
-            getMembers: GetHouseMembersUseCase(
-                repository: houseRepository
-            ),
-            addMember: AddHouseMemberUseCase(
-                repository: houseRepository
-            ),
-            removeMember: RemoveHouseMemberUseCase(
-                repository: houseRepository
-            ),
-            houseID: session.currentHouse.id,
-            currentUserID: session.currentUser.id
         )
     }
 
@@ -152,6 +145,9 @@ final class AppContainer {
                 catalog: TaskSuggestionCatalog()
             ),
             completeTask: CompleteTaskUseCase(
+                repository: taskRepository
+            ),
+            endTask: EndTaskUseCase(
                 repository: taskRepository
             ),
             roomID: roomID,
@@ -268,7 +264,8 @@ final class AppContainer {
     }
 
     func makeRoomEditorViewModel(
-        session: AppSession
+        session: AppSession,
+        onCreated: (@MainActor (Room) async throws -> Void)? = nil
     ) -> RoomEditorViewModel {
         RoomEditorViewModel(
             createRoom: CreateRoomUseCase(
@@ -280,7 +277,8 @@ final class AppContainer {
             creatorUserID: session.currentUser.id,
             getMembers: GetHouseMembersUseCase(
                 repository: houseRepository
-            )
+            ),
+            onCreated: onCreated
         )
     }
     func makeNotificationsViewModel(

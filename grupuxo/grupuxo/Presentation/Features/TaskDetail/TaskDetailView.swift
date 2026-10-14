@@ -15,13 +15,18 @@ struct TaskDetailView: View {
 
     @State private var editingDefinition: TaskDefinition?
 
+    /// `false` esconde "Editar" (a `api` ainda não tem rota de edição de tarefa).
+    private let allowsEditing: Bool
+
     init(
-        viewModel: TaskDetailViewModel
+        viewModel: TaskDetailViewModel,
+        allowsEditing: Bool = true
     ) {
 
         _viewModel = StateObject(
             wrappedValue: viewModel
         )
+        self.allowsEditing = allowsEditing
 
     }
 
@@ -128,7 +133,7 @@ struct TaskDetailView: View {
                 placement: .topBarTrailing
             ) {
 
-                if case let .content(definition) =
+                if allowsEditing, case let .content(definition) =
                     viewModel.state {
 
                     Button(

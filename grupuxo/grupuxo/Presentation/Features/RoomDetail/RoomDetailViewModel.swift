@@ -19,6 +19,7 @@ final class RoomDetailViewModel: ObservableObject {
     private let getRoomTasks: GetRoomTasksUseCase
     private let getTaskSuggestions: GetTaskSuggestionsUseCase
     private let completeTask: CompleteTaskUseCase
+    private let endTask: EndTaskUseCase
     private let roomID: Room.ID
     private let userID: User.ID
 
@@ -29,6 +30,7 @@ final class RoomDetailViewModel: ObservableObject {
         getRoomTasks: GetRoomTasksUseCase,
         getTaskSuggestions: GetTaskSuggestionsUseCase,
         completeTask: CompleteTaskUseCase,
+        endTask: EndTaskUseCase,
         roomID: Room.ID,
         userID: User.ID
     ) {
@@ -38,6 +40,7 @@ final class RoomDetailViewModel: ObservableObject {
         self.getRoomTasks = getRoomTasks
         self.getTaskSuggestions = getTaskSuggestions
         self.completeTask = completeTask
+        self.endTask = endTask
         self.roomID = roomID
         self.userID = userID
     }
@@ -110,5 +113,15 @@ final class RoomDetailViewModel: ObservableObject {
             try await completeTask(occurrenceID: occurrenceID, userID: userID, isCompleted: !item.occurrence.isCompleted)
             await load()
         } catch { actionError = error.localizedDescription }
+    }
+
+    /// Encerra a tarefa: o histórico fica e a ocorrência da vez continua até ser concluída.
+    func end(taskID: TaskDefinition.ID) async {
+        do {
+            try await endTask(taskID: taskID, requestedBy: userID)
+            await load()
+        } catch {
+            actionError = error.localizedDescription
+        }
     }
 }

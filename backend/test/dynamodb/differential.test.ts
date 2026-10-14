@@ -8,6 +8,7 @@ import {
   CreateRoomUseCase,
 } from "../../src/domain/use-cases/houses-and-rooms.ts";
 import type { RepositoryEnv } from "../contract/repositories.ts";
+import { normalizedState } from "../support/normalize.ts";
 import { World } from "../support/world.ts";
 import { dynamoEnvironment, inMemoryEnvironment } from "./environment.ts";
 
@@ -16,16 +17,6 @@ import { dynamoEnvironment, inMemoryEnvironment } from "./environment.ts";
 // inteiro da casa; as duas listas precisam ser iguais.
 
 const WEEK = 7 * 24 * 3_600_000;
-
-function normalized(state: StoreState): unknown {
-  const byID = <T extends { readonly id: string }>(items: readonly T[]) => [...items].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return {
-    users: byID(state.users), houses: byID(state.houses), houseMemberships: byID(state.houseMemberships), rooms: byID(state.rooms),
-    roomMemberships: byID(state.roomMemberships), definitions: byID(state.definitions), occurrences: byID(state.occurrences),
-    assignments: byID(state.assignments), absences: byID(state.absences), swaps: byID(state.taskSwapRequests),
-    notifications: byID(state.notifications),
-  };
-}
 
 function outcome(result: unknown): unknown {
   return result === undefined ? null : JSON.parse(JSON.stringify(result));
@@ -41,7 +32,7 @@ async function script(world: World, env: RepositoryEnv): Promise<unknown[]> {
     } catch (error) {
       result = { error: error instanceof Error ? `${error.name}:${error.message}` : "?" };
     }
-    log.push({ name, result: outcome(result), state: normalized(await env.state()) });
+    log.push({ name, result: outcome(result), state: normalizedState(await env.state()) });
   };
 
   await step("minhas tarefas de Marina", () => env.tasks.tasks(users.marina.id, house.id));

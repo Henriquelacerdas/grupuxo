@@ -1,16 +1,19 @@
 import { acceptSwapRequest, createSwapRequest, incomingRequests, outgoingRequests, rejectSwapRequest, swapCandidates } from "../../domain/commands/swaps.ts";
 import type { CommandContext } from "../../domain/commands/context.ts";
-import { addHouseMember, houseMemberIDs, houseMembers, removeHouseMember } from "../../domain/commands/houses.ts";
+import {
+  ACCESS_CODE_ATTEMPTS, addHouseMember, createHouse, houseMemberIDs, houseMembers, joinHouseByCode, leaveHouse,
+  normalizeAccessCode, removeHouseMember,
+} from "../../domain/commands/houses.ts";
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
 import { createRoom, roomFor, roomParticipation, roomsFor } from "../../domain/commands/rooms.ts";
 import {
-  addRoomMember, claimTask, completeTask, createTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
-  roomTasks, sporadicTasks, userTasks,
+  addRoomMember, claimTask, completeTask, createTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
+  occurrenceHouseFor, roomTasks, sporadicTasks, taskDefinitionFor, userTasks,
 } from "../../domain/commands/tasks.ts";
 import { DomainError } from "../../domain/errors.ts";
 import type { Instant } from "../../domain/dates.ts";
 import type { House, Room, RoomMembership, RoomParticipation, TaskDefinition, TaskItem, TaskSwapRequest, User, AppNotification } from "../../domain/entities.ts";
-import type { HouseID, NotificationID, RoomID, TaskOccurrenceID, TaskSwapRequestID, UserID } from "../../domain/ids.ts";
+import type { HouseID, NotificationID, RoomID, TaskDefinitionID, TaskOccurrenceID, TaskSwapRequestID, UserID } from "../../domain/ids.ts";
 import type {
   HouseRepository, NotificationRepository, RoomRepository, TaskRepository, TaskSwapRepository,
 } from "../../domain/repositories.ts";
@@ -21,9 +24,34 @@ import type { InMemoryStore } from "./store.ts";
 export class InMemoryHouseRepository implements HouseRepository {
   private readonly store: InMemoryStore;
   private readonly ctx: CommandContext;
-  constructor(store: InMemoryStore, ctx: CommandContext) {
+  private readonly newAccessCode: () => string;
+  constructor(store: InMemoryStore, ctx: CommandContext, newAccessCode: () => string) {
     this.store = store;
     this.ctx = ctx;
+    this.newAccessCode = newAccessCode;
+  }
+
+  async create(founderID: UserID, name: string, timezone: string, at: Instant): Promise<House> {
+    return this.store.update((s) => {
+      // O código é único entre as casas do armazenamento: gera outro se colidir (como o DynamoDB, com `ACCESSCODE#`).
+      let attempts = 0;
+      const unusedCode = (): string => {
+        attempts += 1;
+        const code = this.newAccessCode();
+        const taken = s.houses.some((h) => h.accessCode === normalizeAccessCode(code));
+        if (taken && attempts >= ACCESS_CODE_ATTEMPTS) throw new DomainError("invalidAccessCode");
+        return taken ? unusedCode() : code;
+      };
+      return createHouse(this.ctx, s, founderID, name, timezone, unusedCode, at);
+    });
+  }
+
+  async joinByCode(userID: UserID, code: string, at: Instant): Promise<House> {
+    return this.store.update((s) => joinHouseByCode(this.ctx, s, userID, code, at));
+  }
+
+  async leave(userID: UserID, houseID: HouseID, at: Instant, confirmRoomDeletion: boolean): Promise<void> {
+    this.store.update((s) => leaveHouse(this.ctx, s, userID, houseID, at, confirmRoomDeletion));
   }
 
   async addMember(name: string, houseID: HouseID, requestedBy: UserID, at: Instant): Promise<User> {
@@ -101,6 +129,14 @@ export class InMemoryTaskRepository implements TaskRepository {
     return this.store.read((s) => roomTasks(s, roomID, requesting));
   }
 
+  async definition(roomID: RoomID, taskID: TaskDefinitionID, requesting: UserID): Promise<TaskDefinition> {
+    return this.store.read((s) => taskDefinitionFor(s, roomID, taskID, requesting));
+  }
+
+  async houseOfOccurrence(occurrenceID: TaskOccurrenceID, requesting: UserID): Promise<HouseID> {
+    return this.store.read((s) => occurrenceHouseFor(s, occurrenceID, requesting));
+  }
+
   async sporadicTasks(houseID: HouseID, requesting: UserID): Promise<TaskItem[]> {
     const at = this.ctx.now();
     await this.refreshSchedule(houseID, at);
@@ -109,6 +145,10 @@ export class InMemoryTaskRepository implements TaskRepository {
 
   async create(definition: TaskDefinition, requestedBy: UserID, at: Instant): Promise<TaskDefinition> {
     return this.store.update((s) => createTask(this.ctx, s, definition, requestedBy, at));
+  }
+
+  async endTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, at: Instant): Promise<void> {
+    this.store.update((s) => endTask(this.ctx, s, roomID, taskID, requestedBy, at));
   }
 
   async refreshSchedule(houseID: HouseID, at: Instant): Promise<void> {

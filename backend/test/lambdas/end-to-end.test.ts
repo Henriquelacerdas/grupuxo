@@ -37,7 +37,7 @@ function workerDeps(http: HttpFetch, rateLimit = "2"): { world: World; links: In
   const links = new InMemoryWhatsAppLinkStore();
   const now = () => world.now;
   const deps: WorkerCompositionDependencies = {
-    settings: parseWorkerSettings({ GEMINI_MODEL: "gemini-2.5-flash-lite", WHATSAPP_GRAPH_VERSION: "v25.0", RATE_LIMIT_MAX_MESSAGES: rateLimit, RATE_LIMIT_WINDOW_SECONDS: "60", TABLE_NAME: "grupuxo-dev" }),
+    settings: parseWorkerSettings({ GEMINI_MODEL: "gemini-2.5-flash-lite", WHATSAPP_GRAPH_VERSION: "v25.0", RATE_LIMIT_MAX_MESSAGES: rateLimit, RATE_LIMIT_WINDOW_SECONDS: "60", TABLE_NAME: "grupuxo-dev", BOT_PHONE_NUMBER: "5511900000000" }),
     secrets: parseWorkerSecrets(JSON.stringify({ WHATSAPP_TOKEN, PHONE_NUMBER_ID: "106540352242922", GEMINI_API_KEY: GEMINI_KEY })),
     http, now, links,
     inbox: new InMemoryInboxStore(),

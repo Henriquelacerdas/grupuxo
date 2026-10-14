@@ -5,7 +5,7 @@ import {
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
 import {
-  taskAssignmentID, type HouseID, type RoomID, type TaskOccurrenceID, type UserID,
+  notificationID, taskAssignmentID, type HouseID, type RoomID, type TaskDefinitionID, type TaskOccurrenceID, type UserID,
 } from "../ids.ts";
 import { TaskEligibilityPolicy } from "../services/eligibility.ts";
 import type { StoreState } from "../store-state.ts";
@@ -24,6 +24,30 @@ function houseOfOccurrence(state: StoreState, occurrenceID: TaskOccurrenceID): H
   const definition = occurrence === undefined ? undefined : state.definitions.find((d) => d.id === occurrence.taskDefinitionID);
   if (definition === undefined) throw new DomainError("entityNotFound");
   return houseOfRoom(state, definition.roomID);
+}
+
+/**
+ * Definição de uma tarefa do cômodo (inclusive encerrada). Quem não é da casa, ou não pode ver a tarefa, recebe o
+ * mesmo `entityNotFound` de uma tarefa que não existe.
+ */
+export function taskDefinitionFor(state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, userID: UserID): TaskDefinition {
+  const room = state.rooms.find((r) => r.id === roomID);
+  const definition = state.definitions.find((d) => d.id === taskID && d.roomID === roomID);
+  if (
+    room === undefined || definition === undefined ||
+    !state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === userID) ||
+    !eligibility.canView(definition, room, userID, state.roomMemberships)
+  ) {
+    throw new DomainError("entityNotFound");
+  }
+  return definition;
+}
+
+/** Casa da ocorrência, se o morador for dela; senão `entityNotFound` (igual a uma ocorrência que não existe). */
+export function occurrenceHouseFor(state: StoreState, occurrenceID: TaskOccurrenceID, userID: UserID): HouseID {
+  const houseID = houseOfOccurrence(state, occurrenceID);
+  if (!state.houseMemberships.some((m) => m.houseID === houseID && m.userID === userID)) throw new DomainError("entityNotFound");
+  return houseID;
 }
 
 /** Itens (definição + ocorrência + atribuição) para consultas de tarefas. */
@@ -125,6 +149,27 @@ export function createTask(
     throw new DomainError("taskUnavailable");
   }
   return schedulingFor(ctx, state, room.houseID).create(definition, date, state);
+}
+
+/**
+ * Encerra a tarefa (ver `TaskSchedulingService.endTask`). As trocas pendentes que citam uma ocorrência removida seriam
+ * impossíveis de aceitar: viram recusadas e avisam quem pediu (o estado de agendamento não guarda trocas).
+ */
+export function endTask(
+  ctx: CommandContext, state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, date: Instant,
+): void {
+  const definition = state.definitions.find((d) => d.id === taskID && d.roomID === roomID);
+  if (definition === undefined) throw new DomainError("entityNotFound");
+  const removed = new Set(schedulingFor(ctx, state, houseOfRoom(state, definition.roomID)).endTask(taskID, requestedBy, date, state));
+  if (removed.size === 0) return;
+  state.taskSwapRequests.forEach((request, index) => {
+    if (request.status !== "pending" || !(removed.has(request.offeredOccurrenceID) || removed.has(request.requestedOccurrenceID))) return;
+    state.taskSwapRequests[index] = { ...request, status: "rejected", resolvedAt: date };
+    state.notifications.push({
+      id: notificationID(ctx.newID()), recipientUserID: request.requesterID, kind: "taskSwapRejected",
+      swapRequestID: request.id, createdAt: date, readAt: null,
+    });
+  });
 }
 
 export function completeTask(ctx: CommandContext, state: StoreState, occurrenceID: TaskOccurrenceID, userID: UserID, date: Instant): void {

@@ -12,14 +12,14 @@ struct HouseManagementView: View {
     let makeRoomEditorViewModel: () -> RoomEditorViewModel
 
     let onSelectRoom: (Room.ID) -> Void
-    let onSelectSporadicTasks: () -> Void
+    let onSelectSporadicTasks: (() -> Void)?
 
     init(
         viewModel: HouseManagementViewModel,
         makeTaskEditorViewModel: @escaping () -> TaskEditorViewModel,
         makeRoomEditorViewModel: @escaping () -> RoomEditorViewModel,
         onSelectRoom: @escaping (Room.ID) -> Void,
-        onSelectSporadicTasks: @escaping () -> Void
+        onSelectSporadicTasks: (() -> Void)?
     ) {
 
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -35,6 +35,7 @@ struct HouseManagementView: View {
 
         List {
 
+            if let onSelectSporadicTasks {
             Section {
 
                 Button(action: onSelectSporadicTasks) {
@@ -67,6 +68,7 @@ struct HouseManagementView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Abrir tarefas esporádicas")
+            }
             }
 
             Section("Cômodos") {

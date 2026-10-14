@@ -7,6 +7,8 @@ export type DynamoStoreErrorCode =
   | "unsupportedChange"
   /** Outro pedido gravou a casa durante todas as tentativas: nada foi aplicado. */
   | "conflict"
+  /** Escrita dividida (`oversizedWrites: "split"`): a primeira transação foi aplicada e uma seguinte falhou. */
+  | "partialWrite"
   /** Semeadura: já existe uma casa com este ID. */
   | "houseExists"
   /** Semeadura: o código de acesso já é de outra casa. */
@@ -17,6 +19,7 @@ const MESSAGES: Readonly<Record<DynamoStoreErrorCode, string>> = {
   tooManyWrites: "Comando gera escritas demais para uma transação",
   unsupportedChange: "Alteração não suportada pelo modelo de itens",
   conflict: "Conflito de escrita concorrente na casa",
+  partialWrite: "Escrita dividida interrompida: a casa pode estar parcialmente atualizada",
   houseExists: "Já existe uma casa com este ID",
   accessCodeTaken: "Código de acesso já em uso",
 };

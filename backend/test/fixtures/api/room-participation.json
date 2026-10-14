@@ -1,0 +1,25 @@
+{
+  "room": {
+    "id": "ffffffff-ffff-4fff-8fff-000000000007",
+    "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+    "name": "Cozinha",
+    "kind": "standard",
+    "category": "kitchen",
+    "visibility": "common",
+    "periodicity": {
+      "executionsPerPeriod": 1,
+      "intervalWeeks": 1
+    },
+    "responsibleCount": 1,
+    "calendarAnchor": "2026-10-12T03:00:00.000Z",
+    "icon": "refrigerator.fill",
+    "color": "orange"
+  },
+  "isMember": true,
+  "memberCount": 4,
+  "responsibleNames": [
+    "Bia"
+  ],
+  "periodStart": "2026-10-12T03:00:00.000Z",
+  "periodEnd": "2026-10-19T03:00:00.000Z"
+}

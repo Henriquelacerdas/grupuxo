@@ -55,7 +55,7 @@ export function item(name: string, options: ItemOptions = {}): TaskItem {
     {
       id: definitionID, roomID: options.room ?? roomID(uuid(3)), name, details: "", effort: taskEffort(options.effort ?? 3),
       kind: "recurring", recurrence: NO_RECURRENCE, assignmentPolicy: "afterCompletion", sourceSuggestionID: null,
-      rotationQueue: [], currentRotationIndex: 0, nextScheduledAt: null, pendingRotation: null, calendarAnchor: null,
+      rotationQueue: [], currentRotationIndex: 0, nextScheduledAt: null, pendingRotation: null, calendarAnchor: null, endedAt: null,
     },
     {
       id: occurrenceID, taskDefinitionID: definitionID, availableAt, dueAt: options.dueAt ?? null,

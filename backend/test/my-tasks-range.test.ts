@@ -20,7 +20,7 @@ function item(name: string, availableAt: Instant, dueAt: Instant | null, status:
     {
       id: definitionID, roomID: roomID(uuid(3)), name, details: "", effort: taskEffort(1), kind: "recurring",
       recurrence: NO_RECURRENCE, assignmentPolicy: "afterCompletion", sourceSuggestionID: null, rotationQueue: [],
-      currentRotationIndex: 0, nextScheduledAt: null, pendingRotation: null, calendarAnchor: null,
+      currentRotationIndex: 0, nextScheduledAt: null, pendingRotation: null, calendarAnchor: null, endedAt: null,
     },
     {
       id: occurrenceID, taskDefinitionID: definitionID, availableAt, dueAt, status, completedAt,

@@ -17,3 +17,11 @@ export function cloneStoreState(state: StoreState): StoreState {
     notifications: [...state.notifications],
   };
 }
+
+/** Estado sem nenhuma entidade (ponto de partida para criar uma casa nova). */
+export function emptyStoreState(): StoreState {
+  return {
+    users: [], houses: [], houseMemberships: [], rooms: [], roomMemberships: [], definitions: [], occurrences: [],
+    assignments: [], absences: [], taskSwapRequests: [], notifications: [],
+  };
+}

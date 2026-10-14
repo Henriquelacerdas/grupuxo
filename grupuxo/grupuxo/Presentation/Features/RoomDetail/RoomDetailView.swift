@@ -8,6 +8,7 @@ struct RoomDetailView: View {
     @StateObject private var viewModel: RoomDetailViewModel
 
     @State private var selectedSuggestion: TaskSuggestion?
+    @State private var taskToEnd: TaskDefinition?
 
     private let makeSuggestionEditorViewModel: (TaskSuggestion) -> TaskEditorViewModel
 
@@ -122,35 +123,20 @@ struct RoomDetailView: View {
                 )
 
             case let .content(content):
-
-                Section(
-                    viewModel.participation?.isMember == true
-                        ? "Tarefas"
-                        : "Suas pendências preservadas"
-                ) {
-
-                    ForEach(
-                        content.tasks
-                    ) { item in
-
-                        TaskRow(
-                            item: item,
-                            canComplete:
-                                viewModel.canComplete(item),
-                            onComplete: {
-                                Task {
-                                    await viewModel.complete(
-                                        item.id
-                                    )
+                Section(viewModel.participation?.isMember == true ? "Tarefas" : "Suas pendências preservadas") {
+                    ForEach(content.tasks) { item in
+                        TaskRow(item: item, canComplete: viewModel.canComplete(item)) {
+                            Task { await viewModel.complete(item.id) }
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if item.definition.endedAt == nil && viewModel.participation?.isMember == true {
+                                Button(role: .destructive) {
+                                    taskToEnd = item.definition
+                                } label: {
+                                    Label("Encerrar", systemImage: "stop.circle")
                                 }
-                            },
-                            onSelect: {
-                                onSelectTask(
-                                    item.definition.id
-                                )
                             }
-                        )
-
+                        }
                     }
 
                 }
@@ -252,6 +238,18 @@ struct RoomDetailView: View {
                 dismiss()
             }
 
+        }
+        .alert(
+            "Encerrar tarefa?",
+            isPresented: Binding(get: { taskToEnd != nil }, set: { if !$0 { taskToEnd = nil } }),
+            presenting: taskToEnd
+        ) { task in
+            Button("Cancelar", role: .cancel) {}
+            Button("Encerrar", role: .destructive) {
+                Task { await viewModel.end(taskID: task.id) }
+            }
+        } message: { task in
+            Text("\(task.name) não será mais repetida. O histórico fica, e a vez atual continua até ser concluída.")
         }
         .alert(
             "Sair e excluir cômodo?",

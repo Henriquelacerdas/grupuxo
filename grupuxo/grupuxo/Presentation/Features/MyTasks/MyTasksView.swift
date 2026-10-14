@@ -5,20 +5,24 @@ struct MyTasksView: View {
 
     @StateObject private var viewModel: MyTasksViewModel
 
-    let onRequestSwap: (TaskOccurrence.ID) -> Void
-    let onSelectNotifications: () -> Void
+    let onRequestSwap: ((TaskOccurrence.ID) -> Void)?
+    let onSelectNotifications: (() -> Void)?
     let onSelectProfile: () -> Void
+    /// Muda quando a aba volta a ficar ativa, forçando um novo carregamento.
+    let reloadTrigger: AnyHashable
 
     init(
         viewModel: MyTasksViewModel,
-        onRequestSwap: @escaping (TaskOccurrence.ID) -> Void,
-        onSelectNotifications: @escaping () -> Void,
-        onSelectProfile: @escaping () -> Void
+        onRequestSwap: ((TaskOccurrence.ID) -> Void)?,
+        onSelectNotifications: (() -> Void)?,
+        onSelectProfile: @escaping () -> Void,
+        reloadTrigger: AnyHashable = 0
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.onRequestSwap = onRequestSwap
         self.onSelectNotifications = onSelectNotifications
         self.onSelectProfile = onSelectProfile
+        self.reloadTrigger = reloadTrigger
     }
 
     var body: some View {
@@ -46,7 +50,7 @@ struct MyTasksView: View {
                             }
                         }
 
-                        if viewModel.canRequestSwap(item) {
+                        if let onRequestSwap, viewModel.canRequestSwap(item) {
 
                             Button {
                                 onRequestSwap(item.id)
@@ -80,11 +84,13 @@ struct MyTasksView: View {
             ToolbarItemGroup(
                 placement: .topBarTrailing
             ) {
-                Button(
-                    "Notificações",
-                    systemImage: "bell",
-                    action: onSelectNotifications
-                )
+                if let onSelectNotifications {
+                    Button(
+                        "Notificações",
+                        systemImage: "bell",
+                        action: onSelectNotifications
+                    )
+                }
 
                 Button(
                     "Perfil",
@@ -93,8 +99,12 @@ struct MyTasksView: View {
                 )
             }
         }
-        .task {
-            await viewModel.load()
+        .task(id: reloadTrigger) {
+            if case .idle = viewModel.state {
+                await viewModel.load()
+            } else {
+                await viewModel.load(showLoading: false)
+            }
         }
         .alert(
             "Não foi possível atualizar a tarefa",

@@ -343,7 +343,19 @@ struct TaskListPresentationTests {
         }
         #expect(completed.occurrence.isCompleted)
         #expect(completed.assignee == user)
-        #expect(!model.canComplete(completed))
+
+        // Concluir alterna: a tarefa concluída continua acionável pelo responsável para desfazer.
+        #expect(model.canComplete(completed))
+        await model.complete(completed.id)
+        #expect(model.actionError == nil)
+        guard case let .content(reverted) = model.state,
+              let reopened = reverted.tasks.first(where: { $0.id == item.id }) else {
+            Issue.record("Missing reopened task")
+            return
+        }
+        #expect(!reopened.occurrence.isCompleted)
+        #expect(reopened.assignee == user)
+        #expect(reopened.assignment?.userID == user.id)
     }
 
     @Test func profileLoadsAllResidentsAndRejectsOutsiders() async throws {

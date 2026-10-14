@@ -1,0 +1,7 @@
+// Endereço da `api` do servidor: GRUPUXO_API_BASE_URL → Info.plist (GrupuxoAPIBaseURL) → APIConfiguration.
+// Com o valor de exemplo (CONFIGURE-ME) o app falha fechado e não fala com servidor nenhum.
+// O endereço do ambiente `dev` (Function URL da Lambda `api`) fica em Local.xcconfig, fora do git:
+// copie Local.xcconfig.example para Local.xcconfig e preencha. `/$()/` evita que `//` vire comentário.
+GRUPUXO_API_BASE_URL = https:/$()/CONFIGURE-ME.example.com
+
+#include? "Local.xcconfig"

@@ -80,6 +80,11 @@ export function houseIDFromGSISK(gsi1sk: string): HouseID {
 
 // ---------- Morador (global) ----------
 
+/** Casa dona de um código de convite (item `ACCESSCODE#<code>`). */
+export function decodeAccessCode(item: DynamoItem): HouseID {
+  return decoding(() => houseID(str(item, "houseID")));
+}
+
 export function encodeUser(user: User): DynamoItem {
   return { PK: userPK(user.id), SK: PROFILE_SK, name: user.name, email: user.email };
 }
@@ -223,6 +228,7 @@ export function encodeDefinition(houseId: HouseID, definition: TaskDefinition): 
     sourceSuggestionID: definition.sourceSuggestionID, rotationQueue: definition.rotationQueue,
     currentRotationIndex: definition.currentRotationIndex, nextScheduledAt: definition.nextScheduledAt,
     pendingRotation: encodePendingRotation(definition.pendingRotation), calendarAnchor: definition.calendarAnchor,
+    endedAt: definition.endedAt,
   });
 }
 
@@ -235,7 +241,7 @@ export function decodeDefinition(item: DynamoItem): TaskDefinition {
     sourceSuggestionID: nullableStr(item, "sourceSuggestionID"), rotationQueue: userIDs(list(item, "rotationQueue")),
     currentRotationIndex: integer(item, "currentRotationIndex"), nextScheduledAt: nullableNum(item, "nextScheduledAt"),
     pendingRotation: decodePendingRotation(nullableRecord(item, "pendingRotation")),
-    calendarAnchor: nullableNum(item, "calendarAnchor"),
+    calendarAnchor: nullableNum(item, "calendarAnchor"), endedAt: nullableNum(item, "endedAt"),
   }));
 }
 

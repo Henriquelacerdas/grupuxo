@@ -120,6 +120,8 @@ export interface TaskDefinition {
   readonly nextScheduledAt: Instant | null;
   readonly pendingRotation: PendingRotation | null;
   readonly calendarAnchor: Instant | null;
+  /** Quando a tarefa foi encerrada (`endTask`): a definição e o histórico ficam, nada novo é publicado. */
+  readonly endedAt: Instant | null;
 }
 
 export interface TaskOccurrence {

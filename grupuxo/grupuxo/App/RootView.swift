@@ -4,9 +4,7 @@ import GrupuxoDomain
 @MainActor
 struct RootView: View {
 
-    private let container: AppContainer
-
-    @StateObject private var session: AppSession
+    @StateObject private var model: RootModel
 
     @State private var selectedTab: AppTab = .myTasks
 
@@ -14,33 +12,19 @@ struct RootView: View {
 
     @State private var housePath: [AppRoute] = []
 
-    init() {
-
-        container = AppContainer()
-
-        _session = StateObject(
-            wrappedValue: AppSession(
-                currentUser: MockSeed.currentUser,
-                currentHouse: MockSeed.house
-            )
-        )
-
+    init(api: APIClient, user: User, house: House) {
+        _model = StateObject(wrappedValue: RootModel(api: api, user: user, house: house))
     }
 
-    init(
-        container: AppContainer,
-        session: AppSession
-    ) {
+    private var container: AppContainer { model.container }
 
-        self.container = container
-
-        _session = StateObject(
-            wrappedValue: session
-        )
-
-    }
+    private var session: AppSession { model.session }
 
     var body: some View {
+        tabs
+    }
+
+    private var tabs: some View {
 
         TabView(selection: $selectedTab) {
 
@@ -51,29 +35,13 @@ struct RootView: View {
                         container.makeMyTasksViewModel(
                             session: session
                         ),
-                    onRequestSwap: { occurrenceID in
-
-                        tasksPath.append(
-                            .taskSwap(
-                                offeredOccurrenceID: occurrenceID
-                            )
-                        )
-
-                    },
-                    onSelectNotifications: {
-
-                        tasksPath.append(
-                            .notifications
-                        )
-
-                    },
+                    // Trocas e notificações ainda não têm rota na `api`: ficam escondidas neste build.
+                    onRequestSwap: nil,
+                    onSelectNotifications: nil,
                     onSelectProfile: {
-
-                        tasksPath.append(
-                            .settings
-                        )
-
-                    }
+                        tasksPath.append(.settings)
+                    },
+                    reloadTrigger: selectedTab
                 )
                 .navigationDestination(
                     for: AppRoute.self
@@ -129,13 +97,8 @@ struct RootView: View {
                         )
 
                     },
-                    onSelectSporadicTasks: {
-
-                        housePath.append(
-                            .sporadicTasks
-                        )
-
-                    }
+                    // Tarefas esporádicas ainda não têm rota na `api`.
+                    onSelectSporadicTasks: nil
                 )
                 .navigationDestination(
                     for: AppRoute.self
@@ -156,9 +119,7 @@ struct RootView: View {
                 )
 
             }
-            .tag(
-                AppTab.house
-            )
+            .tag(AppTab.house)
 
         }
 
@@ -207,7 +168,9 @@ struct RootView: View {
                         taskDefinitionID:
                             taskDefinitionID,
                         session: session
-                    )
+                    ),
+                // Sem `PATCH` na `api`: a tela só mostra os detalhes.
+                allowsEditing: false
             )
 
         case .sporadicTasks:
@@ -259,16 +222,7 @@ struct RootView: View {
             )
 
         case .settings:
-
-            ProfileView(
-                viewModel:
-                    container.makeProfileViewModel(
-                        session: session
-                    ),
-                whatsApp:
-                    container.makeWhatsAppConnectionViewModel()
-            )
-
+            HouseView(whatsAppViewModel: container.makeWhatsAppConnectionViewModel())
         }
 
     }

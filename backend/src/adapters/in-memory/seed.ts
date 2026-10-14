@@ -74,7 +74,7 @@ export function createSeed(options: SeedOptions): Seed {
     id: taskDefinitionID(newID()), roomID: inRoom.id, name, details, effort: taskEffort(effort), kind,
     recurrence: kind === "recurring" ? recurring("weekly", 1) : NO_RECURRENCE, assignmentPolicy: policy,
     sourceSuggestionID: null, rotationQueue: [], currentRotationIndex: 0, nextScheduledAt: null,
-    pendingRotation: null, calendarAnchor: null,
+    pendingRotation: null, calendarAnchor: null, endedAt: null,
   });
   const definitions = [
     definition("Lavar a louça", "Limpar pia e escorredor", kitchen, 2, "balancedAutomatically"),

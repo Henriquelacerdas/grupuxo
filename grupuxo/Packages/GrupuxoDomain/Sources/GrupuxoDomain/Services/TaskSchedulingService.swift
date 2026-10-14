@@ -56,6 +56,7 @@ public struct TaskSchedulingService: Sendable {
         let target = try room(for: input, state: state)
         try initializeRooms(houseID: target.houseID, at: date, state: &state)
         var definition = input
+        definition.endedAt = nil   // uma definição nova nunca nasce encerrada
         let linked = isRoomLinked(definition, state: state)
         if linked { definition.calendarAnchor = try room(for: definition, state: state).calendarAnchor }
         else if case .weekly = definition.recurrence { definition.calendarAnchor = try weekStart(date) }
@@ -114,6 +115,42 @@ public struct TaskSchedulingService: Sendable {
         return state.definitions.first { $0.id == definition.id }!
     }
 
+    /// Encerra uma tarefa recorrente sem apagar histórico. Quem pede precisa ser morador da casa e
+    /// participante atual do cômodo (mesma regra de `create`). Idempotente.
+    ///
+    /// Mantém a ocorrência já disponível e não concluída: a tarefa só passa à próxima pessoa depois de
+    /// concluída, e depois disso nada é publicado (nem a sucessora de `afterCompletion`). Remove só as
+    /// ocorrências ainda não disponíveis (`availableAt > date`) e suas atribuições; concluídas,
+    /// `fairnessDebt` e atribuições históricas ficam. Não faz `rebalance`: as demais tarefas só
+    /// reaproveitam a folga na próxima vez que a escala for replanejada.
+    ///
+    /// Devolve as ocorrências removidas; trocas pendentes que as citem são tratadas por quem guarda as
+    /// trocas (o estado de agendamento não tem trocas).
+    @discardableResult
+    public func endTask(_ taskID: TaskDefinition.ID, requestedBy userID: User.ID, at date: Date,
+                        state: inout TaskSchedulingState) throws -> Set<TaskOccurrence.ID> {
+        guard let index = state.definitions.firstIndex(where: { $0.id == taskID }) else {
+            throw DomainError.entityNotFound
+        }
+        let definition = state.definitions[index]
+        let room = try room(for: definition, state: state)
+        guard definition.kind == .recurring,
+              state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }),
+              state.roomMemberships.contains(where: { $0.roomID == room.id && $0.userID == userID && $0.isCurrent }) else {
+            throw DomainError.taskUnavailable
+        }
+        if definition.endedAt != nil { return [] }
+        let removed = Set(state.occurrences.filter {
+            $0.taskDefinitionID == taskID && !$0.isCompleted && $0.availableAt > date
+        }.map(\.id))
+        state.occurrences.removeAll { removed.contains($0.id) }
+        state.assignments.removeAll { removed.contains($0.occurrenceID) }
+        state.definitions[index].endedAt = date
+        state.definitions[index].nextScheduledAt = nil
+        state.definitions[index].pendingRotation = nil
+        return removed
+    }
+
     public func complete(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date,
                   state: inout TaskSchedulingState) throws {
         guard let index = state.occurrences.firstIndex(where: { $0.id == occurrenceID }),
@@ -156,7 +193,7 @@ public struct TaskSchedulingService: Sendable {
             state.assignments[i].endedAt = date
         }
         if definition.kind == .recurring && definition.assignmentPolicy == .afterCompletion
-            && occurrence.didPublishSuccessor != true {
+            && definition.endedAt == nil && occurrence.didPublishSuccessor != true {
             activatePending(definition: &definition, at: date)
             // Legacy seed definitions have no queue. Establish it once, preserving the executor's turn.
             if definition.rotationQueue.isEmpty {
@@ -202,7 +239,8 @@ public struct TaskSchedulingService: Sendable {
         try initializeRooms(houseID: houseID, at: date, state: &state)
         let end = try addingWeeks(12, to: weekStart(date))
         let roomIDs = Set(state.rooms.filter { $0.houseID == houseID }.map(\.id))
-        for i in state.definitions.indices where roomIDs.contains(state.definitions[i].roomID) {
+        for i in state.definitions.indices where roomIDs.contains(state.definitions[i].roomID)
+            && state.definitions[i].endedAt == nil {
             var definition = state.definitions[i]
             if definition.kind == .recurring && definition.assignmentPolicy == .afterCompletion {
                 activatePending(definition: &definition, at: date)
@@ -289,7 +327,7 @@ public struct TaskSchedulingService: Sendable {
         let end = try addingWeeks(12, to: forecastStart)
         let indices = state.definitions.indices.filter {
             roomIDs.contains(state.definitions[$0].roomID) && state.definitions[$0].kind == .recurring
-                && state.definitions[$0].assignmentPolicy != .selfAssigned
+                && state.definitions[$0].assignmentPolicy != .selfAssigned && state.definitions[$0].endedAt == nil
         }.sorted { state.definitions[$0].id.uuidString < state.definitions[$1].id.uuidString }
         var calendarIndices: [Int] = []
         var forecasts: [QueueForecast] = []
@@ -445,7 +483,7 @@ public struct TaskSchedulingService: Sendable {
     }
 
     public func extend(definition: inout TaskDefinition, through end: Date, state: inout TaskSchedulingState) throws {
-        guard let first = definition.nextScheduledAt else { return }
+        guard definition.endedAt == nil, let first = definition.nextScheduledAt else { return }
         let dates = try scheduledDates(from: first, definition: definition, end: end)
         for date in dates {
             let next = try nextDate(after: date, definition: definition)

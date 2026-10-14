@@ -16,6 +16,8 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
     public var nextScheduledAt: Date? = nil
     public var pendingRotation: PendingRotation? = nil
     public var calendarAnchor: Date? = nil
+    /// Quando a tarefa foi encerrada (`endTask`). A definição e o histórico continuam; nada novo é publicado.
+    public var endedAt: Date? = nil
 
     public init(
         id: UUID,
@@ -32,7 +34,8 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
         currentRotationIndex: Int = 0,
         nextScheduledAt: Date? = nil,
         pendingRotation: PendingRotation? = nil,
-        calendarAnchor: Date? = nil
+        calendarAnchor: Date? = nil,
+        endedAt: Date? = nil
     ) {
         self.id = id
         self.roomID = roomID
@@ -49,6 +52,7 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
         self.nextScheduledAt = nextScheduledAt
         self.pendingRotation = pendingRotation
         self.calendarAnchor = calendarAnchor
+        self.endedAt = endedAt
     }
 }
 

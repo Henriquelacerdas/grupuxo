@@ -3,11 +3,11 @@ import {
   isCompleted, sortedByDeadline, type TaskDefinition, type TaskItem, type TaskOccurrence, type TaskSuggestion,
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
-import type { HouseID, RoomID, TaskOccurrenceID, UserID } from "../ids.ts";
+import type { HouseID, RoomID, TaskDefinitionID, TaskOccurrenceID, UserID } from "../ids.ts";
 import type { HouseRepository, TaskRepository } from "../repositories.ts";
 import { TaskSuggestionCatalog } from "../services/task-suggestion-catalog.ts";
-import { hasValidInterval, isRepeating, sameRecurrence, type RoomCategory } from "../value-objects.ts";
-import { isBlank } from "../arrays.ts";
+import { hasValidInterval, isRepeating, sameRecurrence, taskEffort, type RoomCategory } from "../value-objects.ts";
+import { isBlank, trimmed } from "../arrays.ts";
 
 export type Clock = () => Instant;
 
@@ -81,6 +81,27 @@ export class GetTaskSuggestionsUseCase {
   execute(category: RoomCategory): readonly TaskSuggestion[] {
     return this.catalog.suggestions(category);
   }
+}
+
+export interface NewTaskInput {
+  readonly roomID: RoomID;
+  readonly name: string;
+  readonly details: string;
+  /** Limitado a 1...3 (`taskEffort`). */
+  readonly effort: number;
+  readonly kind: TaskDefinition["kind"];
+  readonly recurrence: TaskDefinition["recurrence"];
+  readonly assignmentPolicy: TaskDefinition["assignmentPolicy"];
+}
+
+/** Definição nova, ainda sem escala (o plano é calculado ao criar): nome aparado e campos de rotação zerados. */
+export function newTaskDefinition(id: TaskDefinitionID, input: NewTaskInput): TaskDefinition {
+  return {
+    id, roomID: input.roomID, name: trimmed(input.name), details: input.details, effort: taskEffort(input.effort),
+    kind: input.kind, recurrence: input.recurrence, assignmentPolicy: input.assignmentPolicy, sourceSuggestionID: null,
+    rotationQueue: [], currentRotationIndex: 0, nextScheduledAt: null, pendingRotation: null, calendarAnchor: null,
+    endedAt: null,
+  };
 }
 
 export class CreateTaskUseCase {

@@ -13,6 +13,7 @@ final class RoomEditorViewModel: ObservableObject {
     private let houseID: House.ID
     private let creatorUserID: User.ID
     private let getMembers: GetHouseMembersUseCase?
+    private let onCreated: (@MainActor (Room) async throws -> Void)?
 
     var maximumResponsibleCount: Int { max(1, residents.count) }
 
@@ -25,12 +26,14 @@ final class RoomEditorViewModel: ObservableObject {
         houseID: House.ID,
         creatorUserID: User.ID,
         draft: RoomDraft = RoomDraft(),
-        getMembers: GetHouseMembersUseCase? = nil
+        getMembers: GetHouseMembersUseCase? = nil,
+        onCreated: (@MainActor (Room) async throws -> Void)? = nil
     ) {
         self.createRoom = createRoom
         self.houseID = houseID
         self.creatorUserID = creatorUserID
         self.getMembers = getMembers
+        self.onCreated = onCreated
         var draft = draft
         draft.selectedParticipantIDs.insert(creatorUserID)
         draft.responsibleCount = 1
@@ -70,13 +73,16 @@ final class RoomEditorViewModel: ObservableObject {
         let draft = state.draft
         state = .saving(draft)
         do {
-            state = .saved(try await createRoom(
+            let room = try await createRoom(
                 name: draft.name, houseID: houseID, creatorUserID: creatorUserID,
                 category: draft.category, visibility: draft.visibility,
                 periodicity: draft.periodicity, responsibleCount: draft.responsibleCount,
                 icon: draft.icon, color: draft.color,
                 selectedParticipantIDs: draft.selectedParticipantIDs
-            ))
+            )
+            // Se a gravação real falhar, o erro volta ao formulário; quem passou o callback desfaz o Mock.
+            try await onCreated?(room)
+            state = .saved(room)
         } catch {
             state = .failure(draft, error.localizedDescription)
         }

@@ -14,6 +14,10 @@ const MESSAGES = {
   invalidRoomParticipants: "O cômodo precisa ter participantes válidos.",
   taskAlreadyCompleted: "Esta tarefa já foi concluída.",
   taskUnavailable: "Esta tarefa não está disponível.",
+  invalidHouseName: "Informe um nome para a casa, com até 80 caracteres.",
+  invalidTimezone: "O fuso horário informado é inválido.",
+  invalidAccessCode: "O código de convite é inválido.",
+  lastMember: "Você é o último morador da casa e não pode sair.",
 } as const;
 
 export type DomainErrorCode = keyof typeof MESSAGES;

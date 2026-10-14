@@ -141,6 +141,17 @@ A saída do último participante exige confirmação e exclui o cômodo, suas de
 
 Definições legadas atingidas pelo replanejamento são inicializadas a partir da recorrência e da última ocorrência conhecida, mantendo as ocorrências antigas. Sem ocorrência anterior, o calendário começa na vigência. Tarefas legadas `.selfAssigned` continuam fora das filas automáticas.
 
+### Encerrar tarefa (`endTask`)
+
+Uma tarefa recorrente não é apagada: é **encerrada** (`TaskDefinition.endedAt`). Quem pede precisa ser morador da casa e participante atual do cômodo (a mesma regra de criar); esporádicas não se encerram (têm a própria exclusão, só de quem criou). Repetir é idempotente e mantém a primeira data.
+
+- **Fica:** a ocorrência já disponível (`availableAt <= agora`) e não concluída permanece com o responsável até ser concluída, mesmo atrasada; as concluídas, o `fairnessDebt` e as atribuições históricas não mudam. A tarefa só passa à próxima pessoa depois de concluída, e o prazo da próxima contaria a partir da conclusão: como a próxima não existe mais, **nada é publicado depois**, nem a sucessora de `afterCompletion`.
+- **Sai:** as ocorrências ainda não disponíveis (`availableAt > agora`) e suas atribuições. `nextScheduledAt` e `pendingRotation` são zerados.
+- **Ignorada pelo planejador:** definição encerrada não entra em `refresh`, `extend`, `rebalance` nem na divisão de papéis do cômodo compartilhado (`isRoomLinked` é falso para ela), então não pesa mais nas escalas novas.
+- **Trocas pendentes:** quem guarda as trocas (`MockTaskRepository` no app, `commands/tasks.ts` no servidor; o `TaskSchedulingState` não tem trocas) recusa as que citam uma ocorrência removida (`rejected`, `resolvedAt` = agora) e avisa quem pediu com `taskSwapRejected`. As que só citam ocorrências mantidas seguem válidas. No app a notificação traz um texto próprio; o `AppNotification` do TypeScript ainda não tem `message`.
+- **Sem `rebalance` ao encerrar (limitação conhecida):** as demais tarefas só aproveitam a folga na próxima vez que a escala for replanejada (entrada ou saída de morador, nova tarefa vinculada). Replanejar na hora reescreveria atribuições futuras de outras tarefas por uma ação que não as toca.
+- A lista de tarefas do cômodo esconde as concluídas de definição encerrada (a "da vez" continua visível até concluir). Fixtures: `scheduling-end.json`.
+
 ## Acesso e invariantes de participação
 
 Cômodos comuns têm exatamente todos os moradores atuais. Casa toda é sempre comum e protegida contra saída individual. Uma saída de outro cômodo comum o torna privado imediatamente; saídas da casa não mudam a visibilidade dos comuns restantes.
@@ -174,7 +185,7 @@ Mapa dos arquivos (Swift `GrupuxoDomain/Services/` → TypeScript `backend/src/d
 | `TaskSuggestionCatalog` | `task-suggestion-catalog.ts` |
 | `Calendar` do Foundation | `backend/src/domain/dates.ts` (`Intl.DateTimeFormat`) |
 
-**Fixtures de referência.** `backend/tools/swift-fixtures` roda cenários no `GrupuxoDomain` e grava JSON em `backend/test/fixtures/` (cabeçalho `_generated` com o comando). Os testes `*.fixtures.test.ts` carregam cada fixture e comparam com `deepStrictEqual` (com `-0` ≡ `0`, único ajuste). Cobertura: grade de datas × fusos (`UTC`, `America/Sao_Paulo` incluindo a meia-noite inexistente de 2018, `Asia/Tokyo`, `America/New_York`, `Australia/Lord_Howe`, `Europe/London`) em todas as primitivas de calendário; Húngaro escalar e lexicográfico (empates, negativos, vazia, erros); motor; otimizador da casa; agendamento (criação por todas as recorrências, por conclusão, esporádica, escala compartilhada do cômodo, refresh após semanas puladas, conclusão e reabertura, ausência, entrada e saída em cômodo, saída do último participante, replanejamento da casa, horário de verão) e políticas de elegibilidade e troca. IDs gerados na execução (aleatórios no Swift) são normalizados para `new-1`, `new-2`… por ordem de aparição. Para regenerar: `backend/tools/swift-fixtures/regenerate.sh`. Mudou o algoritmo? Altere o Swift (referência) e o TypeScript, regenere e rode `npm test`.
+**Fixtures de referência.** `backend/tools/swift-fixtures` roda cenários no `GrupuxoDomain` e grava JSON em `backend/test/fixtures/` (cabeçalho `_generated` com o comando). Os testes `*.fixtures.test.ts` carregam cada fixture e comparam com `deepStrictEqual` (com `-0` ≡ `0`, único ajuste). Cobertura: grade de datas × fusos (`UTC`, `America/Sao_Paulo` incluindo a meia-noite inexistente de 2018, `Asia/Tokyo`, `America/New_York`, `Australia/Lord_Howe`, `Europe/London`) em todas as primitivas de calendário; Húngaro escalar e lexicográfico (empates, negativos, vazia, erros); motor; otimizador da casa; agendamento (criação por todas as recorrências, por conclusão, esporádica, escala compartilhada do cômodo, refresh após semanas puladas, conclusão e reabertura, ausência, entrada e saída em cômodo, saída do último participante, replanejamento da casa, horário de verão, encerrar tarefa) e políticas de elegibilidade e troca. IDs gerados na execução (aleatórios no Swift) são normalizados para `new-1`, `new-2`… por ordem de aparição. Para regenerar: `backend/tools/swift-fixtures/regenerate.sh`. Mudou o algoritmo? Altere o Swift (referência) e o TypeScript, regenere e rode `npm test`.
 
 **Pontos que exigem cuidado no port** (todos verificados pelas fixtures):
 

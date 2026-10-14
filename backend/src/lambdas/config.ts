@@ -40,6 +40,17 @@ export interface WorkerSettings {
   readonly rateLimit: { readonly limit: number; readonly windowSeconds: number };
   /** `TABLE_NAME`: tabela DynamoDB do ambiente (`grupuxo-dev`, `grupuxo-prod`); o ponto de entrada liga o cliente a ela. */
   readonly tableName: string;
+  /** `BOT_PHONE_NUMBER`: o `WhatsAppLinker` do worker só consome tokens, mas é criado com a mesma configuração da `api`. */
+  readonly link: LinkConfig;
+}
+
+function linkConfig(env: Environment): LinkConfig {
+  try {
+    return createLinkConfig(required(env, "BOT_PHONE_NUMBER"));
+  } catch (error) {
+    if (error instanceof LambdaConfigError) throw error;
+    throw new LambdaConfigError("BOT_PHONE_NUMBER", "invalid");
+  }
 }
 
 export function parseWorkerSettings(env: Environment): WorkerSettings {
@@ -48,6 +59,7 @@ export function parseWorkerSettings(env: Environment): WorkerSettings {
     graphVersion: required(env, "WHATSAPP_GRAPH_VERSION"),
     rateLimit: { limit: positiveInteger(env, "RATE_LIMIT_MAX_MESSAGES"), windowSeconds: positiveInteger(env, "RATE_LIMIT_WINDOW_SECONDS") },
     tableName: required(env, "TABLE_NAME"),
+    link: linkConfig(env),
   };
 }
 
@@ -62,13 +74,7 @@ export interface ApiSettings {
 export function parseApiSettings(env: Environment): ApiSettings {
   const userPoolID = required(env, "COGNITO_USER_POOL_ID");
   const clientID = required(env, "COGNITO_CLIENT_ID");
-  let link: LinkConfig;
-  try {
-    link = createLinkConfig(required(env, "BOT_PHONE_NUMBER"));
-  } catch (error) {
-    if (error instanceof LambdaConfigError) throw error;
-    throw new LambdaConfigError("BOT_PHONE_NUMBER", "invalid");
-  }
+  const link = linkConfig(env);
   // O formato do pool e do client é conferido por `CognitoJwtVerifier` ao ser criado (falha fechada).
   return { cognito: { userPoolID, clientID }, link, tableName: required(env, "TABLE_NAME") };
 }
