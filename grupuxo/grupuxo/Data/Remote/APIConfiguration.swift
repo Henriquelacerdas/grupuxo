@@ -1,7 +1,7 @@
 import Foundation
 
 /// Endereço da `api` do servidor, vindo do `Info.plist` (chave `GrupuxoAPIBaseURL`, definida pelo build setting
-/// `GRUPUXO_API_BASE_URL` em `Config/Grupuxo.xcconfig`; o endereço do `dev` vem de `Config/Local.xcconfig`, fora do git).
+/// `GRUPUXO_API_BASE_URL` em `Config/Grupuxo.xcconfig`; o Debug aponta para o `dev` ali mesmo; `Config/Local.xcconfig`, fora do git, é opcional para outro servidor).
 struct APIConfiguration: Equatable, Sendable {
     let baseURL: URL
 

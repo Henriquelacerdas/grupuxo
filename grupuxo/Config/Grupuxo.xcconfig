@@ -1,7 +1,10 @@
 // Endereço da `api` do servidor: GRUPUXO_API_BASE_URL → Info.plist (GrupuxoAPIBaseURL) → APIConfiguration.
-// Com o valor de exemplo (CONFIGURE-ME) o app falha fechado e não fala com servidor nenhum.
-// O endereço do ambiente `dev` (Function URL da Lambda `api`) fica em Local.xcconfig, fora do git:
-// copie Local.xcconfig.example para Local.xcconfig e preencha. `/$()/` evita que `//` vire comentário.
+// O Debug aponta para a Function URL da Lambda `api` do ambiente `dev` (não é segredo: a `api` exige o token do
+// Cognito em toda chamada). Se a Lambda for recriada, atualize esta linha (saída `api_url` do Terraform).
+// O Release segue com o valor de exemplo (CONFIGURE-ME): o app falha fechado e não fala com servidor nenhum
+// até existir `prod`. Para apontar para outro servidor sem alterar este arquivo, use Local.xcconfig (fora do git,
+// a partir de Local.xcconfig.example). `/$()/` evita que `//` vire comentário.
 GRUPUXO_API_BASE_URL = https:/$()/CONFIGURE-ME.example.com
+GRUPUXO_API_BASE_URL[config=Debug] = https:/$()/oxq6xfm2bjp6m5tx67y3csoy3y0sjvvu.lambda-url.us-east-1.on.aws
 
 #include? "Local.xcconfig"
