@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createWorkerHandler } from "../../src/lambdas/worker.ts";
+import { createWorkerHandler, describeFailure } from "../../src/lambdas/worker.ts";
 import type { IncomingMessage } from "../../src/whatsapp/incoming-message.ts";
 import { sqsEvent, type SqsRecordOptions } from "./support.ts";
 
@@ -73,6 +73,26 @@ test("a mensagem de erro do worker não vai para o resultado", async () => {
   const handler = createWorkerHandler({ process: async () => { throw new Error("segredo na mensagem de erro"); } });
   const result = await handler(sqsEvent(record("1", phoneA)));
   assert.ok(!JSON.stringify(result).includes("segredo"));
+});
+
+test("falha chama onFailure só com nome, code e status, sem mensagem, telefone nem texto", async () => {
+  class SendFailure extends Error {
+    readonly code = "status";
+    readonly status = 400;
+    constructor() { super("corpo secreto +5561982045694 texto do morador"); this.name = "GraphSendError"; }
+  }
+  const logged: string[] = [];
+  const handler = createWorkerHandler({ process: async () => { throw new SendFailure(); } }, (description) => logged.push(description));
+  await handler(sqsEvent(record("1", phoneA), record("2", phoneA)));
+  assert.deepEqual(logged, ["GraphSendError code=status status=400"]);
+});
+
+test("describeFailure ignora nome, code e status fora do padrão", () => {
+  const hostile = Object.assign(new Error("m"), { name: "nome com espaço +5511", code: "texto livre", status: "400" });
+  assert.equal(describeFailure(hostile), "Error");
+  assert.equal(describeFailure("texto"), "falha desconhecida");
+  assert.equal(describeFailure(null), "falha desconhecida");
+  assert.equal(describeFailure(new TypeError("x")), "TypeError");
 });
 
 test("evento que não é um lote do SQS lança erro (o SQS devolve o lote inteiro)", async () => {

@@ -64,6 +64,18 @@ const VERSION_PATTERN = /^v[0-9]{1,3}\.[0-9]{1,2}$/;
 const PHONE_NUMBER_ID_PATTERN = /^[0-9]{1,20}$/;
 const ACCESS_TOKEN_PATTERN = /^[\x21-\x7e]{1,512}$/;
 const RECIPIENT_PATTERN = /^\+[1-9][0-9]{7,14}$/;
+/** Celular brasileiro sem o nono dígito: `+55`, DDD (11 a 99) e 8 dígitos começando em 6 a 9. */
+const BRAZIL_MOBILE_WITHOUT_NINTH_DIGIT = /^\+55([1-9][0-9])([6-9][0-9]{7})$/;
+
+/**
+ * A Meta entrega o `from` de celulares brasileiros sem o nono dígito (`+556182045694`), mas só aceita enviar para o
+ * número com ele (`+5561982045694`): sem o 9, a Graph responde `131030` ("não está na lista permitida") para quem
+ * está na lista. Só o destino do envio muda; o vínculo continua guardado como a Meta entregou.
+ */
+export function graphRecipient(phoneE164: string): string {
+  const match = BRAZIL_MOBILE_WITHOUT_NINTH_DIGIT.exec(phoneE164);
+  return match === null ? phoneE164 : `+55${match[1]}9${match[2]}`;
+}
 
 /** Limite de `text.body` da Cloud API. */
 export const MAX_MESSAGE_CHARS = 4096;
@@ -103,7 +115,7 @@ export class GraphWhatsAppSender implements WhatsAppSender {
 
   /**
    * `toPhone` em E.164 com `+` (`+5511999998888`), como o vínculo o guarda: a documentação da Meta recomenda o `+` e
-   * o código do país, então o campo `to` é enviado exatamente assim, sem nova normalização.
+   * o código do país. A única normalização é o nono dígito de celulares brasileiros (`graphRecipient`).
    */
   async send(text: string, toPhone: string): Promise<void> {
     if (!RECIPIENT_PATTERN.test(toPhone)) throw new GraphSendError("invalidRecipient");
@@ -115,7 +127,7 @@ export class GraphWhatsAppSender implements WhatsAppSender {
         body: JSON.stringify({
           messaging_product: "whatsapp",
           recipient_type: "individual",
-          to: toPhone,
+          to: graphRecipient(toPhone),
           type: "text",
           text: { body: truncateMessage(text) },
         }),

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { HttpFetch, HttpRequestInit, HttpResponse } from "../../src/http.ts";
 import {
-  GraphConfigurationError, GraphSendError, GraphWhatsAppSender, MAX_MESSAGE_CHARS, truncateMessage,
+  GraphConfigurationError, GraphSendError, GraphWhatsAppSender, MAX_MESSAGE_CHARS, graphRecipient, truncateMessage,
   type GraphWhatsAppSenderOptions,
 } from "../../src/whatsapp/graph-sender.ts";
 
@@ -103,6 +103,19 @@ test("envia o POST com URL, cabeçalhos e corpo exatos", async () => {
     text: { body: "Suas tarefas: Lavar a louça" },
   });
   assert.ok(call.init.signal instanceof AbortSignal);
+});
+
+test("celular brasileiro sem o nono dígito recebe o 9 no envio; os demais números não mudam", async () => {
+  assert.equal(graphRecipient("+556182045694"), "+5561982045694");
+  assert.equal(graphRecipient("+551187654321"), "+5511987654321");
+  assert.equal(graphRecipient("+5561982045694"), "+5561982045694"); // já com o 9
+  assert.equal(graphRecipient("+556132045694"), "+556132045694"); // fixo (começa em 2 a 5)
+  assert.equal(graphRecipient("+5511999998888"), "+5511999998888");
+  assert.equal(graphRecipient("+15551498443"), "+15551498443");
+  assert.equal(graphRecipient("+54911234567890"), "+54911234567890");
+  const { http, calls } = fakeHttp();
+  await sender(http).send("oi", "+556182045694");
+  assert.equal(bodyOf(calls[0])["to"], "+5561982045694");
 });
 
 test("o telefone vai em E.164 com +, sem normalizar de novo", async () => {

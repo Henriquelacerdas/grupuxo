@@ -26,5 +26,6 @@ export const handler = lazyHandler(async () => {
       pending,
     },
   });
-  return createWorkerHandler(worker);
+  // Só a descrição sem conteúdo (`describeFailure`); o Lambda leva o stderr ao CloudWatch.
+  return createWorkerHandler(worker, (description) => { process.stderr.write(`worker: mensagem falhou: ${description}\n`); });
 });
