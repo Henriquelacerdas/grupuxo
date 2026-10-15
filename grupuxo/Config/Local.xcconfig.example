@@ -1,3 +1,3 @@
-// Copie para Local.xcconfig (ignorado pelo git) e troque pelo endereço da `api` do `dev`
-// (saída `api_url` do Terraform em backend/infra). Só o Debug; o Release segue sem servidor até existir `prod`.
+// Opcional: copie para Local.xcconfig (ignorado pelo git) só para apontar o Debug para outro servidor que não o `dev`
+// versionado em Grupuxo.xcconfig (por exemplo, um ambiente próprio ou local).
 GRUPUXO_API_BASE_URL[config=Debug] = https:/$()/SEU-ID.lambda-url.us-east-1.on.aws

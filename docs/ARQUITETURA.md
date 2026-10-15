@@ -113,7 +113,7 @@ Com uma casa ativa na sessão, o app tem duas abas (`AppTab`: `myTasks`, `house`
 
 - Toda requisição leva o **access token** do Cognito (`AmplifyAccessTokenProvider`); 401 desloga. O servidor tira o morador do token, nunca do corpo, e usa o próprio relógio (`requestedBy`/`at` dos casos de uso são ignorados pelos repositórios remotos).
 - Rota que não existe na `api` lança `APIError.unsupported`; as telas que dependem dela ficam escondidas (trocas, notificações, esporádicas, edição de tarefa, renomear/excluir cômodo, morador sem conta).
-- O endereço vem do build setting `GRUPUXO_API_BASE_URL` (→ `Info.plist`, `APIConfiguration`); sem valor ou com `CONFIGURE-ME`, o app recusa falar com qualquer servidor.
+- O endereço vem do build setting `GRUPUXO_API_BASE_URL` (→ `Info.plist`, `APIConfiguration`); sem valor ou com `CONFIGURE-ME`, o app recusa falar com qualquer servidor. O Debug vem apontado para o `dev` no `Grupuxo.xcconfig`; `Local.xcconfig` (fora do git) é opcional.
 - O Amplify Data (AppSync) chegou a ser escrito e foi abandonado antes de qualquer deploy ([PLANO.md](PLANO.md), D1): a casa tem um dono só, o backend.
 
 ## Modelo de dados

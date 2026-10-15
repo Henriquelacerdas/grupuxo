@@ -79,13 +79,13 @@ Cria a casa (moradores, cômodos e tarefas da demonstração, com você no lugar
 
 ## 6. App apontando para o `dev`
 
+O Debug já aponta para o `dev` em `grupuxo/Config/Grupuxo.xcconfig` (versionado; a URL não é segredo, a `api` exige o token do Cognito). Quem dá pull só precisa de uma conta no user pool. Se a Lambda `api` for recriada, atualize a linha com a saída do Terraform:
+
 ```sh
-cd grupuxo
-cp Config/Local.xcconfig.example Config/Local.xcconfig   # fora do git
-terraform -chdir=../backend/infra output -raw api_url  # cole no lugar de SEU-ID..., trocando `//` por `/$()/`
+terraform -chdir=backend/infra output -raw api_url   # troque `//` por `/$()/` no xcconfig
 ```
 
-Só o Debug usa esse endereço; o Release continua `CONFIGURE-ME` (falha fechado) até existir `prod`.
+Para apontar para outro servidor sem mexer no arquivo versionado, copie `Config/Local.xcconfig.example` para `Config/Local.xcconfig` (fora do git). O Release continua `CONFIGURE-ME` (falha fechado) até existir `prod`.
 
 ## Diagnóstico
 

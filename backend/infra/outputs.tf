@@ -4,7 +4,7 @@ output "webhook_url" {
 }
 
 output "api_url" {
-  description = "URL base da api (vai em grupuxo/Config/Local.xcconfig, ver README §6)."
+  description = "URL base da api (vai em grupuxo/Config/Grupuxo.xcconfig, ver README §6)."
   value       = aws_lambda_function_url.public["api"].function_url
 }
 
