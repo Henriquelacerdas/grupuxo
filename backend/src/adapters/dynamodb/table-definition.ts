@@ -2,29 +2,29 @@
 // guardado contra o DynamoDB Local. Nada aqui cria tabela; criar, alterar ou apagar a tabela real exige
 // autorização explícita (CLAUDE.md). Modelo de itens: docs/BACKEND.md seção 4.
 
-export const TABLE_DEFINITION = {
-  /** `grupuxo-dev`, `grupuxo-prod`: o nome vem de `TABLE_NAME`, uma tabela por ambiente. */
-  billingMode: "PAY_PER_REQUEST",
-  keySchema: [
-    { attributeName: "PK", keyType: "HASH" },
-    { attributeName: "SK", keyType: "RANGE" },
+export const MAIN_TABLE_NAME = process.env.TABLE_NAME || "SingleTableApp";
+
+export const TableDefinition = {
+  TableName: MAIN_TABLE_NAME,
+  AttributeDefinitions: [
+    { AttributeName: "PK", AttributeType: "S" },
+    { AttributeName: "SK", AttributeType: "S" },
+    { AttributeName: "GSI1_PK", AttributeType: "S" },
+    { AttributeName: "GSI1_SK", AttributeType: "S" }
   ],
-  attributeDefinitions: [
-    { attributeName: "PK", attributeType: "S" },
-    { attributeName: "SK", attributeType: "S" },
-    { attributeName: "GSI1PK", attributeType: "S" },
-    { attributeName: "GSI1SK", attributeType: "S" },
+  KeySchema: [
+    { AttributeName: "PK", KeyType: "HASH" },
+    { AttributeName: "SK", KeyType: "RANGE" }
   ],
-  globalSecondaryIndexes: [
+  GlobalSecondaryIndexes: [
     {
-      indexName: "GSI1",
-      keySchema: [
-        { attributeName: "GSI1PK", keyType: "HASH" },
-        { attributeName: "GSI1SK", keyType: "RANGE" },
+      IndexName: "GSI1",
+      KeySchema: [
+        { AttributeName: "GSI1_PK", KeyType: "HASH" },
+        { AttributeName: "GSI1_SK", KeyType: "RANGE" }
       ],
-      projection: "ALL",
-    },
+      Projection: { ProjectionType: "ALL" }
+    }
   ],
-  /** Época Unix em **segundos**; o TTL só limpa, a lógica nunca depende dele. */
-  ttlAttribute: "ttl",
-} as const;
+  BillingMode: "PAY_PER_REQUEST"
+};
