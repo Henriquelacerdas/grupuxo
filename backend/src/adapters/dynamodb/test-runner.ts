@@ -11,7 +11,7 @@ import { MAIN_TABLE_NAME } from "./table-definition";
 import { KeyBuilder } from "./keys";
 
 async function runAllTests() {
-  console.log("🧪 A iniciar bateria completa de testes por tipo de entrada...\n");
+  console.log("Iniciando bateria completa de testes por tipo de entrada...\n");
 
   const sessionId = "sessao_prod_01";
   const msgId = "msg_999";
