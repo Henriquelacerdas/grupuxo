@@ -1,7 +1,7 @@
 // Endereço da `api` do servidor: GRUPUXO_API_BASE_URL → Info.plist (GrupuxoAPIBaseURL) → APIConfiguration.
 // Com o valor de exemplo (CONFIGURE-ME) o app falha fechado e não fala com servidor nenhum.
-// O endereço do ambiente `dev` (Function URL da Lambda `api`) fica em Local.xcconfig, fora do git:
+// Abaixo, a Function URL da Lambda `api` do `dev` (nunca a do `webhook`). Para outro servidor, use Local.xcconfig, fora do git:
 // copie Local.xcconfig.example para Local.xcconfig e preencha. `/$()/` evita que `//` vire comentário.
-GRUPUXO_API_BASE_URL = https:/$()/vorqibmwhqnaiqjrnipxfmjy640mumdm.lambda-url.us-east-1.on.aws/
+GRUPUXO_API_BASE_URL = https:/$()/oxq6xfm2bjp6m5tx67y3csoy3y0sjvvu.lambda-url.us-east-1.on.aws
 
 #include? "Local.xcconfig"
