@@ -547,7 +547,7 @@ Regras:
 - **Menor privilégio:** cada role recebe apenas `secretsmanager:GetSecretValue` no ARN desse segredo. Evitar a política gerenciada `SecretsManagerReadWrite`, que dá escrita em todos os segredos da conta.
 - Sem usuário IAM com chaves de acesso para as Lambdas: elas usam a role de execução. Pessoas acessam por um usuário IAM de deploy (chaves só no `~/.aws` de quem faz o deploy); migrar para IAM Identity Center depois.
 - DynamoDB sem credenciais: as Lambdas acessam a tabela pela role de execução (IAM), então não há senha de banco para guardar nem rotacionar. **Menor privilégio:** cada role recebe só as ações de que precisa, restritas ao ARN da tabela e do índice `GSI1` (`dynamodb:GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query`, `BatchGetItem`, `ConditionCheckItem`; a `TransactWriteItems` é autorizada por essas ações, não existe permissão com esse nome). O webhook não acessa a tabela. Nunca `dynamodb:*` nem `Resource: "*"`.
-- Tabela com criptografia em repouso (padrão da AWS), `deletion_protection_enabled` em `prod` e recuperação a um ponto no tempo (PITR) em `prod` ❓ (PITR tem custo por GB; decidir se vale na v1).
+- Tabela com criptografia em repouso (padrão da AWS), `deletion_protection_enabled` em todo ambiente (inclusive `dev`, depois que a `grupuxo-dev` foi apagada em out/2026) e recuperação a um ponto no tempo (PITR) em `prod` ❓ (PITR tem custo por GB; decidir se vale na v1).
 - Ambientes separados (`dev`, `prod`), com números e apps Meta distintos.
 - Observabilidade: CloudWatch Logs com retenção definida, alarmes para DLQ com mensagens e erros 5xx, *X-Ray* opcional.
 - Fila com DLQ e novas tentativas limitadas; o worker é idempotente.
