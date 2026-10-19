@@ -7,21 +7,24 @@ struct HouseManagementView: View {
 
     @State private var isPresentingTaskCreationSheet = false
     @State private var isPresentingRoomCreationSheet = false
+    @State private var isPresentingReorderSheet = false
+    @State private var orderedRoomIDs: [Room.ID] = []
 
     let makeTaskEditorViewModel: () -> TaskEditorViewModel
     let makeRoomEditorViewModel: () -> RoomEditorViewModel
 
     let onSelectRoom: (Room.ID) -> Void
     let onSelectSporadicTasks: (() -> Void)?
+    let onOpenHouseSettings: (() -> Void)?
 
     init(
         viewModel: HouseManagementViewModel,
         makeTaskEditorViewModel: @escaping () -> TaskEditorViewModel,
         makeRoomEditorViewModel: @escaping () -> RoomEditorViewModel,
         onSelectRoom: @escaping (Room.ID) -> Void,
-        onSelectSporadicTasks: (() -> Void)?
+        onSelectSporadicTasks: (() -> Void)?,
+        onOpenHouseSettings: (() -> Void)? = nil
     ) {
-
         _viewModel = StateObject(wrappedValue: viewModel)
 
         self.makeTaskEditorViewModel = makeTaskEditorViewModel
@@ -29,6 +32,34 @@ struct HouseManagementView: View {
 
         self.onSelectRoom = onSelectRoom
         self.onSelectSporadicTasks = onSelectSporadicTasks
+        self.onOpenHouseSettings = onOpenHouseSettings
+    }
+
+    private var addMenu: some View {
+        Menu {
+            Button(
+                "Nova Tarefa",
+                systemImage: "checklist"
+            ) {
+                isPresentingTaskCreationSheet = true
+            }
+            .accessibilityIdentifier("createTask")
+
+            Button(
+                "Novo Cômodo",
+                systemImage: "square.split.bottomrightquarter"
+            ) {
+                isPresentingRoomCreationSheet = true
+            }
+            .accessibilityIdentifier("createRoom")
+        } label: {
+            Image(systemName: "plus")
+        }
+        .buttonStyle(.borderedProminent)
+        .buttonBorderShape(.circle)
+        .tint(.accentColor)
+        .accessibilityLabel("Adicionar")
+        .accessibilityIdentifier("addMenu")
     }
 
     var body: some View {
@@ -36,39 +67,40 @@ struct HouseManagementView: View {
         List {
 
             if let onSelectSporadicTasks {
-            Section {
 
-                Button(action: onSelectSporadicTasks) {
+                Section {
 
-                    HStack(spacing: DesignSystem.contentSpacing) {
+                    Button(action: onSelectSporadicTasks) {
 
-                        Image(systemName: "sparkles")
-                            .font(.title2)
-                            .foregroundStyle(.tint)
+                        HStack(spacing: DesignSystem.contentSpacing) {
 
-                        VStack(
-                            alignment: .leading,
-                            spacing: DesignSystem.Spacing.extraSmall
-                        ) {
+                            Image(systemName: "sparkles")
+                                .font(.title2)
+                                .foregroundStyle(.tint)
 
-                            Text("Tarefas esporádicas")
-                                .font(.headline)
+                            VStack(
+                                alignment: .leading,
+                                spacing: DesignSystem.Spacing.extraSmall
+                            ) {
 
-                            Text("Veja tarefas disponíveis para assumir")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                Text("Tarefas esporádicas")
+                                    .font(.headline)
+
+                                Text("Veja tarefas disponíveis para assumir")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.tertiary)
                         }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.tertiary)
+                        .padding(.vertical, DesignSystem.Spacing.small)
                     }
-                    .padding(.vertical, DesignSystem.Spacing.small)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Abrir tarefas esporádicas")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Abrir tarefas esporádicas")
-            }
             }
 
             Section("Cômodos") {
@@ -76,60 +108,80 @@ struct HouseManagementView: View {
             }
         }
         .navigationTitle("Casa")
-
         .toolbar {
 
-            ToolbarItemGroup(placement: .topBarTrailing) {
+            ToolbarItem(placement: .topBarTrailing) {
+                addMenu
+            }
 
-                Button {
-                    isPresentingRoomCreationSheet = true
+            if #available(iOS 26, *) {
+                ToolbarSpacer(
+                    .fixed,
+                    placement: .topBarTrailing
+                )
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+
+                Menu {
+
+                    Button(
+                        "Reordenar",
+                        systemImage: "line.3.horizontal"
+                    ) {
+                        isPresentingReorderSheet = true
+                    }
+
+                    Button(
+                        "Ajustes da Casa",
+                        systemImage: "gear"
+                    ) {
+                        onOpenHouseSettings?()
+                    }
+                    .disabled(onOpenHouseSettings == nil)
+
                 } label: {
-                    Image(systemName: "square.grid.2x2")
+                    Image(systemName: "ellipsis")
                 }
-                .accessibilityLabel("Adicionar cômodo")
-                .accessibilityIdentifier("createRoom")
-
-                Button(
-                    "Adicionar tarefa",
-                    systemImage: "plus"
-                ) {
-                    isPresentingTaskCreationSheet = true
-                }
-                .accessibilityIdentifier("createTask")
+                .accessibilityLabel("Mais opções")
+                .accessibilityIdentifier("houseOptionsMenu")
             }
         }
-
         .sheet(
             isPresented: $isPresentingTaskCreationSheet
         ) {
-
             TaskCreationSheetView(
                 viewModel: makeTaskEditorViewModel()
             )
             .presentationDragIndicator(.visible)
         }
-
         .sheet(
             isPresented: $isPresentingRoomCreationSheet,
             onDismiss: {
-
                 Task {
                     await viewModel.load()
                 }
             }
         ) {
-
             RoomCreationSheetView(
                 viewModel: makeRoomEditorViewModel(),
                 existingRoomNames: existingRoomNames
             )
             .presentationDragIndicator(.hidden)
         }
-
+        .sheet(
+            isPresented: $isPresentingReorderSheet
+        ) {
+            ReordenarComodosView(
+                rooms: reorderRoomItems,
+                onSave: { newOrder in
+                    orderedRoomIDs = newOrder.map(\.id)
+                }
+            )
+        }
         .task {
             await viewModel.load()
         }
-
         .refreshable {
             await viewModel.load()
         }
@@ -143,17 +195,14 @@ struct HouseManagementView: View {
         case .idle, .loading:
 
             HStack {
-
                 Spacer()
-
                 ProgressView("Carregando cômodos…")
-
                 Spacer()
             }
 
         case let .content(rooms):
 
-            ForEach(rooms) { room in
+            ForEach(orderedRooms(rooms)) { room in
 
                 Button {
                     onSelectRoom(room.id)
@@ -188,6 +237,92 @@ struct HouseManagementView: View {
                 systemImage: "exclamationmark.triangle"
             )
             .foregroundStyle(.red)
+        }
+    }
+
+    // MARK: - Reordenação
+
+    private var reorderRoomItems: [RoomItem] {
+
+        guard case let .content(rooms) = viewModel.state else {
+            return []
+        }
+
+        return orderedRooms(rooms).map { room in
+            RoomItem(
+                id: room.id,
+                name: room.name,
+                symbol: room.icon,
+                color: color(for: room.color),
+                isPrivate: room.visibility == .privateRoom
+            )
+        }
+    }
+
+    private func orderedRooms(
+        _ rooms: [Room]
+    ) -> [Room] {
+
+        guard !orderedRoomIDs.isEmpty else {
+            return rooms
+        }
+
+        let roomsByID = Dictionary(
+            uniqueKeysWithValues: rooms.map {
+                ($0.id, $0)
+            }
+        )
+
+        var ordered = orderedRoomIDs.compactMap {
+            roomsByID[$0]
+        }
+
+        let alreadyOrdered = Set(
+            ordered.map(\.id)
+        )
+
+        ordered.append(
+            contentsOf: rooms.filter {
+                !alreadyOrdered.contains($0.id)
+            }
+        )
+
+        return ordered
+    }
+
+    private func color(
+        for roomColor: RoomColor
+    ) -> Color {
+
+        switch roomColor {
+
+        case .red:
+            return .red
+
+        case .orange:
+            return .orange
+
+        case .yellow:
+            return .yellow
+
+        case .green:
+            return .green
+
+        case .blue:
+            return .blue
+
+        case .purple:
+            return .purple
+
+        case .brown:
+            return .brown
+
+        case .gray:
+            return .gray
+
+        case .pink:
+            return .pink
+
         }
     }
 
