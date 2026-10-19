@@ -36,6 +36,8 @@ final class RemoteHouseSession: ObservableObject {
     @Published private(set) var loadError: LoadError?
     /// Sair apagaria cômodos em que o morador é o último participante: a tela pede confirmação e repete.
     @Published var leaveNeedsConfirmation = false
+    /// O morador é o último da casa: sair exclui a casa inteira. A tela pede confirmação e repete.
+    @Published var leaveNeedsHouseDeletionConfirmation = false
 
     /// `nil` quando o build não tem endereço de servidor (`GRUPUXO_API_BASE_URL`): o app mostra o erro em vez de tentar.
     let api: APIClient?
@@ -120,13 +122,21 @@ final class RemoteHouseSession: ObservableObject {
         }
     }
 
-    /// Sai da casa. Se algum cômodo seria excluído, `leaveNeedsConfirmation` fica verdadeiro e a tela repete com `confirmRoomDeletion`.
-    func leaveHouse(confirmRoomDeletion: Bool = false) async {
+    /// Sai da casa. Se algum cômodo seria excluído, `leaveNeedsConfirmation` fica verdadeiro e a tela repete com
+    /// `confirmRoomDeletion`; se o morador é o último, `leaveNeedsHouseDeletionConfirmation` e a tela repete com
+    /// `confirmHouseDeletion` (a casa inteira é excluída no servidor).
+    func leaveHouse(confirmRoomDeletion: Bool = false, confirmHouseDeletion: Bool = false) async {
+        var query: [String: String] = [:]
+        if confirmRoomDeletion { query["confirmRoomDeletion"] = "true" }
+        if confirmHouseDeletion { query["confirmHouseDeletion"] = "true" }
         await perform { api in
             do {
-                try await api.send("DELETE", "v1/me/house", query: confirmRoomDeletion ? ["confirmRoomDeletion": "true"] : [:])
+                try await api.send("DELETE", "v1/me/house", query: query)
             } catch let error as APIError where error.code == "room_deletion_confirmation_required" && !confirmRoomDeletion {
                 self.leaveNeedsConfirmation = true
+                return
+            } catch let error as APIError where error.code == "house_deletion_confirmation_required" && !confirmHouseDeletion {
+                self.leaveNeedsHouseDeletionConfirmation = true
                 return
             }
             self.home = nil
@@ -142,6 +152,7 @@ final class RemoteHouseSession: ObservableObject {
         errorMessage = nil
         loadError = nil
         leaveNeedsConfirmation = false
+        leaveNeedsHouseDeletionConfirmation = false
         hasLoaded = false
     }
 

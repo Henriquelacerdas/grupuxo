@@ -160,17 +160,21 @@ export class HouseStateStore {
    * Transação por cópia: `fn` recebe um rascunho do estado e pode lançar (nada é gravado). Sem diferença, nada é
    * gravado. Conflito de `version` recarrega e repete, até `MAX_ATTEMPTS`; esgotado, `DynamoStoreError("conflict")`.
    * Acima de 100 ações: `tooManyWrites` (padrão) ou, com `oversizedWrites: "split"`, várias transações em sequência
-   * (só o conflito na primeira repete; falha depois dela é `partialWrite`).
+   * (só o conflito na primeira repete; falha depois dela é `partialWrite`). Se o comando tira a casa do estado
+   * (o último morador saiu), apaga a partição inteira e o `ACCESSCODE#` (veja `deletion`).
    */
   async update<T>(houseID: HouseID, fn: (draft: StoreState) => T, options: UpdateOptions = {}): Promise<T> {
     for (let attempt = 1; ; attempt += 1) {
       const loaded = await this.load(houseID, options.extraProfileIDs ?? []);
       const draft = cloneStoreState(loaded.state);
       const result = fn(draft);
-      const actions = this.diff(houseID, loaded, draft);
+      const { actions, deletesHouse } = this.diff(houseID, loaded, draft);
       if (actions.length === 0) return result;
       if (!loaded.exists) throw new DomainError("entityNotFound");
-      if (actions.length > MAX_TRANSACT_ACTIONS && this.oversizedWrites === "fail") throw new DynamoStoreError("tooManyWrites");
+      // Excluir a casa sempre pode dividir: a primeira transação apaga o `META` e o resto fica inerte (veja `deletion`).
+      if (actions.length > MAX_TRANSACT_ACTIONS && this.oversizedWrites === "fail" && !deletesHouse) {
+        throw new DynamoStoreError("tooManyWrites");
+      }
       const [first = [], ...rest] = splitTransactions(actions);
       try {
         await this.client.transactWrite(first);
@@ -261,7 +265,47 @@ export class HouseStateStore {
     }
   }
 
-  private diff(houseID: HouseID, loaded: LoadedHouse, draft: StoreState): DynamoTransactAction[] {
+  private diff(houseID: HouseID, loaded: LoadedHouse, draft: StoreState): { actions: DynamoTransactAction[]; deletesHouse: boolean } {
+    const house = loaded.state.houses[0];
+    if (loaded.exists && house !== undefined && draft.houses.length === 0) {
+      return { actions: this.deletion(houseID, house, loaded, draft), deletesHouse: true };
+    }
+    return { actions: this.changes(houseID, loaded, draft), deletesHouse: false };
+  }
+
+  /**
+   * Exclusão da casa: o comando tem de ter tirado tudo da partição e não pode ter mexido em perfis. Ordem: `META`
+   * (condicionado a `version`, ação 0 como em toda escrita), `ACCESSCODE#` (o código fica livre), participações (o
+   * `GSI1` deixa de mostrar a casa aos moradores) e o resto. Tudo cabe na primeira transação numa casa pequena; se
+   * não couber, as seguintes apagam o que sobrou, já inerte (nenhuma consulta enxerga itens sem o `META`), e uma
+   * falha nelas é `partialWrite` com órfãos inofensivos.
+   */
+  private deletion(houseID: HouseID, house: House, loaded: LoadedHouse, draft: StoreState): DynamoTransactAction[] {
+    if (encodePartition(houseID, draft).size > 0 || draft.users.length !== loaded.state.users.length ||
+      draft.users.some((user, index) => {
+        const before = loaded.state.users[index];
+        return before === undefined || !equalValues(encodeUser(before), encodeUser(user));
+      })) {
+      throw new DynamoStoreError("unsupportedChange");
+    }
+    const pk = housePK(houseID);
+    const keys = [...loaded.baseline.keys()];
+    const isMembership = (sk: string): boolean => sk.startsWith(SK_PREFIX.membership);
+    return [
+      {
+        kind: "delete", key: { PK: pk, SK: META_SK }, condition: "#version = :read",
+        names: { "#version": "version" }, values: { ":read": loaded.version },
+      },
+      {
+        kind: "delete", key: { PK: accessCodePK(house.accessCode), SK: ACCESS_CODE_SK }, condition: "#houseID = :house",
+        names: { "#houseID": "houseID" }, values: { ":house": houseID },
+      },
+      ...[...keys.filter(isMembership), ...keys.filter((sk) => !isMembership(sk))]
+        .map((sk): DynamoTransactAction => ({ kind: "delete", key: { PK: pk, SK: sk } })),
+    ];
+  }
+
+  private changes(houseID: HouseID, loaded: LoadedHouse, draft: StoreState): DynamoTransactAction[] {
     const next = encodePartition(houseID, draft);
     const changes: DynamoTransactAction[] = [];
     for (const [sk, item] of next) {

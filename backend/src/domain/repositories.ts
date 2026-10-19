@@ -5,6 +5,7 @@ import type {
 import type {
   HouseID, NotificationID, RoomID, TaskDefinitionID, TaskOccurrenceID, TaskSwapRequestID, UserID,
 } from "./ids.ts";
+import type { LeaveHouseOutcome } from "./commands/houses.ts";
 
 export interface HouseRepository {
   addMember(name: string, houseID: HouseID, requestedBy: UserID, at: Instant): Promise<User>;
@@ -13,8 +14,13 @@ export interface HouseRepository {
   create(founderID: UserID, name: string, timezone: string, at: Instant): Promise<House>;
   /** Entra numa casa pelo código de convite (código inexistente ou malformado: `invalidAccessCode`). */
   joinByCode(userID: UserID, code: string, at: Instant): Promise<House>;
-  /** O próprio morador sai da casa (`lastMember` se for o único). */
-  leave(userID: UserID, houseID: HouseID, at: Instant, confirmRoomDeletion: boolean): Promise<void>;
+  /**
+   * O próprio morador sai da casa. O último só sai com `confirmHouseDeletion` (senão
+   * `houseDeletionConfirmationRequired`), e a casa é excluída inteira.
+   */
+  leave(
+    userID: UserID, houseID: HouseID, at: Instant, confirmRoomDeletion: boolean, confirmHouseDeletion?: boolean,
+  ): Promise<LeaveHouseOutcome>;
   house(id: HouseID): Promise<House>;
   houses(userID: UserID): Promise<House[]>;
   members(houseID: HouseID): Promise<User[]>;

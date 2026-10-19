@@ -139,19 +139,53 @@ export function joinHouseByCode(
   return house;
 }
 
+/** O que aconteceu ao sair da casa. */
+export type LeaveHouseOutcome = "left" | "houseDeleted";
+
 /**
- * O próprio morador sai da casa (`removeHouseMember` continua proibindo remover a si mesmo). O último morador não
- * sai. Cômodo em que ele é o último participante só é excluído com `confirmRoomDeletion`.
+ * O próprio morador sai da casa (`removeHouseMember` continua proibindo remover a si mesmo). Cômodo em que ele é o
+ * último participante só é excluído com `confirmRoomDeletion`. O último morador só sai com `confirmHouseDeletion`
+ * (senão `houseDeletionConfirmationRequired`), e a casa é excluída inteira com ele.
  */
 export function leaveHouse(
   ctx: CommandContext, state: StoreState, userID: UserID, houseID: HouseID, date: Instant, confirmRoomDeletion: boolean,
-): void {
+  confirmHouseDeletion = false,
+): LeaveHouseOutcome {
   if (!state.houses.some((h) => h.id === houseID)) throw new DomainError("entityNotFound");
   const memberships = state.houseMemberships.filter((m) => m.houseID === houseID);
   const membership = memberships.find((m) => m.userID === userID);
   if (membership === undefined) throw new DomainError("entityNotFound");
-  if (memberships.length === 1) throw new DomainError("lastMember");
+  if (memberships.length === 1) {
+    if (!confirmHouseDeletion) throw new DomainError("houseDeletionConfirmationRequired");
+    deleteHouse(state, houseID);
+    return "houseDeleted";
+  }
   removeMembershipFromHouse(ctx, state, membership.id, userID, houseID, date, confirmRoomDeletion);
+  return "left";
+}
+
+/**
+ * Apaga a casa e tudo o que é dela: participações, ausências, cômodos, tarefas, ocorrências, atribuições, trocas e
+ * notificações. Os perfis dos moradores ficam (a conta não é da casa).
+ */
+function deleteHouse(state: StoreState, houseID: HouseID): void {
+  const membershipIDs = new Set(state.houseMemberships.filter((m) => m.houseID === houseID).map((m) => m.id));
+  const roomIDs = new Set(state.rooms.filter((r) => r.houseID === houseID).map((r) => r.id));
+  const definitionIDs = new Set(state.definitions.filter((d) => roomIDs.has(d.roomID)).map((d) => d.id));
+  const occurrenceIDs = new Set(state.occurrences.filter((o) => definitionIDs.has(o.taskDefinitionID)).map((o) => o.id));
+  const swapIDs = new Set(state.taskSwapRequests
+    .filter((s) => occurrenceIDs.has(s.offeredOccurrenceID) || occurrenceIDs.has(s.requestedOccurrenceID))
+    .map((s) => s.id));
+  state.houses = state.houses.filter((h) => h.id !== houseID);
+  state.houseMemberships = state.houseMemberships.filter((m) => !membershipIDs.has(m.id));
+  state.absences = state.absences.filter((a) => !membershipIDs.has(a.membershipID));
+  state.rooms = state.rooms.filter((r) => !roomIDs.has(r.id));
+  state.roomMemberships = state.roomMemberships.filter((m) => !roomIDs.has(m.roomID));
+  state.definitions = state.definitions.filter((d) => !definitionIDs.has(d.id));
+  state.occurrences = state.occurrences.filter((o) => !occurrenceIDs.has(o.id));
+  state.assignments = state.assignments.filter((a) => !occurrenceIDs.has(a.occurrenceID));
+  state.taskSwapRequests = state.taskSwapRequests.filter((s) => !swapIDs.has(s.id));
+  state.notifications = state.notifications.filter((n) => !swapIDs.has(n.swapRequestID));
 }
 
 export function houseMembers(state: StoreState, houseID: HouseID): User[] {

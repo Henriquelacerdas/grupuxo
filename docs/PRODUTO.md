@@ -18,7 +18,7 @@ Uma casa possui moradores, cômodos e tarefas. Toda tarefa pertence a um cômodo
 - **Casa toda** é o cômodo padrão para tarefas da residência inteira: sempre comum, não pode ser excluído nem abandonado individualmente.
 - Sair de um cômodo comum o torna privado imediatamente; reentrar não o torna comum de novo.
 - A **última saída** de um cômodo exige confirmação: "Atenção: Você é o último participante desse cômodo. Se sair, o cômodo e suas tarefas serão excluídos." → botão "Sair e excluir". Cancelar preserva tudo.
-- Novo morador entra automaticamente em todos os cômodos comuns. Ao sair da casa, deixa todos os cômodos; comuns continuam comuns. Se isso esvaziar um privado, a exclusão também exige confirmação.
+- Novo morador entra automaticamente em todos os cômodos comuns. Ao sair da casa, deixa todos os cômodos; comuns continuam comuns. Se isso esvaziar um privado, a exclusão também exige confirmação. O último morador também pode sair: depois de confirmar, a casa é excluída inteira (cômodos, tarefas, histórico e código de convite).
 - Não há privacidade individual de tarefas nem aprovação de entrada.
 
 ### Escala do cômodo

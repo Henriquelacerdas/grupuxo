@@ -17,7 +17,8 @@ const MESSAGES = {
   invalidHouseName: "Informe um nome para a casa, com até 80 caracteres.",
   invalidTimezone: "O fuso horário informado é inválido.",
   invalidAccessCode: "O código de convite é inválido.",
-  lastMember: "Você é o último morador da casa e não pode sair.",
+  houseDeletionConfirmationRequired:
+    "Atenção: você é o último morador. Se sair, a casa, os cômodos e as tarefas serão excluídos.",
 } as const;
 
 export type DomainErrorCode = keyof typeof MESSAGES;

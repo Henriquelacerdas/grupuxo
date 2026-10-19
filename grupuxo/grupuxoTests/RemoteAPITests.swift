@@ -285,6 +285,25 @@ struct RemoteHouseSessionTests {
         #expect(await server.requests.last?.url?.query == "confirmRoomDeletion=true")
     }
 
+    @Test func leavingAsLastMemberAsksToDeleteTheHouse() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me", body: meJSON)
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        await server.on("DELETE /v1/me/house", status: 409, body: #"{"error":"house_deletion_confirmation_required"}"#)
+        let houses = session(server)
+        await houses.load()
+        await houses.leaveHouse()
+        #expect(houses.leaveNeedsHouseDeletionConfirmation)
+        #expect(!houses.leaveNeedsConfirmation)
+        #expect(houses.house != nil)
+
+        await server.on("DELETE /v1/me/house", status: 204, body: "")
+        await houses.leaveHouse(confirmRoomDeletion: true, confirmHouseDeletion: true)
+        #expect(houses.house == nil)
+        #expect(houses.errorMessage == nil)
+        #expect(await server.requests.last?.url?.query == "confirmHouseDeletion=true&confirmRoomDeletion=true")
+    }
+
     @Test func expiredTokenReportsSessionExpired() async throws {
         let server = FakeServer()
         await server.on("GET /v1/me", status: 401, body: #"{"error":"unauthorized"}"#)
