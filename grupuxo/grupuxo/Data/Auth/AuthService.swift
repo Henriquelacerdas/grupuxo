@@ -18,6 +18,30 @@ class AuthService: ObservableObject {
         case error(String)
     }
     
+    enum SignUpOutcome: Equatable {
+        /// Conta criada; falta o código enviado por e-mail.
+        case confirmationRequired
+        /// Conta criada e já confirmada (o pool não pediu código).
+        case completed
+        /// Já existe conta com este e-mail: o caminho é entrar (ou confirmar, se nunca confirmou).
+        case alreadyExists
+        case failed(String)
+    }
+
+    enum ConfirmSignUpOutcome: Equatable {
+        case confirmed
+        case failed(String)
+    }
+
+    /// Regras de senha do user pool (`amplify_outputs.json`), mostradas no cadastro.
+    static let passwordRules = "Mínimo de 8 caracteres, com letra maiúscula, minúscula, número e símbolo."
+
+    /// O e-mail é o nome de usuário no Cognito: sem espaços nas pontas (o teclado e o preenchimento automático
+    /// costumam deixar um no fim) e em minúsculas, para o cadastro e o login sempre baterem.
+    nonisolated static func normalizedEmail(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
     private let client: any AuthSessionClient
     private var eventsTask: Task<Void, Never>?
 
@@ -55,9 +79,11 @@ class AuthService: ObservableObject {
 
     // Faz o login
     func signIn(username: String, password: String) async -> SignInStatus {
+        let email = Self.normalizedEmail(username)
+        guard !email.isEmpty, !password.isEmpty else { return .error("Informe o e-mail e a senha.") }
         await client.clearStaleSession()
         do {
-            let result = try await Amplify.Auth.signIn(username: username, password: password)
+            let result = try await Amplify.Auth.signIn(username: email, password: password)
             if result.isSignedIn {
                 self.isSignedIn = true
                 print("Login com sucesso!")
@@ -73,13 +99,19 @@ class AuthService: ObservableObject {
                 }
             }
         } catch let error as AuthError {
+            print("Erro no login: \(error)")
             if case .notAuthorized = error {
                 return .invalidCredentials
             }
-            return .error(error.errorDescription)
+            switch Self.cognitoError(error) {
+            case .userNotConfirmed: return .confirmSignUp
+            case .passwordResetRequired: return .resetPassword
+            case .userNotFound: return .invalidCredentials
+            default: return .error(Self.message(for: error))
+            }
         } catch {
             print("Erro no login: \(error)")
-            return .error(error.localizedDescription)
+            return .error(Self.message(for: error))
         }
     }
     
@@ -92,74 +124,131 @@ class AuthService: ObservableObject {
         isSignedIn = false
     }
 
-    // Faz o cadastro de um novo usuário
-    func signUp(username: String, email: String, password: String) async -> Bool {
-        // O Cognito geralmente exige o email como um atributo adicional
-        let userAttributes = [AuthUserAttribute(.email, value: email)]
-        let options = AuthSignUpRequest.Options(userAttributes: userAttributes)
-        
+    // Faz o cadastro de um novo usuário (o e-mail é o nome de usuário no Cognito).
+    func signUp(email rawEmail: String, password: String) async -> SignUpOutcome {
+        let email = Self.normalizedEmail(rawEmail)
+        guard !email.isEmpty, !password.isEmpty else { return .failed("Informe o e-mail e a senha.") }
+        let options = AuthSignUpRequest.Options(userAttributes: [AuthUserAttribute(.email, value: email)])
         do {
-            let result = try await Amplify.Auth.signUp(
-                username: username,
-                password: password,
-                options: options
-            )
-            print("Cadastro iniciado. Próximo passo: \(result.nextStep)")
-            return true // Sucesso na primeira etapa, precisa confirmar o código
+            let result = try await Amplify.Auth.signUp(username: email, password: password, options: options)
+            if case .done = result.nextStep { return .completed }
+            return .confirmationRequired
+        } catch let error as AuthError {
+            print("Erro no cadastro: \(error)")
+            switch Self.cognitoError(error) {
+            case .usernameExists, .aliasExists: return .alreadyExists
+            case .invalidPassword: return .failed("Senha fraca. \(Self.passwordRules)")
+            case .invalidParameter: return .failed("Confira o e-mail e a senha. \(Self.passwordRules)")
+            default: return .failed(Self.message(for: error))
+            }
         } catch {
             print("Erro no cadastro: \(error)")
-            return false
+            return .failed(Self.message(for: error))
         }
     }
-    
-    func confirmSignUp(username: String, code: String) async -> Bool {
+
+    func confirmSignUp(email rawEmail: String, code rawCode: String) async -> ConfirmSignUpOutcome {
+        let email = Self.normalizedEmail(rawEmail)
+        let code = rawCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !email.isEmpty, !code.isEmpty else { return .failed("Informe o e-mail e o código.") }
         do {
-            let result = try await Amplify.Auth.confirmSignUp(for: username, confirmationCode: code)
-            if result.isSignUpComplete {
-                print("Cadastro confirmado com sucesso!")
-                return true
-            } else {
-                return false
+            let result = try await Amplify.Auth.confirmSignUp(for: email, confirmationCode: code)
+            return result.isSignUpComplete ? .confirmed : .failed("Não foi possível confirmar a conta. Tente de novo.")
+        } catch let error as AuthError {
+            print("Erro na confirmação: \(error)")
+            // O Cognito responde "não autorizado" ao confirmar uma conta que já está confirmada.
+            if case .notAuthorized = error { return .confirmed }
+            switch Self.cognitoError(error) {
+            case .codeMismatch: return .failed("Código incorreto. Confira o último e-mail recebido.")
+            case .codeExpired: return .failed("O código expirou. Toque em \"Reenviar código\".")
+            case .aliasExists: return .failed("Já existe outra conta confirmada com este e-mail. Entre com ela.")
+            case .userNotFound: return .failed("Não encontramos uma conta com este e-mail. Cadastre-se de novo.")
+            default: return .failed(Self.message(for: error))
             }
         } catch {
             print("Erro na confirmação: \(error)")
-            return false
+            return .failed(Self.message(for: error))
         }
     }
-    
-    // Reenvia código de confirmação
-    func resendSignUpCode(username: String) async -> Bool {
+
+    /// Reenvia o código de confirmação. `nil` = enviado; senão, a mensagem do erro.
+    func resendSignUpCode(email rawEmail: String) async -> String? {
+        let email = Self.normalizedEmail(rawEmail)
+        guard !email.isEmpty else { return "Informe o e-mail." }
         do {
-            _ = try await Amplify.Auth.resendSignUpCode(for: username)
-            return true
+            _ = try await Amplify.Auth.resendSignUpCode(for: email)
+            return nil
+        } catch let error as AuthError {
+            print("Erro ao reenviar código: \(error)")
+            // Conta já confirmada: o Cognito recusa o reenvio ("User is already confirmed"); basta entrar.
+            if case .service(let description, _, _) = error, Self.cognitoError(error) == .invalidParameter,
+               description.localizedCaseInsensitiveContains("confirmed") {
+                return "Esta conta já está confirmada. Volte e entre com sua senha."
+            }
+            return Self.message(for: error)
         } catch {
             print("Erro ao reenviar código: \(error)")
-            return false
+            return Self.message(for: error)
         }
     }
-    
+
     // Inicia fluxo de redefinição de senha
     func resetPassword(username: String) async -> Bool {
         do {
-            _ = try await Amplify.Auth.resetPassword(for: username)
+            _ = try await Amplify.Auth.resetPassword(for: Self.normalizedEmail(username))
             return true
         } catch {
             print("Erro ao solicitar redefinição: \(error)")
             return false
         }
     }
-    
+
     // Confirma fluxo de redefinição de senha
     func confirmResetPassword(username: String, newPassword: String, code: String) async -> Bool {
         do {
-            try await Amplify.Auth.confirmResetPassword(for: username, with: newPassword, confirmationCode: code)
+            try await Amplify.Auth.confirmResetPassword(
+                for: Self.normalizedEmail(username),
+                with: newPassword,
+                confirmationCode: code.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
             return true
         } catch {
             print("Erro ao confirmar redefinição: \(error)")
             return false
         }
     }
-    
+
+    // MARK: - Erros do Cognito
+
+    private static func cognitoError(_ error: AuthError) -> AWSCognitoAuthError? {
+        switch error {
+        case .service(_, _, let underlying), .notAuthorized(_, _, let underlying), .validation(_, _, _, let underlying),
+             .unknown(_, let underlying):
+            return underlying as? AWSCognitoAuthError
+        default:
+            return nil
+        }
+    }
+
+    /// Mensagem em português para o usuário; o texto do Cognito (em inglês) só vai para o log.
+    private static func message(for error: Error) -> String {
+        guard let error = error as? AuthError else {
+            return "Não foi possível concluir agora. Tente de novo em instantes."
+        }
+        switch cognitoError(error) {
+        case .network:
+            return "Sem conexão com a internet. Tente de novo."
+        case .limitExceeded, .requestLimitExceeded, .failedAttemptsLimitExceeded:
+            return "Muitas tentativas seguidas. Espere alguns minutos e tente de novo."
+        case .codeDelivery:
+            return "Não conseguimos enviar o e-mail com o código. Tente de novo em alguns minutos."
+        case .userNotConfirmed:
+            return "Confirme seu e-mail com o código que enviamos antes de entrar."
+        default:
+            return "Não foi possível concluir agora. Tente de novo em instantes."
+        }
+    }
+
     func signInWithApple() async -> SignInStatus {
         // Pega a janela principal do app para ancorar a tela da Apple
         guard let window = UIApplication.shared.connectedScenes
@@ -189,10 +278,10 @@ class AuthService: ObservableObject {
                 return .cancelled
             }
             print("Erro no login com Apple: \(error)")
-            return .error(error.errorDescription)
+            return .error(Self.message(for: error))
         } catch {
             print("Erro no login com Apple: \(error)")
-            return .error(error.localizedDescription)
+            return .error(Self.message(for: error))
         }
     }
 }

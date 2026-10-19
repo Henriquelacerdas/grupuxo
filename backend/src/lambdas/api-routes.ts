@@ -106,11 +106,12 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
         return houseResponse(200, await houses.joinByCode(user, input.code, now()), user);
       }
       case "leaveHouse": {
-        const confirm = parseFlag(query, "confirmRoomDeletion");
-        if (confirm === null) return badRequest();
+        const confirmRooms = parseFlag(query, "confirmRoomDeletion");
+        const confirmHouse = parseFlag(query, "confirmHouseDeletion");
+        if (confirmRooms === null || confirmHouse === null) return badRequest();
         const house = await currentHouse(user);
         if (house === null) return noHouse();
-        await houses.leave(user, house.id, now(), confirm);
+        await houses.leave(user, house.id, now(), confirmRooms, confirmHouse);
         return noContent();
       }
 

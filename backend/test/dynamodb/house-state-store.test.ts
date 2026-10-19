@@ -421,3 +421,52 @@ test("split: comando que cabe numa transação continua sendo uma só, como sem 
 });
 
 void taskOccurrenceID;
+
+test("o último morador sai: a casa inteira some da tabela, em várias transações, com o META e o código na primeira", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const env = await dynamoEnvironment(world);
+  const { users, house } = world.seed;
+  await env.update((draft) => {
+    const kept = new Set(draft.houseMemberships.filter((m) => m.userID === users.marina.id).map((m) => m.id));
+    draft.houseMemberships = draft.houseMemberships.filter((m) => kept.has(m.id));
+    draft.absences = draft.absences.filter((a) => kept.has(a.membershipID));
+  });
+  const profiles = env.client.snapshot().filter((item) => item["SK"] === "PROFILE");
+  const before = env.client.transactions.length;
+  // Padrão `fail`: excluir a casa divide mesmo assim (o resto fica inerte assim que o META some).
+  assert.equal(await env.houses.leave(users.marina.id, house.id, world.now, false, true), "houseDeleted");
+  const sent = env.client.transactions.slice(before);
+  assert.ok(sent.length >= 2);
+  const [first = []] = sent;
+  const firstKeys = first.map((action) => (action.kind === "delete" ? `${action.key.PK}|${action.key.SK}` : ""));
+  assert.deepEqual(firstKeys.slice(0, 3), [`HOUSE#${house.id}|META`, `ACCESSCODE#${house.accessCode}|ACCESSCODE`, firstKeys[2]]);
+  assert.ok(firstKeys[2]?.startsWith(`HOUSE#${house.id}|MEMBER#`));
+  assert.ok(sent.flat().every((action) => action.kind === "delete"));
+  const left = env.client.snapshot();
+  assert.ok(!left.some((item) => item["PK"] === `HOUSE#${house.id}` || item["PK"] === `ACCESSCODE#${house.accessCode}`));
+  assert.deepEqual(left.filter((item) => item["SK"] === "PROFILE"), profiles);
+});
+
+test("o último morador sai: conflito de versão na primeira transação recarrega e repete a exclusão", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const client = new FakeDynamoClient();
+  const state = world.cleanState();
+  const env = await dynamoEnvironment(world, state, client);
+  const { users, house } = world.seed;
+  await env.update((draft) => {
+    draft.houseMemberships = draft.houseMemberships.filter((m) => m.userID === users.marina.id);
+    draft.absences = [];
+  });
+  let interfered = false;
+  client.beforeTransact = async () => {
+    if (interfered) return;
+    interfered = true;
+    // Outro pedido grava a casa no meio: o META muda de versão.
+    await client.update({
+      key: { PK: `HOUSE#${house.id}`, SK: "META" }, update: "SET #v = #v + :one", names: { "#v": "version" },
+      values: { ":one": 1 }, returnValues: "UPDATED_NEW",
+    });
+  };
+  assert.equal(await env.houses.leave(users.marina.id, house.id, world.now, false, true), "houseDeleted");
+  assert.ok(!client.snapshot().some((item) => item["PK"] === `HOUSE#${house.id}`));
+});

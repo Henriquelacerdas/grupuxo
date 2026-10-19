@@ -2,7 +2,7 @@ import { acceptSwapRequest, createSwapRequest, incomingRequests, outgoingRequest
 import type { CommandContext } from "../../domain/commands/context.ts";
 import {
   ACCESS_CODE_ATTEMPTS, addHouseMember, createHouse, houseMemberIDs, houseMembers, joinHouseByCode, leaveHouse,
-  normalizeAccessCode, removeHouseMember,
+  normalizeAccessCode, removeHouseMember, type LeaveHouseOutcome,
 } from "../../domain/commands/houses.ts";
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
 import { createRoom, roomFor, roomParticipation, roomsFor } from "../../domain/commands/rooms.ts";
@@ -50,8 +50,10 @@ export class InMemoryHouseRepository implements HouseRepository {
     return this.store.update((s) => joinHouseByCode(this.ctx, s, userID, code, at));
   }
 
-  async leave(userID: UserID, houseID: HouseID, at: Instant, confirmRoomDeletion: boolean): Promise<void> {
-    this.store.update((s) => leaveHouse(this.ctx, s, userID, houseID, at, confirmRoomDeletion));
+  async leave(
+    userID: UserID, houseID: HouseID, at: Instant, confirmRoomDeletion: boolean, confirmHouseDeletion = false,
+  ): Promise<LeaveHouseOutcome> {
+    return this.store.update((s) => leaveHouse(this.ctx, s, userID, houseID, at, confirmRoomDeletion, confirmHouseDeletion));
   }
 
   async addMember(name: string, houseID: HouseID, requestedBy: UserID, at: Instant): Promise<User> {

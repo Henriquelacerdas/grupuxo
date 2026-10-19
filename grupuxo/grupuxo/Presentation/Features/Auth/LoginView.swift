@@ -17,10 +17,13 @@ struct LoginView: View {
                 TextField("Email", text: $username)
                     .textFieldStyle(.roundedBorder)
                     .textInputAutocapitalization(.never)
+                    .keyboardType(.emailAddress)
+                    .textContentType(.username)
                     .autocorrectionDisabled()
                 
                 SecureField("Senha", text: $password)
                     .textFieldStyle(.roundedBorder)
+                    .textContentType(.password)
                 
                 if !signInError.isEmpty {
                     Text(signInError)
@@ -62,7 +65,7 @@ struct LoginView: View {
                     Spacer()
                     
                     NavigationLink("Esqueci minha senha") {
-                        ForgotPasswordView(username: username)
+                        ForgotPasswordView(username: AuthService.normalizedEmail(username))
                     }
                 }
                 .font(.callout)
@@ -99,7 +102,8 @@ struct LoginView: View {
             }
             .padding()
             .navigationDestination(isPresented: $showConfirmSignUp) {
-                ConfirmSignUpView(email: username)
+                // Conta criada e nunca confirmada: manda um código novo e, confirmando, já entra.
+                ConfirmSignUpView(email: AuthService.normalizedEmail(username), password: password, sendCodeOnAppear: true)
             }
         }
     }

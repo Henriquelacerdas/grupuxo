@@ -33,7 +33,11 @@ struct HouseView: View {
 
             Section {
                 Button("Sair da casa", systemImage: "door.left.hand.open", role: .destructive) {
-                    confirmLeave = true
+                    if isLastMember {
+                        houses.leaveNeedsHouseDeletionConfirmation = true
+                    } else {
+                        confirmLeave = true
+                    }
                 }
                 .disabled(houses.isLoading)
 
@@ -41,8 +45,8 @@ struct HouseView: View {
                     Task { await authService.signOut() }
                 }
             } footer: {
-                if houses.members.count <= 1 {
-                    Text("Você é o único morador: não dá para sair da casa antes de alguém entrar.")
+                if isLastMember {
+                    Text("Você é o único morador: se sair, a casa será excluída.")
                 }
             }
         }
@@ -67,7 +71,20 @@ struct HouseView: View {
         } message: {
             Text("Você é o último participante de algum cômodo. Se sair, o cômodo e as tarefas dele serão excluídos.")
         }
+        .confirmationDialog(
+            "Excluir a casa?",
+            isPresented: $houses.leaveNeedsHouseDeletionConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Sair e excluir a casa", role: .destructive) {
+                Task { await houses.leaveHouse(confirmRoomDeletion: true, confirmHouseDeletion: true) }
+            }
+        } message: {
+            Text("Você é o último morador. Se sair, a casa, os cômodos, as tarefas e o histórico serão excluídos, e o código de convite deixa de valer. Não dá para desfazer.")
+        }
     }
+
+    private var isLastMember: Bool { houses.members.count <= 1 }
 
     // MARK: - Seções
 

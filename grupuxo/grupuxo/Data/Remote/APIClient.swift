@@ -59,7 +59,8 @@ enum APIError: Error, Equatable, LocalizedError, Sendable {
         case "invalid_code": "Código de convite inválido."
         case "already_in_house": "Você já faz parte de uma casa."
         case "no_house": "Você ainda não faz parte de uma casa."
-        case "last_member": "Você é o último morador: não dá para sair da casa."
+        case "house_deletion_confirmation_required":
+            "Você é o último morador: se sair, a casa, os cômodos e as tarefas serão excluídos."
         case "room_deletion_confirmation_required":
             "Você é o último participante de um cômodo: se sair, o cômodo e suas tarefas serão excluídos."
         case "whole_house_protected": "Casa toda sempre inclui todos os moradores."

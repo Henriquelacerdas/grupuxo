@@ -428,13 +428,37 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     assert.deepEqual(await env.state(), state);
   });
 
-  test(`${name}: o último morador não sai da casa`, async () => {
+  test(`${name}: o último morador só sai confirmando a exclusão da casa`, async () => {
     const { world, env } = await setup(make, { withoutTasks: true });
     const founder = userID(uuid(901));
     await env.registerUser({ id: founder, name: "Fundadora", email: null });
     const created = await env.houses.create(founder, "Casa nova", SAO_PAULO, world.now);
-    await assert.rejects(env.houses.leave(founder, created.id, world.now, true), code("lastMember"));
+    await assert.rejects(env.houses.leave(founder, created.id, world.now, true), code("houseDeletionConfirmationRequired"));
     assert.deepEqual((await env.houses.houses(founder)).map((h) => h.id), [created.id]);
+    assert.equal(await env.houses.leave(founder, created.id, world.now, false, true), "houseDeleted");
+    assert.deepEqual(await env.houses.houses(founder), []);
+    await assert.rejects(env.houses.house(created.id), code("entityNotFound"));
+  });
+
+  test(`${name}: a casa excluída pelo último morador some com tarefas e código, e ele pode criar outra`, async () => {
+    const { world, env, house, users } = await setup(make);
+    // Só a Marina fica na casa (preparação fora das regras): a escala, as ocorrências e as trocas continuam lá.
+    await env.update((draft) => {
+      const kept = new Set(draft.houseMemberships.filter((m) => m.userID === users.marina.id).map((m) => m.id));
+      draft.houseMemberships = draft.houseMemberships.filter((m) => kept.has(m.id));
+      draft.absences = draft.absences.filter((a) => kept.has(a.membershipID));
+    });
+    const before = await env.state();
+    assert.ok(before.occurrences.length > 0);
+    await assert.rejects(env.houses.leave(users.marina.id, house.id, world.now, true), code("houseDeletionConfirmationRequired"));
+    assert.deepEqual(await env.state(), before);
+    assert.equal(await env.houses.leave(users.marina.id, house.id, world.now, false, true), "houseDeleted");
+    assert.deepEqual(await env.houses.houses(users.marina.id), []);
+    await assert.rejects(env.houses.house(house.id), code("entityNotFound"));
+    await assert.rejects(env.houses.joinByCode(users.rafa.id, house.accessCode, world.now), code("invalidAccessCode"));
+    await assert.rejects(env.houses.leave(users.marina.id, house.id, world.now, false, true), code("entityNotFound"));
+    const next = await env.houses.create(users.marina.id, "Casa nova", SAO_PAULO, world.now);
+    assert.deepEqual((await env.houses.houses(users.marina.id)).map((h) => h.id), [next.id]);
   });
 
   test(`${name}: sair sendo o último participante de um cômodo exige confirmação e o exclui`, async () => {

@@ -118,14 +118,42 @@ test("leaveHouse: sai de todos os cômodos e deixa o mesmo estado que removeHous
   assert.deepEqual(state, referenceEnv.store.read((s) => s));
 });
 
-test("leaveHouse: último morador não sai; quem não é da casa é 'não encontrado'", () => {
+test("leaveHouse: último morador só sai confirmando a exclusão da casa; quem não é da casa é 'não encontrado'", () => {
   const { world, founder, store, create } = newHouseEnv();
   const house = create();
-  assert.throws(() => store.update((s) => leaveHouse(world.ctx, s, founder, house.id, world.now, true)), code("lastMember"));
+  assert.throws(() => store.update((s) => leaveHouse(world.ctx, s, founder, house.id, world.now, true)), code("houseDeletionConfirmationRequired"));
   const stranger = toUserID(world.newID());
   assert.throws(() => store.update((s) => leaveHouse(world.ctx, s, stranger, house.id, world.now, false)), code("entityNotFound"));
   assert.throws(() => store.update((s) => leaveHouse(world.ctx, s, founder, house.id.replace(/.$/, "0") as typeof house.id, world.now, false)), code("entityNotFound"));
   assert.equal(store.read((s) => s.houseMemberships.length), 1);
+});
+
+test("leaveHouse: o último morador confirmando exclui a casa inteira e mantém os perfis", () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const { house, users } = world.seed;
+  const env = world.env();
+  const other = env.store.update((s) => createHouse(world.ctx, s, users.leo.id, "Outra casa", SAO_PAULO, () => "OUTRA123", world.now));
+  for (const user of [users.rafa, users.bia, users.leo]) {
+    env.store.update((s) => leaveHouse(world.ctx, s, user.id, house.id, world.now, true));
+  }
+  const before = env.store.read((s) => s);
+  assert.equal(env.store.update((s) => leaveHouse(world.ctx, s, users.marina.id, house.id, world.now, false, true)), "houseDeleted");
+  const state = env.store.read((s) => s);
+  const otherRooms = new Set(state.rooms.map((r) => r.id));
+  assert.deepEqual(state.houses, [other]);
+  assert.deepEqual(state.houseMemberships.map((m) => m.houseID), [other.id]);
+  assert.ok(state.rooms.every((r) => r.houseID === other.id));
+  assert.ok(state.roomMemberships.every((m) => otherRooms.has(m.roomID)));
+  assert.ok(state.definitions.every((d) => otherRooms.has(d.roomID)));
+  const definitions = new Set(state.definitions.map((d) => d.id));
+  assert.ok(state.occurrences.every((o) => definitions.has(o.taskDefinitionID)));
+  const occurrences = new Set(state.occurrences.map((o) => o.id));
+  assert.ok(state.assignments.every((a) => occurrences.has(a.occurrenceID)));
+  assert.ok(before.occurrences.length > state.occurrences.length);
+  assert.deepEqual(state.absences, []);
+  assert.deepEqual(state.taskSwapRequests, []);
+  assert.deepEqual(state.notifications, []);
+  assert.deepEqual(state.users, before.users);
 });
 
 test("leaveHouse: último participante de um cômodo exige confirmação e o cômodo é excluído com ela", () => {

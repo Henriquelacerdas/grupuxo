@@ -102,13 +102,19 @@ export function houseRoutes(name: string, make: ApiEnvFactory): void {
     assert.equal(rec((await join(env, "bia", house.code))["house"])["id"], house.id);
   });
 
-  test(`${name}: o último morador não sai (409 last_member) e a casa continua`, async () => {
+  test(`${name}: o último morador só sai confirmando, e a casa é excluída (o código deixa de valer)`, async () => {
     const env = make();
     await register(env, "ana", "Ana");
-    await createHouse(env, "ana");
-    expectError(await env.call("ana", "DELETE", "/v1/me/house"), 409, "last_member");
-    expectError(await env.call("ana", "DELETE", "/v1/me/house", { query: "confirmRoomDeletion=true" }), 409, "last_member");
+    const house = await createHouse(env, "ana");
+    expectError(await env.call("ana", "DELETE", "/v1/me/house"), 409, "house_deletion_confirmation_required");
+    expectError(await env.call("ana", "DELETE", "/v1/me/house", { query: "confirmRoomDeletion=true" }), 409, "house_deletion_confirmation_required");
+    expectError(await env.call("ana", "DELETE", "/v1/me/house", { query: "confirmHouseDeletion=sim" }), 400, "bad_request");
     assert.equal((await env.call("ana", "GET", "/v1/me/house")).statusCode, 200);
+    assert.equal((await env.call("ana", "DELETE", "/v1/me/house", { query: "confirmHouseDeletion=true" })).statusCode, 204);
+    expectError(await env.call("ana", "GET", "/v1/me/house"), 404, "no_house");
+    await register(env, "bia", "Bia");
+    expectError(await env.call("bia", "POST", "/v1/houses/join", { body: JSON.stringify({ code: house.code }) }), 404, "invalid_code");
+    assert.notEqual((await createHouse(env, "ana")).id, house.id);
   });
 
   test(`${name}: sair sendo o último participante de um cômodo pede confirmação, repetível com a query`, async () => {

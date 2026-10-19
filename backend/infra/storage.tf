@@ -39,7 +39,10 @@ resource "aws_dynamodb_table" "main" {
     enabled        = true
   }
 
-  # PITR e proteção contra exclusão ficam para `prod` (BACKEND.md seção 10).
+  # Proteção contra exclusão também no dev: a tabela foi apagada por engano em out/2026 (BACKEND.md seção 10).
+  # Apagar de propósito exige desligar isto antes. PITR fica para `prod`.
+  deletion_protection_enabled = true
+
   point_in_time_recovery {
     enabled = false
   }

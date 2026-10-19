@@ -292,7 +292,7 @@ test("cada erro de domínio vira o status e o código da tabela da seção 6.1",
     ["invalidRoomName", 400, "invalid_room_name"], ["invalidRoomParticipants", 400, "invalid_room_participants"],
     ["invalidSchedule", 400, "invalid_schedule"], ["invalidDateInterval", 400, "invalid_date_interval"],
     ["invalidHouseName", 400, "invalid_house_name"], ["invalidTimezone", 400, "invalid_timezone"],
-    ["invalidAccessCode", 404, "invalid_code"], ["lastMember", 409, "last_member"],
+    ["invalidAccessCode", 404, "invalid_code"], ["houseDeletionConfirmationRequired", 409, "house_deletion_confirmation_required"],
     // Nenhuma rota os produz: se algum dia chegarem, são 500 sem detalhe.
     ["invalidResidentName", 500, "internal"], ["cannotRemoveCurrentUser", 500, "internal"],
   ];

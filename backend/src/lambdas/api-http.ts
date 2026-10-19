@@ -42,7 +42,7 @@ function domainFailure(code: DomainErrorCode): HttpApiResult {
     case "invalidHouseName": return failure(400, "invalid_house_name");
     case "invalidTimezone": return failure(400, "invalid_timezone");
     case "invalidAccessCode": return failure(404, "invalid_code");
-    case "lastMember": return failure(409, "last_member");
+    case "houseDeletionConfirmationRequired": return failure(409, "house_deletion_confirmation_required");
     // Nenhuma rota da `api` chega a estes: se chegar, é erro de programação.
     case "invalidResidentName":
     case "cannotRemoveCurrentUser":
