@@ -101,3 +101,11 @@ struct AuthServiceSessionTests {
         #expect(!service.isSignedIn)
     }
 }
+
+struct AuthEmailNormalizationTests {
+    @Test func trimsSpacesAndLowercasesTheEmail() {
+        // O preenchimento automático do teclado costuma deixar um espaço no fim; o Cognito trataria como outro usuário.
+        #expect(AuthService.normalizedEmail("  Fulana.Silva@Gmail.com \n") == "fulana.silva@gmail.com")
+        #expect(AuthService.normalizedEmail("   ") == "")
+    }
+}
