@@ -2,7 +2,9 @@ import { AuthenticationError, TokenVerifierUnavailableError, type TokenVerifier 
 import { parseProfileName, UserDirectoryError, type UserDirectory } from "../auth/user-directory.ts";
 import type { Instant } from "../domain/dates.ts";
 import type { IDGenerator, UserID } from "../domain/ids.ts";
-import type { HouseRepository, RoomRepository, TaskRepository } from "../domain/repositories.ts";
+import type {
+  HouseRepository, NotificationRepository, RoomRepository, TaskRepository, TaskSwapRepository,
+} from "../domain/repositories.ts";
 import type { WhatsAppLinker } from "../whatsapp/linking/whatsapp-linker.ts";
 import { WhatsAppLinkError, type WhatsAppLink, type WhatsAppLinkStore } from "../whatsapp/ports.ts";
 import { failure, json, jsonObject, storageOrDomainFailure } from "./api-http.ts";
@@ -18,6 +20,8 @@ export interface ApiDependencies {
   readonly houses: HouseRepository;
   readonly rooms: RoomRepository;
   readonly tasks: TaskRepository;
+  readonly swaps: TaskSwapRepository;
+  readonly notifications: NotificationRepository;
   /** Relógio do servidor: o `at` de todo comando, nunca o do cliente. */
   readonly now: () => Instant;
   readonly newID: IDGenerator;

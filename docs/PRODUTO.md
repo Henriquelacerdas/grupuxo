@@ -2,7 +2,7 @@
 
 App iOS em SwiftUI para organizar tarefas domésticas em casas compartilhadas e repúblicas. Objetivo: reduzir a carga mental de criar, distribuir, lembrar e acompanhar tarefas, com divisão clara e justa.
 
-**Estado atual:** login com Amazon Cognito (e-mail/senha e Sign in with Apple); criar casa ou entrar por código, cômodos, tarefas e conclusão pelo app falam com o backend em Node.js + TypeScript (algoritmo de distribuição no servidor, persistência em DynamoDB) e o canal WhatsApp (ver e concluir as próprias tarefas) está escrito e testado, aguardando o primeiro deploy do ambiente `dev` (ver [BACKEND.md](BACKEND.md) e [PLANO.md](PLANO.md)). Trocas, notificações, esporádicas e edição de tarefa ainda não têm rota no servidor e estão escondidas no app.
+**Estado atual:** login com Amazon Cognito (e-mail/senha e Sign in with Apple); criar casa ou entrar por código, cômodos, tarefas e conclusão pelo app falam com o backend em Node.js + TypeScript (algoritmo de distribuição no servidor, persistência em DynamoDB) e o canal WhatsApp (ver e concluir as próprias tarefas) está escrito e testado, aguardando o primeiro deploy do ambiente `dev` (ver [BACKEND.md](BACKEND.md) e [PLANO.md](PLANO.md)). Tarefas avulsas (criar, assumir, devolver), trocas e notificações também passam pelo servidor. Edição de tarefa e exclusão de avulsa ainda não têm rota e estão escondidas no app.
 
 ## Estrutura da casa
 

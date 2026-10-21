@@ -6,7 +6,7 @@ Documentos relacionados: [ARQUITETURA.md](ARQUITETURA.md) (app), [ALGORITMO.md](
 
 ## 1. Objetivo e escopo
 
-Login: Amazon Cognito via Amplify Auth (e-mail/senha e Sign in with Apple). O app fala com a `api` deste backend (`grupuxo/grupuxo/Data/Remote`, contrato na §6.1): casa, código de convite, cômodos, tarefas, ocorrências e vínculo do WhatsApp são persistidos no DynamoDB (seção 4) e a escala é calculada aqui; o `MockStore` do app sobra só para testes e para trocas e notificações (sem rota ainda). Este documento define:
+Login: Amazon Cognito via Amplify Auth (e-mail/senha e Sign in with Apple). O app fala com a `api` deste backend (`grupuxo/grupuxo/Data/Remote`, contrato na §6.1): casa, código de convite, cômodos, tarefas, ocorrências, tarefas avulsas, trocas, notificações e vínculo do WhatsApp são persistidos no DynamoDB (seção 4) e a escala é calculada aqui; o `MockStore` do app sobra só para testes. Este documento define:
 
 1. Um backend AWS que passa a ser a **fonte de verdade** dos dados.
 2. Um canal WhatsApp que atua como **mais um cliente** desse backend.
@@ -114,7 +114,7 @@ São funções de fábrica `create…Handler(dependências) => (evento: unknown)
 | `events.ts` | Estreitamento (de `unknown`, sem `as`) dos eventos das Lambda Function URLs (payload 2.0, idêntico ao do HTTP API v2) e do SQS. Corpo `isBase64Encoded` é decodificado para os **bytes brutos** (a assinatura do webhook cobre esses bytes); corpo em texto vira UTF-8 exato; base64 mal formado invalida o evento. A query string é lida de `rawQueryString` (decodificada com `URLSearchParams`; vale a primeira ocorrência), com `queryStringParameters` só como reserva. Cabeçalhos em minúsculo. |
 | `webhook.ts` | `createWebhookHandler(WebhookHandler)`: evento → `WebhookRequest` → resposta (`text/plain`). Evento que não é HTTP: 400. |
 | `worker.ts` | `createWorkerHandler(WhatsAppWorker)`: cada registro do SQS → `JSON.parse` → `parseIncomingMessage` → `WhatsAppWorker.process`. Devolve `batchItemFailures` (a fila precisa de `ReportBatchItemFailures`): o registro que falha (inclusive corpo inválido) e **os seguintes do mesmo `MessageGroupId`** são reportados sem serem processados, para manter a ordem por telefone; outros telefones seguem. Cada falha chama `onFailure` com `describeFailure` (nome da classe, `code` e `status`, nunca mensagem, telefone, `wamid` nem texto); `src/main/worker.ts` a grava em stderr (CloudWatch). Evento que não é um lote do SQS lança erro. |
-| `api.ts` | `createApiHandler({ verifier, users, linker, links, houses, rooms, tasks, now, newID })`: autenticação (token → `UserDirectory`), 401/403/404/405/503 e o mapeamento de erros; as rotas da seção 6.1 ficam em `api-router.ts` (tabela de rotas; parâmetro de caminho só casa se for UUID em minúsculo, senão 404), `api-input.ts` (estreitamento do corpo e da query, de `unknown`, sem `as`), `api-routes.ts` (casa, cômodo, tarefa e ocorrência: só traduz entrada em casos de uso e monta o JSON de `api-dto.ts`) e `api-http.ts` (respostas e tabela `DomainError`/`DynamoStoreError` → HTTP). Variáveis `houses`, `rooms` e `tasks` são os repositórios do domínio (memória ou DynamoDB); `now` é o relógio do servidor. |
+| `api.ts` | `createApiHandler({ verifier, users, linker, links, houses, rooms, tasks, swaps, notifications, now, newID })`: autenticação (token → `UserDirectory`), 401/403/404/405/503 e o mapeamento de erros; as rotas da seção 6.1 ficam em `api-router.ts` (tabela de rotas; parâmetro de caminho só casa se for UUID em minúsculo, senão 404), `api-input.ts` (estreitamento do corpo e da query, de `unknown`, sem `as`), `api-routes.ts` (casa, cômodo, tarefa, ocorrência, troca e notificação: só traduz entrada em casos de uso e monta o JSON de `api-dto.ts`) e `api-http.ts` (respostas e tabela `DomainError`/`DynamoStoreError` → HTTP). Variáveis `houses`, `rooms`, `tasks`, `swaps` e `notifications` são os repositórios do domínio (memória ou DynamoDB); `now` é o relógio do servidor. |
 | `config.ts` | `parseWorkerSettings`, `parseApiSettings` (variáveis de ambiente) e `parseWebhookSecrets`/`parseWorkerSecrets` (o `SecretString` do segredo, JSON com as chaves da seção 10). Nada tem valor padrão escondido; o erro nomeia a variável, nunca o valor. |
 | `compose.ts` | `composeWhatsAppWorker` (`WhatsAppWorker` + `GeminiMessageResponder` + `GraphWhatsAppSender` + `MessageRateLimiter`, falha fechada na criação) e `composeCognitoVerifier` (`CognitoJwtVerifier` + `HttpJwksSource`). |
 
@@ -334,6 +334,23 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 
 Uma tarefa criada começa na próxima segunda-feira do fuso da casa (comportamento do domínio): até lá `GET /me/tasks` não a mostra, e `GET /rooms/{roomID}/tasks` já lista as ocorrências futuras. Quem não é da casa e quem não vê a tarefa (cômodo privado de que não participa) recebem `404 not_found` ao ler ou encerrar; `403 task_unavailable` é só para criar tarefa em cômodo da própria casa de que não se participa.
 
+#### Tarefas avulsas, trocas e notificações (implementada)
+
+| Rota | Entrada | Resposta e erros |
+| --- | --- | --- |
+| `GET /v1/me/sporadic-tasks` | | `200 { "tasks": [TaskItem] }`: as avulsas da casa do morador que ele pode ver (abertas e assumidas). Sem casa → `404 no_house`. |
+| `POST /v1/occurrences/{occurrenceID}/claim` | | `204`: assume a avulsa. Já assumida por outro ou não avulsa → `403 task_unavailable`. |
+| `POST /v1/occurrences/{occurrenceID}/release` | | `204`: devolve a avulsa assumida. Devolver a de outro não faz nada (idempotente, como no domínio). |
+| `GET /v1/occurrences/{occurrenceID}/swap-candidates` | | `200 { "tasks": [TaskItem] }`: ocorrências de outros moradores que podem ser trocadas pela oferecida (`TaskSwapEligibilityPolicy`). Ocorrência que o morador não pode oferecer → `403 task_unavailable`. |
+| `POST /v1/swaps` | `{ "offeredOccurrenceID", "requestedOccurrenceID" }` (UUIDs) | `201 TaskSwapRequest` (pendente); notifica quem recebe. Troca inválida ou repetida → `403 task_unavailable`. |
+| `GET /v1/me/swaps` | | `200 { "incoming": [TaskSwapRequest], "outgoing": [TaskSwapRequest] }` da casa do morador, mais recentes primeiro. Sem casa → `404 no_house`. |
+| `POST /v1/swaps/{swapID}/accept` | | `200 TaskSwapRequest`: troca as atribuições e notifica quem pediu. Só quem recebeu responde, e só pedido pendente: senão `403 task_unavailable`. |
+| `POST /v1/swaps/{swapID}/reject` | | `200 TaskSwapRequest`, mesmas regras do aceite. |
+| `GET /v1/me/notifications` | | `200 { "notifications": [Notification] }` do morador, mais recentes primeiro. |
+| `POST /v1/notifications/{notificationID}/read` | | `204`; idempotente. |
+
+Ocorrência de outra casa, pedido de troca em que o morador não está e notificação de outro morador respondem `404 not_found`, igual aos inexistentes. Ainda sem rota: excluir avulsa e editar tarefa (o servidor TS não tem `createdByUserID` nem `updateTaskDetails`), e o texto da notificação de tarefa editada.
+
 Desvios do PLANO.md seção 3, decididos em T1: as rotas de tarefa por ID (`GET/PATCH /v1/tasks/{id}`, `POST /v1/tasks/{id}/end`) viram caminhos **sob o cômodo**, porque o DynamoDB não indexa `TASKDEF#` no `GSI1` (só o `roomID` acha a partição) e o servidor TS não tem `updateTaskDetails` nem `taskDefinition(id)`. **`PATCH` fica fora da trilha**: a edição de tarefa é escondida no build de teste (PLANO.md seção 2). `DELETE /rooms/{id}/members` recebe o `userID` no caminho (DELETE sem corpo).
 
 #### Formatos de resposta
@@ -348,6 +365,8 @@ Todos em `src/lambdas/api-dto.ts`; exemplos em `test/fixtures/api/`. Campos inte
 | `RoomParticipation` | `room`, `isMember`, `memberCount`, `responsibleNames`, `periodStart`, `periodEnd` | `room-participation.json` |
 | `Recurrence` | `{ kind: "none" }` \| `{ kind: "recurring", frequency, interval }` \| `{ kind: "weekly", periodicity }` | `task-definition.json` |
 | `TaskDefinition` | `id`, `roomID`, `name`, `details`, `effort` (1 a 3; carga interna, não exibir como pontuação), `kind`, `recurrence`, `assignmentPolicy`, `calendarAnchor`, `endedAt` (null = ativa) | `task-definition.json` |
+| `TaskSwapRequest` | `id`, `requesterID`, `receiverID`, `offeredOccurrenceID`, `requestedOccurrenceID`, `status` (`pending`\|`accepted`\|`rejected`), `createdAt`, `resolvedAt`\|null | `task-swap-request.json` |
+| `Notification` | `id`, `kind` (`taskSwapRequested`\|`taskSwapAccepted`\|`taskSwapRejected`), `swapRequestID`, `createdAt`, `readAt`\|null (o destinatário é sempre quem chama) | `notification.json` |
 | `TaskItem` | `definition`, `occurrence { id, taskDefinitionID, availableAt, dueAt, status, completedAt, completedByUserID, effort }`, `assignment { id, userID, assignedAt, endedAt }`\|null, `assignee`\|null, `suggestedAssignee`\|null | `task-item.json`, `task-item-completed.json`, `task-item-sporadic.json` |
 
 #### Erros

@@ -8,11 +8,11 @@ import { dynamoClient, environment, http, lazyHandler, newID, now } from "./runt
 export const handler = lazyHandler(async () => {
   const settings = parseApiSettings(environment());
   const client = dynamoClient(settings.tableName);
-  const { houses, rooms, tasks } = houseAdapters(client);
+  const { houses, rooms, tasks, swaps, notifications } = houseAdapters(client);
   const { links, linker } = linkAdapters(client, settings.link);
   return createApiHandler({
     verifier: composeCognitoVerifier(settings, http, now),
     users: userDirectory(client),
-    linker, links, houses, rooms, tasks, now, newID,
+    linker, links, houses, rooms, tasks, swaps, notifications, now, newID,
   });
 });

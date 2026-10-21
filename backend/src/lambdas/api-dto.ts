@@ -1,6 +1,7 @@
 import { formatInstant, type Instant } from "../domain/dates.ts";
 import type {
-  House, Room, RoomParticipation, TaskAssignment, TaskDefinition, TaskItem, TaskOccurrence, User,
+  AppNotification, AppNotificationKind, House, Room, RoomParticipation, TaskAssignment, TaskDefinition, TaskItem,
+  TaskOccurrence, TaskSwapRequest, TaskSwapRequestStatus, User,
 } from "../domain/entities.ts";
 import type { RecurrencePolicy, RoomCategory, RoomColor, RoomKind, RoomVisibility, TaskAssignmentPolicy, TaskKind, TaskOccurrenceStatus, WeeklyPeriodicity } from "../domain/value-objects.ts";
 import { assertNever } from "../domain/value-objects.ts";
@@ -98,6 +99,26 @@ export interface TaskItemDTO {
   readonly suggestedAssignee: UserDTO | null;
 }
 
+export interface TaskSwapRequestDTO {
+  readonly id: string;
+  readonly requesterID: string;
+  readonly receiverID: string;
+  readonly offeredOccurrenceID: string;
+  readonly requestedOccurrenceID: string;
+  readonly status: TaskSwapRequestStatus;
+  readonly createdAt: IsoInstant;
+  readonly resolvedAt: IsoInstant | null;
+}
+
+export interface NotificationDTO {
+  readonly id: string;
+  readonly kind: AppNotificationKind;
+  readonly swapRequestID: string;
+  readonly createdAt: IsoInstant;
+  /** `null` = não lida. */
+  readonly readAt: IsoInstant | null;
+}
+
 export interface MyHouseDTO {
   readonly house: HouseDTO;
   readonly members: readonly UserDTO[];
@@ -171,6 +192,21 @@ export function taskItemDTO(item: TaskItem): TaskItemDTO {
     assignment: item.assignment === null ? null : assignmentDTO(item.assignment),
     assignee: item.assignee === null ? null : userDTO(item.assignee),
     suggestedAssignee: item.suggestedAssignee === null ? null : userDTO(item.suggestedAssignee),
+  };
+}
+
+export function taskSwapRequestDTO(request: TaskSwapRequest): TaskSwapRequestDTO {
+  return {
+    id: request.id, requesterID: request.requesterID, receiverID: request.receiverID,
+    offeredOccurrenceID: request.offeredOccurrenceID, requestedOccurrenceID: request.requestedOccurrenceID,
+    status: request.status, createdAt: iso(request.createdAt), resolvedAt: isoOrNull(request.resolvedAt),
+  };
+}
+
+export function notificationDTO(notification: AppNotification): NotificationDTO {
+  return {
+    id: notification.id, kind: notification.kind, swapRequestID: notification.swapRequestID,
+    createdAt: iso(notification.createdAt), readAt: isoOrNull(notification.readAt),
   };
 }
 

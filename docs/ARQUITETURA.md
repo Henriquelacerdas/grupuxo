@@ -4,12 +4,12 @@
 
 Clean Architecture com SwiftUI + MVVM na apresentação, com o domínio num Swift Package local (`Packages/GrupuxoDomain`) e Data/Presentation/App no target do app (camadas como pastas). Swift 6 com concorrência estrita; deployment target iOS 26.5.
 
-O app fala com a `api` do servidor (`backend/`, ver [BACKEND.md](BACKEND.md)) por `Data/Remote`: o login (Cognito via Amplify Auth) dá o access token, e casa, cômodos, moradores, código de convite, tarefas, ocorrências e o vínculo do WhatsApp são do servidor, persistidos no DynamoDB. A escala é calculada no servidor pelo domínio TypeScript, o mesmo que atende o WhatsApp, então app e bot veem a mesma casa. O `GrupuxoDomain` Swift continua sendo a **referência** do algoritmo (fixtures de comparação) e roda on-device só nos testes e nos repositórios `Mock*` que ainda alimentam trocas e notificações (sem rota na `api`; telas escondidas). Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio.
+O app fala com a `api` do servidor (`backend/`, ver [BACKEND.md](BACKEND.md)) por `Data/Remote`: o login (Cognito via Amplify Auth) dá o access token, e casa, cômodos, moradores, código de convite, tarefas, ocorrências, avulsas, trocas, notificações e o vínculo do WhatsApp são do servidor, persistidos no DynamoDB. A escala é calculada no servidor pelo domínio TypeScript, o mesmo que atende o WhatsApp, então app e bot veem a mesma casa. O `GrupuxoDomain` Swift continua sendo a **referência** do algoritmo (fixtures de comparação) e roda on-device só nos testes (repositórios `Mock*`). Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio.
 
 | Camada | Responsabilidade | Depende de |
 | --- | --- | --- |
 | Domain | Entidades, regras, casos de uso, contratos de repositório, serviços algorítmicos | nada |
-| Data | Implementações de repositório: `Remote*` (a `api`) e `Mock*` (testes, trocas e notificações) | Domain |
+| Data | Implementações de repositório: `Remote*` (a `api`) e `Mock*` (testes) | Domain |
 | Presentation | Views, ViewModels, navegação, design system | Domain |
 | App | Inicialização, sessão, composição de dependências (`AppContainer`) | todas |
 
@@ -32,7 +32,7 @@ GrupuxoDomain (pacote)/
   Errors/       DomainError
 Data/Remote/    APIClient, APIConfiguration, AmplifyAccessTokenProvider, RemoteDTO,
                 Remote{House,Room,Task,WhatsAppConnection}Repository, RemoteHouseSession
-Data/Mock/      MockStore (actor), MockSeed, Mock*Repository (testes; trocas e notificações no app)
+Data/Mock/      MockStore (actor), MockSeed, Mock*Repository (testes)
 Data/Auth/      AuthService (Amplify/Cognito: login, cadastro, confirmação, redefinição de senha, Apple, sessão)
 grupuxo/amplify/ só `auth` (referenceAuth do user pool existente); não é implantado pelo app
 grupuxo/package.json toolchain `ampx` (não entra no app)
@@ -112,7 +112,7 @@ Com uma casa ativa na sessão, o app tem duas abas (`AppTab`: `myTasks`, `house`
 `ContentView` → `LoginView` (Amplify Auth) → `HouseGateView`, que carrega a `RemoteHouseSession`: `POST /v1/me` com o nome (idempotente) e `GET /v1/me` dão o `User.id` do **backend** (o `sub` do Cognito fica mapeado no servidor por `COGNITO#<sub>`; o app não usa o `sub` como id), e `GET /v1/me/house` dá a casa. Sem casa, `OnboardingView` cria (`POST /v1/houses`) ou entra por código (`POST /v1/houses/join`); sair é `DELETE /v1/me/house`. Depois, `RootView` monta o `AppContainer` com os repositórios remotos. Contrato completo em [BACKEND.md](BACKEND.md) §6.1.
 
 - Toda requisição leva o **access token** do Cognito (`AmplifyAccessTokenProvider`); 401 desloga. O servidor tira o morador do token, nunca do corpo, e usa o próprio relógio (`requestedBy`/`at` dos casos de uso são ignorados pelos repositórios remotos).
-- Rota que não existe na `api` lança `APIError.unsupported`; as telas que dependem dela ficam escondidas (trocas, notificações, esporádicas, edição de tarefa, renomear/excluir cômodo, morador sem conta).
+- Rota que não existe na `api` lança `APIError.unsupported`; as telas que dependem dela ficam escondidas (edição de tarefa, excluir avulsa, renomear/excluir cômodo, morador sem conta).
 - O endereço vem do build setting `GRUPUXO_API_BASE_URL` (→ `Info.plist`, `APIConfiguration`); sem valor ou com `CONFIGURE-ME`, o app recusa falar com qualquer servidor. O Debug vem apontado para o `dev` no `Grupuxo.xcconfig`; `Local.xcconfig` (fora do git) é opcional.
 - O Amplify Data (AppSync) chegou a ser escrito e foi abandonado antes de qualquer deploy ([PLANO.md](PLANO.md), D1): a casa tem um dono só, o backend.
 

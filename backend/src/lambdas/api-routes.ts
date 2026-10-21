@@ -2,29 +2,37 @@ import type { Instant } from "../domain/dates.ts";
 import type { House } from "../domain/entities.ts";
 import { isDomainError } from "../domain/errors.ts";
 import {
-  houseID as toHouseID, roomID as toRoomID, taskDefinitionID, taskOccurrenceID, userID as toUserID, type IDGenerator,
-  type UserID,
+  houseID as toHouseID, notificationID, roomID as toRoomID, taskDefinitionID, taskOccurrenceID, taskSwapRequestID,
+  userID as toUserID, type IDGenerator, type UserID,
 } from "../domain/ids.ts";
-import type { HouseRepository, RoomRepository, TaskRepository } from "../domain/repositories.ts";
+import type {
+  HouseRepository, NotificationRepository, RoomRepository, TaskRepository, TaskSwapRepository,
+} from "../domain/repositories.ts";
 import {
   CreateRoomUseCase, GetRoomParticipationUseCase, type CreateRoomInput,
 } from "../domain/use-cases/houses-and-rooms.ts";
 import {
-  AddRoomMemberUseCase, CompleteTaskUseCase, CreateTaskUseCase, GetMyTasksUseCase, GetRoomTasksUseCase,
-  RemoveRoomMemberUseCase, newTaskDefinition,
+  AcceptTaskSwapRequestUseCase, CreateTaskSwapRequestUseCase, GetIncomingTaskSwapRequestsUseCase,
+  GetNotificationsUseCase, GetOutgoingTaskSwapRequestsUseCase, GetTaskSwapCandidatesUseCase,
+  MarkNotificationAsReadUseCase, RejectTaskSwapRequestUseCase,
+} from "../domain/use-cases/swaps-and-notifications.ts";
+import {
+  AddRoomMemberUseCase, ClaimSporadicTaskUseCase, CompleteTaskUseCase, CreateTaskUseCase, GetMyTasksUseCase,
+  GetRoomTasksUseCase, GetSporadicTasksUseCase, ReleaseSporadicTaskUseCase, RemoveRoomMemberUseCase, newTaskDefinition,
 } from "../domain/use-cases/tasks.ts";
 import { DomainError } from "../domain/errors.ts";
 import {
-  myHouseDTO, roomDTO, roomParticipationDTO, taskDefinitionDTO, taskItemDTO,
+  myHouseDTO, notificationDTO, roomDTO, roomParticipationDTO, taskDefinitionDTO, taskItemDTO, taskSwapRequestDTO,
 } from "./api-dto.ts";
 import { failure, json, jsonObject, noContent } from "./api-http.ts";
 import {
-  parseCreateHouse, parseCreateRoom, parseCreateTask, parseFlag, parseJoinHouse, parseRange, parseRoomMember,
+  parseCreateHouse, parseCreateRoom, parseCreateSwap, parseCreateTask, parseFlag, parseJoinHouse, parseRange,
+  parseRoomMember,
 } from "./api-input.ts";
 import { requireParam, type AppRouteName, type RouteParams } from "./api-router.ts";
 import type { HttpApiResult } from "./events.ts";
 
-// Rotas de casa, cômodo, tarefa e ocorrência (BACKEND.md, seção 6.1). Aqui só há tradução: estreitar a entrada, chamar
+// Rotas de casa, cômodo, tarefa, ocorrência, troca e notificação (BACKEND.md, seção 6.1). Aqui só há tradução: estreitar a entrada, chamar
 // os casos de uso do domínio e montar o JSON. O `userID` vem do token (já resolvido por quem chama) e o `at` do relógio
 // injetado; nenhuma regra de negócio mora neste arquivo.
 
@@ -32,6 +40,8 @@ export interface RouteDependencies {
   readonly houses: HouseRepository;
   readonly rooms: RoomRepository;
   readonly tasks: TaskRepository;
+  readonly swaps: TaskSwapRepository;
+  readonly notifications: NotificationRepository;
   readonly now: () => Instant;
   readonly newID: IDGenerator;
 }
@@ -49,7 +59,7 @@ const noHouse = (): HttpApiResult => failure(404, "no_house");
 const alreadyInHouse = (): HttpApiResult => failure(409, "already_in_house");
 
 export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteName, request: RouteRequest) => Promise<HttpApiResult> {
-  const { houses, rooms, tasks, now, newID } = deps;
+  const { houses, rooms, tasks, swaps, notifications, now, newID } = deps;
   const createRoom = new CreateRoomUseCase(rooms, houses, now, newID);
   const participation = new GetRoomParticipationUseCase(rooms, now);
   const myTasks = new GetMyTasksUseCase(tasks, houses, now);
@@ -58,6 +68,17 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
   const completion = new CompleteTaskUseCase(tasks, now);
   const addRoomMember = new AddRoomMemberUseCase(tasks, now);
   const removeRoomMember = new RemoveRoomMemberUseCase(tasks, now);
+  const sporadicTasks = new GetSporadicTasksUseCase(tasks);
+  const claim = new ClaimSporadicTaskUseCase(tasks, now);
+  const release = new ReleaseSporadicTaskUseCase(tasks);
+  const candidates = new GetTaskSwapCandidatesUseCase(swaps, now);
+  const createSwap = new CreateTaskSwapRequestUseCase(swaps, now);
+  const incomingSwaps = new GetIncomingTaskSwapRequestsUseCase(swaps);
+  const outgoingSwaps = new GetOutgoingTaskSwapRequestsUseCase(swaps);
+  const acceptSwap = new AcceptTaskSwapRequestUseCase(swaps, now);
+  const rejectSwap = new RejectTaskSwapRequestUseCase(swaps, now);
+  const myNotifications = new GetNotificationsUseCase(notifications);
+  const markAsRead = new MarkNotificationAsReadUseCase(notifications, now);
 
   /** A casa do morador (regra v1: uma por morador). Lê o `GSI1`, que é eventualmente consistente. */
   async function currentHouse(user: UserID): Promise<House | null> {
@@ -75,6 +96,14 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
     const roomID = toRoomID(requireParam(request.params, "roomID"));
     await rooms.room(roomID, request.user);
     return roomID;
+  }
+
+  /** A ocorrência é de uma casa do morador; senão `entityNotFound` (404), igual a uma que não existe. */
+  async function requireOccurrence(request: RouteRequest): Promise<{
+    readonly occurrenceID: ReturnType<typeof taskOccurrenceID>; readonly houseID: ReturnType<typeof toHouseID>;
+  }> {
+    const occurrenceID = taskOccurrenceID(requireParam(request.params, "occurrenceID"));
+    return { occurrenceID, houseID: await tasks.houseOfOccurrence(occurrenceID, request.user) };
   }
 
   return async (name, request) => {
@@ -193,6 +222,62 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
         await completion.execute(occurrenceID, user, { isCompleted: name === "completeOccurrence" });
         return noContent();
       }
+      case "mySporadicTasks": {
+        const house = await currentHouse(user);
+        if (house === null) return noHouse();
+        return json(200, { tasks: (await sporadicTasks.execute(house.id, user)).map(taskItemDTO) });
+      }
+      case "claimOccurrence": {
+        const { occurrenceID } = await requireOccurrence(request);
+        await claim.execute(occurrenceID, user);
+        return noContent();
+      }
+      case "releaseOccurrence": {
+        const { occurrenceID } = await requireOccurrence(request);
+        await release.execute(occurrenceID, user);
+        return noContent();
+      }
+
+      case "swapCandidates": {
+        const { occurrenceID, houseID } = await requireOccurrence(request);
+        return json(200, { tasks: (await candidates.execute(user, occurrenceID, houseID)).map(taskItemDTO) });
+      }
+      case "createSwap": {
+        const body = jsonObject(request.body);
+        const input = body === null ? null : parseCreateSwap(body);
+        if (input === null) return badRequest();
+        // As duas ocorrências precisam ser de uma casa do morador: senão 404, igual a inexistente.
+        await tasks.houseOfOccurrence(input.offered, user);
+        await tasks.houseOfOccurrence(input.requested, user);
+        return json(201, taskSwapRequestDTO(await createSwap.execute(user, input.offered, input.requested)));
+      }
+      case "mySwaps": {
+        const house = await currentHouse(user);
+        if (house === null) return noHouse();
+        const [incoming, outgoing] = await Promise.all([
+          incomingSwaps.execute(user, house.id), outgoingSwaps.execute(user, house.id),
+        ]);
+        return json(200, { incoming: incoming.map(taskSwapRequestDTO), outgoing: outgoing.map(taskSwapRequestDTO) });
+      }
+      case "acceptSwap":
+      case "rejectSwap": {
+        const swapID = taskSwapRequestID(requireParam(request.params, "swapID"));
+        // Só quem está na troca a enxerga; o domínio decide quem pode responder (403 para quem a pediu).
+        const house = await currentHouse(user);
+        if (house === null) return notFound();
+        const [incoming, outgoing] = await Promise.all([
+          incomingSwaps.execute(user, house.id), outgoingSwaps.execute(user, house.id),
+        ]);
+        if (![...incoming, ...outgoing].some((swap) => swap.id === swapID)) return notFound();
+        const resolved = name === "acceptSwap" ? await acceptSwap.execute(swapID, user) : await rejectSwap.execute(swapID, user);
+        return json(200, taskSwapRequestDTO(resolved));
+      }
+
+      case "myNotifications":
+        return json(200, { notifications: (await myNotifications.execute(user)).map(notificationDTO) });
+      case "readNotification":
+        await markAsRead.execute(notificationID(requireParam(request.params, "notificationID")), user);
+        return noContent();
     }
   };
 }

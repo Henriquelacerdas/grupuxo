@@ -4,7 +4,7 @@ import GrupuxoDomain
 @MainActor
 final class AppContainer {
 
-    /// Só alimenta os repositórios de trocas e notificações (ainda sem rota na `api`; as telas ficam escondidas).
+    /// Estado em memória do container de testes e pré-visualizações; no container da `api` fica vazio e sem uso.
     let store: MockStore
     private let calendar: Calendar
 
@@ -22,6 +22,8 @@ final class AppContainer {
         houseRepository: any HouseRepository,
         roomRepository: any RoomRepository,
         taskRepository: any TaskRepository,
+        taskSwapRepository: any TaskSwapRepository,
+        notificationRepository: any NotificationRepository,
         whatsAppConnectionRepository: any WhatsAppConnectionRepository
     ) {
         self.store = store
@@ -29,12 +31,12 @@ final class AppContainer {
         self.houseRepository = houseRepository
         self.roomRepository = roomRepository
         self.taskRepository = taskRepository
+        self.taskSwapRepository = taskSwapRepository
+        self.notificationRepository = notificationRepository
         self.whatsAppConnectionRepository = whatsAppConnectionRepository
-        taskSwapRepository = MockTaskSwapRepository(store: store)
-        notificationRepository = MockNotificationRepository(store: store)
     }
 
-    /// Container sobre a `api` do servidor: casa, cômodos, tarefas e WhatsApp são reais.
+    /// Container sobre a `api` do servidor: casa, cômodos, tarefas, trocas, notificações e WhatsApp são reais.
     convenience init(api: APIClient, calendar: Calendar = Calendar(identifier: .gregorian)) {
         self.init(
             store: MockStore(state: MockSeed.empty()),
@@ -42,6 +44,8 @@ final class AppContainer {
             houseRepository: RemoteHouseRepository(api: api),
             roomRepository: RemoteRoomRepository(api: api),
             taskRepository: RemoteTaskRepository(api: api),
+            taskSwapRepository: RemoteTaskSwapRepository(api: api),
+            notificationRepository: RemoteNotificationRepository(api: api),
             whatsAppConnectionRepository: RemoteWhatsAppConnectionRepository(api: api)
         )
     }
@@ -65,6 +69,8 @@ final class AppContainer {
             houseRepository: MockHouseRepository(store: store, scheduling: scheduling),
             roomRepository: MockRoomRepository(store: store, scheduling: scheduling),
             taskRepository: MockTaskRepository(store: store, scheduling: scheduling),
+            taskSwapRepository: MockTaskSwapRepository(store: store),
+            notificationRepository: MockNotificationRepository(store: store),
             whatsAppConnectionRepository: MockWhatsAppConnectionRepository()
         )
     }

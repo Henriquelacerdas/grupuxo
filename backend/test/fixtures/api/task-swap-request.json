@@ -1,0 +1,10 @@
+{
+  "id": "ffffffff-ffff-4fff-8fff-0000000000f4",
+  "requesterID": "ffffffff-ffff-4fff-8fff-000000000001",
+  "receiverID": "ffffffff-ffff-4fff-8fff-000000000002",
+  "offeredOccurrenceID": "ffffffff-ffff-4fff-8fff-000000000085",
+  "requestedOccurrenceID": "ffffffff-ffff-4fff-8fff-000000000049",
+  "status": "pending",
+  "createdAt": "2026-10-14T12:00:00.000Z",
+  "resolvedAt": null
+}

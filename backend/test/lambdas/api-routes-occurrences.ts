@@ -80,6 +80,6 @@ export function occurrenceRoutes(name: string, make: ApiEnvFactory): void {
     assert.deepEqual([get.statusCode, get.headers?.["allow"]], [405, "POST"]);
     const del = await env.call(null, "DELETE", `/v1/occurrences/${UNKNOWN}/reopen`);
     assert.deepEqual([del.statusCode, del.headers?.["allow"]], [405, "POST"]);
-    expectError(await env.call(null, "POST", `/v1/occurrences/${UNKNOWN}/claim`), 404, "not_found");
+    expectError(await env.call(null, "POST", `/v1/occurrences/${UNKNOWN}/snooze`), 404, "not_found");
   });
 }

@@ -147,7 +147,7 @@ O Amplify Data não será implantado (D1 = b).
 O necessário para o teste entrou na trilha (T2–T4). Fica **para depois do teste**:
 - D3 definitivo, substituindo o `oversizedWrites: "split"`.
 - `Idempotency-Key`, ambiente `prod`, Terraform com estado remoto e CI de deploy, alarmes de 5xx.
-- Trocas, notificações e esporádicas no servidor, e as telas de volta.
+- ~~Trocas, notificações e esporádicas no servidor, e as telas de volta.~~ Feito (2026-10-21): rotas da §6.1 do BACKEND.md e `Remote{TaskSwap,Notification}Repository`. Falta: aceitar/recusar troca no app (não há tela; a rota existe), excluir avulsa e editar tarefa (sem porte no TS).
 - Morador sem conta (D4) e desvincular o WhatsApp ao sair da casa (pergunta 10; recomendo sim).
 - O `GrupuxoDomain` Swift e o gerador de fixtures saem do caminho quando o app não usar mais o Mock (regra do CLAUDE.md).
 

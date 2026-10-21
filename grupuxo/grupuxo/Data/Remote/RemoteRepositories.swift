@@ -3,7 +3,8 @@ import GrupuxoDomain
 
 // Repositórios do domínio sobre a `api`. Os parâmetros `requestedBy`/`requesting`/`at` são ignorados de propósito: o
 // servidor usa o usuário do token e o próprio relógio (BACKEND.md seção 6.1). Operações sem rota lançam
-// `APIError.unsupported`; as telas que dependem delas ficam escondidas neste build.
+// `APIError.unsupported` (moradores sem conta, edição de tarefa e exclusão de avulsa); as telas que dependem delas
+// ficam escondidas neste build.
 
 extension UUID {
     /// O servidor só reconhece UUID em minúsculo nos caminhos.
@@ -107,9 +108,8 @@ struct RemoteTaskRepository: TaskRepository {
         try await items(from: "v1/rooms/\(roomID.apiString)/tasks")
     }
 
-    /// Tarefas avulsas ainda não têm rota na `api`: a tela fica escondida e a lista vem vazia.
     func sporadicTasks(in houseID: House.ID, requesting userID: User.ID) async throws -> [TaskItem] {
-        []
+        try await items(from: "v1/me/sporadic-tasks")
     }
 
     func taskDefinition(id: TaskDefinition.ID, requesting userID: User.ID) async throws -> TaskDefinition {
@@ -172,17 +172,66 @@ struct RemoteTaskRepository: TaskRepository {
     }
 
     func claim(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date) async throws {
-        throw APIError.unsupported
+        try await api.send("POST", "v1/occurrences/\(occurrenceID.apiString)/claim")
     }
 
     func release(occurrenceID: TaskOccurrence.ID, by userID: User.ID) async throws {
-        throw APIError.unsupported
+        try await api.send("POST", "v1/occurrences/\(occurrenceID.apiString)/release")
     }
 
     private func items(from path: String) async throws -> [TaskItem] {
         let items = try await api.get(TaskListDTO.self, path).tasks.map { try $0.domain() }
         await index.remember(items)
         return items
+    }
+}
+
+struct RemoteTaskSwapRepository: TaskSwapRepository {
+    let api: APIClient
+
+    func swapCandidates(
+        for requesterID: User.ID, offering offeredOccurrenceID: TaskOccurrence.ID, in houseID: House.ID, at date: Date
+    ) async throws -> [TaskItem] {
+        try await api.get(TaskListDTO.self, "v1/occurrences/\(offeredOccurrenceID.apiString)/swap-candidates")
+            .tasks.map { try $0.domain() }
+    }
+
+    func createRequest(
+        requesterID: User.ID, offeredOccurrenceID: TaskOccurrence.ID, requestedOccurrenceID: TaskOccurrence.ID, at date: Date
+    ) async throws -> TaskSwapRequest {
+        let body = CreateSwapBody(
+            offeredOccurrenceID: offeredOccurrenceID.apiString, requestedOccurrenceID: requestedOccurrenceID.apiString
+        )
+        return try await api.post(TaskSwapRequestDTO.self, "v1/swaps", body: body).domain
+    }
+
+    func incomingRequests(for userID: User.ID, in houseID: House.ID) async throws -> [TaskSwapRequest] {
+        try await api.get(MySwapsDTO.self, "v1/me/swaps").incoming.map(\.domain)
+    }
+
+    func outgoingRequests(for userID: User.ID, in houseID: House.ID) async throws -> [TaskSwapRequest] {
+        try await api.get(MySwapsDTO.self, "v1/me/swaps").outgoing.map(\.domain)
+    }
+
+    func accept(requestID: TaskSwapRequest.ID, by userID: User.ID, at date: Date) async throws -> TaskSwapRequest {
+        try await api.post(TaskSwapRequestDTO.self, "v1/swaps/\(requestID.apiString)/accept").domain
+    }
+
+    func reject(requestID: TaskSwapRequest.ID, by userID: User.ID, at date: Date) async throws -> TaskSwapRequest {
+        try await api.post(TaskSwapRequestDTO.self, "v1/swaps/\(requestID.apiString)/reject").domain
+    }
+}
+
+struct RemoteNotificationRepository: NotificationRepository {
+    let api: APIClient
+
+    func notifications(for userID: User.ID) async throws -> [AppNotification] {
+        try await api.get(NotificationListDTO.self, "v1/me/notifications").notifications
+            .map { $0.domain(recipientUserID: userID) }
+    }
+
+    func markAsRead(notificationID: AppNotification.ID, by userID: User.ID, at date: Date) async throws {
+        try await api.send("POST", "v1/notifications/\(notificationID.apiString)/read")
     }
 }
 

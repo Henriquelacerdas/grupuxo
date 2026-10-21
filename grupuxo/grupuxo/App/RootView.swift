@@ -35,9 +35,12 @@ struct RootView: View {
                         container.makeMyTasksViewModel(
                             session: session
                         ),
-                    // Trocas e notificações ainda não têm rota na `api`: ficam escondidas neste build.
-                    onRequestSwap: nil,
-                    onSelectNotifications: nil,
+                    onRequestSwap: { occurrenceID in
+                        tasksPath.append(.taskSwap(offeredOccurrenceID: occurrenceID))
+                    },
+                    onSelectNotifications: {
+                        tasksPath.append(.notifications)
+                    },
                     onSelectProfile: {
                         tasksPath.append(.settings)
                     },
@@ -97,8 +100,9 @@ struct RootView: View {
                         )
 
                     },
-                    // Tarefas esporádicas ainda não têm rota na `api`.
-                    onSelectSporadicTasks: nil
+                    onSelectSporadicTasks: {
+                        housePath.append(.sporadicTasks)
+                    }
                 )
                 .navigationDestination(
                     for: AppRoute.self

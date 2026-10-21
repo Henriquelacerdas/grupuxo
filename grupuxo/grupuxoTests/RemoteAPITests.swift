@@ -371,11 +371,66 @@ struct RemoteRepositoryTests {
 
     @Test func routesWithoutServerSupportFailExplicitly() async throws {
         let tasks = RemoteTaskRepository(api: client(FakeServer()))
-        await #expect(throws: APIError.unsupported) { try await tasks.claim(occurrenceID: UUID(), by: user, at: .now) }
         await #expect(throws: APIError.unsupported) {
             try await tasks.updateTaskDetails(id: UUID(), name: "x", details: "", requestedBy: user)
         }
-        #expect(try await tasks.sporadicTasks(in: UUID(), requesting: user).isEmpty)
+        await #expect(throws: APIError.unsupported) { try await tasks.deleteSporadicTask(id: UUID(), requestedBy: user) }
+    }
+
+    @Test func sporadicTasksClaimAndRelease() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me/sporadic-tasks", body: #"{"tasks":[\#(String(decoding: try fixture("task-item-sporadic"), as: UTF8.self))]}"#)
+        let tasks = RemoteTaskRepository(api: client(server))
+        let listed = try await tasks.sporadicTasks(in: UUID(), requesting: user)
+        let item = try #require(listed.first)
+        #expect(item.definition.kind == .sporadic)
+        let path = "/v1/occurrences/\(item.occurrence.id.apiString)"
+        await server.on("POST \(path)/claim", status: 204, body: "")
+        await server.on("POST \(path)/release", status: 204, body: "")
+        try await tasks.claim(occurrenceID: item.occurrence.id, by: user, at: .now)
+        try await tasks.release(occurrenceID: item.occurrence.id, by: user)
+        #expect(await server.keys().suffix(2) == ["POST \(path)/claim", "POST \(path)/release"])
+    }
+
+    @Test func swapRequestsUseTheServerRoutes() async throws {
+        let server = FakeServer()
+        let swap = String(decoding: try fixture("task-swap-request"), as: UTF8.self)
+        let offered = UUID(uuidString: "FFFFFFFF-FFFF-4FFF-8FFF-000000000085")!
+        let requested = UUID(uuidString: "FFFFFFFF-FFFF-4FFF-8FFF-000000000049")!
+        await server.on("GET /v1/occurrences/\(offered.apiString)/swap-candidates", body: #"{"tasks":[\#(String(decoding: try fixture("task-item"), as: UTF8.self))]}"#)
+        await server.on("POST /v1/swaps", status: 201, body: swap)
+        await server.on("GET /v1/me/swaps", body: #"{"incoming":[\#(swap)],"outgoing":[]}"#)
+        let swaps = RemoteTaskSwapRepository(api: client(server))
+
+        #expect(try await swaps.swapCandidates(for: user, offering: offered, in: UUID(), at: .now).count == 1)
+        let created = try await swaps.createRequest(
+            requesterID: user, offeredOccurrenceID: offered, requestedOccurrenceID: requested, at: .now
+        )
+        #expect(created.status == .pending)
+        #expect(created.offeredOccurrenceID == offered)
+        #expect(await server.string("offeredOccurrenceID", inBody: 1) == offered.apiString)
+        #expect(await server.string("requestedOccurrenceID", inBody: 1) == requested.apiString)
+        #expect(try await swaps.incomingRequests(for: user, in: UUID()).map(\.id) == [created.id])
+        #expect(try await swaps.outgoingRequests(for: user, in: UUID()).isEmpty)
+
+        await server.on("POST /v1/swaps/\(created.id.apiString)/accept", body: swap)
+        _ = try await swaps.accept(requestID: created.id, by: user, at: .now)
+        #expect(await server.keys().last == "POST /v1/swaps/\(created.id.apiString)/accept")
+    }
+
+    @Test func notificationsAreTheCallersAndCanBeRead() async throws {
+        let server = FakeServer()
+        let notification = String(decoding: try fixture("notification"), as: UTF8.self)
+        await server.on("GET /v1/me/notifications", body: #"{"notifications":[\#(notification)]}"#)
+        let repository = RemoteNotificationRepository(api: client(server))
+        let listed = try await repository.notifications(for: user)
+        let first = try #require(listed.first)
+        #expect(first.recipientUserID == user)
+        #expect(first.kind == .taskSwapRequested)
+        #expect(!first.isRead)
+        await server.on("POST /v1/notifications/\(first.id.apiString)/read", status: 204, body: "")
+        try await repository.markAsRead(notificationID: first.id, by: user, at: .now)
+        #expect(await server.keys().last == "POST /v1/notifications/\(first.id.apiString)/read")
     }
 
     @Test func createRoomSendsParticipantsOnlyForPrivateRooms() async throws {

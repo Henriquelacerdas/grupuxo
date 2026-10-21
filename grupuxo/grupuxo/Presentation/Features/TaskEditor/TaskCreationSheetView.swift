@@ -183,8 +183,6 @@ struct TaskCreationSheetView: View {
         _detailsText = State(initialValue: viewModel.state.draft.details)
     }
 
-    private static let offersUniqueTasks = false
-
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -192,10 +190,7 @@ struct TaskCreationSheetView: View {
                     titleCard
 
                     VStack(spacing: DesignSystem.Spacing.large) {
-                        // Tarefas únicas (esporádicas) ainda não têm listagem nem "assumir" na `api`.
-                        if Self.offersUniqueTasks {
-                            uniqueTaskRow
-                        }
+                        uniqueTaskRow
 
                         if !isUniqueTask {
                             recurrenceSection
