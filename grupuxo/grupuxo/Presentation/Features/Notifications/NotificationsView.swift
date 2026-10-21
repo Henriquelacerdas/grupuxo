@@ -45,105 +45,128 @@ struct NotificationsView: View {
                     )
                 )
 
-            case let .content(notifications):
+            case let .content(notifications, pendingSwaps):
 
                 List {
 
-                    ForEach(notifications) {
-                        notification in
+                    if !pendingSwaps.isEmpty {
 
-                        Button {
+                        Section("Trocas pendentes") {
 
-                            Task {
+                            ForEach(pendingSwaps) {
+                                swap in
 
-                                await viewModel.markAsRead(
-                                    notification
-                                )
+                                swapRow(swap)
 
                             }
-
-                        } label: {
-
-                            HStack(
-                                alignment: .top,
-                                spacing:
-                                    DesignSystem.Spacing.small
-                            ) {
-
-                                Image(
-                                    systemName:
-                                        iconName(
-                                            for:
-                                                notification
-                                        )
-                                )
-                                .font(.title3)
-                                .frame(
-                                    width: 32,
-                                    height: 32
-                                )
-
-                                VStack(
-                                    alignment: .leading,
-                                    spacing:
-                                        DesignSystem
-                                        .Spacing
-                                        .extraSmall
-                                ) {
-
-                                    Text(
-                                        message(
-                                            for:
-                                                notification
-                                        )
-                                    )
-                                    .foregroundStyle(
-                                        .primary
-                                    )
-                                    .multilineTextAlignment(
-                                        .leading
-                                    )
-
-                                    Text(
-                                        notification
-                                            .createdAt
-                                            .formatted(
-                                                date:
-                                                    .abbreviated,
-                                                time:
-                                                    .shortened
-                                            )
-                                    )
-                                    .font(.caption)
-                                    .foregroundStyle(
-                                        .secondary
-                                    )
-
-                                }
-
-                                Spacer()
-
-                                if !notification.isRead {
-
-                                    Circle()
-                                        .fill(.tint)
-                                        .frame(
-                                            width: 8,
-                                            height: 8
-                                        )
-
-                                }
-
-                            }
-                            .padding(
-                                .vertical,
-                                DesignSystem
-                                    .Spacing
-                                    .extraSmall
-                            )
 
                         }
-                        .buttonStyle(.plain)
+
+                    }
+
+                    if !notifications.isEmpty {
+
+                        Section("Notificações") {
+
+                            ForEach(notifications) {
+                                notification in
+
+                                Button {
+
+                                    Task {
+
+                                        await viewModel.markAsRead(
+                                            notification
+                                        )
+
+                                    }
+
+                                } label: {
+
+                                    HStack(
+                                        alignment: .top,
+                                        spacing:
+                                            DesignSystem.Spacing.small
+                                    ) {
+
+                                        Image(
+                                            systemName:
+                                                iconName(
+                                                    for:
+                                                        notification
+                                                )
+                                        )
+                                        .font(.title3)
+                                        .frame(
+                                            width: 32,
+                                            height: 32
+                                        )
+
+                                        VStack(
+                                            alignment: .leading,
+                                            spacing:
+                                                DesignSystem
+                                                .Spacing
+                                                .extraSmall
+                                        ) {
+
+                                            Text(
+                                                message(
+                                                    for:
+                                                        notification
+                                                )
+                                            )
+                                            .foregroundStyle(
+                                                .primary
+                                            )
+                                            .multilineTextAlignment(
+                                                .leading
+                                            )
+
+                                            Text(
+                                                notification
+                                                    .createdAt
+                                                    .formatted(
+                                                        date:
+                                                            .abbreviated,
+                                                        time:
+                                                            .shortened
+                                                    )
+                                            )
+                                            .font(.caption)
+                                            .foregroundStyle(
+                                                .secondary
+                                            )
+
+                                        }
+
+                                        Spacer()
+
+                                        if !notification.isRead {
+
+                                            Circle()
+                                                .fill(.tint)
+                                                .frame(
+                                                    width: 8,
+                                                    height: 8
+                                                )
+
+                                        }
+
+                                    }
+                                    .padding(
+                                        .vertical,
+                                        DesignSystem
+                                            .Spacing
+                                            .extraSmall
+                                    )
+
+                                }
+                                .buttonStyle(.plain)
+
+                            }
+
+                        }
 
                     }
 
@@ -203,6 +226,68 @@ struct NotificationsView: View {
             )
 
         }
+
+    }
+
+    private func swapRow(
+        _ swap: IncomingSwapRequest
+    ) -> some View {
+
+        VStack(
+            alignment: .leading,
+            spacing: DesignSystem.Spacing.small
+        ) {
+
+            Text(
+                "\(swap.requesterName ?? "Um morador") quer trocar de tarefa com você."
+            )
+
+            Label(
+                "Você recebe: \(swap.offeredTaskName ?? "uma tarefa de quem pediu")",
+                systemImage: "arrow.down.circle"
+            )
+            .font(.subheadline)
+
+            Label(
+                "Você passa: \(swap.requestedTaskName ?? "uma das suas tarefas")",
+                systemImage: "arrow.up.circle"
+            )
+            .font(.subheadline)
+
+            HStack {
+
+                Button("Recusar", role: .destructive) {
+
+                    Task {
+
+                        await viewModel.reject(swap)
+
+                    }
+
+                }
+                .buttonStyle(.bordered)
+
+                Button("Aceitar") {
+
+                    Task {
+
+                        await viewModel.accept(swap)
+
+                    }
+
+                }
+                .buttonStyle(.borderedProminent)
+
+            }
+            .disabled(
+                viewModel.respondingSwapID != nil
+            )
+
+        }
+        .padding(
+            .vertical,
+            DesignSystem.Spacing.extraSmall
+        )
 
     }
 

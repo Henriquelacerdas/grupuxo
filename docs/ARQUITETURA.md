@@ -150,7 +150,7 @@ ViewModels acessam o domínio apenas por casos de uso.
 - **Cômodos:** `GetHouseRooms`, `GetRoomParticipation`, `CreateRoom`, `AddRoomMember`, `RemoveRoomMember`
 - **Casa:** `GetHouseMembers`, `AddHouseMember`, `RemoveHouseMember`
 - **Encerrar tarefa:** `EndTask` (`TaskRepository.endTask(_:requestedBy:at:)`; `TaskSchedulingService.endTask` no Swift e `endTask` em `domain/commands/tasks.ts` no servidor). Substituiu o antigo `DeleteTask`, que apagava também o histórico. Exige morador da casa e participante atual do cômodo, mantém a ocorrência da vez e o histórico, remove só as futuras e recusa as trocas pendentes que as citam (regras em [ALGORITMO.md](ALGORITMO.md)). No servidor o repositório recebe o `roomID` (o DynamoDB não indexa definições); a UI chama de "Encerrar".
-- **Troca:** `GetTaskSwapCandidates`, `CreateTaskSwapRequest`, `AcceptTaskSwapRequest`, `RejectTaskSwapRequest`, `GetIncomingTaskSwapRequests`, `GetOutgoingTaskSwapRequests`
+- **Troca:** `GetTaskSwapCandidates`, `CreateTaskSwapRequest`, `AcceptTaskSwapRequest`, `RejectTaskSwapRequest`, `GetIncomingTaskSwapRequests`, `GetOutgoingTaskSwapRequests` Pedir fica em `TaskSwap`; responder fica em `Notifications` (`NotificationsViewModel` lista os pedidos pendentes recebidos e chama aceitar/recusar; o nome da tarefa oferecida vem de `GetTaskSwapCandidates` para a tarefa pedida, já que a elegibilidade é simétrica).
 - **Notificações:** `GetNotifications`, `MarkNotificationAsRead`
 
 Casos de uso coordenam; matemática reutilizável fica nos serviços. Calculadores recebem tipos primitivos e a data de referência, são determinísticos e não acessam UI, banco nem sessão.

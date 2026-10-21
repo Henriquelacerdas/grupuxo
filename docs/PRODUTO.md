@@ -85,7 +85,7 @@ Sem recorrência previsível (ex.: trocar uma resistência); fora do fluxo algor
 
 ## Troca de tarefas
 
-Um morador oferece uma ocorrência sua e escolhe entre candidatas elegíveis de outro morador; o destinatário aceita ou rejeita e ambos recebem notificação. Regras de elegibilidade em `TaskSwapEligibilityPolicy`: só se oferece ocorrência própria, ativa, não concluída e já disponível; só recebe quem mora na casa, participa do cômodo e não está ausente.
+Um morador oferece uma ocorrência sua e escolhe entre candidatas elegíveis de outro morador; o destinatário aceita ou recusa na tela de Notificações (seção "Trocas pendentes", com a tarefa que recebe e a que passa) e quem pediu recebe a notificação da resposta. Regras de elegibilidade em `TaskSwapEligibilityPolicy`: só se oferece ocorrência própria, ativa, não concluída e já disponível; só recebe quem mora na casa, participa do cômodo e não está ausente.
 
 ## Modo férias
 

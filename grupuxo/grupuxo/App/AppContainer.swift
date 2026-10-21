@@ -302,8 +302,34 @@ final class AppContainer {
                     repository:
                         notificationRepository
                 ),
+            getIncomingSwaps:
+                GetIncomingTaskSwapRequestsUseCase(
+                    repository: taskSwapRepository
+                ),
+            acceptSwap:
+                AcceptTaskSwapRequestUseCase(
+                    repository: taskSwapRepository
+                ),
+            rejectSwap:
+                RejectTaskSwapRequestUseCase(
+                    repository: taskSwapRepository
+                ),
+            getMyTasks:
+                GetMyTasksUseCase(
+                    repository: taskRepository
+                ),
+            getSwapCandidates:
+                GetTaskSwapCandidatesUseCase(
+                    repository: taskSwapRepository
+                ),
+            getMembers:
+                GetHouseMembersUseCase(
+                    repository: houseRepository
+                ),
             userID:
-                session.currentUser.id
+                session.currentUser.id,
+            houseID:
+                session.currentHouse.id
         )
 
     }
