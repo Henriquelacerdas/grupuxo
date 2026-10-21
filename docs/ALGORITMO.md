@@ -12,7 +12,7 @@ Há duas implementações do mesmo contrato, ligadas por fixtures de referência
 - **Modelo:** filas rotativas estáticas; cada participante aparece uma vez por ciclo.
 - **Custo:** carga semanal ao quadrado (pune picos) + concentração por nível de esforço + saldo amortizado, num horizonte de 12 semanas.
 - **Otimização:** Algoritmo Húngaro por fila (O(K³)); na casa, busca local lexicográfica com até 20 passagens. Sem garantia de ótimo global.
-- **Vigência:** mudanças de participantes valem na segunda-feira imediatamente seguinte.
+- **Vigência:** mudanças de participantes replanejam a escala a partir da segunda-feira imediatamente seguinte. Quem entra já é elegível desde a segunda-feira da semana atual, para tarefas criadas na mesma semana.
 - **Justiça:** saldo por cômodo (`E − E/M` ao executor, `−E/M` aos demais), amortizado por 12 no custo.
 - **Determinismo:** mesmos dados e calendário produzem o mesmo resultado; empates por UUID/índice.
 
@@ -63,7 +63,7 @@ Concluir novamente pela mesma pessoa é idempotente. Outra pessoa não pode se a
 
 O calendário é injetado; no app a composição padrão usa calendário gregoriano e o fuso do dispositivo, e no servidor o calendário é o do **fuso da casa** (`House.timezone`, IANA). A semana começa na segunda-feira e a virada de semana acontece às 00:00 desse fuso. Datas avançam por componentes de calendário, nunca somando 604800 segundos (nem 24 h por dia), preservando transições de horário de verão.
 
-Na criação, o horizonte é `[início da semana de referência, início + 12 semanas)`. Tarefas independentes com recorrência antiga começam na criação. A nova modalidade semanal e tarefas vinculadas ao cômodo começam na primeira execução do calendário a partir da criação. Na recorrência semanal, as seguintes começam na segunda-feira da semana calculada pelo intervalo, com prazo até a próxima ocorrência. Recorrências diárias, mensais e anuais avançam pelo respectivo componente de calendário. A primeira semana pode ser parcial. Nas recorrências semanais independentes antigas, intervalo 2 gera seis ocorrências e intervalos maiores que o horizonte geram apenas a primeira. Na nova modalidade ancorada, a criação depois da última execução do período pode não gerar ocorrências dentro do horizonte; o próximo refresh continua a partir da próxima data prevista.
+Na criação, o horizonte é `[início da semana de referência, início + 12 semanas)`. Tarefas independentes com recorrência antiga começam na criação. A nova modalidade semanal e tarefas vinculadas ao cômodo começam na execução do calendário ainda aberta na criação, se ela for da semana atual (a última execução da semana com data até a criação; prazo até a seguinte), ou senão na primeira execução a partir da criação. Assim, uma tarefa semanal criada na quarta-feira já tem a ocorrência desta semana (disponível desde a segunda) e um responsável nela; no cômodo, a versão da escala passa a valer a partir dessa execução. Na recorrência semanal, as seguintes começam na segunda-feira da semana calculada pelo intervalo, com prazo até a próxima ocorrência. Recorrências diárias, mensais e anuais avançam pelo respectivo componente de calendário. A primeira semana pode ser parcial. Nas recorrências semanais independentes antigas, intervalo 2 gera seis ocorrências e intervalos maiores que o horizonte geram apenas a primeira. Na nova modalidade ancorada, a criação depois da última execução do período pode não gerar ocorrências dentro do horizonte; o próximo refresh continua a partir da próxima data prevista.
 
 A projeção inclui ocorrências pendentes atribuídas de **todos os cômodos da casa**, por usuário e semana de disponibilidade, com esforço snapshot. Históricos de reassunção não duplicam carga. Concluídas não entram novamente: seu efeito histórico já está no saldo. Pendências anteriores ao horizonte continuam consultáveis, mas não são movidas artificialmente para outra semana.
 
@@ -114,9 +114,11 @@ O horizonte continua sendo 12 semanas. A busca compara esforço, dificuldade, sa
 
 A vigência da nova rotação é sempre a segunda-feira **imediatamente seguinte**, mesmo quando o comando acontece numa segunda. Exemplo: uma alteração na quarta-feira, 16/09/2026, vale em 21/09/2026; uma alteração em 21/09 vale em 28/09. Entrar na escala não garante uma tarefa já na primeira semana.
 
+A participação de quem **entra**, porém, é registrada desde a segunda-feira **da semana atual** (entrada em 16/09/2026 participa desde 14/09/2026). Isso não muda os responsáveis já publicados da semana, mas uma tarefa criada depois da entrada, ainda na mesma semana, já pode ser atribuída ao novo participante (por exemplo, uma tarefa diária criada na quarta-feira). Pela mesma razão, ele entra no conjunto de elegíveis do saldo nas conclusões dessa semana. A saída continua registrada na segunda-feira seguinte.
+
 O serviço materializa primeiro o calendário anterior, inclusive semanas perdidas sem abrir o app. Depois registra a mudança de participação e replaneja as ocorrências não concluídas com `availableAt >= vigência`. A semana atual, atrasados e concluídos permanecem intactos, incluindo IDs, responsáveis e snapshots. Nas ocorrências futuras, preserva IDs, datas, prazos e esforço; apenas atribuições e status podem mudar. Atribuições iguais não geram novos registros.
 
-O acesso ao cômodo muda no comando. Quem sai mantém acesso específico às suas pendências preservadas e pode concluí-las depois da vigência, sem poder consultar as demais tarefas de um cômodo privado. Alterações repetidas na mesma semana consolidam a composição da mesma segunda-feira. Reentrar não apaga o histórico nem o saldo.
+O acesso ao cômodo muda no comando. Quem sai mantém acesso específico às suas pendências preservadas e pode concluí-las depois da vigência, sem poder consultar as demais tarefas de um cômodo privado. Alterações repetidas na mesma semana consolidam a composição: uma entrada descarta mudanças do mesmo membro a partir da segunda-feira atual, e uma saída, a partir da próxima. Reentrar não apaga o histórico nem o saldo.
 
 ### Reequilíbrio da casa
 
@@ -210,7 +212,7 @@ Se o app passar a consumir a API, ele ganha o mesmo parâmetro sem mudar o Swift
 
 ## Verificação
 
-Testes no target `grupuxoTests` verificam matrizes escalares e lexicográficas contra enumeração exaustiva, equilíbrio semanal entre filas, transições na próxima segunda-feira, snapshots, saída e reentrada, privacidade, idempotência, atomicidade, concorrência, exclusão confirmada do último participante, avanço por conclusão, ausência, legado e horário de verão. `WeeklyLoadCalculator` conta cada ocorrência uma vez, na semana de disponibilidade, desconsiderando planos substituídos e mantendo o esforço concluído com seu executor. O mesmo conjunto de cenários roda no TypeScript (`backend/test`), somado às fixtures de referência.
+Testes no target `grupuxoTests` verificam matrizes escalares e lexicográficas contra enumeração exaustiva, equilíbrio semanal entre filas, transições na próxima segunda-feira, elegibilidade de quem entra para tarefas criadas na mesma semana, snapshots, saída e reentrada, privacidade, idempotência, atomicidade, concorrência, exclusão confirmada do último participante, avanço por conclusão, ausência, legado e horário de verão. `WeeklyLoadCalculator` conta cada ocorrência uma vez, na semana de disponibilidade, desconsiderando planos substituídos e mantendo o esforço concluído com seu executor. O mesmo conjunto de cenários roda no TypeScript (`backend/test`), somado às fixtures de referência.
 
 Executar:
 

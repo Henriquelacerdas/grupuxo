@@ -332,7 +332,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | `POST /v1/occurrences/{occurrenceID}/complete` | | `204`; idempotente. |
 | `POST /v1/occurrences/{occurrenceID}/reopen` | | `204`. |
 
-Uma tarefa criada começa na próxima segunda-feira do fuso da casa (comportamento do domínio): até lá `GET /me/tasks` não a mostra, e `GET /rooms/{roomID}/tasks` já lista as ocorrências futuras. Quem não é da casa e quem não vê a tarefa (cômodo privado de que não participa) recebem `404 not_found` ao ler ou encerrar; `403 task_unavailable` é só para criar tarefa em cômodo da própria casa de que não se participa.
+Uma tarefa semanal criada já tem a ocorrência da semana atual ainda aberta (comportamento do domínio, ALGORITMO.md): `GET /me/tasks` a mostra logo para o responsável, e `GET /rooms/{roomID}/tasks` lista também as ocorrências futuras. Quem não é da casa e quem não vê a tarefa (cômodo privado de que não participa) recebem `404 not_found` ao ler ou encerrar; `403 task_unavailable` é só para criar tarefa em cômodo da própria casa de que não se participa.
 
 #### Tarefas avulsas, trocas e notificações (implementada)
 

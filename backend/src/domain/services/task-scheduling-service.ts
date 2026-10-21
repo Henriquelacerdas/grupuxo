@@ -84,7 +84,7 @@ export class TaskSchedulingService {
       const participants = this.members(definition, date, state, { includeAbsent: true });
       const start = this.weekStart(date);
       const firstDate = definition.calendarAnchor !== null && weeklyPeriodicityOf(definition.recurrence) !== null
-        ? this.firstWeeklyDate(date, definition)
+        ? this.firstCreationDate(date, definition)
         : date;
       const dates = definition.assignmentPolicy === "afterCompletion"
         ? [date]
@@ -97,12 +97,11 @@ export class TaskSchedulingService {
       if (definition.assignmentPolicy === "afterCompletion") {
         this.publish(definition, date, null, state);
       } else {
-        definition.nextScheduledAt = definition.calendarAnchor !== null
-          ? this.firstWeeklyDate(date, definition)
-          : date;
+        definition.nextScheduledAt = firstDate;
         if (linked) {
           state.definitions.push({ ...definition });
-          this.configureRoom(definition.roomID, date, state);
+          // A versão precisa já cobrir uma execução anterior desta semana, para ela ganhar responsável.
+          this.configureRoom(definition.roomID, Math.min(firstDate, date), state);
           state.definitions = state.definitions.filter((d) => d.id !== definition.id);
         }
         this.extend(definition, this.addingWeeks(HORIZON_WEEKS, start), state);
@@ -326,7 +325,10 @@ export class TaskSchedulingService {
     }
     // Materializa o calendário antigo antes de mudar a participação, inclusive semanas perdidas.
     this.refresh(room.houseID, date, state);
+    // O replanejamento começa na próxima segunda, então as atribuições desta semana mantêm o responsável. Quem entra
+    // participa desde a segunda desta semana, para tarefas criadas nesta semana já poderem ir para ele; a saída vale na próxima.
     const boundary = this.addingWeeks(1, this.weekStart(date));
+    const effectiveAt = joining ? this.weekStart(date) : boundary;
     let index: number;
     if (existing >= 0) {
       index = existing;
@@ -338,8 +340,8 @@ export class TaskSchedulingService {
       });
     }
     const membership = at(state.roomMemberships, index);
-    const changes = (membership.rotationChanges ?? []).filter((c) => c.effectiveAt < boundary);
-    changes.push({ effectiveAt: boundary, participates: joining });
+    const changes = (membership.rotationChanges ?? []).filter((c) => c.effectiveAt < effectiveAt);
+    changes.push({ effectiveAt, participates: joining });
     state.roomMemberships[index] = { ...membership, leftAt: joining ? null : date, rotationChanges: changes };
     if (!joining && !houseChange) {
       const i = state.rooms.findIndex((r) => r.id === roomID);
@@ -847,6 +849,20 @@ export class TaskSchedulingService {
       }
       cycle += 1;
     }
+  }
+
+  /**
+   * Primeira execução de uma tarefa semanal criada em `date`: a execução desta semana ainda aberta em `date`
+   * (a tarefa já conta nesta semana) ou, se não houver, a próxima.
+   */
+  firstCreationDate(date: Instant, definition: TaskDefinition): Instant {
+    let open: Instant | null = null;
+    let candidate = this.firstWeeklyDate(this.weekStart(date), definition);
+    while (candidate <= date) {
+      open = candidate;
+      candidate = this.firstWeeklyDate(this.adding("day", 1, candidate), definition);
+    }
+    return open ?? candidate;
   }
 
   deleteRoom(roomID: RoomID, state: SchedulingState): void {

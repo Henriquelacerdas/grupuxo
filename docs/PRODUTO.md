@@ -58,7 +58,7 @@ O esforço é carga interna usada para equilibrar responsabilidades; não deve v
 
 O responsável muda conforme o calendário, mesmo que o anterior não tenha concluído.
 
-- Períodos de cômodo ancorados na segunda-feira, com n, x > 0 e n ≤ 7x (no máximo uma execução por dia). A execução i ocorre no dia `floor(i × 7x / n)` do período. Criar no meio do período não gera execuções passadas.
+- Períodos de cômodo ancorados na segunda-feira, com n, x > 0 e n ≤ 7x (no máximo uma execução por dia). A execução i ocorre no dia `floor(i × 7x / n)` do período. Criar no meio da semana já gera a execução desta semana ainda aberta (por exemplo, a de segunda-feira para uma tarefa semanal criada na quarta), com prazo até a execução seguinte; execuções de semanas anteriores não são geradas.
 - Opções de periodicidade da tarefa: "Mesma periodicidade do cômodo", outra semanal, diária, mensal ou anual. O semanal antigo com intervalo x equivale a 1 execução a cada x semanas (frações não são reduzidas).
 - Tarefas com a mesma periodicidade do cômodo compartilham seus responsáveis: com um responsável, todas são dele; com vários, um guloso distribui da mais trabalhosa para a menos, antes de associar nomes pelo Húngaro. As demais têm filas independentes.
 
@@ -72,7 +72,7 @@ No app roda no dispositivo e no servidor roda a mesma lógica (implementação e
 
 1. **Saldo de justiça:** ao concluir esforço `E` num cômodo com `M` elegíveis, o executor ganha `E − E/M` e os demais perdem `E/M`. Quem é de fora do cômodo não é afetado.
 2. **Fila inicial:** custo quadrático por usuário/semana (pune picos) e Húngaro para a permutação de menor custo, com as demais filas fixas. Não garante ótimo global.
-3. **Entrada/saída de participantes:** a nova composição vale na segunda-feira imediatamente seguinte. Pode mudar atribuições futuras já publicadas (inclusive responsáveis de um período em andamento); preserva a semana atual, atrasados e concluídos. Quem sai ainda conclui suas pendências preservadas. Entrar na fila não garante tarefa na primeira semana.
+3. **Entrada/saída de participantes:** a nova composição vale na segunda-feira imediatamente seguinte. Pode mudar atribuições futuras já publicadas (inclusive responsáveis de um período em andamento); preserva a semana atual, atrasados e concluídos. Quem sai ainda conclui suas pendências preservadas. Entrar na fila não garante tarefa na primeira semana. Quem entra já é elegível na semana atual para tarefas criadas depois da entrada (por exemplo, uma diária criada na quarta-feira), sem tirar tarefas já atribuídas a outros nesta semana.
 4. **Reequilíbrio estrutural:** busca de melhoria entre as filas da casa priorizando igualdade de esforço semanal; sem garantia de ótimo global e sem reordenar o cotidiano continuamente. Reentradas preservam o saldo.
 
 ## Tarefas esporádicas

@@ -83,13 +83,14 @@ test("blocos gulosos ficam equilibrados e dentro do grupo responsável", () => {
   assert.equal(ownersOn(state, monday).size, 2);
 });
 
-test("criação no meio do período não publica datas passadas e usa contagens exatas", () => {
+test("criação no meio do período inclui a execução desta semana ainda aberta e usa contagens exatas", () => {
   const { service, state, task } = setup({ n: 3, weeks: 2 });
   const start = calendar.addDays(monday, 3);
   const d = service.create(task({ n: 3, weeks: 2 }), start, state);
   const dates = state.occurrences.map((o) => o.availableAt).sort((a, b) => a - b);
-  assert.deepEqual(dates.slice(0, 3).map((t) => calendar.daysBetween(monday, t)), [4, 9, 14]);
-  assert.ok(dates.every((t) => t >= start));
+  // Na quinta (dia 3), a execução de segunda (dia 0) ainda está aberta até a de sexta (dia 4).
+  assert.deepEqual(dates.slice(0, 3).map((t) => calendar.daysBetween(monday, t)), [0, 4, 9]);
+  assert.ok(dates.every((t) => t >= monday));
   assert.equal(d.rotationQueue.length, 0);
   const other = service.create(task({ n: 6, weeks: 4 }), start, state);
   assert.ok(other.rotationQueue.length > 0); // A mesma razão não é o mesmo período.
@@ -192,7 +193,10 @@ test("tarefa nova no período mantém o responsável atual e a saída pendente",
   assert.equal(version?.queue[0], firstOwner);
   const boundary = calendar.addDays(monday, 7);
   assert.ok(state.occurrences.filter((o) => o.availableAt >= boundary).every((o) => activeOwner(state, o) !== other.id));
-  assert.ok(state.occurrences.filter((o) => o.taskDefinitionID === added.id).every((o) => o.availableAt >= wednesday));
+  // A tarefa nova já tem a execução desta semana, com o responsável atual do cômodo.
+  const current = state.occurrences.find((o) => o.taskDefinitionID === added.id && o.availableAt === monday);
+  assert.ok(current !== undefined);
+  assert.equal(activeOwner(state, current), firstOwner);
 });
 
 test("grupos semanais atravessam o horário de verão sem deriva", () => {

@@ -82,7 +82,7 @@ public struct TaskSchedulingService: Sendable {
             let participants = try members(for: definition, at: date, state: state, includeAbsent: true)
             let start = try weekStart(date)
             let firstDate = definition.calendarAnchor != nil && definition.recurrence.weeklyPeriodicity != nil
-                ? try firstWeeklyDate(onOrAfter: date, definition: definition) : date
+                ? try firstCreationDate(at: date, definition: definition) : date
             let dates = definition.assignmentPolicy == .afterCompletion
                 ? [date] : try scheduledDates(from: firstDate, definition: definition, end: addingWeeks(12, to: start))
             definition.rotationQueue = linked ? [] : try distribution.generateInitialQueue(
@@ -94,11 +94,11 @@ public struct TaskSchedulingService: Sendable {
             if definition.assignmentPolicy == .afterCompletion {
                 try publish(definition: &definition, at: date, dueAt: nil, state: &state)
             } else {
-                definition.nextScheduledAt = definition.calendarAnchor != nil
-                    ? try firstWeeklyDate(onOrAfter: date, definition: definition) : date
+                definition.nextScheduledAt = firstDate
                 if linked {
                     state.definitions.append(definition)
-                    try configureRoom(roomID: definition.roomID, boundary: date, state: &state)
+                    // The version must already cover an execution earlier this week, so it gets its owner.
+                    try configureRoom(roomID: definition.roomID, boundary: min(firstDate, date), state: &state)
                     state.definitions.removeAll { $0.id == definition.id }
                 }
                 try extend(definition: &definition, through: addingWeeks(12, to: start), state: &state)
@@ -299,7 +299,10 @@ public struct TaskSchedulingService: Sendable {
         }
         // Materialize the old calendar before changing membership, including missed weeks.
         try refresh(houseID: room.houseID, at: date, state: &state)
+        // Replanning starts next Monday, so this week's assignments keep their owners. A newcomer participates
+        // from this week's Monday, so tasks created this week can already go to them; leaving counts next Monday.
         let boundary = try addingWeeks(1, to: weekStart(date))
+        let effectiveAt = joining ? try weekStart(date) : boundary
         let index: Int
         if let existing { index = existing }
         else {
@@ -310,8 +313,8 @@ public struct TaskSchedulingService: Sendable {
         }
         state.roomMemberships[index].leftAt = joining ? nil : date
         var changes = state.roomMemberships[index].rotationChanges ?? []
-        changes.removeAll { $0.effectiveAt >= boundary }
-        changes.append(RotationParticipationChange(effectiveAt: boundary, participates: joining))
+        changes.removeAll { $0.effectiveAt >= effectiveAt }
+        changes.append(RotationParticipationChange(effectiveAt: effectiveAt, participates: joining))
         state.roomMemberships[index].rotationChanges = changes
         if !joining && !houseChange, let i = state.rooms.firstIndex(where: { $0.id == roomID }) {
             state.rooms[i].visibility = .privateRoom

@@ -112,8 +112,8 @@ struct MembershipSchedulingTests {
         let rejoined = state.roomMemberships.first { $0.id == member.id }!
         #expect(rejoined.isCurrent)
         #expect(rejoined.fairnessDebt == member.fairnessDebt)
-        #expect(!rejoined.participates(at: boundary))
-        #expect(rejoined.participates(at: calendar.date(byAdding: .weekOfYear, value: 1, to: boundary)!))
+        // Rejoining counts from the Monday of the week it happens.
+        #expect(rejoined.participates(at: boundary))
     }
 
     @Test func lastDepartureRequiresConfirmationAndDeletesTasks() throws {
@@ -223,6 +223,26 @@ struct MembershipSchedulingTests {
             #expect(new.effortSnapshot == old.effortSnapshot)
         }
         #expect(!state.assignments.contains { $0.isActive && $0.userID == user && $0.assignedAt >= boundary })
+    }
+
+    @Test func joiningKeepsThisWeeksOwnersButTasksCreatedThisWeekCanGoToNewcomer() throws {
+        var state = state()
+        let rafa = MockSeed.rafa.id
+        state.roomMemberships.removeAll { $0.roomID == MockSeed.kitchen.id && $0.userID == rafa }
+        _ = try service.create(definition(), at: date, state: &state)
+        func owners(_ state: TaskSchedulingState) -> [UUID: UUID] {
+            Dictionary(uniqueKeysWithValues: state.occurrences.filter { $0.availableAt < boundary }.map { o in
+                (o.id, state.assignments.first { $0.occurrenceID == o.id && $0.isActive }?.userID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+            })
+        }
+        let before = owners(state)
+        try service.addMember(userID: rafa, roomID: MockSeed.kitchen.id, at: date, state: &state)
+        #expect(owners(state) == before)
+        var daily = definition()
+        daily.recurrence = .recurring(frequency: .daily, interval: 1)
+        let created = try service.create(daily, at: date, state: &state)
+        let thisWeek = state.occurrences.filter { $0.taskDefinitionID == created.id && $0.availableAt < boundary }
+        #expect(thisWeek.contains { o in state.assignments.contains { $0.occurrenceID == o.id && $0.isActive && $0.userID == rafa } })
     }
 
     @Test func creationDuringPendingChangeAndLegacyInitialization() throws {

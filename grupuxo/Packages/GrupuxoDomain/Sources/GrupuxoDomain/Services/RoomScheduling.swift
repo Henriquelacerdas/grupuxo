@@ -98,6 +98,18 @@ extension TaskSchedulingService {
         }
     }
 
+    /// First execution of a weekly task created at `date`: the execution of the current week still open at
+    /// `date` (the task already counts this week), or else the next one.
+    public func firstCreationDate(at date: Date, definition: TaskDefinition) throws -> Date {
+        var open: Date?
+        var candidate = try firstWeeklyDate(onOrAfter: weekStart(date), definition: definition)
+        while candidate <= date {
+            open = candidate
+            candidate = try firstWeeklyDate(onOrAfter: adding(.day, 1, to: candidate), definition: definition)
+        }
+        return open ?? candidate
+    }
+
     public func deleteRoom(_ roomID: Room.ID, state: inout TaskSchedulingState) {
         let definitions = Set(state.definitions.filter { $0.roomID == roomID }.map(\.id))
         let occurrences = Set(state.occurrences.filter { definitions.contains($0.taskDefinitionID) }.map(\.id))

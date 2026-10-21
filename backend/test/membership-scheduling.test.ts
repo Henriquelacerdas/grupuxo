@@ -105,8 +105,8 @@ test("a saída preserva a conclusão pendente e a reentrada mantém o saldo", ()
   assert.ok(rejoined !== undefined);
   assert.ok(isCurrentMember(rejoined));
   assert.equal(rejoined.fairnessDebt, member.fairnessDebt);
-  assert.ok(!participatesAt(rejoined, boundary));
-  assert.ok(participatesAt(rejoined, calendar.addWeeks(boundary, 1)));
+  // A reentrada vale desde a segunda-feira da semana em que acontece.
+  assert.ok(participatesAt(rejoined, boundary));
 });
 
 test("a última saída exige confirmação e exclui as tarefas", () => {
@@ -210,6 +210,20 @@ test("snapshot, recorrência e ausência sobrevivem ao replanejamento", () => {
     assert.deepEqual(next.effortSnapshot, old.effortSnapshot);
   }
   assert.ok(!state.assignments.some((a) => isActiveAssignment(a) && a.userID === users.marina.id && a.assignedAt >= boundary));
+});
+
+test("quem entra não muda os responsáveis desta semana, mas já recebe tarefa criada na mesma semana", () => {
+  const { service, state, definition, users, rooms } = setup();
+  const rafa = users.rafa.id;
+  state.roomMemberships = state.roomMemberships.filter((m) => !(m.roomID === rooms.kitchen.id && m.userID === rafa));
+  service.create(definition(), date, state);
+  const owners = () => new Map(state.occurrences.filter((o) => o.availableAt < boundary).map((o) => [o.id, activeOwner(state, o)]));
+  const before = owners();
+  service.addMember(rafa, rooms.kitchen.id, date, state);
+  assert.deepEqual(owners(), before);
+  const daily = service.create({ ...definition(), recurrence: recurring("daily", 1) }, date, state);
+  const thisWeek = state.occurrences.filter((o) => o.taskDefinitionID === daily.id && o.availableAt < boundary);
+  assert.ok(thisWeek.some((o) => activeOwner(state, o) === rafa));
 });
 
 test("criação durante mudança pendente e inicialização de registros legados", () => {

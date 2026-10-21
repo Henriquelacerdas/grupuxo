@@ -66,13 +66,14 @@ struct RoomResponsibilityTests {
         #expect(owners.count == 2)
     }
 
-    @Test func midPeriodCreationDoesNotPublishPastDatesAndUsesExactCounts() throws {
+    @Test func midPeriodCreationIncludesThisWeeksOpenExecutionAndUsesExactCounts() throws {
         var s = state(n: 3, weeks: 2)
         let start = calendar.date(byAdding: .day, value: 3, to: monday)!
         let d = try service.create(task(n: 3, weeks: 2), at: start, state: &s)
         let dates = s.occurrences.map(\.availableAt).sorted()
-        #expect(dates.prefix(3).map { calendar.dateComponents([.day], from: monday, to: $0).day! } == [4, 9, 14])
-        #expect(dates.allSatisfy { $0 >= start })
+        // On Thursday (day 3), Monday's execution (day 0) is still open until Friday's (day 4).
+        #expect(dates.prefix(3).map { calendar.dateComponents([.day], from: monday, to: $0).day! } == [0, 4, 9])
+        #expect(dates.allSatisfy { $0 >= monday })
         #expect(d.rotationQueue.isEmpty)
         let other = try service.create(task(n: 6, weeks: 4), at: start, state: &s)
         #expect(!other.rotationQueue.isEmpty) // Same ratio is not the same period.
@@ -174,7 +175,9 @@ struct RoomResponsibilityTests {
         #expect(version.queue.first == firstOwner)
         let boundary = calendar.date(byAdding: .day, value: 7, to: monday)!
         #expect(s.occurrences.filter { $0.availableAt >= boundary }.allSatisfy { owner($0, in: s) != other })
-        #expect(s.occurrences.filter { $0.taskDefinitionID == added.id }.allSatisfy { $0.availableAt >= wednesday })
+        // The new task already has this week's execution, with the room's current responsible.
+        let current = try #require(s.occurrences.first { $0.taskDefinitionID == added.id && $0.availableAt == monday })
+        #expect(owner(current, in: s) == firstOwner)
     }
 
     @Test func weeklyGroupsCrossDSTWithoutDrift() throws {

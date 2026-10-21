@@ -30,11 +30,11 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     const dueDates = inRoom.map((item) => rec(item["occurrence"])["dueAt"]).filter((due) => typeof due === "string").map(String);
     assert.deepEqual(dueDates, [...dueDates].sort());
 
-    // A primeira ocorrência começa na segunda seguinte à criação: antes disso, ninguém tem tarefa.
-    assert.deepEqual(bodyOf(await env.call("ana", "GET", "/v1/me/tasks")), { tasks: [] });
+    // A primeira ocorrência é a da semana da criação: logo depois de criar, uma das duas já tem a tarefa.
+    const mine = async (who: "ana" | "bia") => list(bodyOf(await env.call(who, "GET", "/v1/me/tasks"))["tasks"]).map(rec);
+    assert.equal((await mine("ana")).length + (await mine("bia")).length, 1);
     env.clock += 7 * 24 * 3_600_000;
     // Cada ocorrência pendente pertence a um dos dois moradores; juntos veem todas as suas.
-    const mine = async (who: "ana" | "bia") => list(bodyOf(await env.call(who, "GET", "/v1/me/tasks"))["tasks"]).map(rec);
     const anaTasks = await mine("ana");
     const biaTasks = await mine("bia");
     for (const item of [...anaTasks, ...biaTasks]) assert.equal(rec(item["definition"])["id"], created["id"]);
@@ -49,11 +49,17 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     const { house } = await twoHousesScenario(env);
     expectStatus(await env.call("ana", "POST", `/v1/rooms/${house.wholeHouseRoomID}/tasks`, { body: JSON.stringify(WEEKLY_TASK) }), 201);
     env.clock += 7 * 24 * 3_600_000;
-    const all = list(bodyOf(await env.call("ana", "GET", "/v1/me/tasks"))["tasks"]);
-    const all2 = list(bodyOf(await env.call("ana", "GET", "/v1/me/tasks", { query: "range=all" }))["tasks"]);
-    const week = list(bodyOf(await env.call("ana", "GET", "/v1/me/tasks", { query: "range=week" }))["tasks"]);
-    assert.deepEqual(all, all2);
-    assert.ok(week.length > 0 && week.length <= all.length);
+    // A semana é de uma das duas: as duas participam desde a semana da entrada.
+    let weekTotal = 0;
+    for (const who of ["ana", "bia"] as const) {
+      const all = list(bodyOf(await env.call(who, "GET", "/v1/me/tasks"))["tasks"]);
+      const all2 = list(bodyOf(await env.call(who, "GET", "/v1/me/tasks", { query: "range=all" }))["tasks"]);
+      const week = list(bodyOf(await env.call(who, "GET", "/v1/me/tasks", { query: "range=week" }))["tasks"]);
+      assert.deepEqual(all, all2);
+      assert.ok(week.length <= all.length);
+      weekTotal += week.length;
+    }
+    assert.ok(weekTotal > 0);
     expectError(await env.call("ana", "GET", "/v1/me/tasks", { query: "range=mes" }), 400, "bad_request");
   });
 
