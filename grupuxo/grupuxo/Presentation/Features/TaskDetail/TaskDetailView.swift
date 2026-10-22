@@ -106,6 +106,34 @@ struct TaskDetailView: View {
 
                     }
 
+                    if !viewModel.upcoming.isEmpty {
+
+                        Section {
+
+                            ForEach(
+                                viewModel.upcoming
+                            ) { assignment in
+
+                                UpcomingAssignmentRow(
+                                    assignment: assignment
+                                )
+
+                            }
+
+                        } header: {
+
+                            Text("Próximos responsáveis")
+
+                        } footer: {
+
+                            Text(
+                                "Ordem prevista. Pode mudar se alguém se ausentar ou se a casa for reequilibrada."
+                            )
+
+                        }
+
+                    }
+
                 }
 
             case let .failure(message):
@@ -429,6 +457,79 @@ private struct TaskDetailsEditSheet: View {
             )
 
         }
+
+    }
+
+}
+
+
+private struct UpcomingAssignmentRow: View {
+
+    let assignment: UpcomingAssignment
+
+    var body: some View {
+
+        HStack(
+            spacing: DesignSystem.Spacing.medium
+        ) {
+
+            if let assignee = assignment.assignee {
+
+                ResidentAvatar(
+                    user: assignee
+                )
+
+            } else {
+
+                Image(systemName: "person.crop.circle.badge.questionmark")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 36, height: 36)
+
+            }
+
+            VStack(
+                alignment: .leading,
+                spacing: 2
+            ) {
+
+                Text(
+                    assignment.assignee?.name ?? "Sem responsável"
+                )
+                .foregroundStyle(
+                    assignment.assignee == nil
+                        ? AnyShapeStyle(.secondary)
+                        : AnyShapeStyle(.primary)
+                )
+
+                if assignment.isCurrent {
+
+                    Text("Agora")
+                        .font(.caption)
+                        .foregroundStyle(.tint)
+
+                }
+
+            }
+
+            Spacer(
+                minLength: DesignSystem.Spacing.small
+            )
+
+            Text(
+                assignment.availableAt,
+                format: .dateTime
+                    .weekday(.abbreviated)
+                    .day()
+                    .month(.abbreviated)
+                    .locale(HouseOverviewText.appLocale)
+            )
+            .foregroundStyle(.secondary)
+
+        }
+        .accessibilityElement(
+            children: .combine
+        )
 
     }
 

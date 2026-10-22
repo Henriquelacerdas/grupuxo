@@ -110,6 +110,8 @@ public struct RoomParticipation: Equatable, Sendable {
     public let isMember: Bool
     public let memberCount: Int
     public let responsibleNames: [String]
+    /// Mesma ordem e tamanho de `responsibleNames`.
+    public let responsibleUserIDs: [User.ID]
     public let periodStart: Date
     public let periodEnd: Date
 
@@ -118,6 +120,7 @@ public struct RoomParticipation: Equatable, Sendable {
         isMember: Bool,
         memberCount: Int,
         responsibleNames: [String],
+        responsibleUserIDs: [User.ID] = [],
         periodStart: Date,
         periodEnd: Date
     ) {
@@ -125,6 +128,7 @@ public struct RoomParticipation: Equatable, Sendable {
         self.isMember = isMember
         self.memberCount = memberCount
         self.responsibleNames = responsibleNames
+        self.responsibleUserIDs = responsibleUserIDs
         self.periodStart = periodStart
         self.periodEnd = periodEnd
     }

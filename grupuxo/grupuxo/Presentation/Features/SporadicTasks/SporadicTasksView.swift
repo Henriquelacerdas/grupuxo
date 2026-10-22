@@ -861,34 +861,6 @@ struct SporadicTasksView: View {
         for roomColor: RoomColor
     ) -> Color {
 
-        switch roomColor {
-
-        case .red:
-            return .red
-
-        case .orange:
-            return .orange
-
-        case .yellow:
-            return .yellow
-
-        case .green:
-            return .green
-
-        case .blue:
-            return .blue
-
-        case .purple:
-            return .purple
-
-        case .brown:
-            return .brown
-
-        case .gray:
-            return .gray
-
-        case .pink:
-            return .pink
-        }
+        roomColor.tint
     }
 }

@@ -31,7 +31,13 @@ A barra principal tem duas abas. Sino (notificações) e perfil (configurações
 
 ### Minhas tarefas
 
-Responsabilidades do usuário: tarefas periódicas, gerais e esporádicas assumidas. Permite consultar prazo, esforço, responsável e estado; concluir (e desmarcar); e pedir **troca** de tarefa com outro morador. **Não permite criar tarefas.**
+Responsabilidades do usuário, em três seções recolhíveis sob o card "Resumo da semana" (convite à avaliação anônima da semana; Depois/Avaliar ainda não fazem nada):
+
+- **Seu ciclo**: os cômodos de que o morador é responsável neste ciclo, cada um com o prazo ("Termina domingo"), o progresso do cômodo ("2 de 5") e as tarefas de mesma periodicidade do cômodo.
+- **Tarefas extras**: tarefas recorrentes de um cômodo com periodicidade diferente da do cômodo, com o nome do cômodo e o dia do prazo.
+- **Tarefas únicas**: as esporádicas que o morador assumiu na aba Casa, com o nome do cômodo.
+
+Permite consultar prazo, responsável e estado; concluir (e desmarcar); e, deslizando a linha, **Pedir troca** com outro morador, **Editar** (abre o detalhe da tarefa; só leitura enquanto a `api` não tiver edição) e **Excluir** (só em recorrentes: encerra a tarefa, com confirmação; o histórico fica e a vez atual continua até ser concluída). Tarefas concluídas ficam marcadas até o fim do ciclo (seu ciclo) ou da semana (extras e únicas). O botão "+" da barra abre a mesma sheet de criação de tarefa da aba Casa; o avatar abre as configurações e o sino, as notificações.
 
 ### Gerenciar casa
 
@@ -40,7 +46,8 @@ Organização coletiva:
 - Ver todos os cômodos; entrar em privados; sair dos participantes (exceto Casa toda).
 - Criar cômodos (ícone, periodicidade, responsáveis, visibilidade).
 - Criar e editar tarefas, com **sugestões por tipo de cômodo** (`TaskSuggestionCatalog`).
-- Card de **tarefas esporádicas** (não aparecem dentro do cômodo na interface, mas mantêm `roomID` nos dados).
+- Card de **Tarefas Únicas** (esporádicas): as primeiras tarefas abertas, cada uma com o ícone e a cor do cômodo, e "+N Outras" quando sobram (não aparecem dentro do cômodo na interface, mas mantêm `roomID` nos dados).
+- Um card por cômodo. Para quem participa: ícone, nome, responsáveis do ciclo ("Você e Gabriel M.", ou seja, quem tem as tarefas de mesma periodicidade do cômodo; o morador logado aparece como "Você" e os demais como "Nome S."), quando o ciclo termina ("Termina hoje", "amanhã", dia da semana ou "em N dias"), barra de progresso na cor do cômodo e "X de Y tarefas feitas" (fração das tarefas do ciclo atual já concluídas). Cadeado: só em cômodo privado; aberto quando o morador participa, fechado quando não participa. Quem não participa de um cômodo privado vê só ícone, nome, "Cômodo Privado" e um botão: "Pedir para entrar" ou, com pedido aberto, "Cancelar solicitação". O pedido ainda não tem aprovação por parte dos participantes; ele só registra a intenção e pode ser cancelado.
 
 ### Configurações e notificações
 

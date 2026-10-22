@@ -3,8 +3,8 @@ import GrupuxoDomain
 
 // Repositórios do domínio sobre a `api`. Os parâmetros `requestedBy`/`requesting`/`at` são ignorados de propósito: o
 // servidor usa o usuário do token e o próprio relógio (BACKEND.md seção 6.1). Operações sem rota lançam
-// `APIError.unsupported` (moradores sem conta, edição de tarefa e exclusão de avulsa); as telas que dependem delas
-// ficam escondidas neste build.
+// `APIError.unsupported` (moradores sem conta, edição de tarefa, exclusão de avulsa e pedido de entrada em cômodo
+// privado); as telas que dependem delas ficam escondidas neste build ou mostram o erro.
 
 extension UUID {
     /// O servidor só reconhece UUID em minúsculo nos caminhos.
@@ -110,6 +110,13 @@ struct RemoteTaskRepository: TaskRepository {
 
     func sporadicTasks(in houseID: House.ID, requesting userID: User.ID) async throws -> [TaskItem] {
         try await items(from: "v1/me/sporadic-tasks")
+    }
+
+    /// Sem rota própria: as ocorrências saem da lista do cômodo (`GET /v1/rooms/{roomID}/tasks`).
+    func occurrences(of taskDefinitionID: TaskDefinition.ID, requesting userID: User.ID) async throws -> [TaskItem] {
+        let roomID = try await index.room(of: taskDefinitionID)
+        return try await items(from: "v1/rooms/\(roomID.apiString)/tasks")
+            .filter { $0.definition.id == taskDefinitionID }
     }
 
     func taskDefinition(id: TaskDefinition.ID, requesting userID: User.ID) async throws -> TaskDefinition {
@@ -232,6 +239,22 @@ struct RemoteNotificationRepository: NotificationRepository {
 
     func markAsRead(notificationID: AppNotification.ID, by userID: User.ID, at date: Date) async throws {
         try await api.send("POST", "v1/notifications/\(notificationID.apiString)/read")
+    }
+}
+
+/// Pedido de entrada em cômodo privado ainda sem rota na `api`: nenhum pedido aberto, e pedir ou cancelar falha.
+struct RemoteRoomAccessRequestRepository: RoomAccessRequestRepository {
+
+    func pendingRoomIDs(in houseID: House.ID, requesting userID: User.ID) async throws -> Set<Room.ID> {
+        []
+    }
+
+    func request(roomID: Room.ID, requesting userID: User.ID, at date: Date) async throws {
+        throw APIError.unsupported
+    }
+
+    func cancel(roomID: Room.ID, requesting userID: User.ID) async throws {
+        throw APIError.unsupported
     }
 }
 

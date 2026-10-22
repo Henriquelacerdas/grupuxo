@@ -11,6 +11,7 @@ final class AppContainer {
     let houseRepository: any HouseRepository
     let roomRepository: any RoomRepository
     let taskRepository: any TaskRepository
+    let roomAccessRequestRepository: any RoomAccessRequestRepository
 
     let taskSwapRepository: any TaskSwapRepository
     let notificationRepository: any NotificationRepository
@@ -22,6 +23,7 @@ final class AppContainer {
         houseRepository: any HouseRepository,
         roomRepository: any RoomRepository,
         taskRepository: any TaskRepository,
+        roomAccessRequestRepository: any RoomAccessRequestRepository,
         taskSwapRepository: any TaskSwapRepository,
         notificationRepository: any NotificationRepository,
         whatsAppConnectionRepository: any WhatsAppConnectionRepository
@@ -31,6 +33,7 @@ final class AppContainer {
         self.houseRepository = houseRepository
         self.roomRepository = roomRepository
         self.taskRepository = taskRepository
+        self.roomAccessRequestRepository = roomAccessRequestRepository
         self.taskSwapRepository = taskSwapRepository
         self.notificationRepository = notificationRepository
         self.whatsAppConnectionRepository = whatsAppConnectionRepository
@@ -44,6 +47,7 @@ final class AppContainer {
             houseRepository: RemoteHouseRepository(api: api),
             roomRepository: RemoteRoomRepository(api: api),
             taskRepository: RemoteTaskRepository(api: api),
+            roomAccessRequestRepository: RemoteRoomAccessRequestRepository(),
             taskSwapRepository: RemoteTaskSwapRepository(api: api),
             notificationRepository: RemoteNotificationRepository(api: api),
             whatsAppConnectionRepository: RemoteWhatsAppConnectionRepository(api: api)
@@ -69,6 +73,7 @@ final class AppContainer {
             houseRepository: MockHouseRepository(store: store, scheduling: scheduling),
             roomRepository: MockRoomRepository(store: store, scheduling: scheduling),
             taskRepository: MockTaskRepository(store: store, scheduling: scheduling),
+            roomAccessRequestRepository: MockRoomAccessRequestRepository(store: store),
             taskSwapRepository: MockTaskSwapRepository(store: store),
             notificationRepository: MockNotificationRepository(store: store),
             whatsAppConnectionRepository: MockWhatsAppConnectionRepository()
@@ -111,14 +116,20 @@ final class AppContainer {
         session: AppSession
     ) -> MyTasksViewModel {
         MyTasksViewModel(
-            getMyTasks: GetMyTasksUseCase(
-                repository: taskRepository
+            getMyTasksOverview: GetMyTasksOverviewUseCase(
+                roomRepository: roomRepository,
+                taskRepository: taskRepository
             ),
             completeTask: CompleteTaskUseCase(
                 repository: taskRepository
             ),
-            userID: session.currentUser.id,
-            houseID: session.currentHouse.id
+            endTask: EndTaskUseCase(
+                repository: taskRepository
+            ),
+            user: session.currentUser,
+            houseName: session.currentHouse.name,
+            houseID: session.currentHouse.id,
+            calendar: calendar
         )
     }
 
@@ -126,11 +137,21 @@ final class AppContainer {
         session: AppSession
     ) -> HouseManagementViewModel {
         HouseManagementViewModel(
-            getHouseRooms: GetHouseRoomsUseCase(
-                repository: roomRepository
+            getHouseOverview: GetHouseOverviewUseCase(
+                roomRepository: roomRepository,
+                taskRepository: taskRepository,
+                accessRequestRepository: roomAccessRequestRepository
             ),
+            requestRoomAccess: RequestRoomAccessUseCase(
+                repository: roomAccessRequestRepository
+            ),
+            cancelRoomAccessRequest: CancelRoomAccessRequestUseCase(
+                repository: roomAccessRequestRepository
+            ),
+            houseName: session.currentHouse.name,
             houseID: session.currentHouse.id,
-            userID: session.currentUser.id
+            userID: session.currentUser.id,
+            calendar: calendar
         )
     }
 
@@ -261,6 +282,9 @@ final class AppContainer {
                 repository: taskRepository
             ),
             updateTaskDetails: UpdateTaskDetailsUseCase(
+                repository: taskRepository
+            ),
+            getUpcomingAssignments: GetTaskUpcomingAssignmentsUseCase(
                 repository: taskRepository
             ),
             taskDefinitionID: taskDefinitionID,

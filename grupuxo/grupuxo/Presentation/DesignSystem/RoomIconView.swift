@@ -13,6 +13,9 @@ extension RoomColor {
         case .brown: .brown
         case .gray: .gray
         case .pink: .pink
+        case .teal: .teal
+        case .indigo: .indigo
+        case .cyan: .cyan
         }
     }
 
@@ -27,6 +30,9 @@ extension RoomColor {
         case .brown: "Marrom"
         case .gray: "Cinza"
         case .pink: "Rosa"
+        case .teal: "Azul-petróleo"
+        case .indigo: "Índigo"
+        case .cyan: "Ciano"
         }
     }
 }

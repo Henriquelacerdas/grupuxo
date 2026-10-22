@@ -35,8 +35,19 @@ struct RootView: View {
                         container.makeMyTasksViewModel(
                             session: session
                         ),
+                    makeTaskEditorViewModel: {
+
+                        container.makeTaskEditorViewModel(
+                            roomID: nil,
+                            session: session
+                        )
+
+                    },
                     onRequestSwap: { occurrenceID in
                         tasksPath.append(.taskSwap(offeredOccurrenceID: occurrenceID))
+                    },
+                    onSelectTask: { taskDefinitionID in
+                        tasksPath.append(.taskDetail(taskDefinitionID))
                     },
                     onSelectNotifications: {
                         tasksPath.append(.notifications)

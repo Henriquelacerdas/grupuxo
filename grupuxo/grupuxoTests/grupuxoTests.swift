@@ -303,11 +303,12 @@ struct TaskListPresentationTests {
     @Test func deadlinesSortAscendingWithUndatedTasksLast() async throws {
         var seed = MockSeed.make()
         let roomID = MockSeed.kitchen.id
-        let definition = seed.definitions.first { $0.roomID == roomID }!
+        let definitions = Array(seed.definitions.filter { $0.roomID == roomID && $0.kind != .sporadic }.prefix(3))
+        #expect(definitions.count == 3)
         let dates: [Date?] = [nil, Date(timeIntervalSince1970: 300), Date(timeIntervalSince1970: 100)]
-        seed.occurrences = dates.map {
+        seed.occurrences = zip(definitions, dates).map { definition, dueAt in
             TaskOccurrence(id: UUID(), taskDefinitionID: definition.id, availableAt: .distantPast,
-                           dueAt: $0, status: .available, completedAt: nil, completedByUserID: nil,
+                           dueAt: dueAt, status: .available, completedAt: nil, completedByUserID: nil,
                            effortSnapshot: definition.effort)
         }
         let container = AppContainer(store: MockStore(state: seed))
@@ -320,7 +321,7 @@ struct TaskListPresentationTests {
         let container = AppContainer()
         let user = try await container.store.read { state in
             let ids = Set(state.definitions.filter { $0.roomID == MockSeed.kitchen.id }.map(\.id))
-            let occurrence = try #require(state.occurrences.first { ids.contains($0.taskDefinitionID) && $0.availableAt <= .now })
+            let occurrence = try #require(state.occurrences.first { ids.contains($0.taskDefinitionID) && $0.availableAt <= .now && !$0.isCompleted })
             let owner = try #require(state.assignments.first { $0.occurrenceID == occurrence.id && $0.isActive }?.userID)
             return try #require(state.users.first { $0.id == owner })
         }
@@ -328,7 +329,9 @@ struct TaskListPresentationTests {
         let model = container.makeRoomDetailViewModel(roomID: MockSeed.kitchen.id, session: session)
         await model.load()
         guard case let .content(content) = model.state,
-              let item = content.tasks.first(where: { $0.assignment?.userID == user.id && $0.occurrence.availableAt <= .now }) else {
+              let item = content.tasks.first(where: {
+                  $0.assignment?.userID == user.id && $0.occurrence.availableAt <= .now && !$0.occurrence.isCompleted
+              }) else {
             Issue.record("Missing assigned task")
             return
         }

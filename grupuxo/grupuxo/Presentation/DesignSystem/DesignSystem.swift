@@ -14,6 +14,88 @@ enum DesignSystem {
     static let contentSpacing = Spacing.large
     static let minimumTouchTarget: CGFloat = 44
     static let cornerRadius: CGFloat = 12
+    static let cardCornerRadius: CGFloat = 24
+}
+
+/// Barra de progresso do ciclo: trilho neutro e preenchimento na cor do cômodo.
+/// Sem progresso a barra mostra só a ponta arredondada, para o trilho não parecer vazio.
+struct CycleProgressViewStyle: ProgressViewStyle {
+
+    let tint: Color
+
+    @ScaledMetric(relativeTo: .caption) private var barHeight: CGFloat = 6
+
+    func makeBody(configuration: Configuration) -> some View {
+
+        let fraction = min(max(configuration.fractionCompleted ?? 0, 0), 1)
+
+        Capsule()
+            .fill(Color(uiColor: .systemFill))
+            .frame(height: barHeight)
+            .overlay(alignment: .leading) {
+
+                GeometryReader { proxy in
+
+                    Capsule()
+                        .fill(tint)
+                        .frame(width: max(barHeight, proxy.size.width * fraction))
+                }
+            }
+            .accessibilityElement()
+            .accessibilityLabel("Progresso do ciclo")
+            .accessibilityValue(
+                fraction.formatted(.percent.precision(.fractionLength(0)))
+            )
+    }
+}
+
+extension ProgressViewStyle where Self == CycleProgressViewStyle {
+
+    static func cycle(tint: Color) -> CycleProgressViewStyle {
+        CycleProgressViewStyle(tint: tint)
+    }
+}
+
+extension View {
+
+    /// Cartão com fundo agrupado secundário, que acompanha modo escuro e contraste do sistema.
+    /// Sobre fundo não agrupado (lista `.plain`), passe `Color(uiColor: .secondarySystemBackground)`.
+    func cardBackground(
+        _ fill: Color = Color(uiColor: .secondarySystemGroupedBackground)
+    ) -> some View {
+        background(
+            fill,
+            in: RoundedRectangle(
+                cornerRadius: DesignSystem.cardCornerRadius,
+                style: .continuous
+            )
+        )
+    }
+
+    /// A linha da lista vira só um espaço: o fundo e o arredondamento ficam no cartão.
+    func plainCardRow() -> some View {
+        listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .listRowInsets(
+                EdgeInsets(
+                    top: 0,
+                    leading: DesignSystem.Spacing.large,
+                    bottom: 0,
+                    trailing: DesignSystem.Spacing.large
+                )
+            )
+    }
+
+    /// Botão de ação principal da barra de navegação (vidro no iOS 26, preenchido antes).
+    @ViewBuilder
+    func prominentToolbarButtonStyle() -> some View {
+
+        if #available(iOS 26, *) {
+            buttonStyle(.glassProminent)
+        } else {
+            buttonStyle(.borderedProminent)
+        }
+    }
 }
 
 struct EmptyStateView: View {
@@ -28,11 +110,13 @@ struct EmptyStateView: View {
 struct ResidentAvatar: View {
     let user: User
 
+    @ScaledMetric(relativeTo: .caption) private var diameter: CGFloat = 36
+
     var body: some View {
         Text(user.name.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init).joined())
             .font(.caption.bold())
             .foregroundStyle(.tint)
-            .frame(width: 36, height: 36)
+            .frame(width: diameter, height: diameter)
             .background(.tint.opacity(0.12), in: Circle())
             .accessibilityHidden(true)
     }
@@ -57,10 +141,16 @@ struct TaskRow: View {
                 Image(
                     systemName:
                         item.occurrence.isCompleted
-                        ? "checkmark.square.fill"
-                        : "square"
+                        ? "checkmark.circle.fill"
+                        : "circle"
                 )
                 .font(.title2)
+                .foregroundStyle(
+                    item.occurrence.isCompleted
+                    ? AnyShapeStyle(.tint)
+                    : AnyShapeStyle(.secondary)
+                )
+                .contentTransition(.symbolEffect(.replace))
                 .frame(width: 44, height: 44)
 
             }
