@@ -46,10 +46,6 @@ final class MyTasksViewModel: ObservableObject {
         self.text = MyTasksText(calendar: calendar, locale: locale)
     }
 
-    var weeklySummaryMessage: String {
-        MyTasksText.weeklySummary(houseName: houseName)
-    }
-
     func load(showLoading: Bool = true) async {
 
         // Recarregar não esvazia a tela: o conteúdo atual fica até o novo chegar.

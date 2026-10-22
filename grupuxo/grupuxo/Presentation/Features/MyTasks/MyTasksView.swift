@@ -52,13 +52,6 @@ struct MyTasksView: View {
 
             case let .content(content):
 
-                WeeklySummaryCard(
-                    message: viewModel.weeklySummaryMessage,
-                    onLater: {},
-                    onRate: {}
-                )
-                .plainCardRow()
-
                 sections(for: content)
 
             case .empty:

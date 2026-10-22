@@ -15,10 +15,6 @@ struct MyTasksText {
         self.houseText = HouseOverviewText(calendar: calendar, locale: locale)
     }
 
-    static func weeklySummary(houseName: String) -> String {
-        "Como ficou a limpeza de \(houseName)? Sua avaliação será anônima."
-    }
-
     /// "Termina domingo · 2 de 5"; sem tarefas no ciclo, só o prazo.
     func cycleStatus(periodEnd: Date, progress: CycleProgress, now: Date) -> String {
 

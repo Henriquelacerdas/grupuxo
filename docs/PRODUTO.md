@@ -31,7 +31,7 @@ A barra principal tem duas abas. Sino (notificações) e perfil (configurações
 
 ### Minhas tarefas
 
-Responsabilidades do usuário, em três seções recolhíveis sob o card "Resumo da semana" (convite à avaliação anônima da semana; Depois/Avaliar ainda não fazem nada):
+Responsabilidades do usuário, em três seções recolhíveis:
 
 - **Seu ciclo**: os cômodos de que o morador é responsável neste ciclo, cada um com o prazo ("Termina domingo"), o progresso do cômodo ("2 de 5") e as tarefas de mesma periodicidade do cômodo.
 - **Tarefas extras**: tarefas recorrentes de um cômodo com periodicidade diferente da do cômodo, com o nome do cômodo e o dia do prazo.

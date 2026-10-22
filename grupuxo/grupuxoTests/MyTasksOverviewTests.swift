@@ -121,7 +121,6 @@ struct MyTasksOverviewTests {
         }
 
         #expect(content.extras.allSatisfy { $0.roomName != nil })
-        #expect(model.weeklySummaryMessage.contains(MockSeed.house.name))
     }
 
     // MARK: - Textos
