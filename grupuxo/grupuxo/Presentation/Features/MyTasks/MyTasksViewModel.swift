@@ -69,7 +69,11 @@ final class MyTasksViewModel: ObservableObject {
                 ? .empty
                 : .content(content(from: overview, at: date))
 
+        } catch is CancellationError {
+            // A tela saiu antes da resposta: fica o que já estava.
         } catch {
+            // Recarga em segundo plano que falha não troca a lista pela tela de erro.
+            if !showLoading, state.hasLoaded { return }
             state = .failure(
                 error.localizedDescription
             )
@@ -183,13 +187,23 @@ final class MyTasksViewModel: ObservableObject {
                         now: date
                     ),
                     rows: group.tasks.map {
-                        MyTasksContent.Row(item: $0, roomName: nil, dueDay: nil)
+                        MyTasksContent.Row(
+                            item: $0,
+                            roomName: nil,
+                            dueDay: nil,
+                            color: group.room.color
+                        )
                     }
                 )
             },
             extras: overview.extraTasks.map { row($0, at: date) },
             sporadics: overview.sporadicTasks.map {
-                MyTasksContent.Row(item: $0.item, roomName: $0.room.name, dueDay: nil)
+                MyTasksContent.Row(
+                    item: $0.item,
+                    roomName: $0.room.name,
+                    dueDay: nil,
+                    color: $0.room.color
+                )
             }
         )
     }
@@ -204,7 +218,8 @@ final class MyTasksViewModel: ObservableObject {
             roomName: task.room.name,
             dueDay: task.item.occurrence.dueAt.map {
                 text.dueDay($0, now: date)
-            }
+            },
+            color: task.room.color
         )
     }
 }

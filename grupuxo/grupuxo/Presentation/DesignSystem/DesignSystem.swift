@@ -108,17 +108,60 @@ struct EmptyStateView: View {
 }
 
 struct ResidentAvatar: View {
-    let user: User
 
-    @ScaledMetric(relativeTo: .caption) private var diameter: CGFloat = 36
+    /// `regular` acompanha o texto ao redor; `toolbar` ocupa o lugar de um botão da barra de navegação,
+    /// com o mesmo tamanho dos botões vizinhos (a barra não cresce com o Dynamic Type).
+    enum Size {
+        case regular
+        case toolbar
+    }
+
+    let user: User
+    let size: Size
+
+    @ScaledMetric(relativeTo: .caption) private var regularDiameter: CGFloat = 36
+
+    init(user: User, size: Size = .regular) {
+        self.user = user
+        self.size = size
+    }
+
+    private var diameter: CGFloat {
+        switch size {
+        case .regular: regularDiameter
+        case .toolbar: DesignSystem.minimumTouchTarget
+        }
+    }
+
+    private var font: Font {
+        switch size {
+        case .regular: .caption.bold()
+        case .toolbar: .headline
+        }
+    }
 
     var body: some View {
         Text(user.name.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init).joined())
-            .font(.caption.bold())
+            .font(font)
             .foregroundStyle(.tint)
             .frame(width: diameter, height: diameter)
             .background(.tint.opacity(0.12), in: Circle())
+            .contentShape(Circle())
             .accessibilityHidden(true)
+    }
+}
+
+extension ToolbarContent {
+
+    /// Tira o fundo de vidro que o iOS 26 põe em volta do item, para o próprio conteúdo ser o botão.
+    @ToolbarContentBuilder
+    func hidingSharedBackground() -> some ToolbarContent {
+
+        if #available(iOS 26, *) {
+            sharedBackgroundVisibility(.hidden)
+        } else {
+            self
+        }
     }
 }
 

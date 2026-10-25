@@ -136,6 +136,7 @@ struct APIClient: Sendable {
         do {
             token = try await tokens.accessToken()
         } catch {
+            if Self.isCancellation(error) { throw CancellationError() }
             throw APIError.unauthorized
         }
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -146,9 +147,8 @@ struct APIClient: Sendable {
             (data, response) = try await transport.data(for: request)
         } catch let error as APIError {
             throw error
-        } catch is CancellationError {
-            throw CancellationError()
         } catch {
+            if Self.isCancellation(error) { throw CancellationError() }
             throw APIError.network
         }
 
@@ -172,6 +172,13 @@ struct APIClient: Sendable {
         _ type: T.Type, _ path: String, query: [String: String] = [:], body: (any Encodable & Sendable)? = nil
     ) async throws -> T {
         try decode(type, from: try await send("POST", path, query: query, body: body))
+    }
+
+    /// A tela que sai cancela a tarefa do `.task`, e o `URLSession` cancelado lança `URLError(.cancelled)`,
+    /// não `CancellationError`: sem isso, o cancelamento aparecia como "sem conexão" ao trocar de tela.
+    private static func isCancellation(_ error: any Error) -> Bool {
+        if error is CancellationError || Task.isCancelled { return true }
+        return (error as? URLError)?.code == .cancelled
     }
 
     private func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {

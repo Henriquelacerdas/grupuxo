@@ -6,6 +6,14 @@ enum MyTasksState: Equatable {
     case content(MyTasksContent)
     case empty
     case failure(String)
+
+    /// Já mostra a lista (com ou sem tarefas).
+    var hasLoaded: Bool {
+        switch self {
+        case .content, .empty: true
+        case .idle, .loading, .failure: false
+        }
+    }
 }
 
 /// Seções recolhíveis da tela, na ordem em que aparecem.
@@ -19,7 +27,7 @@ enum MyTasksSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .cycle: "Seu ciclo"
-        case .extras: "Tarefas extras"
+        case .extras: "Tarefas gerais"
         case .sporadic: "Tarefas únicas"
         }
     }
@@ -34,6 +42,8 @@ struct MyTasksContent: Equatable {
         let roomName: String?
         /// Dia do prazo ("Hoje", "Terça"), destacado ao lado do cômodo.
         let dueDay: String?
+        /// Cor do cômodo, usada no círculo de conclusão.
+        let color: RoomColor
 
         var id: TaskOccurrence.ID { item.id }
     }

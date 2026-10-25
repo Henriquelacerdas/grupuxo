@@ -64,6 +64,8 @@ final class HouseManagementViewModel: ObservableObject {
                 ? .empty
                 : .content(content(from: overview, at: date))
 
+        } catch is CancellationError {
+            // A tela saiu antes da resposta: fica o que já estava.
         } catch {
 
             state = .failure(

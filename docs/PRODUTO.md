@@ -34,10 +34,10 @@ A barra principal tem duas abas. Sino (notificações) e perfil (configurações
 Responsabilidades do usuário, em três seções recolhíveis:
 
 - **Seu ciclo**: os cômodos de que o morador é responsável neste ciclo, cada um com o prazo ("Termina domingo"), o progresso do cômodo ("2 de 5") e as tarefas de mesma periodicidade do cômodo.
-- **Tarefas extras**: tarefas recorrentes de um cômodo com periodicidade diferente da do cômodo, com o nome do cômodo e o dia do prazo.
+- **Tarefas gerais**: tarefas recorrentes de um cômodo com periodicidade diferente da do cômodo, com o nome do cômodo e o dia do prazo.
 - **Tarefas únicas**: as esporádicas que o morador assumiu na aba Casa, com o nome do cômodo.
 
-Permite consultar prazo, responsável e estado; concluir (e desmarcar); e, deslizando a linha, **Pedir troca** com outro morador, **Editar** (abre o detalhe da tarefa; só leitura enquanto a `api` não tiver edição) e **Excluir** (só em recorrentes: encerra a tarefa, com confirmação; o histórico fica e a vez atual continua até ser concluída). Tarefas concluídas ficam marcadas até o fim do ciclo (seu ciclo) ou da semana (extras e únicas). O botão "+" da barra abre a mesma sheet de criação de tarefa da aba Casa; o avatar abre as configurações e o sino, as notificações.
+Permite consultar prazo, responsável e estado; concluir (e desmarcar); e, deslizando a linha, **Pedir troca** com outro morador, **Editar** (abre o detalhe da tarefa; só leitura enquanto a `api` não tiver edição) e **Excluir** (só em recorrentes: encerra a tarefa, com confirmação; o histórico fica e a vez atual continua até ser concluída). Tarefas concluídas ficam marcadas até o fim do ciclo (seu ciclo) ou da semana (gerais e únicas). O botão "+" da barra abre a mesma sheet de criação de tarefa da aba Casa; o avatar abre as configurações e o sino, as notificações.
 
 ### Gerenciar casa
 

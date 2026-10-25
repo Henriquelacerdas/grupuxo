@@ -30,7 +30,7 @@ struct CycleRoomHeader: View {
     }
 }
 
-/// Uma tarefa do morador: círculo de conclusão, nome e, quando há, cômodo e dia do prazo.
+/// Uma tarefa do morador: círculo de conclusão na cor do cômodo, nome e, quando há, cômodo e dia do prazo.
 struct MyTaskRow: View {
 
     let row: MyTasksContent.Row
@@ -52,11 +52,7 @@ struct MyTaskRow: View {
 
                 Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
-                    .foregroundStyle(
-                        isCompleted
-                            ? AnyShapeStyle(.tint)
-                            : AnyShapeStyle(.secondary)
-                    )
+                    .foregroundStyle(row.color.tint)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(
                         minWidth: DesignSystem.minimumTouchTarget,

@@ -110,6 +110,8 @@ final class NotificationsViewModel: ObservableObject {
                     pendingSwaps: pendingSwaps
                 )
 
+        } catch is CancellationError {
+            // A tela saiu antes da resposta.
         } catch {
 
             state = .failure(

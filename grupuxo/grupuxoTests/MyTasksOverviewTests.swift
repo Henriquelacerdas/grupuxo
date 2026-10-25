@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Testing
 @testable import GrupuxoDomain
 @testable import grupuxo
@@ -136,6 +137,38 @@ struct MyTasksOverviewTests {
         utcCalendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: 12))!
     }
 
+    @Test @MainActor func backgroundReloadFailureKeepsTheListOnScreen() async throws {
+
+        let container = makeContainer()
+        let rooms = FailingRoomRepository(base: container.roomRepository)
+        let model = MyTasksViewModel(
+            getMyTasksOverview: GetMyTasksOverviewUseCase(roomRepository: rooms, taskRepository: container.taskRepository),
+            completeTask: CompleteTaskUseCase(repository: container.taskRepository),
+            endTask: EndTaskUseCase(repository: container.taskRepository),
+            user: MockSeed.currentUser,
+            houseName: MockSeed.house.name,
+            houseID: MockSeed.house.id
+        )
+
+        await model.load()
+        #expect(model.state.hasLoaded)
+        let loaded = model.state
+
+        // Trocar de tela cancela a carga: a lista fica.
+        rooms.failure.withLock { $0 = CancellationError() }
+        await model.load(showLoading: false)
+        #expect(model.state == loaded)
+
+        // Recarga em segundo plano sem rede: a lista fica.
+        rooms.failure.withLock { $0 = APIError.network }
+        await model.load(showLoading: false)
+        #expect(model.state == loaded)
+
+        // Recarga pedida pelo morador mostra a falha.
+        await model.load()
+        #expect(model.state == .failure(APIError.network.localizedDescription))
+    }
+
     @Test func dueDayReadsAsTodayTomorrowWeekdayOrDate() {
 
         let text = MyTasksText(calendar: utcCalendar, locale: HouseOverviewText.appLocale)
@@ -168,5 +201,38 @@ struct MyTasksOverviewTests {
                 now: now
             ) == "Termina domingo"
         )
+    }
+}
+
+/// Repassa ao repositório de verdade até o teste pedir uma falha.
+private final class FailingRoomRepository: RoomRepository {
+    let base: any RoomRepository
+    let failure = OSAllocatedUnfairLock<(any Error)?>(initialState: nil)
+
+    init(base: any RoomRepository) {
+        self.base = base
+    }
+
+    private func check() throws {
+        if let error = failure.withLock({ $0 }) { throw error }
+    }
+
+    func participation(in roomID: Room.ID, requesting userID: User.ID, at date: Date) async throws -> RoomParticipation {
+        try check()
+        return try await base.participation(in: roomID, requesting: userID, at: date)
+    }
+
+    func room(id: Room.ID, requesting userID: User.ID) async throws -> Room {
+        try check()
+        return try await base.room(id: id, requesting: userID)
+    }
+
+    func rooms(in houseID: House.ID, requesting userID: User.ID) async throws -> [Room] {
+        try check()
+        return try await base.rooms(in: houseID, requesting: userID)
+    }
+
+    func create(_ room: Room, memberships: [RoomMembership]) async throws -> Room {
+        try await base.create(room, memberships: memberships)
     }
 }

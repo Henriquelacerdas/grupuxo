@@ -94,6 +94,7 @@ final class RemoteHouseSession: ObservableObject {
         guard let api else { return }
         do {
             apply(try await Self.fetchHome(api))
+        } catch is CancellationError {
         } catch {
             errorMessage = Self.message(for: error)
         }

@@ -84,11 +84,13 @@ struct MyTasksView: View {
             ToolbarItem(placement: .topBarLeading) {
 
                 Button(action: onSelectProfile) {
-                    ResidentAvatar(user: viewModel.user)
+                    ResidentAvatar(user: viewModel.user, size: .toolbar)
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel("Perfil")
                 .accessibilityIdentifier("profile")
             }
+            .hidingSharedBackground()
 
             ToolbarItemGroup(placement: .topBarTrailing) {
 
@@ -197,7 +199,7 @@ struct MyTasksView: View {
 
         if !content.extras.isEmpty {
 
-            section(.extras) {
+            section(.extras, showsDivider: !content.cycles.isEmpty) {
 
                 ForEach(content.extras) { row in
                     taskRow(row)
@@ -207,7 +209,10 @@ struct MyTasksView: View {
 
         if !content.sporadics.isEmpty {
 
-            section(.sporadic) {
+            section(
+                .sporadic,
+                showsDivider: !content.cycles.isEmpty || !content.extras.isEmpty
+            ) {
 
                 ForEach(content.sporadics) { row in
                     taskRow(row)
@@ -217,22 +222,31 @@ struct MyTasksView: View {
     }
 
     @ViewBuilder
+    /// Seção recolhível; `showsDivider` separa da seção anterior com uma linha, como no design.
     private func section<Rows: View>(
         _ section: MyTasksSection,
+        showsDivider: Bool = false,
         @ViewBuilder rows: () -> Rows
     ) -> some View {
 
         let isExpanded = !collapsedSections.contains(section)
 
-        CollapsibleSectionHeader(
-            title: section.title,
-            isExpanded: isExpanded
-        ) {
-            withAnimation(reduceMotion ? nil : .default) {
-                if isExpanded {
-                    collapsedSections.insert(section)
-                } else {
-                    collapsedSections.remove(section)
+        VStack(spacing: DesignSystem.Spacing.large) {
+
+            if showsDivider {
+                Divider()
+            }
+
+            CollapsibleSectionHeader(
+                title: section.title,
+                isExpanded: isExpanded
+            ) {
+                withAnimation(reduceMotion ? nil : .default) {
+                    if isExpanded {
+                        collapsedSections.insert(section)
+                    } else {
+                        collapsedSections.remove(section)
+                    }
                 }
             }
         }

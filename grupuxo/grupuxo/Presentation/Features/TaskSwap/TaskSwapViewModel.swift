@@ -69,6 +69,8 @@ final class TaskSwapViewModel: ObservableObject {
                 candidates: candidates
             )
 
+        } catch is CancellationError {
+            // A tela saiu antes da resposta.
         } catch {
             state = .failure(
                 error.localizedDescription

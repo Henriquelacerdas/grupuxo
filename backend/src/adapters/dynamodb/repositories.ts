@@ -5,13 +5,13 @@ import {
   normalizeAccessCode, removeHouseMember, type LeaveHouseOutcome,
 } from "../../domain/commands/houses.ts";
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
-import { createRoom, roomFor, roomParticipation, roomsFor } from "../../domain/commands/rooms.ts";
+import { createRoom, roomFor, roomParticipation, roomScheduleReady, roomsFor } from "../../domain/commands/rooms.ts";
 import {
   addRoomMember, claimTask, completeTask, createTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
-  occurrenceHouseFor, roomTasks, sporadicTasks, taskDefinitionFor, userTasks,
+  occurrenceHouseFor, roomTasks, scheduleIsCurrent, sporadicTasks, taskDefinitionFor, userTasks,
 } from "../../domain/commands/tasks.ts";
 import { DomainError } from "../../domain/errors.ts";
-import { emptyStoreState } from "../../domain/store-state.ts";
+import { emptyStoreState, type StoreState } from "../../domain/store-state.ts";
 import type { Instant } from "../../domain/dates.ts";
 import type {
   AppNotification, House, Room, RoomMembership, RoomParticipation, TaskDefinition, TaskItem, TaskSwapRequest, User,
@@ -124,6 +124,11 @@ export class DynamoRoomRepository implements RoomRepository {
 
   async participation(roomID: RoomID, requesting: UserID, at: Instant): Promise<RoomParticipation> {
     const houseID = await this.store.houseOf("room", roomID);
+    // Com a escala dos cômodos já inicializada, a consulta não muda nada: lê sem transação nem diferença.
+    const ready = await this.store.read(houseID, (s) =>
+      roomScheduleReady(this.ctx, s, roomID) ? { value: roomParticipation(this.ctx, s, roomID, requesting, at) } : null
+    );
+    if (ready !== null) return ready.value;
     return this.store.update(houseID, (s) => roomParticipation(this.ctx, s, roomID, requesting, at));
   }
 
@@ -151,10 +156,7 @@ export class DynamoTaskRepository implements TaskRepository {
 
   async tasks(userID: UserID, houseID: HouseID): Promise<TaskItem[]> {
     const at = this.ctx.now();
-    return this.store.update(houseID, (s) => {
-      refreshSchedule(this.ctx, s, houseID, at);
-      return userTasks(s, userID, houseID, at);
-    });
+    return this.withSchedule(houseID, at, (s) => userTasks(s, userID, houseID, at));
   }
 
   async roomTasks(roomID: RoomID, requesting: UserID): Promise<TaskItem[]> {
@@ -174,10 +176,7 @@ export class DynamoTaskRepository implements TaskRepository {
 
   async sporadicTasks(houseID: HouseID, requesting: UserID): Promise<TaskItem[]> {
     const at = this.ctx.now();
-    return this.store.update(houseID, (s) => {
-      refreshSchedule(this.ctx, s, houseID, at);
-      return sporadicTasks(this.ctx, s, houseID, requesting, at);
-    });
+    return this.withSchedule(houseID, at, (s) => sporadicTasks(this.ctx, s, houseID, requesting, at));
   }
 
   async create(definition: TaskDefinition, requestedBy: UserID, at: Instant): Promise<TaskDefinition> {
@@ -192,6 +191,19 @@ export class DynamoTaskRepository implements TaskRepository {
 
   async refreshSchedule(houseID: HouseID, at: Instant): Promise<void> {
     await this.store.update(houseID, (s) => refreshSchedule(this.ctx, s, houseID, at));
+  }
+
+  /**
+   * Consulta sobre a escala estendida até `at`. Escala em dia (`scheduleIsCurrent`): só lê, sem `refreshSchedule`,
+   * transação nem diferença. Faltando escala: estende e grava numa transação, e responde sobre o estado gravado.
+   */
+  private async withSchedule<T>(houseID: HouseID, at: Instant, query: (state: StoreState) => T): Promise<T> {
+    const current = await this.store.read(houseID, (s) => scheduleIsCurrent(this.ctx, s, houseID, at) ? { value: query(s) } : null);
+    if (current !== null) return current.value;
+    return this.store.update(houseID, (s) => {
+      refreshSchedule(this.ctx, s, houseID, at);
+      return query(s);
+    });
   }
 
   async addMember(userID: UserID, roomID: RoomID, at: Instant): Promise<void> {

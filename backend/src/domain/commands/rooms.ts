@@ -33,6 +33,14 @@ export function roomsFor(state: StoreState, houseID: HouseID, userID: UserID): R
   return state.rooms.filter((r) => r.houseID === houseID).map((r) => visibleRoom(r, userID, state));
 }
 
+/** `roomParticipation` não mudaria o estado: a escala dos cômodos da casa já foi inicializada. */
+export function roomScheduleReady(ctx: CommandContext, state: StoreState, roomID: RoomID): boolean {
+  const room = state.rooms.find((r) => r.id === roomID);
+  // Sem o cômodo, `roomParticipation` lança `entityNotFound` sem mudar nada.
+  if (room === undefined) return true;
+  return schedulingFor(ctx, state, room.houseID).roomsInitialized(room.houseID, state);
+}
+
 /** Inicializa a escala dos cômodos da casa se preciso (muta o estado) e descreve o período atual. */
 export function roomParticipation(
   ctx: CommandContext, state: StoreState, roomID: RoomID, userID: UserID, date: Instant,

@@ -186,6 +186,12 @@ export function refreshSchedule(ctx: CommandContext, state: StoreState, houseID:
   schedulingFor(ctx, state, houseID).refresh(houseID, date, state);
 }
 
+/** `refreshSchedule` não mudaria nada: a consulta pode ler o estado sem gravar (ver `TaskSchedulingService.isCurrent`). */
+export function scheduleIsCurrent(ctx: CommandContext, state: StoreState, houseID: HouseID, date: Instant): boolean {
+  if (!state.houses.some((h) => h.id === houseID)) return true;
+  return schedulingFor(ctx, state, houseID).isCurrent(houseID, date, state);
+}
+
 export function addRoomMember(ctx: CommandContext, state: StoreState, userID: UserID, roomID: RoomID, date: Instant): void {
   schedulingFor(ctx, state, houseOfRoom(state, roomID)).addMember(userID, roomID, date, state);
 }

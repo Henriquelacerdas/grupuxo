@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_ATTEMPTS, HouseStateStore, type DynamoRuntime } from "../../src/adapters/dynamodb/house-state-store.ts";
+import { MAX_ATTEMPTS, HouseStateStore, type DynamoRuntime, type UpdateOptions } from "../../src/adapters/dynamodb/house-state-store.ts";
 import { DynamoTransactionCanceledError } from "../../src/adapters/dynamodb/client.ts";
 import { DynamoStoreError } from "../../src/adapters/dynamodb/errors.ts";
 import { ACCESS_CODE_ATTEMPTS } from "../../src/domain/commands/houses.ts";
-import { DynamoTaskRepository, DynamoHouseRepository } from "../../src/adapters/dynamodb/repositories.ts";
+import { DynamoTaskRepository, DynamoHouseRepository, DynamoRoomRepository } from "../../src/adapters/dynamodb/repositories.ts";
+import { createCalendar } from "../../src/domain/dates.ts";
+import type { StoreState } from "../../src/domain/store-state.ts";
 import { InMemoryStore } from "../../src/adapters/in-memory/store.ts";
 import { InMemoryTaskRepository } from "../../src/adapters/in-memory/repositories.ts";
 import { isDomainError } from "../../src/domain/errors.ts";
 import { isCompleted } from "../../src/domain/entities.ts";
-import { houseMembershipID, taskOccurrenceID, userID } from "../../src/domain/ids.ts";
+import { houseMembershipID, taskOccurrenceID, userID, type HouseID } from "../../src/domain/ids.ts";
 import { dynamoEnvironment, instantRuntime } from "./environment.ts";
 import { FakeDynamoClient } from "../support/fake-dynamo-client.ts";
 import { normalizedState } from "../support/normalize.ts";
@@ -122,6 +124,52 @@ test("comando sem diferença não grava nada (consulta que só confere a escala)
   await env.tasks.sporadicTasks(house.id, users.leo.id);
   assert.equal(env.client.writes, writes);
   assert.deepEqual(env.client.snapshot(), snapshot);
+});
+
+/** Conta as transações de escrita que o adaptador abre (com ou sem diferença a gravar). */
+class CountingStore extends HouseStateStore {
+  updates = 0;
+  override async update<T>(houseID: HouseID, fn: (draft: StoreState) => T, options: UpdateOptions = {}): Promise<T> {
+    this.updates += 1;
+    return super.update(houseID, fn, options);
+  }
+}
+
+test("consultas com a escala em dia só leem; faltando escala, estendem e gravam uma vez", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const { users, house, rooms } = world.seed;
+  const client = new FakeDynamoClient({ pageSize: 7 });
+  const store = new CountingStore(client, instantRuntime);
+  await store.seedHouse(world.seed.state);
+  const tasks = new DynamoTaskRepository(store, world.ctx);
+  const roomRepository = new DynamoRoomRepository(store, world.ctx);
+  // Mundo próprio para a referência em memória: os dois geram os mesmos IDs na mesma ordem.
+  const referenceWorld = new World({ timezone: SAO_PAULO });
+  const reference = referenceWorld.env(referenceWorld.seed.state);
+
+  await tasks.tasks(users.marina.id, house.id);
+  await reference.tasks.tasks(users.marina.id, house.id);
+  const updates = store.updates;
+  const writes = client.writes;
+  assert.deepEqual(await tasks.tasks(users.marina.id, house.id), await reference.tasks.tasks(users.marina.id, house.id));
+  assert.deepEqual(await tasks.sporadicTasks(house.id, users.leo.id), await reference.tasks.sporadicTasks(house.id, users.leo.id));
+  assert.deepEqual(
+    await roomRepository.participation(rooms.kitchen.id, users.marina.id, world.now),
+    await reference.rooms.participation(rooms.kitchen.id, users.marina.id, world.now),
+  );
+  assert.equal(store.updates, updates, "escala em dia: nenhuma transação aberta");
+  assert.equal(client.writes, writes);
+
+  // Uma semana depois falta a semana nova no horizonte: a primeira consulta estende e grava, a seguinte só lê.
+  world.now = createCalendar(SAO_PAULO).addWeeks(world.now, 1);
+  referenceWorld.now = world.now;
+  const extended = await tasks.tasks(users.marina.id, house.id);
+  assert.equal(store.updates, updates + 1);
+  assert.equal(client.writes, writes + 1);
+  assert.deepEqual(extended, await reference.tasks.tasks(users.marina.id, house.id));
+  await tasks.tasks(users.marina.id, house.id);
+  assert.equal(store.updates, updates + 1);
+  assert.deepEqual(normalizedState(await store.read(house.id, (s) => s)), normalizedState(reference.store.read((s) => s)));
 });
 
 test("comando rejeitado pelo domínio não grava nada", async () => {

@@ -167,6 +167,8 @@ final class SporadicTasksViewModel: ObservableObject {
 
             state = .content(items)
 
+        } catch is CancellationError {
+            // A tela saiu antes da resposta.
         } catch {
 
             state = .failure(

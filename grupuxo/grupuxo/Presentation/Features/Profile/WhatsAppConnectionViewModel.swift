@@ -31,6 +31,8 @@ final class WhatsAppConnectionViewModel: ObservableObject {
             } else {
                 state = .notConnected
             }
+        } catch is CancellationError {
+            // A tela saiu antes da resposta.
         } catch {
             state = .failed(error.localizedDescription)
         }

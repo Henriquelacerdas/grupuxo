@@ -194,6 +194,13 @@ struct APIClientTests {
         #expect(await ok.requests.count == 1, "sem token a requisição nem sai")
     }
 
+    @Test func cancelledRequestIsCancellationNotNetworkFailure() async throws {
+        // O `URLSession` cancelado (tela que sai durante o `.task`) lança `URLError(.cancelled)`.
+        let server = FakeServer()
+        await server.fail(with: URLError(.cancelled))
+        await #expect(throws: CancellationError.self) { try await client(server).send("GET", "v1/me") }
+    }
+
     @Test func encodesQueryAndBody() async throws {
         let server = FakeServer()
         await server.on("DELETE /v1/me/house", status: 204, body: "")

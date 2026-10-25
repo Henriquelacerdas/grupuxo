@@ -72,7 +72,7 @@ struct RootView: View {
 
                 Label(
                     "Tarefas",
-                    systemImage: "checklist"
+                    systemImage: "checkmark.circle"
                 )
 
             }

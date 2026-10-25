@@ -59,6 +59,8 @@ final class RoomDetailViewModel: ObservableObject {
                 : []
             let content = RoomDetailContent(room: participation.room, tasks: tasks)
             state = tasks.isEmpty ? .empty(content.room) : .content(content)
+        } catch is CancellationError {
+            // A tela saiu antes da resposta.
         } catch {
             suggestions = []
             state = .failure(error.localizedDescription)

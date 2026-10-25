@@ -247,6 +247,40 @@ export class TaskSchedulingService {
     // Os turnos já publicados permanecem; concluir de novo não publica outra sucessora.
   }
 
+  /**
+   * `initializeRooms` não mudaria nada: todo cômodo da casa já tem âncora e escala (e periodicidade válida, senão
+   * `initializeRooms` precisa rodar para lançar `invalidSchedule`).
+   */
+  roomsInitialized(houseID: HouseID, state: SchedulingState): boolean {
+    return state.rooms.every((room) =>
+      room.houseID !== houseID ||
+      (isValidPeriodicity(room.periodicity) && room.responsibleCount > 0 && room.calendarAnchor !== null &&
+        room.scheduleVersions.length > 0)
+    );
+  }
+
+  /**
+   * `refresh(houseID, date)` não mudaria nada, com as mesmas condições dele e sem mutar: as consultas só gravam
+   * quando falta escala. Na dúvida responde `false` (o `refresh` roda e decide); nunca `true` quando ele mudaria algo.
+   */
+  isCurrent(houseID: HouseID, date: Instant, state: SchedulingState): boolean {
+    if (!this.roomsInitialized(houseID, state)) return false;
+    const end = this.addingWeeks(HORIZON_WEEKS, this.weekStart(date));
+    const roomIDs = new Set(state.rooms.filter((r) => r.houseID === houseID).map((r) => r.id));
+    return state.definitions.every((definition) => {
+      if (!roomIDs.has(definition.roomID) || definition.endedAt !== null || definition.kind !== "recurring") return true;
+      if (definition.assignmentPolicy === "afterCompletion") {
+        const pending = definition.pendingRotation;
+        if (pending !== null && pending.effectiveAt <= date) return false;
+        return definition.rotationQueue.length === 0 || !state.occurrences.some((o) =>
+          o.taskDefinitionID === definition.id && !isCompleted(o) &&
+          !state.assignments.some((a) => a.occurrenceID === o.id && isActiveAssignment(a))
+        );
+      }
+      return definition.nextScheduledAt === null || definition.nextScheduledAt >= end;
+    });
+  }
+
   /** Estende as escalas publicadas sem concluir, rotacionar nem editar ocorrências antigas. */
   refresh(houseID: HouseID, date: Instant, state: SchedulingState): void {
     this.initializeRooms(houseID, date, state);
