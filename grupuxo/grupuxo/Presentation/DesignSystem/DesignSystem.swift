@@ -136,7 +136,10 @@ struct TaskRow: View {
             spacing: DesignSystem.Spacing.small
         ) {
 
-            Button(action: onComplete) {
+            Button {
+                Haptics.completionToggled(wasCompleted: item.occurrence.isCompleted)
+                onComplete()
+            } label: {
 
                 Image(
                     systemName:

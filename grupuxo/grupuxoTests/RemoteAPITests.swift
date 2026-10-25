@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Testing
 @testable import GrupuxoDomain
 @testable import grupuxo
@@ -74,6 +75,17 @@ actor FakeServer: HTTPTransport {
 }
 
 private let baseURL = URL(string: "http://localhost:8787")!
+
+/// Relógio que o teste avança à mão.
+private struct TestClock: Sendable {
+    private let current = OSAllocatedUnfairLock(initialState: Date(timeIntervalSince1970: 1_800_000_000))
+
+    var now: Date { current.withLock { $0 } }
+
+    func advance(by seconds: TimeInterval) {
+        current.withLock { $0 += seconds }
+    }
+}
 
 private func client(_ server: FakeServer, token: String? = "token-teste") -> APIClient {
     APIClient(baseURL: baseURL, tokens: FixedToken(value: token), transport: server)
@@ -475,6 +487,56 @@ struct RemoteRepositoryTests {
         #expect(try await houses.memberIDs(in: house.id).count == 4)
         await #expect(throws: DomainError.entityNotFound) { try await houses.house(id: UUID()) }
         await server.on("GET /v1/me/house", status: 404, body: #"{"error":"no_house"}"#)
+        await houses.myHouse.invalidate()
         #expect(try await houses.houses(for: user).isEmpty)
+    }
+
+    @Test func myHouseIsFetchedOnceForHouseMembersAndRooms() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        let api = client(server)
+        let myHouse = MyHouseCache(api: api)
+        let houses = RemoteHouseRepository(api: api, myHouse: myHouse)
+        let rooms = RemoteRoomRepository(api: api, myHouse: myHouse)
+        let house = try #require(try await houses.houses(for: user).first)
+
+        async let members = houses.members(in: house.id)
+        async let roomList = rooms.rooms(in: house.id, requesting: user)
+        async let again = houses.house(id: house.id)
+        _ = try await (members, roomList, again)
+
+        #expect(await server.keys() == ["GET /v1/me/house"])
+    }
+
+    @Test func myHouseIsFetchedAgainAfterItExpiresOrARoomChanges() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        let api = client(server)
+        let clock = TestClock()
+        let myHouse = MyHouseCache(api: api, maxAge: 5, now: { clock.now })
+        let rooms = RemoteRoomRepository(api: api, myHouse: myHouse)
+        let tasks = RemoteTaskRepository(api: api, myHouse: myHouse)
+        let houseID = try await myHouse.myHouse().house.id
+
+        clock.advance(by: 6)
+        _ = try await rooms.rooms(in: houseID, requesting: user)
+        #expect(await server.keys().count == 2, "venceu: busca de novo")
+
+        let roomID = UUID()
+        await server.on("POST /v1/rooms/\(roomID.apiString)/members", status: 204, body: "")
+        try await tasks.addMember(userID: user, to: roomID, at: .now)
+        _ = try await rooms.rooms(in: houseID, requesting: user)
+        #expect(await server.keys().filter { $0 == "GET /v1/me/house" }.count == 3, "entrar num cômodo invalida")
+    }
+
+    @Test func myHouseFailureIsNotCached() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me/house", status: 500, body: #"{"error":"internal"}"#)
+        let myHouse = MyHouseCache(api: client(server))
+        await #expect(throws: APIError.self) { try await myHouse.myHouse() }
+
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        _ = try await myHouse.myHouse()
+        #expect(await server.keys().count == 2)
     }
 }

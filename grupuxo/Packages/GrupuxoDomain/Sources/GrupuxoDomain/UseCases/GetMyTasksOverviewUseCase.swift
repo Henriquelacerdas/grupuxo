@@ -73,11 +73,13 @@ public struct GetMyTasksOverviewUseCase: Sendable {
         calendar: Calendar
     ) async throws -> MyTasksOverview {
 
-        let items = try await taskRepository.tasks(for: userID, in: houseID)
+        // Cada consulta é uma chamada à `api`: as independentes saem juntas, e as de cada cômodo em paralelo.
+        async let pendingItems = taskRepository.tasks(for: userID, in: houseID)
         let roomsByID = Dictionary(
             try await roomRepository.rooms(in: houseID, requesting: userID).map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }
         )
+        let items = try await pendingItems
 
         let week = calendar.dateInterval(of: .weekOfYear, for: date)
 
@@ -104,12 +106,14 @@ public struct GetMyTasksOverviewUseCase: Sendable {
             }
         }
 
-        var groups: [CycleGroup] = []
+        let roomRepository = roomRepository
+        let taskRepository = taskRepository
+        let linkedRooms = linkedByRoom.compactMap { roomID, linked in
+            roomsByID[roomID].map { (room: $0, linked: linked) }
+        }
 
-        for (roomID, linked) in linkedByRoom {
-            guard let room = roomsByID[roomID] else { continue }
-
-            let participation = try await roomRepository.participation(in: roomID, requesting: userID, at: date)
+        var groups = try await linkedRooms.concurrentMap(limit: maxConcurrentRoomQueries) { (room, linked) -> CycleGroup? in
+            let participation = try await roomRepository.participation(in: room.id, requesting: userID, at: date)
 
             let cycleTasks = linked.filter {
                 let availableAt = $0.occurrence.availableAt
@@ -117,15 +121,16 @@ public struct GetMyTasksOverviewUseCase: Sendable {
                     || (!$0.occurrence.isCompleted && availableAt < participation.periodStart)
             }
 
-            guard !cycleTasks.isEmpty else { continue }
+            guard !cycleTasks.isEmpty else { return nil }
 
-            groups.append(CycleGroup(
+            return CycleGroup(
                 room: room,
                 periodEnd: participation.periodEnd,
                 progress: try await taskRepository.cycleProgress(of: participation, requesting: userID),
                 tasks: openFirst(cycleTasks, item: { $0 })
-            ))
+            )
         }
+        .compactMap { $0 }
 
         groups.sort {
             if $0.periodEnd != $1.periodEnd { return $0.periodEnd < $1.periodEnd }

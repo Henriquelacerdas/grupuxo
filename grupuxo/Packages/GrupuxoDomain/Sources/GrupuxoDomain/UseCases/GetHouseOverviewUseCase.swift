@@ -84,16 +84,24 @@ public struct GetHouseOverviewUseCase: Sendable {
     }
 
     public func callAsFunction(houseID: House.ID, userID: User.ID, at date: Date) async throws -> HouseOverview {
+        // Cada consulta é uma chamada à `api`: as independentes saem juntas, e as de cada cômodo em paralelo.
+        async let pendingRequests = accessRequestRepository.pendingRoomIDs(in: houseID, requesting: userID)
+        async let sporadicItems = taskRepository.sporadicTasks(in: houseID, requesting: userID)
         let rooms = try await roomRepository.rooms(in: houseID, requesting: userID)
-        let pendingRequests = try await accessRequestRepository.pendingRoomIDs(in: houseID, requesting: userID)
 
-        var overviews: [RoomOverview] = []
-        for room in rooms {
+        let roomRepository = roomRepository
+        let taskRepository = taskRepository
+        let summaries = try await rooms.concurrentMap(limit: maxConcurrentRoomQueries) { room in
             let participation = try await roomRepository.participation(in: room.id, requesting: userID, at: date)
             let progress = participation.isMember
                 ? try await taskRepository.cycleProgress(of: participation, requesting: userID)
                 : nil
-            overviews.append(RoomOverview(
+            return (participation, progress)
+        }
+
+        let pending = try await pendingRequests
+        let overviews = summaries.map { participation, progress in
+            RoomOverview(
                 room: participation.room,
                 isMember: participation.isMember,
                 cycleResponsibleNames: participation.responsibleNames,
@@ -101,11 +109,11 @@ public struct GetHouseOverviewUseCase: Sendable {
                 periodStart: participation.periodStart,
                 periodEnd: participation.periodEnd,
                 cycleProgress: progress,
-                accessRequestPending: !participation.isMember && pendingRequests.contains(room.id)
-            ))
+                accessRequestPending: !participation.isMember && pending.contains(participation.room.id)
+            )
         }
 
-        let sporadic = try await taskRepository.sporadicTasks(in: houseID, requesting: userID)
+        let sporadic = try await sporadicItems
             .filter { !$0.occurrence.isCompleted }
             .sortedByDeadline()
 

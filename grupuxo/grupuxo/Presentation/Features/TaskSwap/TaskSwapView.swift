@@ -135,6 +135,13 @@ struct TaskSwapView: View {
         .navigationTitle(
             "Solicitar troca"
         )
+        .onChange(of: viewModel.state) { _, state in
+            switch state {
+            case .sent: Haptics.success()
+            case .failure: Haptics.error()
+            default: break
+            }
+        }
         .task {
             if case .idle = viewModel.state {
                 await viewModel.load()

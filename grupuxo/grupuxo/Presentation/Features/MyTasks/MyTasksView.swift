@@ -150,6 +150,9 @@ struct MyTasksView: View {
             Text("\(task.name) não será mais repetida. O histórico fica, e a vez atual continua até ser concluída.")
         }
 
+        .onChange(of: viewModel.actionError) { _, error in
+            if error != nil { Haptics.error() }
+        }
         .alert(
             "Não foi possível atualizar a tarefa",
             isPresented: Binding(

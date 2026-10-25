@@ -11,8 +11,58 @@ extension UUID {
     var apiString: String { uuidString.lowercased() }
 }
 
+/// `GET /v1/me/house` compartilhado pelos repositórios: casa, moradores e cômodos saem da mesma resposta, e uma tela
+/// pede mais de um deles. Quem chega com uma busca em andamento espera por ela; a resposta vale por `maxAge` e cai
+/// a cada mudança de cômodo ou de participante feita pelo app. Erros não ficam guardados.
+actor MyHouseCache {
+    private let api: APIClient
+    private let maxAge: TimeInterval
+    private let now: @Sendable () -> Date
+
+    private var cached: (house: MyHouseDTO, fetchedAt: Date)?
+    private var inFlight: (id: UUID, task: Task<MyHouseDTO, any Error>)?
+
+    init(api: APIClient, maxAge: TimeInterval = 5, now: @escaping @Sendable () -> Date = { .now }) {
+        self.api = api
+        self.maxAge = maxAge
+        self.now = now
+    }
+
+    func myHouse() async throws -> MyHouseDTO {
+        if let cached, now().timeIntervalSince(cached.fetchedAt) < maxAge { return cached.house }
+        if let inFlight { return try await inFlight.task.value }
+
+        let id = UUID()
+        let task = Task { [api] in try await api.get(MyHouseDTO.self, "v1/me/house") }
+        inFlight = (id, task)
+        do {
+            let house = try await task.value
+            // Uma invalidação no meio descarta esta busca: não guarda nem limpa a mais nova.
+            if inFlight?.id == id {
+                cached = (house, now())
+                inFlight = nil
+            }
+            return house
+        } catch {
+            if inFlight?.id == id { inFlight = nil }
+            throw error
+        }
+    }
+
+    func invalidate() {
+        cached = nil
+        inFlight = nil
+    }
+}
+
 struct RemoteHouseRepository: HouseRepository {
     let api: APIClient
+    let myHouse: MyHouseCache
+
+    init(api: APIClient, myHouse: MyHouseCache? = nil) {
+        self.api = api
+        self.myHouse = myHouse ?? MyHouseCache(api: api)
+    }
 
     func addMember(name: String, to houseID: House.ID, requestedBy: User.ID, at date: Date) async throws -> User {
         throw APIError.unsupported
@@ -25,21 +75,21 @@ struct RemoteHouseRepository: HouseRepository {
     }
 
     func house(id: House.ID) async throws -> House {
-        let mine = try await api.get(MyHouseDTO.self, "v1/me/house")
+        let mine = try await myHouse.myHouse()
         guard mine.house.id == id else { throw DomainError.entityNotFound }
         return mine.house.domain
     }
 
     func houses(for userID: User.ID) async throws -> [House] {
         do {
-            return [try await api.get(MyHouseDTO.self, "v1/me/house").house.domain]
+            return [try await myHouse.myHouse().house.domain]
         } catch let error as APIError where error.code == "no_house" {
             return []
         }
     }
 
     func members(in houseID: House.ID) async throws -> [User] {
-        let mine = try await api.get(MyHouseDTO.self, "v1/me/house")
+        let mine = try await myHouse.myHouse()
         guard mine.house.id == houseID else { throw DomainError.entityNotFound }
         return mine.members.map(\.domain)
     }
@@ -51,6 +101,12 @@ struct RemoteHouseRepository: HouseRepository {
 
 struct RemoteRoomRepository: RoomRepository {
     let api: APIClient
+    let myHouse: MyHouseCache
+
+    init(api: APIClient, myHouse: MyHouseCache? = nil) {
+        self.api = api
+        self.myHouse = myHouse ?? MyHouseCache(api: api)
+    }
 
     func participation(in roomID: Room.ID, requesting userID: User.ID, at date: Date) async throws -> RoomParticipation {
         try await api.get(RoomParticipationDTO.self, "v1/rooms/\(roomID.apiString)").domain
@@ -61,7 +117,7 @@ struct RemoteRoomRepository: RoomRepository {
     }
 
     func rooms(in houseID: House.ID, requesting userID: User.ID) async throws -> [Room] {
-        let mine = try await api.get(MyHouseDTO.self, "v1/me/house")
+        let mine = try await myHouse.myHouse()
         guard mine.house.id == houseID else { throw DomainError.entityNotFound }
         return mine.rooms.map(\.domain)
     }
@@ -73,7 +129,9 @@ struct RemoteRoomRepository: RoomRepository {
             icon: room.icon, color: room.color,
             participantIDs: room.visibility == .privateRoom ? memberships.map { $0.userID.apiString } : nil
         )
-        return try await api.post(RoomDTO.self, "v1/houses/\(room.houseID.apiString)/rooms", body: body).domain
+        let created = try await api.post(RoomDTO.self, "v1/houses/\(room.houseID.apiString)/rooms", body: body).domain
+        await myHouse.invalidate()
+        return created
     }
 }
 
@@ -98,7 +156,14 @@ actor TaskRoomIndex {
 
 struct RemoteTaskRepository: TaskRepository {
     let api: APIClient
+    /// Entrar ou sair de um cômodo muda a lista de cômodos de `GET /v1/me/house`.
+    let myHouse: MyHouseCache
     let index = TaskRoomIndex()
+
+    init(api: APIClient, myHouse: MyHouseCache? = nil) {
+        self.api = api
+        self.myHouse = myHouse ?? MyHouseCache(api: api)
+    }
 
     func tasks(for userID: User.ID, in houseID: House.ID) async throws -> [TaskItem] {
         try await items(from: "v1/me/tasks")
@@ -161,6 +226,7 @@ struct RemoteTaskRepository: TaskRepository {
 
     func addMember(userID: User.ID, to roomID: Room.ID, at date: Date) async throws {
         try await api.send("POST", "v1/rooms/\(roomID.apiString)/members", body: RoomMemberBody(userID: userID.apiString))
+        await myHouse.invalidate()
     }
 
     func removeMember(userID: User.ID, from roomID: Room.ID, at date: Date, confirmDeletion: Bool) async throws {
@@ -168,6 +234,7 @@ struct RemoteTaskRepository: TaskRepository {
             "DELETE", "v1/rooms/\(roomID.apiString)/members/\(userID.apiString)",
             query: confirmDeletion ? ["confirmDeletion": "true"] : [:]
         )
+        await myHouse.invalidate()
     }
 
     func complete(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date) async throws {

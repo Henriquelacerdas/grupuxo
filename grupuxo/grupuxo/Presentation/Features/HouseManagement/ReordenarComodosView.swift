@@ -55,6 +55,7 @@ struct ReordenarComodosView: View {
                         ReorderRoomRow(room: room)
                     }
                     .onMove { source, destination in
+                        Haptics.selection()
                         rooms.move(
                             fromOffsets: source,
                             toOffset: destination

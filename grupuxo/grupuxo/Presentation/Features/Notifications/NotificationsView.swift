@@ -199,6 +199,9 @@ struct NotificationsView: View {
             await viewModel.load()
 
         }
+        .onChange(of: viewModel.actionError) { _, error in
+            if error != nil { Haptics.error() }
+        }
         .alert(
             "Não foi possível atualizar",
             isPresented: Binding(

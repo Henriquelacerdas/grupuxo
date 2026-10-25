@@ -41,12 +41,14 @@ final class AppContainer {
 
     /// Container sobre a `api` do servidor: casa, cômodos, tarefas, trocas, notificações e WhatsApp são reais.
     convenience init(api: APIClient, calendar: Calendar = Calendar(identifier: .gregorian)) {
+        // Um só `GET /v1/me/house` para casa, moradores e cômodos.
+        let myHouse = MyHouseCache(api: api)
         self.init(
             store: MockStore(state: MockSeed.empty()),
             calendar: calendar,
-            houseRepository: RemoteHouseRepository(api: api),
-            roomRepository: RemoteRoomRepository(api: api),
-            taskRepository: RemoteTaskRepository(api: api),
+            houseRepository: RemoteHouseRepository(api: api, myHouse: myHouse),
+            roomRepository: RemoteRoomRepository(api: api, myHouse: myHouse),
+            taskRepository: RemoteTaskRepository(api: api, myHouse: myHouse),
             roomAccessRequestRepository: RemoteRoomAccessRequestRepository(),
             taskSwapRepository: RemoteTaskSwapRepository(api: api),
             notificationRepository: RemoteNotificationRepository(api: api),

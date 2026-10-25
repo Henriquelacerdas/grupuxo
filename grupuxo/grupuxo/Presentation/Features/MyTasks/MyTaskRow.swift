@@ -45,7 +45,10 @@ struct MyTaskRow: View {
 
         HStack(spacing: DesignSystem.Spacing.small) {
 
-            Button(action: onComplete) {
+            Button {
+                Haptics.completionToggled(wasCompleted: isCompleted)
+                onComplete()
+            } label: {
 
                 Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
