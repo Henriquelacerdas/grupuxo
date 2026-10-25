@@ -90,7 +90,6 @@ struct MyTasksView: View {
                 .accessibilityLabel("Perfil")
                 .accessibilityIdentifier("profile")
             }
-            .hidingSharedBackground()
 
             ToolbarItemGroup(placement: .topBarTrailing) {
 

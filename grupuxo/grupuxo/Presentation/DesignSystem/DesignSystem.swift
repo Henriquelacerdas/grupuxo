@@ -145,23 +145,9 @@ struct ResidentAvatar: View {
             .font(font)
             .foregroundStyle(.tint)
             .frame(width: diameter, height: diameter)
-            .background(.tint.opacity(0.12), in: Circle())
+            .background(size == .regular ? Color.accentColor.opacity(0.12) : .clear, in: Circle())
             .contentShape(Circle())
             .accessibilityHidden(true)
-    }
-}
-
-extension ToolbarContent {
-
-    /// Tira o fundo de vidro que o iOS 26 põe em volta do item, para o próprio conteúdo ser o botão.
-    @ToolbarContentBuilder
-    func hidingSharedBackground() -> some ToolbarContent {
-
-        if #available(iOS 26, *) {
-            sharedBackgroundVisibility(.hidden)
-        } else {
-            self
-        }
     }
 }
 

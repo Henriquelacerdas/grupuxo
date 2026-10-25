@@ -179,8 +179,12 @@ final class AppContainer {
             endTask: EndTaskUseCase(
                 repository: taskRepository
             ),
+            claimTask: ClaimSporadicTaskUseCase(
+                repository: taskRepository
+            ),
             roomID: roomID,
-            userID: session.currentUser.id
+            userID: session.currentUser.id,
+            calendar: calendar
         )
     }
 

@@ -164,6 +164,14 @@ struct RootView: View {
                     )
 
                 },
+                makeTaskEditorViewModel: {
+
+                    container.makeTaskEditorViewModel(
+                        roomID: roomID,
+                        session: session
+                    )
+
+                },
                 onSelectTask: { taskDefinitionID in
 
                     housePath.append(
