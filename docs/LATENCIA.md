@@ -57,8 +57,8 @@ Numa casa com 4 cômodos, são 10 cargas da partição de 1.700 itens e 3 rodada
 Em ordem de ganho por esforço:
 
 1. **Mais memória na `api` (`backend/infra/lambdas.tf`, `api = { memory = 512 }` → 1769).** Com 1.769 MB a Lambda tem 1 vCPU inteira, cerca de 3,5 vezes a de hoje. Como o tempo é CPU, a duração deve cair na mesma proporção, e o custo por chamada fica parecido (paga-se GB × segundo). Uma linha no Terraform, mas precisa de `plan`/`apply` autorizados. Medir de novo depois para confirmar.
-2. ✅ **Consultas sem `update`** (feito em 2026-10-25; falta publicar a `api` e medir de novo). `tasks` e `participation` passam a usar `store.read` quando a escala já cobre o instante pedido, e só chamam `refreshSchedule` com `update` quando falta escala. Sem clone, sem diferença e sem motor na maioria das chamadas. Mexe no adaptador e no domínio (decidir onde mora o "precisa renovar?"), com teste nos dois adaptadores.
-3. **Partição menor.** Arquivar ocorrências e atribuições concluídas antigas (`HOUSEARCHIVE#<id>`, já previsto no BACKEND.md seção 4) ou limitar o horizonte de escala materializado. Antes, contar os itens por prefixo de `SK` na partição da casa (leitura da tabela real, precisa de autorização) para saber o que cresce.
+2. ✅ **Consultas sem `update`** (publicada em 2026-10-25 20:39 UTC; ganho pequeno, ver "Depois da proposta 2"). `tasks` e `participation` passam a usar `store.read` quando a escala já cobre o instante pedido, e só chamam `refreshSchedule` com `update` quando falta escala. Sem clone, sem diferença e sem motor na maioria das chamadas. Mexe no adaptador e no domínio (decidir onde mora o "precisa renovar?"), com teste nos dois adaptadores.
+3. **Partição menor.** ✅ Parte "escala materializada" feita em 2026-10-25 (falta publicar a `api` e medir): só a próxima vez de cada morador é publicada; a seguinte sai na conclusão (escala do cômodo: também quando a atual atrasa), e o otimizador projeta as 12 semanas sem gravar (ALGORITMO.md, "Publicação por morador"). Uma tarefa semanal com 4 moradores passa de 12 ocorrências + 12 atribuições futuras para 4 + 4; uma diária, de 84 + 84 para 4 + 4. As escalas antigas do `dev` são convertidas sozinhas na primeira escrita ou consulta de cada casa (as ocorrências futuras que sobram são apagadas, em várias transações se passar de 100 ações). Falta a outra parte: arquivar ocorrências e atribuições concluídas antigas (`HOUSEARCHIVE#<id>`, já previsto no BACKEND.md seção 4), porque o histórico continua crescendo na mesma partição.
 4. **Rota agregada por tela** (`GET /v1/me/tasks/overview` e `GET /v1/me/house/overview`): uma carga da partição por tela em vez de 2 + 2N. Muda o contrato (BACKEND.md seção 6.1 e fixtures em `backend/test/fixtures/api/`) e exige montar o overview no TypeScript, que hoje só existe no Swift. Meio-termo: uma rota em lote com participação e progresso de vários cômodos.
 5. **Cache curto no app** para `rooms` e `participation` (como o `MyHouseCache`, `maxAge` 5 s), invalidado nas mutações. Barato, mas só ajuda idas e voltas rápidas.
 
@@ -87,4 +87,18 @@ Amostra curta: 155 chamadas em cerca de 1 minuto de uso do app (16:31 a 16:32 UT
 
 Testes: `test/schedule-current.test.ts` (120 dias com conclusões: escala em dia nunca é alterada pelo `refresh`, e depois do `refresh` está em dia) e, em `test/dynamodb/house-state-store.test.ts`, "consultas com a escala em dia só leem" (nenhuma transação aberta; uma semana depois, uma escrita só; resultado igual ao da memória).
 
-Para valer no `dev`: `npm run build` em `backend` e `terraform plan`/`apply` (troca o código da `api`), com autorização.
+## Depois da proposta 2 (publicada em 2026-10-25 20:39 UTC)
+
+161 chamadas de uso do app (20:44 a 20:53 UTC), comparadas com as 581 chamadas só com 1769 MB (16:31 a 20:38 UTC) e com a semana anterior (512 MB).
+
+| | Semana anterior (512 MB) | 1769 MB | 1769 MB + consultas sem `update` |
+|---|---|---|---|
+| Chamadas | 2.566 | 581 | 161 |
+| p50 | 691 ms (1.339 ms no dia 25) | 641 ms | 567 ms |
+| p90 | 1.778 ms | 917 ms | 886 ms |
+| p99 | 3.103 ms | 1.397 ms | 1.308 ms |
+| Máximo | 9.146 ms | 1.613 ms | 1.609 ms |
+
+- Ganho da proposta 2: cerca de 10% (p50 641 → 567 ms). Nenhum `TransactWriteItems` na janela: as consultas deixaram de abrir transação, como esperado, mas `refreshSchedule` e a diferença não eram o grosso do tempo.
+- As durações ficam em dois grupos: 57 chamadas até 500 ms (rotas que não carregam a partição, como `GET /v1/me`) e quase todo o resto entre 600 e 900 ms. A carga e o processamento da partição de cerca de 2.540 itens custam por volta de 0,6 s por chamada mesmo com 1 vCPU. Isso não se explica pela `Query` do DynamoDB (cerca de 25 ms por página).
+- Próximo passo: **medir onde vão esses 0,6 s antes de mudar mais código**. Montar localmente uma casa com cerca de 2.500 itens (o cliente falso de `test/support/fake-dynamo-client.ts`, sem AWS) e perfilar uma consulta com `node --cpu-prof`: decodificação (`codec.ts`), `cloneStoreState`, `taskItems`/`canSee` e sugestões das avulsas (`suggestedResident`) são os candidatos. Em paralelo, a proposta 3 (partição menor) continua necessária: a partição segue crescendo, porque a escala é materializada 12 semanas à frente (`HORIZON_WEEKS`) e o histórico fica na mesma partição.

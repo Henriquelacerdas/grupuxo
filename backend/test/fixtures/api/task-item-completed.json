@@ -1,9 +1,9 @@
 {
   "definition": {
-    "id": "ffffffff-ffff-4fff-8fff-000000000026",
-    "roomID": "ffffffff-ffff-4fff-8fff-000000000009",
-    "name": "Aspirar a sala",
-    "details": "Incluindo embaixo do sofá",
+    "id": "ffffffff-ffff-4fff-8fff-000000000022",
+    "roomID": "ffffffff-ffff-4fff-8fff-000000000007",
+    "name": "Lavar a louça",
+    "details": "Limpar pia e escorredor",
     "effort": 2,
     "kind": "recurring",
     "recurrence": {
@@ -11,13 +11,13 @@
       "frequency": "weekly",
       "interval": 1
     },
-    "assignmentPolicy": "calendarRotation",
+    "assignmentPolicy": "balancedAutomatically",
     "calendarAnchor": "2026-10-12T03:00:00.000Z",
     "endedAt": null
   },
   "occurrence": {
-    "id": "ffffffff-ffff-4fff-8fff-000000000085",
-    "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000026",
+    "id": "ffffffff-ffff-4fff-8fff-00000000002f",
+    "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000022",
     "availableAt": "2026-10-12T03:00:00.000Z",
     "dueAt": "2026-10-19T03:00:00.000Z",
     "status": "completed",
@@ -26,7 +26,7 @@
     "effort": 2
   },
   "assignment": {
-    "id": "ffffffff-ffff-4fff-8fff-000000000086",
+    "id": "ffffffff-ffff-4fff-8fff-000000000030",
     "userID": "ffffffff-ffff-4fff-8fff-000000000001",
     "assignedAt": "2026-10-12T03:00:00.000Z",
     "endedAt": "2026-10-14T12:00:00.000Z"

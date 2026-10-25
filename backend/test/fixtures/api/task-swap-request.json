@@ -1,9 +1,9 @@
 {
-  "id": "ffffffff-ffff-4fff-8fff-0000000000f4",
+  "id": "ffffffff-ffff-4fff-8fff-00000000007b",
   "requesterID": "ffffffff-ffff-4fff-8fff-000000000001",
   "receiverID": "ffffffff-ffff-4fff-8fff-000000000002",
-  "offeredOccurrenceID": "ffffffff-ffff-4fff-8fff-000000000085",
-  "requestedOccurrenceID": "ffffffff-ffff-4fff-8fff-000000000049",
+  "offeredOccurrenceID": "ffffffff-ffff-4fff-8fff-00000000002f",
+  "requestedOccurrenceID": "ffffffff-ffff-4fff-8fff-000000000069",
   "status": "pending",
   "createdAt": "2026-10-14T12:00:00.000Z",
   "resolvedAt": null

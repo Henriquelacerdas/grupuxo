@@ -1,8 +1,8 @@
 import { at, isBlank, lastIndexWhere, lastWhere } from "../arrays.ts";
 import type { Calendar, Instant } from "../dates.ts";
 import {
-  cloneSchedulingState, isActiveAssignment, isCompleted, isCurrentMember, participatesAt, representsWholeHouse,
-  type Room, type RoomMembership, type RoomScheduleVersion, type SchedulingState, type TaskAssignment,
+  isActiveAssignment, isCompleted, isCurrentMember, participatesAt, representsWholeHouse,
+  type PendingRotation, type Room, type RoomMembership, type RoomScheduleVersion, type SchedulingState, type TaskAssignment,
   type TaskDefinition, type TaskOccurrence,
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
@@ -22,6 +22,29 @@ import {
 } from "./task-distribution-engine.ts";
 
 export type DefinitionDraft = Mutable<TaskDefinition>;
+
+/** Cursor da escala de calendário de uma definição (`nextScheduledAt`, fila, posição e troca de fila pendente). */
+export interface TurnCursor {
+  readonly at: Instant;
+  readonly queue: readonly UserID[];
+  readonly index: number;
+  readonly pending: PendingRotation | null;
+}
+
+/** Vez da escala de calendário, publicada ou não. `owner` é nulo sem fila, em ausência ou sem participação. */
+export interface ScheduleTurn {
+  readonly at: Instant;
+  readonly dueAt: Instant;
+  readonly owner: UserID | null;
+  /** O cursor parado nesta vez (com a troca de fila pendente já aplicada, se ela vale aqui). */
+  readonly cursor: TurnCursor;
+}
+
+/** Projeção sem as vezes de `definitions` a partir de `from` (o que o replanejamento vai redistribuir). */
+export interface ProjectionExclusion {
+  readonly definitions: ReadonlySet<TaskDefinitionID>;
+  readonly from: Instant;
+}
 
 export interface SchedulingServiceOptions {
   /** Calendário do fuso da casa (semana começa na segunda-feira). */
@@ -91,7 +114,7 @@ export class TaskSchedulingService {
         : this.scheduledDates(firstDate, definition, this.addingWeeks(HORIZON_WEEKS, start));
       definition.rotationQueue = linked ? [] : this.distribution.generateInitialQueue(
         definition.effort.points, participants, dates.map((d) => this.weekIndex(d, start)),
-        this.projection(this.room(definition, state).houseID, start, state),
+        this.projection(this.room(definition, state).houseID, start, date, state),
         this.debts(definition.roomID, state),
       );
       if (definition.assignmentPolicy === "afterCompletion") {
@@ -104,7 +127,7 @@ export class TaskSchedulingService {
           this.configureRoom(definition.roomID, Math.min(firstDate, date), state);
           state.definitions = state.definitions.filter((d) => d.id !== definition.id);
         }
-        this.extend(definition, this.addingWeeks(HORIZON_WEEKS, start), state);
+        this.fill(definition, date, this.addingWeeks(HORIZON_WEEKS, start), state);
       }
     }
     state.definitions.push({ ...definition });
@@ -212,6 +235,10 @@ export class TaskSchedulingService {
       this.publish(definition, date, null, state);
       state.occurrences[index] = { ...at(state.occurrences, index), didPublishSuccessor: true };
       state.definitions[definitionIndex] = { ...definition };
+    } else if (this.isCalendarScheduled(definition)) {
+      // Quem concluiu fica sem vez pendente: a próxima dele é publicada agora.
+      this.fill(definition, date, this.addingWeeks(HORIZON_WEEKS, this.weekStart(date)), state);
+      state.definitions[definitionIndex] = { ...definition };
     }
   }
 
@@ -260,8 +287,9 @@ export class TaskSchedulingService {
   }
 
   /**
-   * `refresh(houseID, date)` não mudaria nada, com as mesmas condições dele e sem mutar: as consultas só gravam
-   * quando falta escala. Na dúvida responde `false` (o `refresh` roda e decide); nunca `true` quando ele mudaria algo.
+   * `refresh(houseID, date)` não publicaria nem removeria nada, com as mesmas condições dele e sem mutar: as consultas
+   * só gravam quando falta a próxima vez de alguém. O cursor pode ficar para trás (andar com ele não muda nenhuma
+   * resposta; ele anda na próxima escrita). Na dúvida responde `false`; nunca `true` quando o `refresh` publicaria algo.
    */
   isCurrent(houseID: HouseID, date: Instant, state: SchedulingState): boolean {
     if (!this.roomsInitialized(houseID, state)) return false;
@@ -277,11 +305,12 @@ export class TaskSchedulingService {
           !state.assignments.some((a) => a.occurrenceID === o.id && isActiveAssignment(a))
         );
       }
-      return definition.nextScheduledAt === null || definition.nextScheduledAt >= end;
+      return definition.nextScheduledAt === null ||
+        (this.legacyStart(definition, date, state) === null && this.plan(definition, date, end, state).publish.length === 0);
     });
   }
 
-  /** Estende as escalas publicadas sem concluir, rotacionar nem editar ocorrências antigas. */
+  /** Publica a próxima vez de quem está sem pendente, sem concluir, rotacionar nem editar ocorrências antigas. */
   refresh(houseID: HouseID, date: Instant, state: SchedulingState): void {
     this.initializeRooms(houseID, date, state);
     const end = this.addingWeeks(HORIZON_WEEKS, this.weekStart(date));
@@ -310,9 +339,8 @@ export class TaskSchedulingService {
         state.definitions[i] = { ...definition };
         continue;
       }
-      if (definition.kind !== "recurring" || definition.assignmentPolicy === "afterCompletion" ||
-        definition.nextScheduledAt === null) continue;
-      this.extend(definition, end, state);
+      if (!this.isCalendarScheduled(definition)) continue;
+      this.fill(definition, date, end, state);
       state.definitions[i] = { ...definition };
     }
   }
@@ -384,7 +412,10 @@ export class TaskSchedulingService {
     if (replan) this.rebalance(room.houseID, boundary, date, state);
   }
 
-  /** Replaneja execuções futuras existentes, mantendo identidade e snapshot de esforço. */
+  /**
+   * Replaneja as vezes a partir de `boundary` (publicadas ou não): as filas novas valem na primeira vez a partir da
+   * fronteira, e as ocorrências futuras publicadas são redistribuídas preservando o ID quando a data continua publicada.
+   */
   rebalance(houseID: HouseID, boundary: Instant, date: Instant, state: SchedulingState): void {
     const roomIDs = new Set(state.rooms.filter((r) => r.houseID === houseID).map((r) => r.id));
     const forecastStart = this.weekStart(boundary);
@@ -398,8 +429,9 @@ export class TaskSchedulingService {
     indices.sort((a, b) => compareIDs(at(state.definitions, a).id, at(state.definitions, b).id));
     const calendarIndices: number[] = [];
     const forecasts: QueueForecast[] = [];
-    const occurrenceIndices: number[][] = [];
     this.initializeRooms(houseID, date, state);
+    // Escala anterior: responsável atual das vezes do cômodo ainda não publicadas.
+    const previous: SchedulingState = { ...state, rooms: [...state.rooms] };
     for (const id of sortedIDs(roomIDs)) this.configureRoom(id, boundary, state);
     for (const i of indices) {
       const definition: DefinitionDraft = { ...at(state.definitions, i) };
@@ -408,7 +440,7 @@ export class TaskSchedulingService {
           definition.calendarAnchor = this.room(definition, state).calendarAnchor;
           definition.nextScheduledAt = this.firstWeeklyDate(boundary, definition);
         }
-        this.extend(definition, end, state);
+        this.fill(definition, date, end, state);
         definition.rotationQueue = [];
         state.definitions[i] = { ...definition };
         continue;
@@ -432,33 +464,21 @@ export class TaskSchedulingService {
         definition.rotationQueue = this.members(definition, date, state, { includeAbsent: true });
         definition.currentRotationIndex = 0;
       }
-      this.extend(definition, end, state);
-      const occurrences: number[] = [];
-      state.occurrences.forEach((o, j) => {
-        if (o.taskDefinitionID === definition.id && !isCompleted(o) && o.availableAt >= boundary) occurrences.push(j);
+      this.fill(definition, date, end, state);
+      // Só há uma troca de fila pendente: a anterior, de uma fronteira já passada, passa a valer agora.
+      const pending = definition.pendingRotation;
+      if (pending !== null && pending.effectiveAt < boundary) this.advance(definition, pending.effectiveAt, end, state);
+      const { turns: all, rest } = this.turns(definition, end, state);
+      const published = this.publishedByDate(definition.id, state);
+      const turns = all.filter((t) => t.at >= boundary && !this.isCompletedAt(published, t.at));
+      const phase = turns[0]?.cursor ?? rest;
+      forecasts.push({
+        participants,
+        turns: turns.map((t) => this.forecastTurn(definition, t, published, forecastStart, null, null, state)),
+        isFixed: false,
+        existingQueue: this.normalizedQueue({ ...definition, rotationQueue: phase.queue, currentRotationIndex: phase.index }),
       });
-      occurrences.sort((a, b) => at(state.occurrences, a).availableAt - at(state.occurrences, b).availableAt);
-      // Desfaz os turnos futuros publicados para recuperar a fase na fronteira.
-      const phase: DefinitionDraft = { ...definition };
-      if (phase.rotationQueue.length > 0) {
-        const n = phase.rotationQueue.length;
-        phase.currentRotationIndex = (phase.currentRotationIndex - (occurrences.length % n) + n) % n;
-      }
-      const turns: QueueTurn[] = occurrences
-        .filter((j) => at(state.occurrences, j).availableAt < end)
-        .map((j) => {
-          const occurrence = at(state.occurrences, j);
-          return {
-            week: this.weekIndex(occurrence.availableAt, forecastStart),
-            effort: occurrence.effortSnapshot.points,
-            eligible: new Set(this.members(definition, occurrence.availableAt, state)),
-            incumbent: state.assignments.find((a) => a.occurrenceID === occurrence.id && isActiveAssignment(a))?.userID ?? null,
-            slot: null,
-          };
-        });
-      forecasts.push({ participants, turns, isFixed: false, existingQueue: this.normalizedQueue(phase) });
       calendarIndices.push(i);
-      occurrenceIndices.push(occurrences);
       state.definitions[i] = { ...definition };
     }
     const independentCount = forecasts.length;
@@ -467,70 +487,50 @@ export class TaskSchedulingService {
       if (roomIDs.has(r.id)) groupedRooms.push(i);
     });
     groupedRooms.sort((a, b) => compareIDs(at(state.rooms, a).id, at(state.rooms, b).id));
-    const groupedOccurrences: number[][] = [];
     for (const ri of groupedRooms) {
       const room = at(state.rooms, ri);
       const version = lastWhere(room.scheduleVersions, (v) => v.effectiveAt <= boundary);
       if (version === undefined) throw new DomainError("invalidSchedule");
-      const ids = new Set(state.definitions.filter((d) => d.roomID === room.id && this.isRoomLinked(d, state)).map((d) => d.id));
-      const occurrences: number[] = [];
-      state.occurrences.forEach((o, j) => {
-        if (ids.has(o.taskDefinitionID) && !isCompleted(o) && o.availableAt >= boundary) occurrences.push(j);
-      });
-      occurrences.sort((x, y) => {
-        const a = at(state.occurrences, x);
-        const b = at(state.occurrences, y);
-        return a.availableAt === b.availableAt ? compareIDs(a.taskDefinitionID, b.taskDefinitionID) : a.availableAt - b.availableAt;
-      });
-      const turns: QueueTurn[] = occurrences
-        .filter((j) => at(state.occurrences, j).availableAt < end)
-        .map((j) => {
-          const o = at(state.occurrences, j);
-          const d = state.definitions.find((x) => x.id === o.taskDefinitionID);
-          if (d === undefined) throw new DomainError("entityNotFound");
-          return {
-            week: this.weekIndex(o.availableAt, forecastStart),
-            effort: o.effortSnapshot.points,
-            eligible: new Set(this.members(d, o.availableAt, state)),
-            incumbent: state.assignments.find((a) => a.occurrenceID === o.id && isActiveAssignment(a))?.userID ?? null,
-            slot: this.roomSlot(room, version, d.id, o.availableAt),
-          };
-        });
+      const linked = state.definitions.filter((d) => d.roomID === room.id && this.isRoomLinked(d, state));
+      const ids = new Set(linked.map((d) => d.id));
+      const entries: { definition: TaskDefinition; turn: ScheduleTurn; published: Map<Instant, TaskOccurrence> }[] = [];
+      for (const definition of linked) {
+        const published = this.publishedByDate(definition.id, state);
+        for (const turn of this.turns(definition, end, state).turns) {
+          if (turn.at >= boundary && !this.isCompletedAt(published, turn.at)) entries.push({ definition, turn, published });
+        }
+      }
+      entries.sort((x, y) =>
+        x.turn.at === y.turn.at ? compareIDs(x.definition.id, y.definition.id) : x.turn.at - y.turn.at
+      );
+      const turns: QueueTurn[] = entries.map((e) =>
+        this.forecastTurn(
+          e.definition, e.turn, e.published, forecastStart, this.roomSlot(room, version, e.definition.id, e.turn.at),
+          previous, state,
+        )
+      );
       const period = this.periodIndex(room, boundary);
       if (room.calendarAnchor === null) throw new DomainError("invalidSchedule");
       const periodStart = this.addingWeeks(period * room.periodicity.intervalWeeks, room.calendarAnchor);
       const preserveCurrent = boundary === date &&
         state.occurrences.some((o) => ids.has(o.taskDefinitionID) && o.availableAt >= periodStart && o.availableAt < boundary);
       forecasts.push({ participants: version.queue, turns, isFixed: preserveCurrent, existingQueue: version.queue });
-      groupedOccurrences.push(occurrences);
     }
-    const fixedState = cloneSchedulingState(state);
     const replanned = new Set(
       indices.filter((i) => at(state.definitions, i).assignmentPolicy !== "afterCompletion").map((i) => at(state.definitions, i).id),
     );
-    fixedState.occurrences = fixedState.occurrences.filter(
-      (o) => !(replanned.has(o.taskDefinitionID) && o.availableAt >= boundary && !isCompleted(o)),
-    );
-    const fixed = this.projection(houseID, forecastStart, fixedState);
+    const fixed = this.projection(houseID, forecastStart, date, state, { definitions: replanned, from: boundary });
     const houseDebts = new Map<UserID, number>();
     for (const roomID of sortedIDs(roomIDs)) {
       for (const [user, value] of this.debts(roomID, state)) houseDebts.set(user, (houseDebts.get(user) ?? 0) + value);
     }
     const queues = new HouseQueueOptimizer().optimize(forecasts, fixed, houseDebts);
     calendarIndices.forEach((i, position) => {
-      const queue = at(queues, position);
-      state.definitions[i] = { ...at(state.definitions, i), rotationQueue: queue };
-      at(occurrenceIndices, position).forEach((j, offset) => {
-        const occurrence = at(state.occurrences, j);
-        const nominal = queue.length === 0 ? null : at(queue, offset % queue.length);
-        const eligible = this.members(at(state.definitions, i), occurrence.availableAt, state);
-        const owner = nominal !== null && eligible.includes(nominal) ? nominal : null;
-        this.replaceAssignment(j, owner, date, state);
-      });
-      state.definitions[i] = {
-        ...at(state.definitions, i),
-        currentRotationIndex: queue.length === 0 ? 0 : at(occurrenceIndices, position).length % queue.length,
+      const definition: DefinitionDraft = {
+        ...at(state.definitions, i), pendingRotation: { effectiveAt: boundary, queue: at(queues, position) },
       };
+      this.fill(definition, date, end, state, this.replaceable(definition.id, boundary, date, state));
+      state.definitions[i] = { ...definition };
     });
     groupedRooms.forEach((ri, offset) => {
       const queue = at(queues, independentCount + offset);
@@ -540,13 +540,227 @@ export class TaskSchedulingService {
       const versions = [...room.scheduleVersions];
       versions[vi] = { ...at(versions, vi), queue };
       state.rooms[ri] = { ...room, scheduleVersions: versions };
-      for (const j of at(groupedOccurrences, offset)) {
-        const o = at(state.occurrences, j);
-        const d = state.definitions.find((x) => x.id === o.taskDefinitionID);
-        if (d === undefined) throw new DomainError("entityNotFound");
-        this.replaceAssignment(j, this.roomOwner(d, o.availableAt, state), date, state);
+      const linked: number[] = [];
+      state.definitions.forEach((d, i) => {
+        if (d.roomID === room.id && this.isRoomLinked(d, state)) linked.push(i);
+      });
+      linked.sort((a, b) => compareIDs(at(state.definitions, a).id, at(state.definitions, b).id));
+      for (const i of linked) {
+        const definition: DefinitionDraft = { ...at(state.definitions, i) };
+        this.fill(definition, date, end, state, this.replaceable(definition.id, boundary, date, state));
+        state.definitions[i] = { ...definition };
       }
     });
+  }
+
+  private forecastTurn(
+    definition: TaskDefinition, turn: ScheduleTurn, published: Map<Instant, TaskOccurrence>, start: Instant,
+    slot: number | null, previous: SchedulingState | null, state: SchedulingState,
+  ): QueueTurn {
+    const occurrence = published.get(turn.at);
+    const incumbent = occurrence !== undefined
+      ? state.assignments.find((a) => a.occurrenceID === occurrence.id && isActiveAssignment(a))?.userID ?? null
+      : previous === null ? turn.owner : this.roomOwner(definition, turn.at, previous);
+    return {
+      week: this.weekIndex(turn.at, start),
+      effort: occurrence?.effortSnapshot.points ?? definition.effort.points,
+      eligible: new Set(this.members(definition, turn.at, state)),
+      incumbent,
+      slot,
+    };
+  }
+
+  // MARK: Vezes da escala de calendário
+
+  /** Recorrente de calendário (não por conclusão), ativa e com cursor: suas vezes vêm de `turns`. */
+  isCalendarScheduled(definition: TaskDefinition): boolean {
+    return definition.kind === "recurring" && definition.assignmentPolicy !== "afterCompletion" &&
+      definition.endedAt === null && definition.nextScheduledAt !== null;
+  }
+
+  /**
+   * Vezes a partir do cursor, antes de `end`, sem mudar nada. A fila avança uma posição por vez, inclusive nas vezes
+   * sem responsável (ausência); a troca de fila pendente vale a partir da primeira vez com data na vigência ou depois.
+   */
+  turns(definition: TaskDefinition, end: Instant, state: SchedulingState): { turns: ScheduleTurn[]; rest: TurnCursor } {
+    const turns: ScheduleTurn[] = [];
+    const first = definition.nextScheduledAt;
+    if (first === null) throw new DomainError("invalidSchedule");
+    const linked = this.isRoomLinked(definition, state);
+    let date = first;
+    let queue = definition.rotationQueue;
+    let index = definition.currentRotationIndex;
+    let pending = definition.pendingRotation;
+    while (date < end) {
+      let owner: UserID | null = null;
+      if (linked) {
+        owner = this.roomOwner(definition, date, state);
+      } else {
+        if (pending !== null && pending.effectiveAt <= date) {
+          queue = pending.queue;
+          index = 0;
+          pending = null;
+        }
+        if (queue.length > 0) {
+          const user = queue[index];
+          if (user === undefined) throw new DomainError("invalidDistribution");
+          // Férias não alteram silenciosamente uma fila estática: a vez fica sem responsável.
+          if (this.members(definition, date, state).includes(user)) owner = user;
+        }
+      }
+      const dueAt = this.nextDate(date, definition);
+      if (!(dueAt > date)) throw new DomainError("invalidSchedule");
+      turns.push({ at: date, dueAt, owner, cursor: { at: date, queue, index, pending } });
+      if (!linked && queue.length > 0) index = this.rotation.advance(index, queue);
+      date = dueAt;
+    }
+    return { turns, rest: { at: date, queue, index, pending } };
+  }
+
+  /**
+   * O que `fill` publicaria e onde pararia o cursor. Cada morador tem no máximo uma vez pendente: a próxima vez dele
+   * só é publicada quando ele não tem nenhuma. Na escala do cômodo uma pendente atrasada não conta (a próxima já sai);
+   * nas de periodicidade própria conta até ser concluída, e as vezes dele que venceram nesse meio tempo são puladas.
+   * O cursor só passa por vezes já disponíveis e resolvidas (publicadas, sem responsável ou vencidas).
+   */
+  plan(
+    definition: TaskDefinition, date: Instant, end: Instant, state: SchedulingState,
+    replaceable: ReadonlySet<TaskOccurrenceID> = new Set(),
+  ): { publish: ScheduleTurn[]; cursor: TurnCursor } {
+    const linked = this.isRoomLinked(definition, state);
+    const { turns, rest } = this.turns(definition, end, state);
+    const own = state.occurrences.filter((o) => o.taskDefinitionID === definition.id && !replaceable.has(o.id));
+    const published = new Set(own.map((o) => o.availableAt));
+    const open = new Set(
+      own.filter((o) => !isCompleted(o) && !(linked && o.dueAt !== null && o.dueAt <= date)).map((o) => o.id),
+    );
+    const satisfied = new Set<UserID>();
+    for (const a of state.assignments) {
+      if (open.has(a.occurrenceID) && isActiveAssignment(a)) satisfied.add(a.userID);
+    }
+    const publish: ScheduleTurn[] = [];
+    for (const turn of turns) {
+      if (turn.owner === null || published.has(turn.at) || satisfied.has(turn.owner)) continue;
+      const overdue = turn.dueAt <= date;
+      if (overdue && !linked) continue;
+      publish.push(turn);
+      published.add(turn.at);
+      if (!overdue) satisfied.add(turn.owner);
+    }
+    let settled = 0;
+    for (const turn of turns) {
+      if (turn.at > date || !(published.has(turn.at) || turn.owner === null || turn.dueAt <= date)) break;
+      settled += 1;
+    }
+    return { publish, cursor: turns[settled]?.cursor ?? rest };
+  }
+
+  /**
+   * Publica a próxima vez de cada morador sem pendente (ver `plan`) e avança o cursor. Ocorrências de `replaceable`
+   * contam como não publicadas: são reaproveitadas (mesmo ID) se a data delas sair de novo e removidas se não sair.
+   */
+  fill(
+    definition: DefinitionDraft, date: Instant, end: Instant, state: SchedulingState,
+    replaceable: Set<TaskOccurrenceID> = new Set(),
+  ): void {
+    if (definition.endedAt !== null || definition.nextScheduledAt === null) return;
+    this.rewindLegacy(definition, date, state, replaceable);
+    const plan = this.plan(definition, date, end, state, replaceable);
+    for (const turn of plan.publish) {
+      const j = state.occurrences.findIndex((o) =>
+        replaceable.has(o.id) && o.taskDefinitionID === definition.id && o.availableAt === turn.at
+      );
+      const reused = state.occurrences[j];
+      if (reused !== undefined) {
+        replaceable.delete(reused.id);
+        this.replaceAssignment(j, turn.owner, date, state);
+      } else {
+        this.appendOccurrence(definition, turn.at, turn.dueAt, turn.owner, state);
+      }
+    }
+    this.moveCursor(definition, plan.cursor);
+    const removed = new Set(
+      state.occurrences.filter((o) => replaceable.has(o.id) && o.taskDefinitionID === definition.id).map((o) => o.id),
+    );
+    if (removed.size === 0) return;
+    state.occurrences = state.occurrences.filter((o) => !removed.has(o.id));
+    state.assignments = state.assignments.filter((a) => !removed.has(a.occurrenceID));
+  }
+
+  /** Leva o cursor à primeira vez com data em `effectiveAt` ou depois, aplicando a troca de fila pendente. */
+  advance(definition: DefinitionDraft, effectiveAt: Instant, end: Instant, state: SchedulingState): void {
+    const { turns, rest } = this.turns(definition, end, state);
+    const cursor = turns.find((t) => t.at >= effectiveAt)?.cursor ?? rest;
+    this.moveCursor(definition, cursor);
+    this.activatePending(definition, cursor.at);
+  }
+
+  moveCursor(definition: DefinitionDraft, cursor: TurnCursor): void {
+    definition.nextScheduledAt = cursor.at;
+    definition.rotationQueue = [...cursor.queue];
+    definition.currentRotationIndex = cursor.index;
+    definition.pendingRotation = cursor.pending;
+  }
+
+  /**
+   * Escala gravada antes da publicação por morador: todas as vezes até 12 semanas publicadas, uma ocorrência por vez
+   * (inclusive sem responsável), e o cursor depois delas. Devolve a primeira vez ainda não disponível e quantas vezes
+   * há dela até o cursor; `null` para a escala atual (nela o cursor nunca passa de uma vez ainda não disponível).
+   */
+  legacyStart(definition: TaskDefinition, date: Instant, state: SchedulingState): { start: Instant; turns: number } | null {
+    const next = definition.nextScheduledAt;
+    if (next === null) return null;
+    const published = new Set<Instant>();
+    let start: Instant | null = null;
+    for (const o of state.occurrences) {
+      if (o.taskDefinitionID !== definition.id) continue;
+      published.add(o.availableAt);
+      if (isCompleted(o) || o.availableAt <= date || o.availableAt >= next) continue;
+      if (start === null || o.availableAt < start) start = o.availableAt;
+    }
+    if (start === null) return null;
+    let turns = 0;
+    let current = start;
+    while (current < next) {
+      if (!published.has(current)) return null;
+      turns += 1;
+      const following = this.nextDate(current, definition);
+      if (!(following > current)) throw new DomainError("invalidSchedule");
+      current = following;
+    }
+    return current === next ? { start, turns } : null;
+  }
+
+  /** Volta o cursor de uma escala antiga (`legacyStart`) para a primeira vez ainda não disponível. */
+  rewindLegacy(definition: DefinitionDraft, date: Instant, state: SchedulingState, replaceable: Set<TaskOccurrenceID>): void {
+    const legacy = this.legacyStart(definition, date, state);
+    if (legacy === null) return;
+    const n = definition.rotationQueue.length;
+    if (n > 0) definition.currentRotationIndex = (((definition.currentRotationIndex - legacy.turns) % n) + n) % n;
+    definition.nextScheduledAt = legacy.start;
+    for (const o of state.occurrences) {
+      if (o.taskDefinitionID === definition.id && !isCompleted(o) && o.availableAt >= legacy.start) replaceable.add(o.id);
+    }
+  }
+
+  /** Ocorrências futuras (ainda não disponíveis e a partir da fronteira) que o replanejamento pode redistribuir. */
+  replaceable(taskID: TaskDefinitionID, boundary: Instant, date: Instant, state: SchedulingState): Set<TaskOccurrenceID> {
+    return new Set(
+      state.occurrences
+        .filter((o) => o.taskDefinitionID === taskID && !isCompleted(o) && o.availableAt >= boundary && o.availableAt > date)
+        .map((o) => o.id),
+    );
+  }
+
+  publishedByDate(taskID: TaskDefinitionID, state: SchedulingState): Map<Instant, TaskOccurrence> {
+    const result = new Map<Instant, TaskOccurrence>();
+    for (const o of state.occurrences) if (o.taskDefinitionID === taskID) result.set(o.availableAt, o);
+    return result;
+  }
+
+  private isCompletedAt(published: Map<Instant, TaskOccurrence>, date: Instant): boolean {
+    const occurrence = published.get(date);
+    return occurrence !== undefined && isCompleted(occurrence);
   }
 
   // MARK: Fila, publicação e atribuição
@@ -586,16 +800,6 @@ export class TaskSchedulingService {
       });
     }
     state.occurrences[occurrenceIndex] = { ...occurrence, status: userID === null ? "available" : "assigned" };
-  }
-
-  extend(definition: DefinitionDraft, end: Instant, state: SchedulingState): void {
-    const first = definition.nextScheduledAt;
-    if (definition.endedAt !== null || first === null) return;
-    for (const date of this.scheduledDates(first, definition, end)) {
-      const next = this.nextDate(date, definition);
-      this.publish(definition, date, next, state);
-      definition.nextScheduledAt = next;
-    }
   }
 
   publish(definition: DefinitionDraft, date: Instant, dueAt: Instant | null, state: SchedulingState): void {
@@ -675,9 +879,16 @@ export class TaskSchedulingService {
     return room;
   }
 
-  projection(houseID: HouseID, start: Instant, state: SchedulingState): Map<UserID, ProjectedWeek[]> {
+  /**
+   * Carga pendente por morador e semana em `[start, start + 12 semanas)`: ocorrências publicadas com responsável e as
+   * vezes de calendário ainda não publicadas com responsável e prazo depois de `date` (o esforço vem da definição).
+   */
+  projection(
+    houseID: HouseID, start: Instant, date: Instant, state: SchedulingState, excluding: ProjectionExclusion | null = null,
+  ): Map<UserID, ProjectedWeek[]> {
     const roomIDs = new Set(state.rooms.filter((r) => r.houseID === houseID).map((r) => r.id));
-    const definitionIDs = new Set(state.definitions.filter((d) => roomIDs.has(d.roomID)).map((d) => d.id));
+    const definitions = state.definitions.filter((d) => roomIDs.has(d.roomID));
+    const definitionIDs = new Set(definitions.map((d) => d.id));
     const end = this.addingWeeks(HORIZON_WEEKS, start);
     const owners = new Map<TaskOccurrenceID, UserID>();
     for (const assignment of state.assignments) {
@@ -685,19 +896,34 @@ export class TaskSchedulingService {
       if (owners.has(assignment.occurrenceID)) throw new DomainError("invalidDistribution");
       owners.set(assignment.occurrenceID, assignment.userID);
     }
+    const isExcluded = (taskID: TaskDefinitionID, date: Instant): boolean =>
+      excluding !== null && excluding.definitions.has(taskID) && date >= excluding.from;
     const result = new Map<UserID, ProjectedWeek[]>();
-    for (const occurrence of state.occurrences) {
-      if (!definitionIDs.has(occurrence.taskDefinitionID) || isCompleted(occurrence) ||
-        !(occurrence.availableAt >= start && occurrence.availableAt < end)) continue;
-      // O esforço concluído já está no saldo: não conta duas vezes.
-      const user = owners.get(occurrence.id);
-      if (user === undefined) continue;
-      const points = occurrence.effortSnapshot.points;
+    const add = (user: UserID, date: Instant, points: number): void => {
       if (!Number.isInteger(points) || points < 1 || points > 3) throw new DomainError("invalidDistribution");
       const weeks = [...(result.get(user) ?? emptyWeeks())];
-      const week = this.weekIndex(occurrence.availableAt, start);
+      const week = this.weekIndex(date, start);
       weeks[week] = addEffort(at(weeks, week), points);
       result.set(user, weeks);
+    };
+    for (const occurrence of state.occurrences) {
+      if (!definitionIDs.has(occurrence.taskDefinitionID) || isCompleted(occurrence) ||
+        !(occurrence.availableAt >= start && occurrence.availableAt < end) ||
+        isExcluded(occurrence.taskDefinitionID, occurrence.availableAt)) continue;
+      // O esforço concluído já está no saldo: não conta duas vezes.
+      const user = owners.get(occurrence.id);
+      if (user !== undefined) add(user, occurrence.availableAt, occurrence.effortSnapshot.points);
+    }
+    for (const definition of definitions) {
+      if (!this.isCalendarScheduled(definition) || this.legacyStart(definition, date, state) !== null) continue;
+      const published = new Set(
+        state.occurrences.filter((o) => o.taskDefinitionID === definition.id).map((o) => o.availableAt),
+      );
+      for (const turn of this.turns(definition, end, state).turns) {
+        if (turn.owner === null || turn.at < start || turn.dueAt <= date || published.has(turn.at) ||
+          isExcluded(definition.id, turn.at)) continue;
+        add(turn.owner, turn.at, definition.effort.points);
+      }
     }
     return result;
   }
@@ -711,7 +937,7 @@ export class TaskSchedulingService {
       if (m.roomID === roomID && isCurrentMember(m) && houseMembers.has(m.userID)) candidates.add(m.userID);
     }
     if (candidates.size === 0) return null;
-    const loads = this.projection(room.houseID, this.weekStart(date), state);
+    const loads = this.projection(room.houseID, this.weekStart(date), date, state);
     const load = (user: UserID): number => loads.get(user)?.[0]?.load ?? 0;
     const sorted = [...candidates].sort((a, b) => (load(a) !== load(b) ? load(a) - load(b) : compareIDs(a, b)));
     return sorted[0] ?? null;

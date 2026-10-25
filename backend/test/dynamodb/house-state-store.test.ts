@@ -6,11 +6,12 @@ import { DynamoStoreError } from "../../src/adapters/dynamodb/errors.ts";
 import { ACCESS_CODE_ATTEMPTS } from "../../src/domain/commands/houses.ts";
 import { DynamoTaskRepository, DynamoHouseRepository, DynamoRoomRepository } from "../../src/adapters/dynamodb/repositories.ts";
 import { createCalendar } from "../../src/domain/dates.ts";
-import type { StoreState } from "../../src/domain/store-state.ts";
+import { cloneStoreState, type StoreState } from "../../src/domain/store-state.ts";
 import { InMemoryStore } from "../../src/adapters/in-memory/store.ts";
 import { InMemoryTaskRepository } from "../../src/adapters/in-memory/repositories.ts";
 import { isDomainError } from "../../src/domain/errors.ts";
 import { isCompleted } from "../../src/domain/entities.ts";
+import { recurring } from "../../src/domain/value-objects.ts";
 import { houseMembershipID, taskOccurrenceID, userID, type HouseID } from "../../src/domain/ids.ts";
 import { dynamoEnvironment, instantRuntime } from "./environment.ts";
 import { FakeDynamoClient } from "../support/fake-dynamo-client.ts";
@@ -20,6 +21,21 @@ import { uuid, World } from "../support/world.ts";
 
 const SAO_PAULO = "America/Sao_Paulo";
 const version = (client: FakeDynamoClient, houseID: string): unknown => client.peek({ PK: `HOUSE#${houseID}`, SK: "META" })?.["version"];
+
+/**
+ * A demonstração com `count` tarefas a mais na casa toda. Só a próxima vez de cada morador é publicada, então a
+ * demonstração sozinha não passa de 100 escritas; aqui trocar um morador muda mais de 100 itens. A quinzenal tem
+ * periodicidade própria: a saída de um morador redistribui as vezes futuras dele.
+ */
+function crowded(world: World, count = 10, recurrence = recurring("weekly", 1)): StoreState {
+  const state = cloneStoreState(world.seed.state);
+  const service = world.service();
+  for (let i = 0; i < count; i++) {
+    const task = world.definition(world.seed.rooms.wholeHouse.id, { name: `Extra ${i}`, effort: 1 + (i % 3), recurrence });
+    service.create(task, world.now, state);
+  }
+  return state;
+}
 
 async function openTask(world: World, env: Awaited<ReturnType<typeof dynamoEnvironment>>) {
   const { users, house } = world.seed;
@@ -183,10 +199,10 @@ test("comando rejeitado pelo domínio não grava nada", async () => {
 
 test("escritas demais para uma transação: falha fechada, sem gravar em partes", async () => {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await dynamoEnvironment(world);
+  const env = await dynamoEnvironment(world, crowded(world));
   const { users, house } = world.seed;
   const before = env.client.snapshot();
-  // Trocar um morador replaneja a escala inteira da demonstração: mais de 100 itens mudam (BACKEND.md seção 4).
+  // Trocar um morador replaneja a escala da casa cheia: mais de 100 itens mudam (BACKEND.md seção 4).
   await assert.rejects(env.houses.addMember("Nova", house.id, users.marina.id, world.now), (error: unknown) => error instanceof DynamoStoreError && error.code === "tooManyWrites");
   assert.deepEqual(env.client.snapshot(), before);
 });
@@ -333,14 +349,14 @@ function splitEnvironment(world: World, env: Awaited<ReturnType<typeof dynamoEnv
 /** O mesmo comando no adaptador em memória, em um mundo idêntico (IDs e relógio determinísticos). */
 async function referenceAddMember(): Promise<unknown> {
   const reference = new World({ timezone: SAO_PAULO });
-  const refEnv = reference.env();
+  const refEnv = reference.env(crowded(reference));
   await refEnv.houses.addMember("Nova", reference.seed.house.id, reference.seed.users.marina.id, reference.now);
   return normalizedState(refEnv.store.read((s) => s));
 }
 
 test("split: divide a escrita em transações de até 100 ações, com o META na primeira, e o resultado é o da memória", async () => {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await dynamoEnvironment(world);
+  const env = await dynamoEnvironment(world, crowded(world));
   const { users, house } = world.seed;
   const { houses } = splitEnvironment(world, env);
   const startVersion = version(env.client, house.id);
@@ -367,7 +383,7 @@ test("split: divide a escrita em transações de até 100 ações, com o META na
 
 test("split: a saída de um morador (mais de 100 ações, com apagamentos) também chega ao estado da memória", async () => {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await dynamoEnvironment(world);
+  const env = await dynamoEnvironment(world, crowded(world, 15, recurring("weekly", 2)));
   const { users, house } = world.seed;
   const { houses } = splitEnvironment(world, env);
   const before = env.client.transactions.length;
@@ -376,14 +392,14 @@ test("split: a saída de um morador (mais de 100 ações, com apagamentos) tamb�
   assert.ok(sent.length >= 2);
 
   const reference = new World({ timezone: SAO_PAULO });
-  const refEnv = reference.env();
+  const refEnv = reference.env(crowded(reference, 15, recurring("weekly", 2)));
   await refEnv.houses.leave(reference.seed.users.rafa.id, reference.seed.house.id, reference.now, false);
   assert.deepEqual(normalizedState(await env.state()), normalizedState(refEnv.store.read((s) => s)));
 });
 
 test("split: conflito de versão na primeira transação não grava nada e repete tudo", async () => {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await dynamoEnvironment(world);
+  const env = await dynamoEnvironment(world, crowded(world));
   const { users, house } = world.seed;
   const { houses } = splitEnvironment(world, env);
   const startVersion = version(env.client, house.id);
@@ -415,7 +431,7 @@ test("split: conflito de versão na primeira transação não grava nada e repet
 
 test("split: falha depois da primeira transação vira partialWrite, sem repetir e com mensagem fixa", async () => {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await dynamoEnvironment(world);
+  const env = await dynamoEnvironment(world, crowded(world));
   const { users, house } = world.seed;
   const { houses } = splitEnvironment(world, env);
   const startVersion = version(env.client, house.id);

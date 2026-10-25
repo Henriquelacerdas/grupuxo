@@ -1,8 +1,8 @@
 {
-  "id": "ffffffff-ffff-4fff-8fff-000000000026",
-  "roomID": "ffffffff-ffff-4fff-8fff-000000000009",
-  "name": "Aspirar a sala",
-  "details": "Incluindo embaixo do sofá",
+  "id": "ffffffff-ffff-4fff-8fff-000000000022",
+  "roomID": "ffffffff-ffff-4fff-8fff-000000000007",
+  "name": "Lavar a louça",
+  "details": "Limpar pia e escorredor",
   "effort": 2,
   "kind": "recurring",
   "recurrence": {
@@ -10,7 +10,7 @@
     "frequency": "weekly",
     "interval": 1
   },
-  "assignmentPolicy": "calendarRotation",
+  "assignmentPolicy": "balancedAutomatically",
   "calendarAnchor": "2026-10-12T03:00:00.000Z",
   "endedAt": null
 }

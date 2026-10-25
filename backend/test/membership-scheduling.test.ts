@@ -202,7 +202,11 @@ test("snapshot, recorrência e ausência sobrevivem ao replanejamento", () => {
     id: absenceID(world.newID()), membershipID: membership.id, startsAt: boundary, endsAt: calendar.addWeeks(boundary, 20),
   }));
   service.removeMember(users.rafa.id, task.roomID, date, state);
-  for (const old of before) {
+  // As vezes futuras podem sair (só fica a próxima de cada morador), mas as que ficam mantêm datas e esforço.
+  const kept = before.filter((old) => state.occurrences.some((o) => o.id === old.id));
+  assert.ok(kept.some((o) => o.availableAt >= boundary));
+  assert.ok(before.filter((o) => o.availableAt < boundary).every((old) => kept.includes(old)));
+  for (const old of kept) {
     const next = state.occurrences.find((o) => o.id === old.id);
     assert.ok(next !== undefined);
     assert.equal(next.availableAt, old.availableAt);

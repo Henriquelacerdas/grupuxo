@@ -222,8 +222,11 @@ struct MembershipSchedulingTests {
         state.absences.append(try Absence(id: UUID(), membershipID: membership.id, startsAt: boundary,
             endsAt: calendar.date(byAdding: .weekOfYear, value: 20, to: boundary)!))
         try service.removeMember(userID: MockSeed.rafa.id, roomID: task.roomID, at: date, state: &state)
+        #expect(before.filter { $0.availableAt < boundary }.allSatisfy { old in
+            state.occurrences.contains { $0.id == old.id }
+        })
         for old in before {
-            let new = state.occurrences.first { $0.id == old.id }!
+            guard let new = state.occurrences.first(where: { $0.id == old.id }) else { continue }
             #expect(new.availableAt == old.availableAt)
             #expect(new.dueAt == old.dueAt)
             #expect(new.effortSnapshot == old.effortSnapshot)

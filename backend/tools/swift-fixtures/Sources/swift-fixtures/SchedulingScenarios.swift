@@ -141,6 +141,60 @@ func completeScenarios() -> [Scenario] {
         .complete(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1)), at: days(4)),
         .refresh(at: days(6)),
     ]))
+    // Uma vez por morador: só a próxima de cada um existe; concluir publica a seguinte de quem concluiu.
+    list.append(Scenario(name: "uma vez por morador: a conclusão publica a próxima de quem concluiu", zone: "UTC", state: world(), steps: [
+        .create(task(1, room: W.kitchen, effort: 2), at: wed),
+        .create(task(2, room: W.bathroom, effort: 1, recurrence: .recurring(frequency: .daily, interval: 1)), at: wed),
+        .complete(Ref(def: W.def(1), n: 0), by: .assigneeOf(Ref(def: W.def(1), n: 0)), at: days(1)),
+        .complete(Ref(def: W.def(2), n: 0), by: .assigneeOf(Ref(def: W.def(2), n: 0)), at: days(1)),
+        .refresh(at: days(6)),
+        .complete(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1)), at: days(6)),
+        .complete(Ref(def: W.def(2), n: 2), by: .assigneeOf(Ref(def: W.def(2), n: 2)), at: days(6)),
+        .complete(Ref(def: W.def(2), n: 1), by: .assigneeOf(Ref(def: W.def(2), n: 1)), at: days(7)),
+        .refresh(at: days(7)),
+    ]))
+    // Periodicidade própria: a atrasada segura a próxima até ser concluída; as vezes vencidas nesse meio são puladas.
+    list.append(Scenario(name: "atrasada fora da escala do cômodo: espera a conclusão e pula as vencidas", zone: "UTC", state: world(users: 2), steps: [
+        .create(task(1, room: W.kitchen, effort: 2), at: wed),
+        .refresh(at: days(30)),
+        .complete(Ref(def: W.def(1), n: 0), by: .assigneeOf(Ref(def: W.def(1), n: 0)), at: days(30)),
+        .complete(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1)), at: days(31)),
+        .refresh(at: days(31)),
+    ]))
+    // Escala do cômodo: atrasou, a próxima de quem atrasou já sai; semanas sem abrir o app publicam as perdidas.
+    list.append(Scenario(name: "atrasada na escala do cômodo publica a próxima de quem atrasou", zone: "UTC",
+        state: world(kitchen: WeeklyPeriodicity()), steps: [
+        .create(task(1, room: W.kitchen, effort: 2), at: wed),
+        .refresh(at: days(4)),
+        .refresh(at: days(6)),
+        .complete(Ref(def: W.def(1), n: 0), by: .assigneeOf(Ref(def: W.def(1), n: 0)), at: days(8)),
+        .refresh(at: days(45)),
+    ]))
+    // Escala gravada antes: 12 semanas publicadas e o cursor depois delas.
+    let monday = parse("2026-09-14T00:00:00Z")
+    let week = { (i: Int) in i == 0 ? wed : days(7 * i, from: monday) }
+    var old = world()
+    var oldTask = task(1, room: W.kitchen, effort: 2)
+    oldTask.rotationQueue = (1...4).map(W.user)
+    oldTask.currentRotationIndex = 0
+    oldTask.nextScheduledAt = days(84, from: monday)
+    old.definitions = [oldTask]
+    old.occurrences = (0..<12).map { i in
+        TaskOccurrence(id: uid(600 + i), taskDefinitionID: W.def(1), availableAt: week(i), dueAt: days(7 * (i + 1), from: monday),
+            status: .assigned, completedAt: nil, completedByUserID: nil, effortSnapshot: TaskEffort(points: 2))
+    }
+    old.assignments = (0..<12).map { i in
+        TaskAssignment(id: uid(700 + i), occurrenceID: uid(600 + i), userID: W.user(i % 4 + 1), assignedAt: week(i), endedAt: nil)
+    }
+    list.append(Scenario(name: "escala antiga de 12 semanas volta a uma vez por morador", zone: "UTC", state: old, steps: [
+        .refresh(at: days(1)),
+        .refresh(at: days(1)),
+        .complete(Ref(def: W.def(1), n: 0), by: .assigneeOf(Ref(def: W.def(1), n: 0)), at: days(2)),
+    ]))
+    list.append(Scenario(name: "escala antiga de 12 semanas: a saída de um morador também a converte", zone: "UTC", state: old, steps: [
+        .removeMember(W.user(4), room: W.kitchen, at: days(1)),
+        .refresh(at: days(20)),
+    ]))
     // Esporádica já assumida.
     var sporadic = world()
     sporadic.definitions = [task(1, room: W.kitchen, effort: 3, kind: .sporadic, recurrence: .none, policy: .selfAssigned)]

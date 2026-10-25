@@ -52,7 +52,7 @@ Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable
 
 | Serviço | Papel |
 | --- | --- |
-| `TaskSchedulingService` | Transições transacionais: criar, concluir, estender horizonte, entrar/sair de cômodo |
+| `TaskSchedulingService` | Transições transacionais: criar, concluir, publicar a próxima vez de cada morador, entrar/sair de cômodo |
 | `TaskDistributionEngine` | Matriz de custo semanal e fila inicial via Húngaro |
 | `HungarianAlgorithm` | Solucionador puro sobre `[[Double]]` |
 | `HouseQueueOptimizer` | Reequilíbrio da casa em entradas/saídas |

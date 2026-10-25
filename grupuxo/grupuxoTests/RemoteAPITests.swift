@@ -123,10 +123,10 @@ struct RemoteDTOTests {
 
     @Test func decodesTaskDefinition() throws {
         let definition = try decode(TaskDefinitionDTO.self, "task-definition").domain()
-        #expect(definition.name == "Aspirar a sala")
+        #expect(definition.name == "Lavar a louça")
         #expect(definition.effort.points == 2)
         #expect(definition.recurrence == .recurring(frequency: .weekly, interval: 1))
-        #expect(definition.assignmentPolicy == .calendarRotation)
+        #expect(definition.assignmentPolicy == .balancedAutomatically)
         #expect(definition.endedAt == nil)
     }
 
@@ -140,7 +140,7 @@ struct RemoteDTOTests {
         #expect(sporadic.definition.kind == .sporadic)
         #expect(sporadic.definition.recurrence == RecurrencePolicy.none)
         #expect(sporadic.assignment == nil)
-        #expect(sporadic.suggestedAssignee?.name == "Marina")
+        #expect(sporadic.suggestedAssignee?.name == "Bia")
 
         let completed = try decode(TaskItemDTO.self, "task-item-completed").domain()
         #expect(completed.occurrence.isCompleted)
@@ -414,8 +414,8 @@ struct RemoteRepositoryTests {
     @Test func swapRequestsUseTheServerRoutes() async throws {
         let server = FakeServer()
         let swap = String(decoding: try fixture("task-swap-request"), as: UTF8.self)
-        let offered = UUID(uuidString: "FFFFFFFF-FFFF-4FFF-8FFF-000000000085")!
-        let requested = UUID(uuidString: "FFFFFFFF-FFFF-4FFF-8FFF-000000000049")!
+        let offered = UUID(uuidString: "FFFFFFFF-FFFF-4FFF-8FFF-00000000002F")!
+        let requested = UUID(uuidString: "FFFFFFFF-FFFF-4FFF-8FFF-000000000069")!
         await server.on("GET /v1/occurrences/\(offered.apiString)/swap-candidates", body: #"{"tasks":[\#(String(decoding: try fixture("task-item"), as: UTF8.self))]}"#)
         await server.on("POST /v1/swaps", status: 201, body: swap)
         await server.on("GET /v1/me/swaps", body: #"{"incoming":[\#(swap)],"outgoing":[]}"#)

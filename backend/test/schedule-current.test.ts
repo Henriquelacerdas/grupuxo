@@ -4,13 +4,25 @@ import { roomParticipation, roomScheduleReady } from "../src/domain/commands/roo
 import { completeTask, refreshSchedule, scheduleIsCurrent } from "../src/domain/commands/tasks.ts";
 import { createCalendar } from "../src/domain/dates.ts";
 import { isActiveAssignment, isCompleted } from "../src/domain/entities.ts";
-import { cloneStoreState } from "../src/domain/store-state.ts";
+import { cloneStoreState, type StoreState } from "../src/domain/store-state.ts";
+import { weeklyPeriodicity } from "../src/domain/value-objects.ts";
 import { World } from "./support/world.ts";
 
 const SAO_PAULO = "America/Sao_Paulo";
 
+/**
+ * O estado sem o cursor das definições (`nextScheduledAt`, posição, fila e troca pendente). O cursor não sai na `api`
+ * e andar com ele sem publicar nada não muda nenhuma resposta: ele fica para a próxima escrita.
+ */
+function withoutCursors(state: StoreState): unknown {
+  return {
+    ...state,
+    definitions: state.definitions.map(({ nextScheduledAt: _n, currentRotationIndex: _i, rotationQueue: _q, pendingRotation: _p, ...rest }) => rest),
+  };
+}
+
 // As consultas da `api` só gravam quando `scheduleIsCurrent` é falso: ele nunca pode ser verdadeiro quando o
-// `refreshSchedule` mudaria o estado, senão a escala deixaria de ser estendida.
+// `refreshSchedule` publicaria ou removeria algo, senão a próxima vez de alguém deixaria de sair.
 test("escala em dia: refreshSchedule não muda nada; depois dele a escala fica em dia", () => {
   const world = new World({ timezone: SAO_PAULO });
   const calendar = createCalendar(SAO_PAULO);
@@ -28,7 +40,7 @@ test("escala em dia: refreshSchedule não muda nada; depois dele a escala fica e
       current += 1;
       const copy = cloneStoreState(state);
       refreshSchedule(world.ctx, copy, houseID, date);
-      assert.deepStrictEqual(copy, state, `dia ${day}: escala em dia, mas o refresh mudou o estado`);
+      assert.deepStrictEqual(withoutCursors(copy), withoutCursors(state), `dia ${day}: escala em dia, mas o refresh mudou o estado`);
     } else {
       stale += 1;
     }
@@ -57,4 +69,41 @@ test("cômodo sem escala inicializada não está pronto para a consulta de parti
   const copy = cloneStoreState(state);
   roomParticipation(world.ctx, copy, rooms.kitchen.id, users.marina.id, world.now);
   assert.deepStrictEqual(copy, state);
+});
+
+test("periodicidade própria: sem conclusão nada sai, e o cursor parado não obriga a gravar", () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const calendar = createCalendar(SAO_PAULO);
+  const state = world.cleanState();
+  const houseID = world.seed.house.id;
+  world.service().create(world.definition(world.seed.rooms.kitchen.id), world.now, state);
+  const later = calendar.addWeeks(world.now, 3);
+  assert.equal(scheduleIsCurrent(world.ctx, state, houseID, later), true);
+  const copy = cloneStoreState(state);
+  refreshSchedule(world.ctx, copy, houseID, later);
+  assert.deepStrictEqual(copy.occurrences, state.occurrences);
+  assert.deepStrictEqual(copy.assignments, state.assignments);
+  assert.notEqual(copy.definitions[0]?.nextScheduledAt, state.definitions[0]?.nextScheduledAt);
+});
+
+test("escala do cômodo: a vez que atrasa faz a consulta gravar a próxima de quem atrasou", () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const calendar = createCalendar(SAO_PAULO);
+  const state = world.cleanState(weeklyPeriodicity(1, 1));
+  const houseID = world.seed.house.id;
+  world.service().create(world.definition(world.seed.rooms.kitchen.id), world.now, state);
+  const current = state.occurrences.find((o) => o.availableAt <= world.now);
+  assert.ok(current !== undefined && current.dueAt !== null);
+  const owner = state.assignments.find((a) => a.occurrenceID === current.id && isActiveAssignment(a))?.userID;
+  assert.ok(owner !== undefined);
+  assert.equal(scheduleIsCurrent(world.ctx, state, houseID, current.dueAt - 1), true);
+  assert.equal(scheduleIsCurrent(world.ctx, state, houseID, current.dueAt), false);
+  const count = state.occurrences.length;
+  refreshSchedule(world.ctx, state, houseID, current.dueAt);
+  assert.equal(state.occurrences.length, count + 1);
+  const next = state.occurrences.at(-1);
+  assert.ok(next !== undefined && next.availableAt > current.dueAt);
+  assert.equal(state.assignments.find((a) => a.occurrenceID === next.id && isActiveAssignment(a))?.userID, owner);
+  assert.equal(scheduleIsCurrent(world.ctx, state, houseID, current.dueAt), true);
+  assert.ok(calendar.weeksBetween(current.availableAt, next.availableAt) >= 1);
 });

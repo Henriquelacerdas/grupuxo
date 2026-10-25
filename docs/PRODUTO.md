@@ -80,7 +80,8 @@ No app roda no dispositivo e no servidor roda a mesma lógica (implementação e
 1. **Saldo de justiça:** ao concluir esforço `E` num cômodo com `M` elegíveis, o executor ganha `E − E/M` e os demais perdem `E/M`. Quem é de fora do cômodo não é afetado.
 2. **Fila inicial:** custo quadrático por usuário/semana (pune picos) e Húngaro para a permutação de menor custo, com as demais filas fixas. Não garante ótimo global.
 3. **Entrada/saída de participantes:** a nova composição vale na segunda-feira imediatamente seguinte. Pode mudar atribuições futuras já publicadas (inclusive responsáveis de um período em andamento); preserva a semana atual, atrasados e concluídos. Quem sai ainda conclui suas pendências preservadas. Entrar na fila não garante tarefa na primeira semana. Quem entra já é elegível na semana atual para tarefas criadas depois da entrada (por exemplo, uma diária criada na quarta-feira), sem tirar tarefas já atribuídas a outros nesta semana.
-4. **Reequilíbrio estrutural:** busca de melhoria entre as filas da casa priorizando igualdade de esforço semanal; sem garantia de ótimo global e sem reordenar o cotidiano continuamente. Reentradas preservam o saldo.
+4. **Uma vez por morador:** só a próxima vez de cada morador aparece. Quem conclui a sua recebe na hora a próxima vez dele. Nas tarefas da escala do cômodo, se a vez atrasa, a próxima dele já aparece; nas de periodicidade própria, a próxima só aparece depois de concluir a atual, e as vezes que venceram nesse meio tempo são puladas.
+5. **Reequilíbrio estrutural:** busca de melhoria entre as filas da casa priorizando igualdade de esforço semanal; sem garantia de ótimo global e sem reordenar o cotidiano continuamente. Reentradas preservam o saldo.
 
 ## Tarefas esporádicas
 
@@ -96,7 +97,7 @@ Um morador oferece uma ocorrência sua e escolhe entre candidatas elegíveis de 
 
 ## Modo férias
 
-Ausências registradas impedem novas atribuições ao morador no período `[startsAt, endsAt)`. O turno nominal pode ficar sem responsável; filas e atribuições já publicadas não são recalculadas. Pendências por conclusão são preservadas e sua fila sucessora muda na próxima segunda-feira. Interface, redistribuição e retorno de férias ainda não existem.
+Ausências registradas impedem novas atribuições ao morador no período `[startsAt, endsAt)`. A vez dele nesse período é pulada (não aparece para ninguém) e a próxima dele é a seguinte fora da ausência; filas e atribuições já publicadas não são recalculadas. Pendências por conclusão são preservadas e sua fila sucessora muda na próxima segunda-feira. Interface, redistribuição e retorno de férias ainda não existem.
 
 ## Avaliação da casa (planejado)
 

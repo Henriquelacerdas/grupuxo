@@ -28,30 +28,39 @@ function fixture(timezone = "UTC") {
   return { world, env, marina, kitchen, definition, schedule, calendar: createCalendar(timezone) };
 }
 
-test("cria 12 semanas e o refresh não duplica", async () => {
+test("cria só a próxima vez de cada morador e o refresh não duplica", async () => {
   const { world, env, marina, definition, schedule, calendar } = fixture();
   const created = await new CreateTaskUseCase(env.tasks, () => world.now).execute(definition, marina.id, DATE);
   const initial = schedule();
-  assert.equal(initial.occurrences.length, 12);
-  assert.equal(initial.assignments.length, 12);
+  assert.equal(initial.occurrences.length, 4);
+  assert.equal(initial.assignments.length, 4);
   assert.equal(new Set(created.rotationQueue).size, 4);
-  assert.equal(created.currentRotationIndex, 0);
+  assert.deepEqual(new Set(initial.assignments.map((a) => a.userID)), new Set(created.rotationQueue));
+  assert.deepEqual(initial.assignments.map((a) => a.userID), created.rotationQueue);
+  // A vez já disponível sai do cursor: ele fica na próxima vez ainda não disponível.
+  assert.equal(created.currentRotationIndex, 1);
+  assert.equal(created.nextScheduledAt, calendar.addWeeks(DATE, 1));
   assert.equal(initial.occurrences[0]?.availableAt, DATE);
   assert.ok(initial.occurrences.slice(1).every((o) => calendar.isoWeekday(o.availableAt) === 1));
+  // Ninguém concluiu: passar semanas não cria nada (a próxima de cada um só sai quando ele conclui a sua).
   const future = calendar.addWeeks(DATE, 5);
   await env.tasks.refreshSchedule(world.seed.house.id, future);
   await env.tasks.refreshSchedule(world.seed.house.id, future);
+  assert.deepEqual(schedule().occurrences, initial.occurrences);
+  // Concluir atrasado publica a próxima vez de quem concluiu que ainda não venceu (a da semana 4 venceu na 5).
+  const first = initial.assignments[0];
+  assert.ok(first !== undefined);
+  await env.tasks.complete(first.occurrenceID, first.userID, future);
   const final = schedule();
-  assert.equal(final.occurrences.length, 17);
-  assert.equal(final.assignments.length, 17);
-  assert.deepEqual(final.occurrences.slice(0, 12), initial.occurrences);
-  assert.equal(new Set(final.occurrences.map((o) => o.availableAt)).size, 17);
-  assert.equal(final.definitions[0]?.currentRotationIndex, 1);
+  assert.equal(final.occurrences.length, 5);
+  assert.equal(final.occurrences.at(-1)?.availableAt, calendar.addWeeks(DATE, 8));
+  assert.equal(final.assignments.at(-1)?.userID, first.userID);
   assert.deepEqual(await env.tasks.create(definition, marina.id, future), final.definitions[0]);
 });
 
 test("intervalos semanais 2 e 20", async () => {
-  for (const [interval, count] of [[2, 6], [20, 1]] as const) {
+  // Uma vez por morador dentro do horizonte: quinzenal tem 6 vezes em 12 semanas, mas só 4 moradores.
+  for (const [interval, count] of [[2, 4], [20, 1]] as const) {
     const { env, marina, definition, schedule } = fixture();
     await env.tasks.create({ ...definition, recurrence: recurring("weekly", interval) }, marina.id, DATE);
     assert.equal(schedule().occurrences.length, count);
@@ -94,7 +103,9 @@ test("conclusão concorrente é atômica e usa o snapshot", async () => {
   assert.ok(state.roomMemberships.filter((m) => m.roomID !== definition.roomID).every((m) => m.fairnessDebt === 0));
   assert.equal(state.occurrences.filter(isCompleted).length, 1);
   assert.equal(state.assignments.filter((a) => a.occurrenceID === first.occurrenceID && isActiveAssignment(a)).length, 0);
-  assert.equal(state.definitions[0]?.currentRotationIndex, 0); // O cursor do calendário não avança na conclusão.
+  // As 20 conclusões publicam uma única próxima vez, de quem concluiu.
+  assert.equal(state.occurrences.length, 5);
+  assert.equal(state.assignments.filter((a) => a.userID === first.userID && isActiveAssignment(a)).length, 1);
 });
 
 test("conclusões não autorizadas e futuras não alteram nada", async () => {
@@ -165,7 +176,7 @@ test("criações concorrentes enxergam a carga já gravada da casa", async () =>
     env.tasks.create(definition, marina.id, DATE), env.tasks.create(second, marina.id, DATE),
   ]);
   assert.notEqual(firstSaved.rotationQueue[0], secondSaved.rotationQueue[0]);
-  assert.equal(schedule().occurrences.length, 24);
+  assert.equal(schedule().occurrences.length, 8);
 });
 
 test("entrada de morador replaneja a próxima semana e preserva a atual", async () => {
@@ -187,10 +198,8 @@ test("entrada de morador replaneja a próxima semana e preserva a atual", async 
   assert.ok(firstOccurrence !== undefined);
   assert.deepEqual(after.assignments.find((a) => a.occurrenceID === firstOccurrence.id && isActiveAssignment(a)), before.assignments[0]);
   assert.deepEqual(after.occurrences.slice(0, before.occurrences.length).map((o) => o.id), before.occurrences.map((o) => o.id));
-  const nextScheduled = before.definitions[0]?.nextScheduledAt;
-  assert.ok(nextScheduled !== null && nextScheduled !== undefined);
-  assert.ok(after.assignments.some((a) => a.userID === rafa.id && isActiveAssignment(a) && a.assignedAt < nextScheduled));
-  assert.ok(after.assignments.some((a) => a.supersededAt === DATE));
+  // Quem entra ganha a próxima vez dele a partir da fronteira.
+  assert.ok(after.assignments.some((a) => a.userID === rafa.id && isActiveAssignment(a) && a.assignedAt >= boundary));
   assert.ok(after.assignments.every((a) => a.endedAt === null || a.endedAt >= a.assignedAt));
   assert.equal(after.roomMemberships.filter((m) => m.roomID === definition.roomID && m.userID === rafa.id).length, 1);
 });
