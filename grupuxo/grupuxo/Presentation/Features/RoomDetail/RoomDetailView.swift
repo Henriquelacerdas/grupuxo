@@ -18,17 +18,20 @@ struct RoomDetailView: View {
     private let makeSuggestionEditorViewModel: (TaskSuggestion) -> TaskEditorViewModel
     private let makeTaskEditorViewModel: () -> TaskEditorViewModel
     private let onSelectTask: (TaskDefinition.ID) -> Void
+    private let reloadTrigger: AnyHashable
 
     init(
         viewModel: RoomDetailViewModel,
         makeSuggestionEditorViewModel: @escaping (TaskSuggestion) -> TaskEditorViewModel,
         makeTaskEditorViewModel: @escaping () -> TaskEditorViewModel,
-        onSelectTask: @escaping (TaskDefinition.ID) -> Void
+        onSelectTask: @escaping (TaskDefinition.ID) -> Void,
+        reloadTrigger: AnyHashable = 0
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.makeSuggestionEditorViewModel = makeSuggestionEditorViewModel
         self.makeTaskEditorViewModel = makeTaskEditorViewModel
         self.onSelectTask = onSelectTask
+        self.reloadTrigger = reloadTrigger
     }
 
     private var isMember: Bool {
@@ -69,7 +72,7 @@ struct RoomDetailView: View {
         .navigationTitle(viewModel.participation?.room.name ?? "Cômodo")
         .navigationBarTitleDisplayMode(.large)
         .toolbar { toolbarContent }
-        .task {
+        .task(id: reloadTrigger) {
             await viewModel.load()
         }
         .refreshable {

@@ -12,6 +12,12 @@ struct RootView: View {
 
     @State private var housePath: [AppRoute] = []
 
+    /// A tarefa aberta na sheet de detalhes; qualquer aba pode abri-la.
+    @State private var presentedTask: PresentedTask?
+
+    /// Sobe quando a sheet fecha, para as listas por trás recarregarem o que ela pode ter mudado.
+    @State private var taskChanges = 0
+
     init(api: APIClient, user: User, house: House) {
         _model = StateObject(wrappedValue: RootModel(api: api, user: user, house: house))
     }
@@ -47,7 +53,7 @@ struct RootView: View {
                         tasksPath.append(.taskSwap(offeredOccurrenceID: occurrenceID))
                     },
                     onSelectTask: { taskDefinitionID in
-                        tasksPath.append(.taskDetail(taskDefinitionID))
+                        presentedTask = PresentedTask(id: taskDefinitionID)
                     },
                     onSelectNotifications: {
                         tasksPath.append(.notifications)
@@ -55,7 +61,7 @@ struct RootView: View {
                     onSelectProfile: {
                         tasksPath.append(.settings)
                     },
-                    reloadTrigger: selectedTab
+                    reloadTrigger: ReloadKey(tab: selectedTab, taskChanges: taskChanges)
                 )
                 .navigationDestination(
                     for: AppRoute.self
@@ -137,6 +143,24 @@ struct RootView: View {
             .tag(AppTab.house)
 
         }
+        .sheet(
+            item: $presentedTask,
+            onDismiss: {
+                taskChanges += 1
+            }
+        ) { task in
+
+            TaskDetailView(
+                viewModel:
+                    container.makeTaskDetailViewModel(
+                        taskDefinitionID: task.id,
+                        session: session
+                    ),
+                // Sem `PATCH` na `api`: a tela só mostra os detalhes.
+                allowsEditing: false
+            )
+
+        }
 
     }
 
@@ -174,26 +198,10 @@ struct RootView: View {
                 },
                 onSelectTask: { taskDefinitionID in
 
-                    housePath.append(
-                        .taskDetail(
-                            taskDefinitionID
-                        )
-                    )
+                    presentedTask = PresentedTask(id: taskDefinitionID)
 
-                }
-            )
-
-        case let .taskDetail(taskDefinitionID):
-
-            TaskDetailView(
-                viewModel:
-                    container.makeTaskDetailViewModel(
-                        taskDefinitionID:
-                            taskDefinitionID,
-                        session: session
-                    ),
-                // Sem `PATCH` na `api`: a tela só mostra os detalhes.
-                allowsEditing: false
+                },
+                reloadTrigger: taskChanges
             )
 
         case .sporadicTasks:
@@ -206,12 +214,9 @@ struct RootView: View {
                 onEditTask: {
                     taskDefinitionID in
 
-                    housePath.append(
-                        .taskDetail(
-                            taskDefinitionID
-                        )
-                    )
-                }
+                    presentedTask = PresentedTask(id: taskDefinitionID)
+                },
+                reloadTrigger: taskChanges
             )
 
         case let .taskEditor(roomID):
@@ -250,4 +255,14 @@ struct RootView: View {
 
     }
 
+}
+
+/// Tarefa aberta na sheet de detalhes (`TaskDefinition.ID` sozinho não é `Identifiable`).
+private struct PresentedTask: Identifiable {
+    let id: TaskDefinition.ID
+}
+
+private struct ReloadKey: Hashable {
+    let tab: AppTab
+    let taskChanges: Int
 }

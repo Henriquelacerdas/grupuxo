@@ -20,6 +20,8 @@ struct SporadicTasksView: View {
 
     private let onEditTask: (TaskDefinition.ID) -> Void
 
+    private let reloadTrigger: AnyHashable
+
     private enum PendingChangesAlert: Identifiable {
 
         case discardAndExit
@@ -40,7 +42,8 @@ struct SporadicTasksView: View {
 
     init(
         viewModel: SporadicTasksViewModel,
-        onEditTask: @escaping (TaskDefinition.ID) -> Void = { _ in }
+        onEditTask: @escaping (TaskDefinition.ID) -> Void = { _ in },
+        reloadTrigger: AnyHashable = 0
     ) {
 
         _viewModel = StateObject(
@@ -48,6 +51,7 @@ struct SporadicTasksView: View {
         )
 
         self.onEditTask = onEditTask
+        self.reloadTrigger = reloadTrigger
     }
 
     var body: some View {
@@ -135,7 +139,7 @@ struct SporadicTasksView: View {
             )
             .ignoresSafeArea()
         )
-        .task {
+        .task(id: reloadTrigger) {
 
             await viewModel.load()
         }

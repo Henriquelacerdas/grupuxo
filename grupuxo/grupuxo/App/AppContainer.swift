@@ -284,17 +284,24 @@ final class AppContainer {
     ) -> TaskDetailViewModel {
 
         TaskDetailViewModel(
-            getTaskDefinition: GetTaskDefinitionUseCase(
+            getTaskOverview: GetTaskOverviewUseCase(
                 repository: taskRepository
+            ),
+            getParticipation: GetRoomParticipationUseCase(
+                repository: roomRepository
             ),
             updateTaskDetails: UpdateTaskDetailsUseCase(
                 repository: taskRepository
             ),
-            getUpcomingAssignments: GetTaskUpcomingAssignmentsUseCase(
+            completeTask: CompleteTaskUseCase(
+                repository: taskRepository
+            ),
+            endTask: EndTaskUseCase(
                 repository: taskRepository
             ),
             taskDefinitionID: taskDefinitionID,
-            userID: session.currentUser.id
+            userID: session.currentUser.id,
+            calendar: calendar
         )
 
     }

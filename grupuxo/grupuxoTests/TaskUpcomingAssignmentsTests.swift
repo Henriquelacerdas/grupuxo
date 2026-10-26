@@ -123,4 +123,27 @@ struct TaskUpcomingAssignmentsTests {
         #expect(queue.map { $0.assignee?.id } == people.map(\.id))
         #expect(queue.first?.isCurrent == true)
     }
+
+    @Test func upcomingQueueNeverRepeatsAPersonInARow() async throws {
+        let (container, definitions) = container { first, _ in
+            // Two executions in the same period: the overdue one and the next one belong to the same person.
+            [-100, -10, 100, 200, 300].map { occurrence(first, offset: TimeInterval($0)) }
+        }
+        let people = Array(MockSeed.users.prefix(3))
+        let owners = [people[0], people[0], people[1], people[2], people[0]]
+        try await container.store.update { state in
+            let ids = state.occurrences.filter { $0.taskDefinitionID == definitions[0].id }
+                .sorted { $0.availableAt < $1.availableAt }.map(\.id)
+            for (id, owner) in zip(ids, owners) {
+                state.assignments.append(TaskAssignment(
+                    id: UUID(), occurrenceID: id, userID: owner.id,
+                    assignedAt: Date(timeIntervalSince1970: 0), endedAt: nil, supersededAt: nil))
+            }
+        }
+        let queue = try await GetTaskUpcomingAssignmentsUseCase(repository: container.taskRepository)(
+            taskDefinitionID: definitions[0].id, requesting: MockSeed.currentUser.id, at: now)
+        #expect(queue.map { $0.assignee?.id } == people.map(\.id))
+        #expect(queue.map(\.isCurrent) == [true, false, false])
+        #expect(queue.first?.availableAt == now.addingTimeInterval(-100))
+    }
 }
