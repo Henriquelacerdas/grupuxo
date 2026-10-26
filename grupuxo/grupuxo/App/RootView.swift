@@ -28,6 +28,7 @@ struct RootView: View {
 
     var body: some View {
         tabs
+            .toastHost()
     }
 
     private var tabs: some View {

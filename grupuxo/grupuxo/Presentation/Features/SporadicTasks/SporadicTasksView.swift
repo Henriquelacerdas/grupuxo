@@ -7,6 +7,9 @@ struct SporadicTasksView: View {
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
 
+    @Environment(\.showToast)
+    private var showToast
+
     @Environment(\.dismiss)
     private var dismiss
 
@@ -209,9 +212,11 @@ struct SporadicTasksView: View {
 
                 Task {
 
-                    await viewModel.delete(
+                    if await viewModel.delete(
                         taskDefinitionID
-                    )
+                    ) {
+                        showToast(.deleted(String(localized: "Tarefa Única excluída")))
+                    }
                 }
             }
 

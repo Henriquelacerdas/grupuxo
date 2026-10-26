@@ -5,7 +5,6 @@ struct HouseManagementView: View {
 
     @StateObject private var viewModel: HouseManagementViewModel
 
-    @State private var isPresentingAddOptions = false
     @State private var isPresentingTaskCreationSheet = false
     @State private var isPresentingRoomCreationSheet = false
     @State private var isPresentingReorderSheet = false
@@ -46,14 +45,20 @@ struct HouseManagementView: View {
         self.onOpenHouseSettings = onOpenHouseSettings
     }
 
-    /// Mesmo botão de Minhas tarefas: botão nativo de barra com o estilo prominent do design system.
-    /// A escolha entre tarefa e cômodo abre num diálogo, porque um `Menu` na barra não recebe o estilo prominent.
+    /// Menu nativo de barra (HIG: escolha do que criar a partir de um botão da barra é um menu, não um diálogo).
     private var addButton: some View {
-        Button(
-            "Adicionar",
-            systemImage: "plus"
-        ) {
-            isPresentingAddOptions = true
+        Menu {
+            Button("Nova Tarefa", systemImage: "checklist") {
+                isPresentingTaskCreationSheet = true
+            }
+            .accessibilityIdentifier("createTask")
+
+            Button("Novo Cômodo", systemImage: "square.split.bottomrightquarter") {
+                isPresentingRoomCreationSheet = true
+            }
+            .accessibilityIdentifier("createRoom")
+        } label: {
+            Label("Adicionar", systemImage: "plus")
         }
         .prominentToolbarButtonStyle()
         .accessibilityIdentifier("addMenu")
@@ -133,21 +138,6 @@ struct HouseManagementView: View {
                 .accessibilityLabel("Mais opções")
                 .accessibilityIdentifier("houseOptionsMenu")
             }
-        }
-        .confirmationDialog(
-            "Adicionar",
-            isPresented: $isPresentingAddOptions,
-            titleVisibility: .hidden
-        ) {
-            Button("Nova Tarefa") {
-                isPresentingTaskCreationSheet = true
-            }
-            .accessibilityIdentifier("createTask")
-
-            Button("Novo Cômodo") {
-                isPresentingRoomCreationSheet = true
-            }
-            .accessibilityIdentifier("createRoom")
         }
         .sheet(
             isPresented: $isPresentingTaskCreationSheet

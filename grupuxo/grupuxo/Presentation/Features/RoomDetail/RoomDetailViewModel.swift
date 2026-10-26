@@ -221,12 +221,15 @@ final class RoomDetailViewModel: ObservableObject {
     }
 
     /// Encerra a tarefa: o histórico fica e a ocorrência da vez continua até ser concluída.
-    func end(taskID: TaskDefinition.ID) async {
+    @discardableResult
+    func end(taskID: TaskDefinition.ID) async -> Bool {
         do {
             try await endTask(taskID: taskID, requestedBy: userID)
             await load()
+            return true
         } catch {
             actionError = error.localizedDescription
+            return false
         }
     }
 }

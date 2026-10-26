@@ -1742,6 +1742,16 @@
         }
       }
     },
+    "Cômodo “%@” criado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Room “%@” created"
+          }
+        }
+      }
+    },
     "Cômodos" : {
       "localizations" : {
         "en" : {
@@ -4200,6 +4210,26 @@
         }
       }
     },
+    "Tarefa encerrada" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task ended"
+          }
+        }
+      }
+    },
+    "Tarefa excluída" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task deleted"
+          }
+        }
+      }
+    },
     "Tarefa extra" : {
       "localizations" : {
         "en" : {
@@ -4216,6 +4246,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "One-off Task"
+          }
+        }
+      }
+    },
+    "Tarefa Única excluída" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One-off task deleted"
+          }
+        }
+      }
+    },
+    "Tarefa “%@” criada" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task “%@” created"
           }
         }
       }

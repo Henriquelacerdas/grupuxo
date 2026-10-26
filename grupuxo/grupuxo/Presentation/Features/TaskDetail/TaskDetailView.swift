@@ -12,6 +12,9 @@ import GrupuxoDomain
 /// Detalhes da tarefa numa sheet: cabeçalho do cômodo, descrição, rodízio e detalhes.
 struct TaskDetailView: View {
 
+    @Environment(\.showToast)
+    private var showToast
+
     @Environment(\.dismiss)
     private var dismiss
 
@@ -194,6 +197,7 @@ struct TaskDetailView: View {
         ) { _, wasEnded in
 
             if wasEnded {
+                showToast(.deleted(String(localized: "Tarefa encerrada")))
                 dismiss()
             }
 

@@ -404,9 +404,10 @@ final class SporadicTasksViewModel: ObservableObject {
 
     // MARK: - Delete
 
+    @discardableResult
     func delete(
         _ taskDefinitionID: TaskDefinition.ID
-    ) async {
+    ) async -> Bool {
 
         await perform {
 
@@ -473,9 +474,10 @@ final class SporadicTasksViewModel: ObservableObject {
 
     // MARK: - Shared action
 
+    @discardableResult
     private func perform(
         _ action: () async throws -> Void
-    ) async {
+    ) async -> Bool {
 
         do {
 
@@ -483,10 +485,14 @@ final class SporadicTasksViewModel: ObservableObject {
 
             await load()
 
+            return true
+
         } catch {
 
             actionError =
                 error.localizedDescription
+
+            return false
         }
     }
 }

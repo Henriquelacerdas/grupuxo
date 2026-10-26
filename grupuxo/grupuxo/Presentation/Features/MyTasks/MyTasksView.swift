@@ -6,6 +6,7 @@ struct MyTasksView: View {
     @StateObject private var viewModel: MyTasksViewModel
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.showToast) private var showToast
 
     @State private var collapsedSections: Set<MyTasksSection> = []
     @State private var isPresentingTaskCreationSheet = false
@@ -145,7 +146,11 @@ struct MyTasksView: View {
         ) { task in
             Button("Cancelar", role: .cancel) {}
             Button("Excluir", role: .destructive) {
-                Task { await viewModel.end(taskID: task.id) }
+                Task {
+                    if await viewModel.end(taskID: task.id) {
+                        showToast(.deleted(String(localized: "Tarefa excluída")))
+                    }
+                }
             }
         } message: { task in
             Text("\(task.name) não será mais repetida. O histórico fica, e a vez atual continua até ser concluída.")

@@ -4,6 +4,7 @@ import GrupuxoDomain
 
 struct RoomCreationSheetView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.showToast) private var showToast
 
     @FocusState private var nameFocused: Bool
     @StateObject private var viewModel: RoomEditorViewModel
@@ -215,7 +216,8 @@ struct RoomCreationSheetView: View {
             clampPeoplePerCycle()
         }
         .onChange(of: viewModel.state) { _, state in
-            if case .saved = state {
+            if case let .saved(room) = state {
+                showToast(.created(String(localized: "Cômodo “\(room.name)” criado")))
                 dismiss()
             }
         }

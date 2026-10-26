@@ -6,6 +6,7 @@ struct RoomDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.showToast) private var showToast
 
     @StateObject private var viewModel: RoomDetailViewModel
 
@@ -118,7 +119,11 @@ struct RoomDetailView: View {
         ) { task in
             Button("Cancelar", role: .cancel) {}
             Button("Encerrar", role: .destructive) {
-                Task { await viewModel.end(taskID: task.id) }
+                Task {
+                    if await viewModel.end(taskID: task.id) {
+                        showToast(.deleted(String(localized: "Tarefa encerrada")))
+                    }
+                }
             }
         } message: { task in
             Text("\(task.name) não será mais repetida. O histórico fica, e a vez atual continua até ser concluída.")

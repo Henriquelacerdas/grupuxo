@@ -157,6 +157,7 @@ private struct EffortSegmentedControl: UIViewRepresentable {
 
 struct TaskCreationSheetView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.showToast) private var showToast
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @FocusState private var focusedField: Field?
@@ -255,7 +256,8 @@ struct TaskCreationSheetView: View {
             await viewModel.loadRooms()
         }
         .onChange(of: viewModel.state) { _, state in
-            if case .saved = state {
+            if case let .saved(definition) = state {
+                showToast(.created(String(localized: "Tarefa “\(definition.name)” criada")))
                 dismiss()
             }
         }

@@ -112,9 +112,10 @@ final class MyTasksViewModel: ObservableObject {
     }
 
     /// Encerra a tarefa: o histórico fica e a ocorrência da vez continua até ser concluída.
+    @discardableResult
     func end(
         taskID: TaskDefinition.ID
-    ) async {
+    ) async -> Bool {
 
         do {
             try await endTask(
@@ -124,9 +125,11 @@ final class MyTasksViewModel: ObservableObject {
             )
 
             await load(showLoading: false)
+            return true
 
         } catch {
             actionError = error.localizedDescription
+            return false
         }
     }
 
