@@ -449,11 +449,12 @@ A mensagem barrada conta como processada (nem retry nem DLQ). Vale para todos os
 
 Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum teste chama a rede, e nada chamou o Gemini de verdade ainda.
 
-**`GeminiClient` / `HttpGeminiClient`** (`gemini-client.ts`): `POST https://generativelanguage.googleapis.com/v1beta/models/<GEMINI_MODEL>:generateContent` com *function calling* (`toolConfig` modo `AUTO`, `temperature` 0).
+**`GeminiClient` / `HttpGeminiClient`** (`gemini-client.ts`): `POST https://generativelanguage.googleapis.com/v1beta/models/<GEMINI_MODEL>:generateContent` com *function calling* (`toolConfig` modo `AUTO`). Sem `temperature`: para o Gemini 3 o Google recomenda o padrão (1.0), e valores baixos podem fazer o modelo entrar em laço. `generationConfig.thinkingConfig.thinkingLevel` vem de `thinkingLevel` (padrão `"low"`, aceito por todos os modelos Gemini 3; o modelo só escolhe a ferramenta, e com o raciocínio padrão do modelo a resposta chegava a passar do timeout).
 
 - A chave da API vai só no cabeçalho `x-goog-api-key`: nunca na URL, no corpo ou em mensagem de erro.
 - O modelo vem de `GEMINI_MODEL` e é validado antes de entrar na URL (`^[a-z0-9][a-z0-9.-]{0,63}$`: um pouco mais estrito que `^[a-z0-9.-]+$`, para barrar `.`/`..` como nome). **Sem `GEMINI_MODEL` (ou sem chave) o cliente não é criado** (`GeminiConfigurationError`): não existe modelo escondido. O nome vem como `string | undefined` para a composição passar a variável de ambiente direto e falhar fechada.
-- Timeout (padrão 10 s) e teto de tokens de saída (padrão 512; o modelo só emite chamadas de ferramenta).
+- Timeout **por tentativa** (padrão 12 s) e teto de tokens de saída (padrão 512; o modelo só emite chamadas de ferramenta).
+- Novas tentativas (`maxAttempts`, padrão 2, contando a primeira) só para falhas passageiras (`isTransient`: `timeout`, `network` e `status` 429/500/502/503/504), com espera fixa (`retryDelayMs`, padrão 500 ms) pelo `sleep` injetado. 4xx, `invalidResponse` e `blocked` não repetem. Pior caso de uma chamada: ~24,5 s.
 - Erros tipados (`GeminiRequestError`: `network`, `timeout`, `status` com o status HTTP, `invalidResponse`, `blocked`), com mensagem fixa: sem corpo de resposta, sem o erro original, sem texto do usuário. Resposta com mais de 256 KB é recusada. A resposta é lida com estreitamento escrito à mão; partes de raciocínio (`thought`) e tipos desconhecidos são descartados.
 - Modelo padrão **recomendado**: `gemini-2.5-flash-lite` (o mais barato com *function calling*). Conferido em 2026-10-05 na página de depreciações do Google: estável (GA), sem data de desligamento anunciada. Já existe o `gemini-3.5-flash-lite` (também sem data). O `gemini-1.5-flash` foi desativado e, segundo a mesma página, o `gemini-2.0-flash-lite` tinha desligamento anunciado para 1/6/2026: nenhum dos dois pode ser usado. O valor concreto é configuração do ambiente; reconferir a página antes de cada release.
 
@@ -475,8 +476,9 @@ Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum test
 2. Mensagem em branco → lista do que o bot sabe fazer, sem chamar o modelo. Texto cortado em 500 caracteres antes de ir ao modelo.
 3. Laço de *function calling* com limite de rodadas (padrão 3) e no máximo 3 chamadas por rodada; consultas repetidas respondem uma vez. A instrução de sistema é fixa; o texto do morador só vai como mensagem de usuário.
 4. A saída das ferramentas **não** volta ao modelo. A resposta é montada em `task-format.ts` a partir do que os casos de uso devolveram, então nomes e datas só vêm dos dados, e o texto que o modelo escrever é descartado: uma instrução escondida na mensagem ou num nome de tarefa de outro morador não consegue ditar o que o bot diz. Só uma falha recuperável (argumento inválido, cômodo não encontrado/ambíguo) volta ao modelo, como erro de código fixo mais os nomes dos cômodos, para ele corrigir a chamada.
-5. Falha do Gemini (`GeminiRequestError`) → mensagem fixa em português ("Tente de novo em instantes"). Qualquer outro erro (banco, bug) propaga e o SQS tenta de novo. Se a rodada de correção falhar, mantém o que já foi respondido.
-6. Nada do conteúdo é registrado em log nem guardado (teste dedicado: console, `stdout`/`stderr`, responder sem estado, caixa de entrada só com `wamid` e horários).
+5. Falha do Gemini (`GeminiRequestError`, já depois das novas tentativas do cliente) → mensagem fixa em português ("Tente de novo em instantes"). Qualquer outro erro (banco, bug) propaga e o SQS tenta de novo. Se a rodada de correção falhar, mantém o que já foi respondido. Toda falha do Gemini chama `onGeminiFailure`; na Lambda `worker` isso escreve `worker: gemini falhou: GeminiRequestError code=… status=…` no stderr (`describeFailure`, sem conteúdo).
+6. Rodadas de correção (depois da primeira) só começam até `correctionCutoffMs` (padrão 15 s) desde o início da resposta; depois disso vale o que já foi respondido. Assim o pior caso (~40 s) cabe no timeout de 60 s da Lambda.
+7. Nada do conteúdo é registrado em log nem guardado (teste dedicado: console, `stdout`/`stderr`, responder sem estado, caixa de entrada só com `wamid` e horários).
 
 **Concluir tarefa com confirmação** (`complete-task.ts`, `GeminiMessageResponder`; port `PendingActionStore`, seção 14). Duas etapas, e quem grava é sempre o código:
 

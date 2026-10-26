@@ -36,6 +36,13 @@ export interface GeminiMessageResponderDependencies {
   readonly confirmationLifetimeSeconds?: number;
   /** Rodadas máximas do laço de function calling. Padrão: 3. */
   readonly maxIterations?: number;
+  /**
+   * Rodadas de correção (depois da primeira) só começam antes deste tempo, em milissegundos desde o início da
+   * resposta, para o pior caso caber no timeout da Lambda. Padrão: 15 000.
+   */
+  readonly correctionCutoffMs?: number;
+  /** Chamado a cada falha do Gemini (inclusive as que viram o aviso genérico), para o erro não ficar mudo no log. */
+  readonly onGeminiFailure?: (error: GeminiRequestError) => void;
 }
 
 /** Instrução fixa: nada da mensagem do morador entra nela. */
@@ -95,11 +102,13 @@ export class GeminiMessageResponder implements MessageResponder {
   private readonly deps: GeminiMessageResponderDependencies;
   private readonly maxIterations: number;
   private readonly confirmationLifetimeMs: number;
+  private readonly correctionCutoffMs: number;
 
   constructor(deps: GeminiMessageResponderDependencies) {
     this.deps = deps;
     this.maxIterations = Math.max(1, deps.maxIterations ?? 3);
     this.confirmationLifetimeMs = Math.max(1, deps.confirmationLifetimeSeconds ?? 300) * 1000;
+    this.correctionCutoffMs = Math.max(0, deps.correctionCutoffMs ?? 15_000);
   }
 
   async reply(text: string, userID: UserID, context: ReplyContext): Promise<string> {
@@ -131,7 +140,10 @@ export class GeminiMessageResponder implements MessageResponder {
     const answered = new Set<string>();
     let problem: string | null = null;
 
+    const startedAt = this.deps.now();
     for (let iteration = 0; iteration < this.maxIterations; iteration++) {
+      // Sem tempo para outra rodada: vale o que já foi respondido (o `problem` da rodada anterior inclusive).
+      if (iteration > 0 && this.deps.now() - startedAt >= this.correctionCutoffMs) break;
       let calls: readonly Extract<GeminiPart, { kind: "functionCall" }>[];
       try {
         const { content } = await this.deps.gemini.generate({
@@ -142,6 +154,7 @@ export class GeminiMessageResponder implements MessageResponder {
         calls = content.parts.filter((part) => part.kind === "functionCall").slice(0, MAX_CALLS_PER_TURN);
       } catch (error) {
         if (!(error instanceof GeminiRequestError)) throw error;
+        this.deps.onGeminiFailure?.(error);
         // Falha na rodada de correção: o que já foi respondido vale mais do que o aviso genérico.
         if (sections.length === 0 && problem === null) return GeminiMessageResponder.fallbackReply;
         break;

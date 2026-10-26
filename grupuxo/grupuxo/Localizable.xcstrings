@@ -4,6 +4,48 @@
     "" : {
       "shouldTranslate" : false
     },
+    "– %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– %@"
+          }
+        }
+      }
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %lld de %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %lld of %lld"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$lld de %3$lld"
+          }
+        }
+      }
+    },
     "%@ (você)" : {
       "localizations" : {
         "en" : {
@@ -46,38 +88,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ wants to swap tasks with you."
-          }
-        }
-      }
-    },
-    "%@ · %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ · %@"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ · %2$@"
-          }
-        }
-      }
-    },
-    "%@ · %lld de %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ · %lld of %lld"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ · %2$lld de %3$lld"
           }
         }
       }
@@ -840,7 +850,11 @@
         }
       }
     },
+    "Abre o formulário para adicionar a tarefa sugerida" : {
+
+    },
     "Abre o formulário para editar e adicionar esta tarefa." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -849,6 +863,12 @@
           }
         }
       }
+    },
+    "Abre os detalhes da tarefa" : {
+
+    },
+    "Ação ainda não conectada" : {
+
     },
     "Aceitar" : {
       "localizations" : {
@@ -930,6 +950,9 @@
         }
       }
     },
+    "Alterna as sugestões disponíveis" : {
+
+    },
     "Amanhã" : {
       "localizations" : {
         "en" : {
@@ -946,6 +969,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Yellow"
+          }
+        }
+      }
+    },
+    "ano" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "year"
+          }
+        }
+      }
+    },
+    "anos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "years"
           }
         }
       }
@@ -1070,6 +1113,9 @@
         }
       }
     },
+    "As do ciclo repetem junto com o cômodo e mudam de pessoa a cada ciclo.\nAs gerais têm repetição própria e só mudam de pessoa depois de feitas." : {
+
+    },
     "As novidades da casa aparecerão aqui." : {
       "localizations" : {
         "en" : {
@@ -1100,6 +1146,9 @@
           }
         }
       }
+    },
+    "Assumir esta tarefa" : {
+
     },
     "Atenção: Você é o último participante desse cômodo. Se sair, o cômodo e suas tarefas serão excluídos." : {
       "localizations" : {
@@ -1221,22 +1270,22 @@
         }
       }
     },
-    "Carregando cômodos…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Loading rooms…"
-          }
-        }
-      }
-    },
     "Carregando cômodo…" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Loading room…"
+          }
+        }
+      }
+    },
+    "Carregando cômodos…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading rooms…"
           }
         }
       }
@@ -1271,22 +1320,22 @@
         }
       }
     },
-    "Carregando tarefas…" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Loading tasks…"
-          }
-        }
-      }
-    },
     "Carregando tarefa…" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Loading task…"
+          }
+        }
+      }
+    },
+    "Carregando tarefas…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading tasks…"
           }
         }
       }
@@ -1372,266 +1421,6 @@
         }
       }
     },
-    "Com %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "With %@"
-          }
-        }
-      }
-    },
-    "Com você" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "With you"
-          }
-        }
-      }
-    },
-    "Compartilhar código" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Share code"
-          }
-        }
-      }
-    },
-    "Concluir" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Complete"
-          }
-        }
-      }
-    },
-    "Concluir %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Complete %@"
-          }
-        }
-      }
-    },
-    "Concluir recorrência personalizada" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Finish custom repeat"
-          }
-        }
-      }
-    },
-    "Concluída" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Done"
-          }
-        }
-      }
-    },
-    "Conectar WhatsApp" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connect WhatsApp"
-          }
-        }
-      }
-    },
-    "Confira o e-mail e a senha. %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check your email and password. %@"
-          }
-        }
-      }
-    },
-    "Confirmar" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Confirm"
-          }
-        }
-      }
-    },
-    "Confirmar alterações" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Confirm changes"
-          }
-        }
-      }
-    },
-    "Confirme seu e-mail com o código que enviamos antes de entrar." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Confirm your email with the code we sent before signing in."
-          }
-        }
-      }
-    },
-    "Conta confirmada!" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Account confirmed!"
-          }
-        }
-      }
-    },
-    "Conta confirmada! Você já pode fazer login." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Account confirmed! You can sign in now."
-          }
-        }
-      }
-    },
-    "Conta confirmada! Volte e entre com seu e-mail e senha." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Account confirmed! Go back and sign in with your email and password."
-          }
-        }
-      }
-    },
-    "Conta confirmada, mas não deu para entrar: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Account confirmed, but we couldn't sign you in: %@"
-          }
-        }
-      }
-    },
-    "Conta criada. Volte e entre com seu e-mail e senha." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Account created. Go back and sign in with your email and password."
-          }
-        }
-      }
-    },
-    "Continuar com a Apple" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Continue with Apple"
-          }
-        }
-      }
-    },
-    "Copiar código" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Copy code"
-          }
-        }
-      }
-    },
-    "Cor" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Color"
-          }
-        }
-      }
-    },
-    "Criando cômodo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Creating room"
-          }
-        }
-      }
-    },
-    "Criar Conta" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Create Account"
-          }
-        }
-      }
-    },
-    "Criar Tarefa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Create Task"
-          }
-        }
-      }
-    },
-    "Criar casa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Create house"
-          }
-        }
-      }
-    },
-    "Criar cômodo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Create room"
-          }
-        }
-      }
-    },
-    "Crie a casa e convide os moradores, ou entre em uma casa existente com o código de convite." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Create the house and invite the residents, or join an existing house with an invite code."
-          }
-        }
-      }
-    },
     "Código (6 caracteres)" : {
       "localizations" : {
         "en" : {
@@ -1702,6 +1491,26 @@
         }
       }
     },
+    "Com %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With %@"
+          }
+        }
+      }
+    },
+    "Com você" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "With you"
+          }
+        }
+      }
+    },
     "Cômodo" : {
       "localizations" : {
         "en" : {
@@ -1712,12 +1521,12 @@
         }
       }
     },
-    "Cômodo Privado" : {
+    "Cômodo “%@” criado" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Private Room"
+            "value" : "Room “%@” created"
           }
         }
       }
@@ -1732,22 +1541,22 @@
         }
       }
     },
+    "Cômodo Privado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private Room"
+          }
+        }
+      }
+    },
     "Cômodo privado, sem acesso" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Private room, no access"
-          }
-        }
-      }
-    },
-    "Cômodo “%@” criado" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Room “%@” created"
           }
         }
       }
@@ -1778,6 +1587,246 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rooms will be deleted"
+          }
+        }
+      }
+    },
+    "Compartilhar código" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share code"
+          }
+        }
+      }
+    },
+    "Concluída" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "Concluir" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete"
+          }
+        }
+      }
+    },
+    "Concluir %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete %@"
+          }
+        }
+      }
+    },
+    "Concluir recorrência personalizada" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finish custom repeat"
+          }
+        }
+      }
+    },
+    "Conectar WhatsApp" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect WhatsApp"
+          }
+        }
+      }
+    },
+    "Confira o e-mail e a senha. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your email and password. %@"
+          }
+        }
+      }
+    },
+    "Confirmar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm"
+          }
+        }
+      }
+    },
+    "Confirmar alterações" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm changes"
+          }
+        }
+      }
+    },
+    "Confirme seu e-mail com o código que enviamos antes de entrar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm your email with the code we sent before signing in."
+          }
+        }
+      }
+    },
+    "Conta confirmada, mas não deu para entrar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account confirmed, but we couldn't sign you in: %@"
+          }
+        }
+      }
+    },
+    "Conta confirmada!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account confirmed!"
+          }
+        }
+      }
+    },
+    "Conta confirmada! Você já pode fazer login." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account confirmed! You can sign in now."
+          }
+        }
+      }
+    },
+    "Conta confirmada! Volte e entre com seu e-mail e senha." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account confirmed! Go back and sign in with your email and password."
+          }
+        }
+      }
+    },
+    "Conta criada. Volte e entre com seu e-mail e senha." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account created. Go back and sign in with your email and password."
+          }
+        }
+      }
+    },
+    "Continuar com a Apple" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue with Apple"
+          }
+        }
+      }
+    },
+    "Copiar código" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy code"
+          }
+        }
+      }
+    },
+    "Cor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Color"
+          }
+        }
+      }
+    },
+    "Criando cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creating room"
+          }
+        }
+      }
+    },
+    "Criar casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create house"
+          }
+        }
+      }
+    },
+    "Criar cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create room"
+          }
+        }
+      }
+    },
+    "Criar Conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create Account"
+          }
+        }
+      }
+    },
+    "Criar Tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create Task"
+          }
+        }
+      }
+    },
+    "Crie a casa e convide os moradores, ou entre em uma casa existente com o código de convite." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create the house and invite the residents, or join an existing house with an invite code."
           }
         }
       }
@@ -1853,6 +1902,7 @@
       }
     },
     "Desmarcar conclusão" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1882,12 +1932,45 @@
         }
       }
     },
+    "Detalhes do ciclo" : {
+
+    },
+    "dia" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "day"
+          }
+        }
+      }
+    },
+    "Diária" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily"
+          }
+        }
+      }
+    },
     "Diariamente" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Daily"
+          }
+        }
+      }
+    },
+    "dias" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "days"
           }
         }
       }
@@ -1922,16 +2005,6 @@
         }
       }
     },
-    "Diária" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Daily"
-          }
-        }
-      }
-    },
     "Duração do ciclo" : {
       "localizations" : {
         "en" : {
@@ -1958,6 +2031,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Edit task"
+          }
+        }
+      }
+    },
+    "em " : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "in "
           }
         }
       }
@@ -2254,22 +2337,22 @@
         }
       }
     },
-    "Excluir Tarefa Única?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete One-off Task?"
-          }
-        }
-      }
-    },
     "Excluir a casa?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete the house?"
+          }
+        }
+      }
+    },
+    "Excluir Tarefa Única?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete One-off Task?"
           }
         }
       }
@@ -2293,6 +2376,12 @@
           }
         }
       }
+    },
+    "Exibe outras sugestões disponíveis" : {
+
+    },
+    "Exibição de tarefas" : {
+
     },
     "Expande a seção" : {
       "localizations" : {
@@ -2335,6 +2424,7 @@
       }
     },
     "Filtrar tarefas" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2370,6 +2460,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Today"
+          }
+        }
+      }
+    },
+    "Ícone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Icon"
+          }
+        }
+      }
+    },
+    "Ícone e cor do cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Room icon and color"
+          }
+        }
+      }
+    },
+    "Índigo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indigo"
           }
         }
       }
@@ -2643,6 +2763,9 @@
         }
       }
     },
+    "Mais opções do cômodo" : {
+
+    },
     "Marcar como concluída" : {
       "localizations" : {
         "en" : {
@@ -2663,6 +2786,16 @@
         }
       }
     },
+    "Médio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        }
+      }
+    },
     "Mensal" : {
       "localizations" : {
         "en" : {
@@ -2679,6 +2812,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Monthly"
+          }
+        }
+      }
+    },
+    "mês" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "month"
+          }
+        }
+      }
+    },
+    "meses" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "months"
           }
         }
       }
@@ -2709,6 +2862,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "My tasks"
+          }
+        }
+      }
+    },
+    "Mínimo de 8 caracteres, com letra maiúscula, minúscula, número e símbolo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol."
           }
         }
       }
@@ -2744,6 +2907,7 @@
       }
     },
     "Mostra ou esconde a duração do ciclo e os participantes." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2773,222 +2937,13 @@
         }
       }
     },
-    "Médio" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Medium"
-          }
-        }
-      }
-    },
-    "Mínimo de 8 caracteres, com letra maiúscula, minúscula, número e símbolo." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol."
-          }
-        }
-      }
-    },
     "Nada para fazer agora." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nothing to do right now."
-          }
-        }
-      }
-    },
-    "Nenhum cômodo ainda." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No rooms yet."
-          }
-        }
-      }
-    },
-    "Nenhum cômodo cadastrado." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No rooms added."
-          }
-        }
-      }
-    },
-    "Nenhuma Tarefa Única" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No One-off Tasks"
-          }
-        }
-      }
-    },
-    "Nenhuma notificação" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No notifications"
-          }
-        }
-      }
-    },
-    "Nenhuma tarefa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No tasks"
-          }
-        }
-      }
-    },
-    "Nenhuma tarefa neste ciclo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No tasks this cycle"
-          }
-        }
-      }
-    },
-    "Nenhuma tarefa neste cômodo." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No tasks in this room."
-          }
-        }
-      }
-    },
-    "Nenhuma tarefa única no momento." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No one-off tasks right now."
-          }
-        }
-      }
-    },
-    "Nenhuma troca disponível" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No swaps available"
-          }
-        }
-      }
-    },
-    "Ninguém pegou ainda" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nobody has taken it yet"
-          }
-        }
-      }
-    },
-    "Nome" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Name"
-          }
-        }
-      }
-    },
-    "Nome da casa (ex.: Rep. Central)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "House name (e.g. Central House)"
-          }
-        }
-      }
-    },
-    "Nome do cômodo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Room name"
-          }
-        }
-      }
-    },
-    "Notificações" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Notifications"
-          }
-        }
-      }
-    },
-    "Nova Tarefa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New Task"
-          }
-        }
-      }
-    },
-    "Nova casa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New house"
-          }
-        }
-      }
-    },
-    "Nova senha" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New password"
-          }
-        }
-      }
-    },
-    "Nova tarefa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New task"
-          }
-        }
-      }
-    },
-    "Novo Cômodo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New Room"
           }
         }
       }
@@ -3163,6 +3118,110 @@
         }
       }
     },
+    "Nenhum cômodo ainda." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No rooms yet."
+          }
+        }
+      }
+    },
+    "Nenhum cômodo cadastrado." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No rooms added."
+          }
+        }
+      }
+    },
+    "Nenhuma notificação" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No notifications"
+          }
+        }
+      }
+    },
+    "Nenhuma tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tasks"
+          }
+        }
+      }
+    },
+    "Nenhuma tarefa nesta seção." : {
+
+    },
+    "Nenhuma tarefa neste ciclo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tasks this cycle"
+          }
+        }
+      }
+    },
+    "Nenhuma tarefa neste cômodo." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tasks in this room."
+          }
+        }
+      }
+    },
+    "Nenhuma Tarefa Única" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No One-off Tasks"
+          }
+        }
+      }
+    },
+    "Nenhuma tarefa única no momento." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No one-off tasks right now."
+          }
+        }
+      }
+    },
+    "Nenhuma troca disponível" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No swaps available"
+          }
+        }
+      }
+    },
+    "Ninguém pegou ainda" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nobody has taken it yet"
+          }
+        }
+      }
+    },
     "Nível de esforço" : {
       "localizations" : {
         "en" : {
@@ -3173,12 +3232,92 @@
         }
       }
     },
-    "O Grupuxo deixa de responder a este número. Você pode conectar de novo depois." : {
+    "Nome" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Grupuxo will stop replying to this number. You can connect again later."
+            "value" : "Name"
+          }
+        }
+      }
+    },
+    "Nome da casa (ex.: Rep. Central)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "House name (e.g. Central House)"
+          }
+        }
+      }
+    },
+    "Nome do cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Room name"
+          }
+        }
+      }
+    },
+    "Notificações" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications"
+          }
+        }
+      }
+    },
+    "Nova casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New house"
+          }
+        }
+      }
+    },
+    "Nova senha" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New password"
+          }
+        }
+      }
+    },
+    "Nova tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New task"
+          }
+        }
+      }
+    },
+    "Nova Tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Task"
+          }
+        }
+      }
+    },
+    "Novo Cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New Room"
           }
         }
       }
@@ -3219,6 +3358,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The server address is not configured in this build (GRUPUXO_API_BASE_URL)."
+          }
+        }
+      }
+    },
+    "O Grupuxo deixa de responder a este número. Você pode conectar de novo depois." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grupuxo will stop replying to this number. You can connect again later."
           }
         }
       }
@@ -3294,22 +3443,23 @@
         }
       }
     },
-    "OU" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OR"
-          }
-        }
-      }
-    },
     "Opção" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Option"
+          }
+        }
+      }
+    },
+    "Organizar a área" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidy the area"
           }
         }
       }
@@ -3336,17 +3486,6 @@
         }
       }
     },
-    "Organizar a área" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tidy the area"
-          }
-        }
-      }
-    },
     "Organizar o guarda-roupa" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3365,6 +3504,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Organize cleaning supplies"
+          }
+        }
+      }
+    },
+    "OU" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OR"
           }
         }
       }
@@ -3395,6 +3544,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Participants"
+          }
+        }
+      }
+    },
+    "Peça o código para quem administra a casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask the house admin for the code."
           }
         }
       }
@@ -3430,6 +3589,7 @@
       }
     },
     "Pegar %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3479,15 +3639,8 @@
         }
       }
     },
-    "Peça o código para quem administra a casa." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ask the house admin for the code."
-          }
-        }
-      }
+    "Por que ficam separadas?" : {
+
     },
     "Prazo: %@" : {
       "localizations" : {
@@ -3508,6 +3661,9 @@
           }
         }
       }
+    },
+    "Privado" : {
+
     },
     "Progresso do ciclo" : {
       "localizations" : {
@@ -3569,6 +3725,9 @@
         }
       }
     },
+    "Reabrir" : {
+
+    },
     "Recolhe a seção" : {
       "localizations" : {
         "en" : {
@@ -3619,26 +3778,6 @@
         }
       }
     },
-    "Redefinir Senha" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset Password"
-          }
-        }
-      }
-    },
-    "Redefinir senha" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset password"
-          }
-        }
-      }
-    },
     "Redefinição de senha necessária. Clique em 'Esqueci minha senha'." : {
       "localizations" : {
         "en" : {
@@ -3655,6 +3794,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Password reset required. Go back and tap \"I forgot my password\"."
+          }
+        }
+      }
+    },
+    "Redefinir senha" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset password"
+          }
+        }
+      }
+    },
+    "Redefinir Senha" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset Password"
           }
         }
       }
@@ -3879,6 +4038,17 @@
         }
       }
     },
+    "São as tarefas que seguem a escala do cômodo. A cada ciclo, elas são divididas entre os responsáveis." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These tasks follow the room's schedule. Each cycle, they are split among the assigned residents."
+          }
+        }
+      }
+    },
     "Selecionar" : {
       "localizations" : {
         "en" : {
@@ -3940,6 +4110,7 @@
       }
     },
     "Sem responsáveis" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3955,6 +4126,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unassigned"
+          }
+        }
+      }
+    },
+    "semana" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "week"
           }
         }
       }
@@ -3975,6 +4156,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Weekly"
+          }
+        }
+      }
+    },
+    "semanas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "weeks"
           }
         }
       }
@@ -4029,22 +4220,44 @@
         }
       }
     },
+    "Só é possível pedir para entrar em cômodos privados de que você não participa." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can only ask to join private rooms you're not part of."
+          }
+        }
+      }
+    },
+    "Só os participantes veem este cômodo e entram no rodízio. Outros moradores podem pedir para entrar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only participants see this room and join the rotation. Other residents can ask to join."
+          }
+        }
+      }
+    },
+    "Só você" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only you"
+          }
+        }
+      }
+    },
     "Sobre %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "About %@"
-          }
-        }
-      }
-    },
-    "Solicitar troca" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Request swap"
           }
         }
       }
@@ -4055,6 +4268,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Request sent"
+          }
+        }
+      }
+    },
+    "Solicitar troca" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request swap"
           }
         }
       }
@@ -4120,6 +4343,7 @@
       }
     },
     "Suas pendências preservadas" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4139,53 +4363,22 @@
         }
       }
     },
-    "São as tarefas que seguem a escala do cômodo. A cada ciclo, elas são divididas entre os responsáveis." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "These tasks follow the room's schedule. Each cycle, they are split among the assigned residents."
-          }
-        }
-      }
-    },
-    "Só os participantes veem este cômodo e entram no rodízio. Outros moradores podem pedir para entrar." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only participants see this room and join the rotation. Other residents can ask to join."
-          }
-        }
-      }
-    },
-    "Só você" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only you"
-          }
-        }
-      }
-    },
-    "Só é possível pedir para entrar em cômodos privados de que você não participa." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can only ask to join private rooms you're not part of."
-          }
-        }
-      }
-    },
     "Tarefa" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Task"
+          }
+        }
+      }
+    },
+    "Tarefa “%@” criada" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task “%@” created"
           }
         }
       }
@@ -4260,16 +4453,6 @@
         }
       }
     },
-    "Tarefa “%@” criada" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Task “%@” created"
-          }
-        }
-      }
-    },
     "Tarefas" : {
       "localizations" : {
         "en" : {
@@ -4281,6 +4464,7 @@
       }
     },
     "Tarefas do ciclo" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4310,22 +4494,22 @@
         }
       }
     },
-    "Tarefas Únicas" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "One-off Tasks"
-          }
-        }
-      }
-    },
     "Tarefas únicas" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "One-off tasks"
+          }
+        }
+      }
+    },
+    "Tarefas Únicas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "One-off Tasks"
           }
         }
       }
@@ -4437,6 +4621,26 @@
         }
       }
     },
+    "Título" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Title"
+          }
+        }
+      }
+    },
+    "Título da tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task title"
+          }
+        }
+      }
+    },
     "Todas" : {
       "localizations" : {
         "en" : {
@@ -4447,15 +4651,8 @@
         }
       }
     },
-    "Todos os moradores participam do rodízio deste cômodo." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All residents are part of this room's rotation."
-          }
-        }
-      }
+    "Todos - público" : {
+
     },
     "Todos • público" : {
       "localizations" : {
@@ -4463,6 +4660,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Everyone • public"
+          }
+        }
+      }
+    },
+    "Todos os moradores participam do rodízio deste cômodo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All residents are part of this room's rotation."
           }
         }
       }
@@ -4498,22 +4705,22 @@
         }
       }
     },
-    "Título" : {
+    "Última vez" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Title"
+            "value" : "Last time"
           }
         }
       }
     },
-    "Título da tarefa" : {
+    "Último morador" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Task title"
+            "value" : "Last resident"
           }
         }
       }
@@ -4524,6 +4731,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A resident"
+          }
+        }
+      }
+    },
+    "uma das suas tarefas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "one of your tasks"
+          }
+        }
+      }
+    },
+    "uma tarefa de quem pediu" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a task from the requester"
           }
         }
       }
@@ -4619,6 +4846,56 @@
         }
       }
     },
+    "Você é o último morador: se sair, a casa, os cômodos e as tarefas serão excluídos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're the last resident: if you leave, the house, rooms and tasks will be deleted."
+          }
+        }
+      }
+    },
+    "Você é o último morador. Se sair, a casa, os cômodos, as tarefas e o histórico serão excluídos, e o código de convite deixa de valer. Não dá para desfazer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're the last resident. If you leave, the house, rooms, tasks and history will be deleted, and the invite code will stop working. This can't be undone."
+          }
+        }
+      }
+    },
+    "Você é o último participante de algum cômodo. Se sair, o cômodo e as tarefas dele serão excluídos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're the last participant in a room. If you leave, that room and its tasks will be deleted."
+          }
+        }
+      }
+    },
+    "Você é o último participante de um cômodo: se sair, o cômodo e suas tarefas serão excluídos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're the last participant in a room: if you leave, the room and its tasks will be deleted."
+          }
+        }
+      }
+    },
+    "Você é o único morador: se sair, a casa será excluída." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're the only resident: if you leave, the house will be deleted."
+          }
+        }
+      }
+    },
     "Você já faz parte de uma casa." : {
       "localizations" : {
         "en" : {
@@ -4710,56 +4987,6 @@
         }
       }
     },
-    "Você é o último morador. Se sair, a casa, os cômodos, as tarefas e o histórico serão excluídos, e o código de convite deixa de valer. Não dá para desfazer." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You're the last resident. If you leave, the house, rooms, tasks and history will be deleted, and the invite code will stop working. This can't be undone."
-          }
-        }
-      }
-    },
-    "Você é o último morador: se sair, a casa, os cômodos e as tarefas serão excluídos." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You're the last resident: if you leave, the house, rooms and tasks will be deleted."
-          }
-        }
-      }
-    },
-    "Você é o último participante de algum cômodo. Se sair, o cômodo e as tarefas dele serão excluídos." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You're the last participant in a room. If you leave, that room and its tasks will be deleted."
-          }
-        }
-      }
-    },
-    "Você é o último participante de um cômodo: se sair, o cômodo e suas tarefas serão excluídos." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You're the last participant in a room: if you leave, the room and its tasks will be deleted."
-          }
-        }
-      }
-    },
-    "Você é o único morador: se sair, a casa será excluída." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You're the only resident: if you leave, the house will be deleted."
-          }
-        }
-      }
-    },
     "Voltar para o Login" : {
       "localizations" : {
         "en" : {
@@ -4786,176 +5013,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "WhatsApp connected"
-          }
-        }
-      }
-    },
-    "ano" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "year"
-          }
-        }
-      }
-    },
-    "anos" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "years"
-          }
-        }
-      }
-    },
-    "dia" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "day"
-          }
-        }
-      }
-    },
-    "dias" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "days"
-          }
-        }
-      }
-    },
-    "em " : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "in "
-          }
-        }
-      }
-    },
-    "meses" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "months"
-          }
-        }
-      }
-    },
-    "mês" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "month"
-          }
-        }
-      }
-    },
-    "semana" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "week"
-          }
-        }
-      }
-    },
-    "semanas" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "weeks"
-          }
-        }
-      }
-    },
-    "uma das suas tarefas" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "one of your tasks"
-          }
-        }
-      }
-    },
-    "uma tarefa de quem pediu" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "a task from the requester"
-          }
-        }
-      }
-    },
-    "Ícone" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Icon"
-          }
-        }
-      }
-    },
-    "Ícone e cor do cômodo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Room icon and color"
-          }
-        }
-      }
-    },
-    "Índigo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Indigo"
-          }
-        }
-      }
-    },
-    "Última vez" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Last time"
-          }
-        }
-      }
-    },
-    "Último morador" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Last resident"
-          }
-        }
-      }
-    },
-    "– %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "– %@"
           }
         }
       }

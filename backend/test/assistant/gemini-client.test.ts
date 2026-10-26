@@ -76,6 +76,14 @@ test("timeout e teto de tokens precisam ser inteiros positivos", () => {
   for (const maxOutputTokens of [0, -5, 2.5, Number.NaN]) assert.throws(() => client(http, { maxOutputTokens }), GeminiConfigurationError);
 });
 
+test("nível de raciocínio, tentativas e espera entre tentativas são validados", () => {
+  const { http } = fakeHttp(() => reply("{}"));
+  for (const maxAttempts of [0, -1, 1.5, 6, Number.NaN]) assert.throws(() => client(http, { maxAttempts }), GeminiConfigurationError);
+  for (const retryDelayMs of [-1, 0.5, Number.NaN]) assert.throws(() => client(http, { retryDelayMs }), GeminiConfigurationError);
+  assert.throws(() => new HttpGeminiClient({ apiKey: API_KEY, model: MODEL, http, thinkingLevel: JSON.parse('"altíssimo"') }), GeminiConfigurationError);
+  for (const thinkingLevel of ["minimal", "low", "medium", "high"] as const) assert.doesNotThrow(() => client(http, { thinkingLevel }));
+});
+
 // --- requisição ---
 
 test("POST na URL do modelo, com a chave só no cabeçalho, timeout, teto de tokens e modo AUTO", async () => {
@@ -96,7 +104,7 @@ test("POST na URL do modelo, com a chave só no cabeçalho, timeout, teto de tok
     contents: [{ role: "user", parts: [{ text: "quais são minhas tarefas?" }] }],
     tools: [{ functionDeclarations: JSON.parse(JSON.stringify(ASSISTANT_FUNCTIONS)) }],
     toolConfig: { functionCallingConfig: { mode: "AUTO" } },
-    generationConfig: { maxOutputTokens: 256, temperature: 0 },
+    generationConfig: { maxOutputTokens: 256, thinkingConfig: { thinkingLevel: "low" } },
   });
 });
 
@@ -225,4 +233,49 @@ test("o corpo da requisição não carrega a chave nem o `Authorization`", async
   const { http, calls } = fakeHttp(() => reply(textBody("oi")));
   await client(http).generate(request);
   assert.deepEqual(Object.keys(calls[0]?.init.headers ?? {}).sort(), ["content-type", "x-goog-api-key"]);
+});
+
+// --- novas tentativas ---
+
+function scripted(...steps: readonly (HttpResponse | Error)[]): { http: HttpFetch; calls: Recorded[] } {
+  const queue = [...steps];
+  return fakeHttp(() => {
+    const next = queue.shift();
+    if (next === undefined) throw new Error("chamada a mais");
+    if (next instanceof Error) throw next;
+    return next;
+  });
+}
+
+test("falha passageira (503, 429, timeout, rede) tenta de novo depois da espera e devolve a resposta", async () => {
+  const transient: readonly (HttpResponse | Error)[] = [
+    reply("{}", 503), reply("{}", 429), reply("{}", 500), reply("{}", 502), reply("{}", 504),
+    new DOMException("The operation timed out.", "TimeoutError"), new TypeError("fetch failed"),
+  ];
+  for (const failureStep of transient) {
+    const { http, calls } = scripted(failureStep, reply(textBody("oi")));
+    const sleeps: number[] = [];
+    const response = await client(http, { sleep: async (ms) => { sleeps.push(ms); }, retryDelayMs: 700 }).generate(request);
+    assert.deepEqual(response.content.parts, [{ kind: "text", text: "oi" }]);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(sleeps, [700]);
+    assert.equal(calls[0]?.init.body, calls[1]?.init.body);
+  }
+});
+
+test("as tentativas têm teto: esgotadas, o último erro sobe", async () => {
+  const { http, calls } = scripted(reply("{}", 429), reply("{}", 429));
+  await assert.rejects(client(http).generate(request), (error) => error instanceof GeminiRequestError && error.status === 429);
+  assert.equal(calls.length, 2);
+  const three = scripted(reply("{}", 503), reply("{}", 503), reply(textBody("oi")));
+  await client(three.http, { maxAttempts: 3 }).generate(request);
+  assert.equal(three.calls.length, 3);
+});
+
+test("erros que não são passageiros não repetem", async () => {
+  for (const step of [reply("{}", 400), reply("{}", 401), reply("{}", 403), reply("{}", 404), reply("<html>"), reply(JSON.stringify({ promptFeedback: { blockReason: "SAFETY" } }))]) {
+    const { http, calls } = scripted(step, reply(textBody("oi")));
+    await assert.rejects(client(http, { sleep: async () => assert.fail("não deveria esperar") }).generate(request), GeminiRequestError);
+    assert.equal(calls.length, 1);
+  }
 });

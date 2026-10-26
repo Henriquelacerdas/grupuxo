@@ -311,6 +311,32 @@ test("se a rodada de correção falha, mantém o que já havia", async () => {
   assert.ok(reply.startsWith("Tarefas avulsas:"), reply);
 });
 
+test("toda falha do Gemini é avisada a `onGeminiFailure`, inclusive na rodada de correção", async () => {
+  const failures: GeminiRequestError[] = [];
+  const first = new GeminiRequestError("timeout");
+  const { responder, users } = setup({ script: [first], overrides: { onGeminiFailure: (error) => { failures.push(error); } } });
+  assert.equal(await responder.reply("minhas tarefas", users.marina.id, fresh()), GeminiMessageResponder.fallbackReply);
+  assert.deepEqual(failures, [first]);
+
+  const correction = new GeminiRequestError("status", 503);
+  const second = setup({
+    script: [[call("list_sporadic_tasks"), call("list_my_tasks", { range: "x" })], correction],
+    overrides: { onGeminiFailure: (error) => { failures.push(error); } },
+  });
+  await second.responder.reply("avulsas", second.users.marina.id, fresh());
+  assert.deepEqual(failures, [first, correction]);
+});
+
+test("passado o corte de tempo, não há rodada de correção e o problema da primeira rodada é a resposta", async () => {
+  const { responder, gemini, users } = setup({
+    script: [[call("list_room_tasks", { room_name: "garagem" })], [call("list_room_tasks", { room_name: "cozinha" })]],
+    overrides: { correctionCutoffMs: 0 },
+  });
+  const reply = await responder.reply("o que tem na garagem?", users.marina.id, fresh());
+  assert.equal(gemini.requests.length, 1);
+  assert.ok(reply.startsWith(GeminiMessageResponder.unknownRoomReply), reply);
+});
+
 test("erros que não são do Gemini propagam (o SQS tenta de novo)", async () => {
   const boom = new Error("banco fora do ar");
   const { responder, users } = setup({
@@ -360,7 +386,7 @@ test("o conteúdo da mensagem não é registrado em log nem retido entre mensage
   assert.ok(!writes.some((w) => w.includes(secret)), "nada do conteúdo foi escrito em log");
   // Sem estado: a requisição seguinte não carrega o texto da anterior, e o responder não guarda nada.
   assert.ok(!JSON.stringify(gemini.requests[2]).includes(secret));
-  assert.deepEqual(Object.keys(responder), ["deps", "maxIterations", "confirmationLifetimeMs"], "o responder não guarda estado por mensagem");
+  assert.deepEqual(Object.keys(responder), ["deps", "maxIterations", "confirmationLifetimeMs", "correctionCutoffMs"], "o responder não guarda estado por mensagem");
 });
 
 test("pelo worker, a caixa de entrada só recebe o wamid e os horários", async () => {
