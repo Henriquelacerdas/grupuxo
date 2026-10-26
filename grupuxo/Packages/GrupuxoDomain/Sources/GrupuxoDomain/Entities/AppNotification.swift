@@ -11,7 +11,6 @@ public enum AppNotificationKind: String, Codable, Sendable {
     case taskSwapRequested
     case taskSwapAccepted
     case taskSwapRejected
-
     case taskEdited
 }
 

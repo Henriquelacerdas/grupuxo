@@ -170,6 +170,9 @@ final class AppContainer {
             getRoomTasks: GetRoomTasksUseCase(
                 repository: taskRepository
             ),
+            getSporadicTasks: GetSporadicTasksUseCase(
+                repository: taskRepository
+            ),
             getTaskSuggestions: GetTaskSuggestionsUseCase(
                 catalog: TaskSuggestionCatalog()
             ),

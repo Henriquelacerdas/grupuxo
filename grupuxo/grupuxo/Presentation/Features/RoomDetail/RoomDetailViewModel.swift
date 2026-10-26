@@ -8,6 +8,7 @@ final class RoomDetailViewModel: ObservableObject {
     @Published private(set) var isCompleting = false
     @Published private(set) var state: RoomDetailState = .idle
     @Published private(set) var suggestions: [TaskSuggestion] = []
+    @Published private(set) var sporadicTasks: [TaskItem] = []
     @Published private var suggestionOffset = 0
     @Published private(set) var participation: RoomParticipation?
     @Published private(set) var isChangingMembership = false
@@ -18,6 +19,7 @@ final class RoomDetailViewModel: ObservableObject {
     private let addMember: AddRoomMemberUseCase
     private let removeMember: RemoveRoomMemberUseCase
     private let getRoomTasks: GetRoomTasksUseCase
+    private let getSporadicTasks: GetSporadicTasksUseCase
     private let getTaskSuggestions: GetTaskSuggestionsUseCase
     private let completeTask: CompleteTaskUseCase
     private let endTask: EndTaskUseCase
@@ -34,6 +36,7 @@ final class RoomDetailViewModel: ObservableObject {
         addMember: AddRoomMemberUseCase,
         removeMember: RemoveRoomMemberUseCase,
         getRoomTasks: GetRoomTasksUseCase,
+        getSporadicTasks: GetSporadicTasksUseCase,
         getTaskSuggestions: GetTaskSuggestionsUseCase,
         completeTask: CompleteTaskUseCase,
         endTask: EndTaskUseCase,
@@ -46,6 +49,7 @@ final class RoomDetailViewModel: ObservableObject {
         self.addMember = addMember
         self.removeMember = removeMember
         self.getRoomTasks = getRoomTasks
+        self.getSporadicTasks = getSporadicTasks
         self.getTaskSuggestions = getTaskSuggestions
         self.completeTask = completeTask
         self.endTask = endTask
@@ -137,8 +141,7 @@ final class RoomDetailViewModel: ObservableObject {
     }
 
     func claim(_ occurrenceID: TaskOccurrence.ID) async {
-        guard case let .content(content) = state,
-              let item = content.tasks.first(where: { $0.id == occurrenceID }),
+        guard let item = sporadicTasks.first(where: { $0.id == occurrenceID }),
               canClaim(item) else { return }
         isCompleting = true
         defer { isCompleting = false }
@@ -154,6 +157,11 @@ final class RoomDetailViewModel: ObservableObject {
             let participation = try await getParticipation(roomID: roomID, userID: userID)
             self.participation = participation
             let tasks = try await getRoomTasks(roomID: roomID, userID: userID)
+            let uniqueTasks = try await getSporadicTasks(
+                houseID: participation.room.houseID,
+                userID: userID
+            )
+            sporadicTasks = uniqueTasks.filter { $0.definition.roomID == roomID }
             let usedSuggestionIDs = Set(tasks.compactMap(\.definition.sourceSuggestionID))
             suggestions = participation.isMember
                 ? getTaskSuggestions(category: participation.room.category).filter {
@@ -166,6 +174,7 @@ final class RoomDetailViewModel: ObservableObject {
             // A tela saiu antes da resposta.
         } catch {
             suggestions = []
+            sporadicTasks = []
             state = .failure(error.localizedDescription)
         }
     }
