@@ -372,8 +372,33 @@ struct HouseOverviewTests {
     }
 
     @Test func progressTextAgreesWithTheTaskCount() {
-        #expect(HouseOverviewText.progress(CycleProgress(completed: 4, total: 6)) == "4 de 6 tarefas feitas")
-        #expect(HouseOverviewText.progress(CycleProgress(completed: 1, total: 1)) == "1 de 1 tarefa feita")
-        #expect(HouseOverviewText.progress(CycleProgress(completed: 0, total: 0)) == "Nenhuma tarefa neste ciclo")
+        #expect(HouseOverviewText.progress(CycleProgress(completed: 4, total: 6), locale: Locale(identifier: "pt_BR")) == "4 de 6 tarefas feitas")
+        #expect(HouseOverviewText.progress(CycleProgress(completed: 1, total: 1), locale: Locale(identifier: "pt_BR")) == "1 de 1 tarefa feita")
+        #expect(HouseOverviewText.progress(CycleProgress(completed: 0, total: 0), locale: Locale(identifier: "pt_BR")) == "Nenhuma tarefa neste ciclo")
+    }
+
+    /// Os textos padrão seguem o idioma do aparelho; nomes de moradores ficam como foram digitados.
+    @Test func textsFollowTheDeviceLanguageButKeepUserNames() {
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+
+        let english = Locale(identifier: "en_US")
+        let text = HouseOverviewText(calendar: calendar, locale: english)
+        let now = date(14, hour: 12)
+        let me = UUID()
+
+        #expect(text.deadline(cycleEnd: date(15), now: now) == "Ends today")
+        #expect(text.deadline(cycleEnd: date(19), now: now) == "Ends Sunday")
+        #expect(text.deadline(cycleEnd: date(28), now: now) == "Ends in 13 days")
+        #expect(
+            text.responsibles(
+                names: ["Gabriel Moreira", "Marina"],
+                userIDs: [UUID(), me],
+                currentUserID: me
+            ) == "You and Gabriel M."
+        )
+        #expect(HouseOverviewText.progress(CycleProgress(completed: 1, total: 1), locale: english) == "1 of 1 task done")
+        #expect(HouseOverviewText.progress(CycleProgress(completed: 4, total: 6), locale: english) == "4 of 6 tasks done")
     }
 }

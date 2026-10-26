@@ -84,7 +84,7 @@ final class TaskEditorViewModel: ObservableObject {
         }
         let draft = state.draft
         guard let roomID = draft.roomID else {
-            state = .failure(draft, "Selecione um cômodo.")
+            state = .failure(draft, String(localized: "Selecione um cômodo."))
             return
         }
         state = .saving(draft)

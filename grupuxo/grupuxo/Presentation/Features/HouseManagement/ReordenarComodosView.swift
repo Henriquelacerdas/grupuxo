@@ -5,6 +5,7 @@
 //  Created by Giovanna Spigariol on 13/10/26.
 //
 
+import Foundation
 import SwiftUI
 
 // MARK: - Modelo
@@ -185,7 +186,7 @@ private struct ReorderRoomRow: View {
         )
         .accessibilityLabel(
             room.isPrivate
-                ? "\(room.name), cômodo privado"
+                ? String(localized: "\(room.name), cômodo privado")
                 : room.name
         )
     }

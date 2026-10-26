@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import GrupuxoDomain
 
@@ -152,11 +153,11 @@ struct RoomCard: View {
         var parts: [String] = []
 
         if member.isPrivate {
-            parts.append("Cômodo privado")
+            parts.append(String(localized: "Cômodo privado"))
         }
 
         if let responsibles = member.responsibles {
-            parts.append("Responsáveis: \(responsibles)")
+            parts.append(String(localized: "Responsáveis: \(responsibles)"))
         }
 
         parts.append(member.deadline)

@@ -423,7 +423,7 @@ struct TaskDetailView: View {
 
             rows.append(
                 TaskDetailItem(
-                    title: "Cômodo",
+                    title: String(localized: "Cômodo"),
                     systemImage: "house",
                     value: room.name
                 )
@@ -433,7 +433,7 @@ struct TaskDetailView: View {
 
         rows.append(
             TaskDetailItem(
-                title: "Repetição",
+                title: String(localized: "Repetição"),
                 systemImage: "repeat",
                 value: TaskDetailText.recurrence(
                     definition.recurrence
@@ -443,7 +443,7 @@ struct TaskDetailView: View {
 
         rows.append(
             TaskDetailItem(
-                title: "Esforço",
+                title: String(localized: "Esforço"),
                 systemImage: "bolt",
                 value: RoomDetailText.effort(
                     definition.effort
@@ -457,7 +457,7 @@ struct TaskDetailView: View {
 
             rows.append(
                 TaskDetailItem(
-                    title: "Última vez",
+                    title: String(localized: "Última vez"),
                     systemImage: "clock.arrow.circlepath",
                     value: TaskDetailText.lastDone(
                         completedAt
@@ -471,7 +471,7 @@ struct TaskDetailView: View {
 
             rows.append(
                 TaskDetailItem(
-                    title: "Último morador",
+                    title: String(localized: "Último morador"),
                     systemImage: "person.crop.circle.badge.clock",
                     value: ResidentNameFormatting.shortName(
                         name
@@ -970,7 +970,7 @@ private struct UpcomingAssignmentRow: View {
     private var name: String {
 
         guard let assignee = assignment.assignee else {
-            return "Sem responsável"
+            return String(localized: "Sem responsável")
         }
 
         return isCurrentUser
@@ -1025,7 +1025,7 @@ enum TaskDetailText {
 
         case .none:
 
-            return "Não se repete"
+            return String(localized: "Não se repete")
 
         case let .recurring(frequency, interval):
 
@@ -1038,10 +1038,10 @@ enum TaskDetailText {
             }
 
             switch frequency {
-            case .daily: return "Diária"
-            case .weekly: return "Semanal"
-            case .monthly: return "Mensal"
-            case .yearly: return "Anual"
+            case .daily: return String(localized: "Diária")
+            case .weekly: return String(localized: "Semanal")
+            case .monthly: return String(localized: "Mensal")
+            case .yearly: return String(localized: "Anual")
             }
 
         case let .weekly(periodicity):

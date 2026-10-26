@@ -7,8 +7,8 @@ struct HouseOverviewText {
     /// Abaixo desta distância, em dias, o término aparece como dia da semana ("Termina domingo").
     static let weekdayHorizonInDays = 7
 
-    /// Os textos do app são fixos em português; até existir catálogo de localização, datas e listas seguem o mesmo idioma.
-    static let appLocale = Locale(identifier: "pt_BR")
+    /// Idioma do aparelho, já casado com os idiomas do `Localizable.xcstrings`: textos, datas e listas seguem o mesmo idioma.
+    static var appLocale: Locale { .current }
 
     let calendar: Calendar
     let locale: Locale
@@ -34,7 +34,7 @@ struct HouseOverviewText {
             .map { ResidentNameFormatting.shortName($0.1) }
 
         let isResponsible = userIDs.contains(currentUserID)
-        let listed = (isResponsible ? [Self.you] : []) + others
+        let listed = (isResponsible ? [locale.localized("Você")] : []) + others
 
         let formatter = ListFormatter()
         formatter.locale = locale
@@ -58,28 +58,28 @@ struct HouseOverviewText {
 
         switch days {
         case 0:
-            return "Termina hoje"
+            return locale.localized("Termina hoje")
         case 1:
-            return "Termina amanhã"
+            return locale.localized("Termina amanhã")
         case 2..<Self.weekdayHorizonInDays:
-            return "Termina \(weekday(of: lastDay))"
+            return locale.localized("Termina \(weekday(of: lastDay))")
         default:
-            return "Termina em \(days) dias"
+            return locale.localized("Termina em \(days) dias")
         }
     }
 
-    static func progress(_ progress: CycleProgress) -> String {
+    static func progress(_ progress: CycleProgress, locale: Locale = appLocale) -> String {
 
+        // Singular e plural ficam nas variações do catálogo.
         switch progress.total {
-        case 0: "Nenhuma tarefa neste ciclo"
-        case 1: "\(progress.completed) de 1 tarefa feita"
-        default: "\(progress.completed) de \(progress.total) tarefas feitas"
+        case 0: locale.localized("Nenhuma tarefa neste ciclo")
+        default: locale.localized("\(progress.completed) de \(progress.total) tarefas feitas")
         }
     }
 
-    static let you = "Você"
-    static let privateRoom = "Cômodo Privado"
-    static let overflowTitle = "Outras"
+    static var you: String { String(localized: "Você") }
+    static var privateRoom: String { String(localized: "Cômodo Privado") }
+    static var overflowTitle: String { String(localized: "Outras") }
 
     private func weekday(of date: Date) -> String {
 
@@ -91,5 +91,15 @@ struct HouseOverviewText {
             )
             .weekday(.wide)
         )
+    }
+}
+
+extension Locale {
+
+    /// Texto do catálogo no idioma desta localidade, e não no do aparelho: assim os testes fixam `pt_BR`.
+    func localized(_ resource: LocalizedStringResource) -> String {
+        var resource = resource
+        resource.locale = self
+        return String(localized: resource)
     }
 }

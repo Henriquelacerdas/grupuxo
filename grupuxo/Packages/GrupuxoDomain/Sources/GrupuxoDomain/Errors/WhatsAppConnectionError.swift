@@ -7,8 +7,8 @@ public enum WhatsAppConnectionError: Error, LocalizedError, Equatable, Sendable 
 
     public var errorDescription: String? {
         switch self {
-        case .alreadyLinked: "Você já tem um WhatsApp conectado."
-        case .unavailable: "Não foi possível falar com o servidor agora. Tente de novo em instantes."
+        case .alreadyLinked: String(localized: "Você já tem um WhatsApp conectado.")
+        case .unavailable: String(localized: "Não foi possível falar com o servidor agora. Tente de novo em instantes.")
         }
     }
 }

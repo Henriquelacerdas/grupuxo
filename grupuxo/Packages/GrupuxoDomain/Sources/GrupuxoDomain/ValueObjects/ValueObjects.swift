@@ -72,7 +72,7 @@ public struct WeeklyPeriodicity: Hashable, Codable, Sendable {
         intervalWeeks > 0 && intervalWeeks <= Int.max / 7
             && executionsPerPeriod > 0 && executionsPerPeriod <= intervalWeeks * 7
     }
-    public var label: String { "\(executionsPerPeriod) vez(es) a cada \(intervalWeeks) semana(s)" }
+    public var label: String { String(localized: "\(executionsPerPeriod) vez(es) a cada \(intervalWeeks) semana(s)") }
 }
 
 extension RecurrencePolicy {

@@ -45,6 +45,7 @@ O app já usa a `api` para casa, cômodos, tarefas, avulsas, trocas, notificaç�
 ## Regras
 
 - Tipos e propriedades em inglês; textos de interface e respostas do bot em português.
+- Idioma do app: segue o do aparelho, com textos no `grupuxo/grupuxo/Localizable.xcstrings` (fonte `pt-BR`, tradução `en`; idioma sem tradução cai no inglês, `DEVELOPMENT_LANGUAGE = en` no target). Texto padrão novo entra como literal em `Text`/`Button`/`Label` ou `String(localized:)`, e ganha tradução no catálogo; o que o morador digita (nomes de casa, cômodo, tarefa, morador) vai por `Text(variável)` ou como argumento `%@`, nunca traduzido. Strings do `GrupuxoDomain` usam `String(localized:)` e entram no catálogo à mão (`extractionState: manual`).
 - Domain não importa SwiftUI nem persistência. ViewModels (`@MainActor`) recebem use cases por init, nunca repositórios concretos.
 - Sem `Singleton.shared`; dependências criadas em `AppContainer` (Swift) ou passadas por construtor (TypeScript, sem container de DI).
 - Lógica de distribuição, carga e balanceamento nunca em Views/ViewModels.
@@ -67,7 +68,7 @@ O app já usa a `api` para casa, cômodos, tarefas, avulsas, trocas, notificaç�
 # app e domínio Swift (referência)
 xcodebuild test -project grupuxo/grupuxo.xcodeproj -scheme grupuxo \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
-  -only-testing:grupuxoTests
+  -only-testing:grupuxoTests -testLanguage pt-BR -testRegion BR
 swift test --package-path grupuxo/Packages/GrupuxoDomain
 
 # backend TypeScript (Node >= 22.18; a primeira vez, `npm install` em backend)

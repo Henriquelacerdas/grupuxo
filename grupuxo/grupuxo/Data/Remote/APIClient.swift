@@ -43,39 +43,39 @@ enum APIError: Error, Equatable, LocalizedError, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .unauthorized: "Sua sessão expirou. Entre novamente."
-        case .network: "Não foi possível falar com o servidor agora. Tente de novo em instantes."
-        case .invalidResponse: "O servidor respondeu algo inesperado."
-        case .unsupported: "Esta função ainda não está disponível."
+        case .unauthorized: String(localized: "Sua sessão expirou. Entre novamente.")
+        case .network: String(localized: "Não foi possível falar com o servidor agora. Tente de novo em instantes.")
+        case .invalidResponse: String(localized: "O servidor respondeu algo inesperado.")
+        case .unsupported: String(localized: "Esta função ainda não está disponível.")
         case let .http(status, code): Self.message(status: status, code: code)
         }
     }
 
     private static func message(status: Int, code: String) -> String {
         switch code {
-        case "invalid_name": "Informe um nome válido."
-        case "invalid_house_name": "Informe um nome para a casa."
-        case "invalid_timezone": "Fuso horário inválido."
-        case "invalid_code": "Código de convite inválido."
-        case "already_in_house": "Você já faz parte de uma casa."
-        case "no_house": "Você ainda não faz parte de uma casa."
+        case "invalid_name": String(localized: "Informe um nome válido.")
+        case "invalid_house_name": String(localized: "Informe um nome para a casa.")
+        case "invalid_timezone": String(localized: "Fuso horário inválido.")
+        case "invalid_code": String(localized: "Código de convite inválido.")
+        case "already_in_house": String(localized: "Você já faz parte de uma casa.")
+        case "no_house": String(localized: "Você ainda não faz parte de uma casa.")
         case "house_deletion_confirmation_required":
-            "Você é o último morador: se sair, a casa, os cômodos e as tarefas serão excluídos."
+            String(localized: "Você é o último morador: se sair, a casa, os cômodos e as tarefas serão excluídos.")
         case "room_deletion_confirmation_required":
-            "Você é o último participante de um cômodo: se sair, o cômodo e suas tarefas serão excluídos."
-        case "whole_house_protected": "Casa toda sempre inclui todos os moradores."
-        case "invalid_room_name": "Informe um nome para o cômodo."
-        case "invalid_room_participants": "O cômodo precisa ter participantes válidos."
-        case "invalid_task_name": "Informe um nome para a tarefa."
-        case "invalid_schedule": "A periodicidade e a política da tarefa são incompatíveis."
-        case "task_unavailable": "Esta tarefa não está disponível."
-        case "task_already_completed": "Esta tarefa já foi concluída."
-        case "no_eligible_members": "O cômodo não possui participantes elegíveis."
-        case "already_linked": "Você já tem um WhatsApp conectado."
-        case "not_found": "Item não encontrado."
-        case "conflict": "Alguém mexeu na casa ao mesmo tempo. Tente de novo."
-        case "account_not_registered": "Sua conta ainda não foi registrada. Tente novamente."
-        default: status >= 500 ? "O servidor não conseguiu atender agora. Tente de novo em instantes." : "Não foi possível concluir a ação."
+            String(localized: "Você é o último participante de um cômodo: se sair, o cômodo e suas tarefas serão excluídos.")
+        case "whole_house_protected": String(localized: "Casa toda sempre inclui todos os moradores.")
+        case "invalid_room_name": String(localized: "Informe um nome para o cômodo.")
+        case "invalid_room_participants": String(localized: "O cômodo precisa ter participantes válidos.")
+        case "invalid_task_name": String(localized: "Informe um nome para a tarefa.")
+        case "invalid_schedule": String(localized: "A periodicidade e a política da tarefa são incompatíveis.")
+        case "task_unavailable": String(localized: "Esta tarefa não está disponível.")
+        case "task_already_completed": String(localized: "Esta tarefa já foi concluída.")
+        case "no_eligible_members": String(localized: "O cômodo não possui participantes elegíveis.")
+        case "already_linked": String(localized: "Você já tem um WhatsApp conectado.")
+        case "not_found": String(localized: "Item não encontrado.")
+        case "conflict": String(localized: "Alguém mexeu na casa ao mesmo tempo. Tente de novo.")
+        case "account_not_registered": String(localized: "Sua conta ainda não foi registrada. Tente novamente.")
+        default: status >= 500 ? String(localized: "O servidor não conseguiu atender agora. Tente de novo em instantes.") : String(localized: "Não foi possível concluir a ação.")
         }
     }
 }

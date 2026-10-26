@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct ForgotPasswordView: View {
@@ -35,7 +36,7 @@ struct ForgotPasswordView: View {
                 Button("Enviar código") {
                     Task {
                         guard !username.isEmpty else {
-                            message = "Digite seu email."
+                            message = String(localized: "Digite seu email.")
                             return
                         }
                         let success = await authService.resetPassword(username: username)
@@ -43,7 +44,7 @@ struct ForgotPasswordView: View {
                             message = ""
                             step = .confirm
                         } else {
-                            message = "Erro ao solicitar redefinição. Verifique o email digitado."
+                            message = String(localized: "Erro ao solicitar redefinição. Verifique o email digitado.")
                         }
                     }
                 }
@@ -66,10 +67,10 @@ struct ForgotPasswordView: View {
                     Task {
                         let success = await authService.confirmResetPassword(username: username, newPassword: newPassword, code: confirmationCode)
                         if success {
-                            message = "Senha redefinida com sucesso!"
+                            message = String(localized: "Senha redefinida com sucesso!")
                             step = .success
                         } else {
-                            message = "Código inválido ou senha não atende aos requisitos."
+                            message = String(localized: "Código inválido ou senha não atende aos requisitos.")
                         }
                     }
                 }

@@ -3,10 +3,17 @@ import SwiftUI
 
 /// Tela para quem ainda não tem casa: criar uma nova ou entrar por código.
 struct OnboardingView: View {
-    private enum Mode: String, CaseIterable, Identifiable {
-        case create = "Criar casa"
-        case join = "Entrar com código"
+    private enum Mode: CaseIterable, Identifiable {
+        case create
+        case join
         var id: Self { self }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .create: "Criar casa"
+            case .join: "Entrar com código"
+            }
+        }
     }
 
     @EnvironmentObject private var houses: RemoteHouseSession
@@ -48,7 +55,7 @@ struct OnboardingView: View {
 
                 Section {
                     Picker("Opção", selection: $mode) {
-                        ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
+                        ForEach(Mode.allCases) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented)
                 }

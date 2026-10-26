@@ -99,7 +99,7 @@ extension View {
 }
 
 struct EmptyStateView: View {
-    let title: String
+    let title: LocalizedStringKey
     let systemImage: String
 
     var body: some View {

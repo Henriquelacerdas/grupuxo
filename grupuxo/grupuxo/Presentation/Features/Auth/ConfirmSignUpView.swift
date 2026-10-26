@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct ConfirmSignUpView: View {
@@ -101,16 +102,16 @@ struct ConfirmSignUpView: View {
     /// Com a senha em mãos, entra direto; o app troca de tela quando `isSignedIn` muda.
     private func signInIfPossible() async {
         guard let password, !password.isEmpty else {
-            show("Conta confirmada! Você já pode fazer login.", error: false)
+            show(String(localized: "Conta confirmada! Você já pode fazer login."), error: false)
             return
         }
         switch await authService.signIn(username: email, password: password) {
         case .success, .cancelled:
-            show("Conta confirmada!", error: false)
+            show(String(localized: "Conta confirmada!"), error: false)
         case .error(let failure):
-            show("Conta confirmada, mas não deu para entrar: \(failure)", error: true)
+            show(String(localized: "Conta confirmada, mas não deu para entrar: \(failure)"), error: true)
         default:
-            show("Conta confirmada! Volte e entre com seu e-mail e senha.", error: false)
+            show(String(localized: "Conta confirmada! Volte e entre com seu e-mail e senha."), error: false)
         }
     }
 
@@ -120,7 +121,7 @@ struct ConfirmSignUpView: View {
         if let failure = await authService.resendSignUpCode(email: email) {
             show(failure, error: true)
         } else {
-            show("Enviamos um novo código para \(AuthService.normalizedEmail(email)).", error: false)
+            show(String(localized: "Enviamos um novo código para \(AuthService.normalizedEmail(email))."), error: false)
         }
     }
 

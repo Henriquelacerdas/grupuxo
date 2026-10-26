@@ -1,3 +1,4 @@
+import Foundation
 import GrupuxoDomain
 
 enum MyTasksState: Equatable {
@@ -26,9 +27,9 @@ enum MyTasksSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .cycle: "Seu ciclo"
-        case .extras: "Tarefas gerais"
-        case .sporadic: "Tarefas únicas"
+        case .cycle: String(localized: "Seu ciclo")
+        case .extras: String(localized: "Tarefas gerais")
+        case .sporadic: String(localized: "Tarefas únicas")
         }
     }
 }

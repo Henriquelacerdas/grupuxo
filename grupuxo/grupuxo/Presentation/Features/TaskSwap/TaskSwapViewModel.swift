@@ -53,7 +53,7 @@ final class TaskSwapViewModel: ObservableObject {
                 }
             ) else {
                 state = .failure(
-                    "A tarefa oferecida não está mais disponível."
+                    String(localized: "A tarefa oferecida não está mais disponível.")
                 )
                 return
             }

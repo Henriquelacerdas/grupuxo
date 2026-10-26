@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import GrupuxoDomain
 
@@ -69,7 +70,7 @@ struct RoomDetailView: View {
             .padding(.bottom, DesignSystem.Spacing.large * 2)
         }
         .background { background }
-        .navigationTitle(viewModel.participation?.room.name ?? "Cômodo")
+        .navigationTitle(viewModel.participation?.room.name ?? String(localized: "Cômodo"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar { toolbarContent }
         .task(id: reloadTrigger) {
@@ -223,7 +224,7 @@ struct RoomDetailView: View {
 
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
 
-                        Text(viewModel.responsiblesSummary ?? "Sem responsáveis")
+                        Text(viewModel.responsiblesSummary ?? String(localized: "Sem responsáveis"))
                             .font(.headline)
                             .foregroundStyle(.primary)
 
@@ -258,14 +259,14 @@ struct RoomDetailView: View {
 
                         Divider()
 
-                        detailRow("Duração do ciclo", value: duration)
+                        detailRow(String(localized: "Duração do ciclo"), value: duration)
                     }
 
                     if let participants = viewModel.participantsSummary {
 
                         Divider()
 
-                        detailRow("Participantes", value: participants)
+                        detailRow(String(localized: "Participantes"), value: participants)
                     }
                 }
                 .padding(.leading, DesignSystem.Spacing.large)
@@ -375,7 +376,7 @@ struct RoomDetailView: View {
 
         if !sections.cycle.isEmpty {
 
-            section("Tarefas do ciclo", infoAction: { isShowingCycleInfo = true }) {
+            section(String(localized: "Tarefas do ciclo"), infoAction: { isShowingCycleInfo = true }) {
 
                 card(sections.cycle) { recurringRow($0, includingRecurrence: false) }
             }
@@ -383,7 +384,7 @@ struct RoomDetailView: View {
 
         if !sections.general.isEmpty {
 
-            section("Tarefas gerais") {
+            section(String(localized: "Tarefas gerais")) {
 
                 card(sections.general) { recurringRow($0, includingRecurrence: true) }
             }
@@ -391,7 +392,7 @@ struct RoomDetailView: View {
 
         if !sections.single.isEmpty {
 
-            section("Tarefas únicas") {
+            section(String(localized: "Tarefas únicas")) {
 
                 card(sections.single) { singleRow($0) }
             }
@@ -400,7 +401,7 @@ struct RoomDetailView: View {
 
     private func preservedTasks(_ content: RoomDetailContent) -> some View {
 
-        section("Suas pendências preservadas") {
+        section(String(localized: "Suas pendências preservadas")) {
 
             card(content.tasks) { recurringRow($0, includingRecurrence: true) }
         }
@@ -537,7 +538,7 @@ struct RoomDetailView: View {
 
         if !viewModel.suggestions.isEmpty {
 
-            section("Sugestões de tarefas") {
+            section(String(localized: "Sugestões de tarefas")) {
 
                 VStack(spacing: 0) {
 

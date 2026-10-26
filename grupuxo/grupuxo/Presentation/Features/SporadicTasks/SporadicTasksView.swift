@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import GrupuxoDomain
 
@@ -842,9 +843,8 @@ struct SporadicTasksView: View {
         _ count: Int
     ) -> String {
 
-        count == 1
-            ? "1 tarefa pendente"
-            : "\(count) tarefas pendentes"
+        // Singular e plural ficam nas variações do catálogo.
+        String(localized: "\(count) tarefas pendentes")
     }
 
     private func primaryActionTitle(
@@ -855,10 +855,10 @@ struct SporadicTasksView: View {
             item
         ) {
 
-            return "Desfazer"
+            return String(localized: "Desfazer")
         }
 
-        return "Adicionar a \"Minhas Tarefas\""
+        return String(localized: "Adicionar a \"Minhas Tarefas\"")
     }
 
     private func color(

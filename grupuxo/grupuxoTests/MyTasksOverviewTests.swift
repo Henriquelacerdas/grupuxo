@@ -171,7 +171,7 @@ struct MyTasksOverviewTests {
 
     @Test func dueDayReadsAsTodayTomorrowWeekdayOrDate() {
 
-        let text = MyTasksText(calendar: utcCalendar, locale: HouseOverviewText.appLocale)
+        let text = MyTasksText(calendar: utcCalendar, locale: Locale(identifier: "pt_BR"))
         let now = date(14) // quarta-feira
 
         #expect(text.dueDay(date(14), now: now) == "Hoje")
@@ -183,7 +183,7 @@ struct MyTasksOverviewTests {
 
     @Test func cycleStatusJoinsDeadlineAndProgress() {
 
-        let text = MyTasksText(calendar: utcCalendar, locale: HouseOverviewText.appLocale)
+        let text = MyTasksText(calendar: utcCalendar, locale: Locale(identifier: "pt_BR"))
         let now = date(14)
 
         #expect(

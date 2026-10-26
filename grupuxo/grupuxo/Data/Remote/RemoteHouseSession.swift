@@ -22,7 +22,7 @@ final class RemoteHouseSession: ObservableObject {
 
         var message: String {
             switch self {
-            case .sessionExpired: "Sua sessão expirou. Entre novamente."
+            case .sessionExpired: String(localized: "Sua sessão expirou. Entre novamente.")
             case .failed(let message): message
             }
         }

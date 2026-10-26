@@ -215,9 +215,10 @@
 				};
 			};
 			buildConfigurationList = A5AC27B83058135C006C8F79 /* Build configuration list for PBXProject "grupuxo" */;
-			developmentRegion = en;
+			developmentRegion = "pt-BR";
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				"pt-BR",
 				en,
 				Base,
 			);
@@ -426,6 +427,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = grupuxo/Info.plist;
+				DEVELOPMENT_LANGUAGE = en;
 				INFOPLIST_KEY_CFBundleDisplayName = Reveza;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -467,6 +469,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = grupuxo/Info.plist;
+				DEVELOPMENT_LANGUAGE = en;
 				INFOPLIST_KEY_CFBundleDisplayName = Reveza;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import GrupuxoDomain
 
@@ -110,7 +111,7 @@ struct SporadicTasksCard: View {
 
     private var accessibilityValue: String {
 
-        guard !summary.isEmpty else { return "Nenhuma tarefa" }
+        guard !summary.isEmpty else { return String(localized: "Nenhuma tarefa") }
 
         let names = summary.rows.compactMap { row -> String? in
             if case let .task(_, name, _, _) = row { name } else { nil }
@@ -121,7 +122,7 @@ struct SporadicTasksCard: View {
         let listed = ListFormatter.localizedString(byJoining: names)
 
         return overflow > 0
-            ? "\(listed) e mais \(overflow)"
+            ? String(localized: "\(listed) e mais \(overflow)")
             : listed
     }
 }

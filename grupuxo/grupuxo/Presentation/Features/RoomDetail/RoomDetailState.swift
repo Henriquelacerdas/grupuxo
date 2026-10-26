@@ -22,8 +22,8 @@ enum RoomTaskFilter: Hashable, CaseIterable {
 
     var title: String {
         switch self {
-        case .now: "Agora"
-        case .all: "Todas"
+        case .now: String(localized: "Agora")
+        case .all: String(localized: "Todas")
         }
     }
 }

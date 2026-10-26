@@ -64,15 +64,15 @@ final class TaskDetailViewModel: ObservableObject {
         switch definition.kind {
 
         case .sporadic:
-            return "Tarefa avulsa"
+            return String(localized: "Tarefa avulsa")
 
         case .recurring:
 
             guard let room, definition.isLinked(to: room) else {
-                return "Tarefa extra"
+                return String(localized: "Tarefa extra")
             }
 
-            return "Tarefa de ciclo"
+            return String(localized: "Tarefa de ciclo")
 
         }
 
@@ -94,7 +94,7 @@ final class TaskDetailViewModel: ObservableObject {
             return nil
         }
 
-        return "Prazo: \(dueAt.formatted(date: .abbreviated, time: .omitted))"
+        return String(localized: "Prazo: \(dueAt.formatted(date: .abbreviated, time: .omitted))")
 
     }
 

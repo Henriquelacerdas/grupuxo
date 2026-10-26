@@ -22,12 +22,12 @@ struct MyTasksText {
 
         guard progress.total > 0 else { return deadline }
 
-        return "\(deadline) · \(progress.completed) de \(progress.total)"
+        return locale.localized("\(deadline) · \(progress.completed) de \(progress.total)")
     }
 
     /// Versão para leitura em voz alta: "Termina domingo, 2 de 5 tarefas feitas".
     func cycleStatusSpoken(periodEnd: Date, progress: CycleProgress, now: Date) -> String {
-        "\(houseText.deadline(cycleEnd: periodEnd, now: now)), \(HouseOverviewText.progress(progress))"
+        locale.localized("\(houseText.deadline(cycleEnd: periodEnd, now: now)), \(HouseOverviewText.progress(progress, locale: locale))")
     }
 
     /// "Hoje", "Amanhã", dia da semana (até uma semana) ou dia e mês; prazo vencido vira "Atrasada".
@@ -41,11 +41,11 @@ struct MyTasksText {
 
         switch days {
         case ..<0:
-            return "Atrasada"
+            return locale.localized("Atrasada")
         case 0:
-            return "Hoje"
+            return locale.localized("Hoje")
         case 1:
-            return "Amanhã"
+            return locale.localized("Amanhã")
         case 2..<HouseOverviewText.weekdayHorizonInDays:
             return due.formatted(
                 Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
