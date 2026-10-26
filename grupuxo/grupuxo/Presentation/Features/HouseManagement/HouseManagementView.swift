@@ -5,10 +5,14 @@ struct HouseManagementView: View {
 
     @StateObject private var viewModel: HouseManagementViewModel
 
+    @State private var isPresentingAddOptions = false
     @State private var isPresentingTaskCreationSheet = false
     @State private var isPresentingRoomCreationSheet = false
     @State private var isPresentingReorderSheet = false
     @State private var orderedRoomIDs: [Room.ID] = []
+
+    /// Nome da casa, mostrado como subtítulo do título "Casa".
+    let houseName: String
 
     let makeTaskEditorViewModel: () -> TaskEditorViewModel
     let makeRoomEditorViewModel: () -> RoomEditorViewModel
@@ -22,6 +26,7 @@ struct HouseManagementView: View {
 
     init(
         viewModel: HouseManagementViewModel,
+        houseName: String,
         makeTaskEditorViewModel: @escaping () -> TaskEditorViewModel,
         makeRoomEditorViewModel: @escaping () -> RoomEditorViewModel,
         onSelectRoom: @escaping (Room.ID) -> Void,
@@ -31,6 +36,7 @@ struct HouseManagementView: View {
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
 
+        self.houseName = houseName
         self.makeTaskEditorViewModel = makeTaskEditorViewModel
         self.makeRoomEditorViewModel = makeRoomEditorViewModel
 
@@ -40,30 +46,16 @@ struct HouseManagementView: View {
         self.onOpenHouseSettings = onOpenHouseSettings
     }
 
-    private var addMenu: some View {
-        Menu {
-            Button(
-                "Nova Tarefa",
-                systemImage: "checklist"
-            ) {
-                isPresentingTaskCreationSheet = true
-            }
-            .accessibilityIdentifier("createTask")
-
-            Button(
-                "Novo Cômodo",
-                systemImage: "square.split.bottomrightquarter"
-            ) {
-                isPresentingRoomCreationSheet = true
-            }
-            .accessibilityIdentifier("createRoom")
-        } label: {
-            Image(systemName: "plus")
+    /// Mesmo botão de Minhas tarefas: botão nativo de barra com o estilo prominent do design system.
+    /// A escolha entre tarefa e cômodo abre num diálogo, porque um `Menu` na barra não recebe o estilo prominent.
+    private var addButton: some View {
+        Button(
+            "Adicionar",
+            systemImage: "plus"
+        ) {
+            isPresentingAddOptions = true
         }
-        .buttonStyle(.borderedProminent)
-        .buttonBorderShape(.circle)
-        .tint(.accentColor)
-        .accessibilityLabel("Adicionar")
+        .prominentToolbarButtonStyle()
         .accessibilityIdentifier("addMenu")
     }
 
@@ -106,9 +98,10 @@ struct HouseManagementView: View {
         .scrollContentBackground(.hidden)
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Casa")
+        .houseSubtitle(houseName)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                addMenu
+                addButton
             }
 
             if #available(iOS 26, *) {
@@ -140,6 +133,21 @@ struct HouseManagementView: View {
                 .accessibilityLabel("Mais opções")
                 .accessibilityIdentifier("houseOptionsMenu")
             }
+        }
+        .confirmationDialog(
+            "Adicionar",
+            isPresented: $isPresentingAddOptions,
+            titleVisibility: .hidden
+        ) {
+            Button("Nova Tarefa") {
+                isPresentingTaskCreationSheet = true
+            }
+            .accessibilityIdentifier("createTask")
+
+            Button("Novo Cômodo") {
+                isPresentingRoomCreationSheet = true
+            }
+            .accessibilityIdentifier("createRoom")
         }
         .sheet(
             isPresented: $isPresentingTaskCreationSheet
@@ -397,5 +405,18 @@ struct HouseManagementView: View {
                 }
             }
         )
+    }
+}
+
+private extension View {
+
+    /// Subtítulo do título grande (iOS 26); antes disso a tela fica só com o título.
+    @ViewBuilder
+    func houseSubtitle(_ name: String) -> some View {
+        if #available(iOS 26, *) {
+            navigationSubtitle(name)
+        } else {
+            self
+        }
     }
 }

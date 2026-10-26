@@ -93,6 +93,7 @@ struct RootView: View {
                         container.makeHouseManagementViewModel(
                             session: session
                         ),
+                    houseName: session.currentHouse.name,
                     makeTaskEditorViewModel: {
 
                         container.makeTaskEditorViewModel(
