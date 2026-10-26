@@ -82,8 +82,12 @@ struct RoomDetailView: View {
                                     .accessibilityHidden(true)
 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(HouseOverviewText().responsibles(names: info.responsibleNames)
-                                         ?? (info.room.visibility == .common ? "Todos os moradores" : "Cômodo privado"))
+                                    Text(
+                                        viewModel.responsiblesSummary
+                                            ?? (info.room.visibility == .common
+                                                ? "Todos os moradores"
+                                                : "Cômodo privado")
+                                    )
                                         .font(.system(size: 17, weight: .bold))
                                         .foregroundStyle(.primary)
                                     Text(HouseOverviewText().deadline(cycleEnd: info.periodEnd, now: .now))
