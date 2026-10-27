@@ -30,7 +30,7 @@ actor MockWhatsAppConnectionRepository: WhatsAppConnectionRepository {
         components.scheme = "https"
         components.host = "wa.me"
         components.path = "/5511900000000"
-        components.queryItems = [URLQueryItem(name: "text", value: "Conectar meu WhatsApp ao Grupuxo. Código: \(token)")]
+        components.queryItems = [URLQueryItem(name: "text", value: "Conectar meu WhatsApp ao Reveza. Código: \(token)")]
         guard let url = components.url else { throw WhatsAppConnectionError.unavailable }
         return WhatsAppInvitation(url: url, expiresAt: now().addingTimeInterval(15 * 60))
     }
