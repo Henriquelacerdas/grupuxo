@@ -2,15 +2,17 @@
 
 App iOS (SwiftUI) que distribui tarefas domésticas entre moradores de casas compartilhadas e repúblicas, equilibrando o esforço semanal e respeitando a participação de cada um nos cômodos.
 
-**Estado atual:** o app tem login (Amazon Cognito via Amplify, e-mail/senha e Sign in with Apple) e, depois do login, cria ou entra numa **casa real** por código de convite (Amplify Data, `grupuxo/amplify`, camada transitória). Moradores e cômodos vêm dessa casa; as **tarefas continuam mockadas** (em memória, sem persistência) e as regras de distribuição ainda rodam no dispositivo. O schema de autorização por morador e a função de convite estão escritos mas **ainda não foram implantados na AWS**. O backend em Node.js + TypeScript (`backend/`) já tem o domínio e o algoritmo portados, verificados contra o Swift por fixtures de referência, e a integração com o WhatsApp (webhook, worker, vínculo por token e contratos, tudo em memória, sem DynamoDB nem AWS ainda), conforme [docs/BACKEND.md](docs/BACKEND.md).
+**Estado atual:** o app tem login (Amazon Cognito via Amplify Auth, e-mail/senha e Sign in with Apple) e, depois do login, cria uma **casa real** ou entra nela por código de convite. Casa, cômodos, tarefas (recorrentes e avulsas), trocas, notificações e o vínculo do WhatsApp vêm da `api` do backend em Node.js + TypeScript (`backend/`), que calcula a escala no servidor e persiste no DynamoDB; o mesmo servidor atende o bot do WhatsApp (webhook, fila SQS, worker e assistente Gemini), então app e bot veem a mesma casa. O ambiente `dev` está implantado na conta AWS 580100736070 (Terraform em `backend/infra/`) e o app (Debug e Release) aponta para ele. O bot usa o número real do WhatsApp (app da Meta publicado em 2026-10-26); falta o teste ponta a ponta com um celular de fora da lista de teste. Ainda não há ambiente `prod`. O `GrupuxoDomain` Swift segue como referência do algoritmo (fixtures) e roda nos testes sobre o `MockStore`. Detalhes em [docs/BACKEND.md](docs/BACKEND.md), [docs/ARQUITETURA.md](docs/ARQUITETURA.md) e o plano em [docs/PLANO.md](docs/PLANO.md).
 
 ## Funcionalidades
 
-- **Minhas tarefas:** tarefas atribuídas ao usuário, conclusão e pedido de troca com outro morador.
-- **Gerenciar casa:** cômodos (comuns e privados), criação/edição de tarefas, sugestões de tarefas por tipo de cômodo e card de tarefas esporádicas.
+- **Minhas tarefas:** o ciclo do morador por cômodo, tarefas gerais e tarefas únicas, com conclusão, pedido de troca com outro morador, detalhe da tarefa (próximas vezes, última conclusão) e criação pelo botão "+".
+- **Gerenciar casa:** cômodos (comuns e privados, com reordenação), criação de tarefas, sugestões de tarefas por tipo de cômodo e card de tarefas únicas (esporádicas).
+- **WhatsApp:** o morador vincula o número por um link `wa.me`, pergunta pelas próprias tarefas e conclui uma depois de confirmar com "sim".
 - **Distribuição automática:** rotação por calendário ou por conclusão, com fila otimizada pelo Algoritmo Húngaro e saldo de justiça.
 - **Entrada e saída** de moradores na casa e nos cômodos, com reequilíbrio a partir da próxima segunda-feira.
-- **Notificações** (trocas de tarefa) e **Configurações** (moradores da casa).
+- **Notificações** (trocas de tarefa) e **Configurações** (código de convite, moradores, WhatsApp, sair da casa e da conta).
+- **Idioma** segue o do aparelho (português do Brasil e inglês), em `grupuxo/grupuxo/Localizable.xcstrings`.
 
 ## Documentação
 
@@ -20,6 +22,10 @@ App iOS (SwiftUI) que distribui tarefas domésticas entre moradores de casas com
 | [docs/ARQUITETURA.md](docs/ARQUITETURA.md) | Camadas, estrutura de pastas, navegação, repositórios, concorrência, convenções |
 | [docs/ALGORITMO.md](docs/ALGORITMO.md) | Contrato matemático da distribuição: custo, Húngaro, calendário, invariantes |
 | [docs/BACKEND.md](docs/BACKEND.md) | Backend Node.js + TypeScript, banco DynamoDB, WhatsApp, autenticação e estado da implementação em `backend/` |
+| [docs/PLANO.md](docs/PLANO.md) | Plano da trilha até o TestFlight externo com WhatsApp, estado da AWS e riscos |
+| [docs/LATENCIA.md](docs/LATENCIA.md) | Medição da latência da `api` e propostas |
+| [docs/VALIDACAO-APIS-REAIS.md](docs/VALIDACAO-APIS-REAIS.md) | Checklist do que validar contra Meta, Gemini e AWS reais |
+| [backend/infra/README.md](backend/infra/README.md) | Deploy do ambiente `dev` (Terraform) |
 | [CLAUDE.md](CLAUDE.md) | Guia rápido para IAs e novos desenvolvedores |
 
 ## Rodando
@@ -28,9 +34,9 @@ Requisitos: Xcode com o SDK e o runtime iOS 26.5 (deployment target do app: iOS 
 
 1. Abra `grupuxo/grupuxo.xcodeproj`.
 2. Selecione o scheme `grupuxo` e um simulador iPhone.
-3. Execute (⌘R). Entre com uma conta; sem casa, o app pede para criar ou entrar por código. As tarefas de demonstração vêm do `MockStore`/`MockSeed`.
+3. Execute (⌘R) e entre com uma conta do user pool do Cognito. Sem casa, o app pede para criar uma ou entrar por código.
 
-O app usa `grupuxo/grupuxo/amplify_outputs.json` (IDs públicos do Cognito e do AppSync, sem credenciais). Ele só é regenerado pelo dono do projeto depois de implantar o backend Amplify (`grupuxo/amplify`); implantar (`ampx sandbox`/`ampx deploy`) cria recursos na AWS e exige autorização explícita. Sem o deploy do schema atual, as telas de casa não funcionam contra o AppSync existente.
+O app fala com a `api` do `dev`: o endereço está em `grupuxo/Config/Grupuxo.xcconfig` (`GRUPUXO_API_BASE_URL`, versionado; não é segredo, a `api` exige o access token do Cognito). Para apontar para outro servidor, copie `grupuxo/Config/Local.xcconfig.example` para `Local.xcconfig` (fora do git). Sem valor real (`CONFIGURE-ME`) o app falha fechado. `grupuxo/grupuxo/amplify_outputs.json` guarda só os IDs públicos do Cognito (seção `auth`). `ampx sandbox`/`ampx deploy` e qualquer chamada à AWS, à Meta ou ao Gemini exigem autorização explícita do dono do projeto.
 
 ## Testes
 
@@ -57,15 +63,7 @@ npm test
 
 Para regenerar as fixtures depois de mudar o algoritmo (precisa do toolchain Swift): `backend/tools/swift-fixtures/regenerate.sh`.
 
-Toolchain do Amplify (schema e função de convite em TypeScript), só para tipar e gerar código local:
-
-```sh
-cd grupuxo
-npm install --ignore-scripts
-npx tsc --noEmit -p amplify   # só o import de '$amplify/env/join-house' falha: ele é gerado no deploy
-```
-
-Com Node 25, `ampx` precisa de `NODE_OPTIONS=--no-experimental-webstorage`.
+Build das Lambdas (`npm run build`) e deploy do `dev`: [backend/infra/README.md](backend/infra/README.md).
 
 ## Roadmap
 

@@ -11,6 +11,14 @@ Duas frentes resolveram identidade, casa, moradores e convite de formas diferent
 
 Nada aqui toca AWS/Meta/Gemini sem autorização caso a caso.
 
+> **Estado em 2026-10-27 (resumo do que já foi feito além do plano original):**
+> - **T2, T3 e T4 estão feitas e no ar.** O `dev` está aplicado na conta 580100736070 (tabela `grupuxo-dev` com proteção contra exclusão e recuperação pontual, fila FIFO com DLQ, Lambdas `api` com 1769 MB, `webhook` e `worker`). O app (Debug e Release) usa a `api` do `dev` por `Grupuxo.xcconfig`. As telas que estavam escondidas voltaram com rotas novas: avulsas, trocas e notificações (2026-10-21). Seguem sem rota: editar tarefa, excluir avulsa, morador sem conta e pedido de entrada em cômodo privado.
+> - **WhatsApp com número real:** o backend foi trocado para o número real em 2026-10-25 e o app da Meta foi publicado em 2026-10-26 (verificação do negócio concluída). Falta o **teste ponta a ponta com um celular fora da lista de teste** (M1/M3). O `worker` usa `gemini-3.1-flash-lite`, com nova tentativa para falhas passageiras e `thinkingLevel` baixo (BACKEND.md §7.4).
+> - **Latência:** medida e atacada (memória da `api`, consultas sem `update`, escala publicada por morador); detalhes e o que falta (arquivar histórico, rota agregada) em [LATENCIA.md](LATENCIA.md).
+> - **Algoritmo:** criar tarefa ficou mais leve (só a próxima vez de cada morador é publicada; ALGORITMO.md, "Publicação por morador") e criar tarefa vinculada realinha as vezes da semana com os papéis novos (2026-10-27). Swift, TypeScript e fixtures andam juntos.
+> - **App:** nova UI mesclada (cômodos, detalhe da tarefa, avisos), textos em pt-BR e en (`Localizable.xcstrings`), card de resumo semanal removido, login por e-mail mais robusto, reordenar cômodos, e o último morador pode sair e excluir a casa.
+> - **Ainda aberto:** M2 (duas contas em dois aparelhos, TestFlight interno), T0 (App Store Connect, conta de demonstração para o Beta App Review), anotar os resultados da validação real em VALIDACAO-APIS-REAIS.md, D3 definitivo, `Idempotency-Key`, estado do Terraform remoto, ambiente `prod`.
+
 Legenda: **FATO** = verificado no código/execução (arquivo:linha). **HIP** = hipótese, precisa de doc oficial ou teste real.
 
 ---

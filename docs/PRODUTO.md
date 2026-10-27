@@ -2,7 +2,7 @@
 
 App iOS em SwiftUI para organizar tarefas domésticas em casas compartilhadas e repúblicas. Objetivo: reduzir a carga mental de criar, distribuir, lembrar e acompanhar tarefas, com divisão clara e justa.
 
-**Estado atual:** login com Amazon Cognito (e-mail/senha e Sign in with Apple); criar casa ou entrar por código, cômodos, tarefas e conclusão pelo app falam com o backend em Node.js + TypeScript (algoritmo de distribuição no servidor, persistência em DynamoDB) e o canal WhatsApp (ver e concluir as próprias tarefas) está escrito e testado, aguardando o primeiro deploy do ambiente `dev` (ver [BACKEND.md](BACKEND.md) e [PLANO.md](PLANO.md)). Tarefas avulsas (criar, assumir, devolver), trocas e notificações também passam pelo servidor. Edição de tarefa e exclusão de avulsa ainda não têm rota e estão escondidas no app.
+**Estado atual:** login com Amazon Cognito (e-mail/senha e Sign in with Apple); criar casa ou entrar por código, cômodos, tarefas e conclusão pelo app falam com o backend em Node.js + TypeScript (algoritmo de distribuição no servidor, persistência em DynamoDB) e o canal WhatsApp (ver e concluir as próprias tarefas) roda no ambiente `dev` da AWS, já com o número real do bot (app da Meta publicado em 2026-10-26; falta o teste ponta a ponta com um celular de fora da lista de teste; ver [BACKEND.md](BACKEND.md) e [PLANO.md](PLANO.md)). Tarefas avulsas (criar, assumir, devolver), trocas e notificações também passam pelo servidor. Edição de tarefa e exclusão de avulsa ainda não têm rota e estão escondidas no app.
 
 ## Estrutura da casa
 
@@ -105,7 +105,7 @@ Moradores avaliam cômodos comuns; privados não participam. Resumo a cada 3 sem
 
 ## Roadmap e decisões abertas
 
-**WhatsApp:** integração com o WhatsApp dos moradores para consultar tarefas, receber lembretes e, depois, registrar conclusões sem abrir o app. Decidido: API oficial da Meta (Cloud API), v1 de consulta e, com confirmação ("Marcar X como feita? sim/não"), conclusão de tarefas (implementada em memória; ver [BACKEND.md](BACKEND.md) seção 7.4), vínculo do número por link `wa.me` com token e consentimento registrado no vínculo. Exige backend (ver [BACKEND.md](BACKEND.md)). Em aberto: custo de mensagens iniciadas pelo bot (lembretes) e um número de bot por ambiente.
+**WhatsApp:** integração com o WhatsApp dos moradores para consultar tarefas, receber lembretes e, depois, registrar conclusões sem abrir o app. Decidido: API oficial da Meta (Cloud API), v1 de consulta e, com confirmação ("Marcar X como feita? sim/não"), conclusão de tarefas (implementada; ver [BACKEND.md](BACKEND.md) seção 7.4), vínculo do número por link `wa.me` com token e consentimento registrado no vínculo. Exige backend (ver [BACKEND.md](BACKEND.md)). Em aberto: custo de mensagens iniciadas pelo bot (lembretes) e um número de bot por ambiente.
 
 Futuro, sem bloquear a entrega atual: widget, Lembretes, Siri, NFC, lista de mercado, controle financeiro.
 

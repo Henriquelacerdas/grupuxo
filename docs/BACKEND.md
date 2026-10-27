@@ -1,6 +1,6 @@
 # Backend e integração com WhatsApp
 
-Arquitetura do backend e do canal WhatsApp. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token, validação do JWT do Cognito, assistente Gemini, sender da Graph API, limite de taxa e handlers no formato Lambda, tudo com adaptadores em memória, sem DynamoDB nem AWS de verdade (ver seção 14). Concluir tarefa pelo WhatsApp, com confirmação, também está implementado em memória (seções 7.4 e 9). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
+Arquitetura do backend e do canal WhatsApp. Status: **implementado e implantado no ambiente `dev`** (conta AWS 580100736070, `us-east-1`; Terraform em `backend/infra/`) em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token, validação do JWT do Cognito, assistente Gemini, sender da Graph API, limite de taxa, adaptadores DynamoDB/SQS/Secrets Manager e as três Lambdas (`api`, `webhook`, `worker`). O app usa a `api` e o bot responde no número real do WhatsApp (app da Meta publicado em 2026-10-26); falta o teste ponta a ponta com um celular de fora da lista de teste. Concluir tarefa pelo WhatsApp, com confirmação, está implementado (seções 7.4 e 9). Os testes seguem rodando só com adaptadores em memória e clientes falsos (seção 14); os resultados da validação real, item a item, ainda precisam ser anotados em [VALIDACAO-APIS-REAIS.md](VALIDACAO-APIS-REAIS.md). Ainda não há ambiente `prod`. Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
 
 Documentos relacionados: [ARQUITETURA.md](ARQUITETURA.md) (app), [ALGORITMO.md](ALGORITMO.md) (contrato matemático), [PRODUTO.md](PRODUTO.md).
 
@@ -11,7 +11,7 @@ Login: Amazon Cognito via Amplify Auth (e-mail/senha e Sign in with Apple). O ap
 1. Um backend AWS que passa a ser a **fonte de verdade** dos dados.
 2. Um canal WhatsApp que atua como **mais um cliente** desse backend.
 
-**v1 do WhatsApp (✅): consulta**, por exemplo "quais são minhas tarefas da semana?". **Concluir tarefa com confirmação** ("terminei de lavar a louça" → "Marcar *Lavar a louça* como feita?" → "sim") já está implementada e testada com adaptadores em memória (seções 7.4 e 9). Lembretes proativos e trocas ficam para versões seguintes, mas o desenho já os comporta (seção 9).
+**v1 do WhatsApp (✅): consulta**, por exemplo "quais são minhas tarefas da semana?". **Concluir tarefa com confirmação** ("terminei de lavar a louça" → "Marcar *Lavar a louça* como feita?" → "sim") está implementada e testada (seções 7.4 e 9). Lembretes proativos e trocas ficam para versões seguintes, mas o desenho já os comporta (seção 9).
 
 Fora de escopo: avaliação da casa, widget, Siri, lista de mercado e financeiro (ver roadmap em PRODUTO.md).
 
@@ -84,7 +84,7 @@ backend/                 projeto Node.js + TypeScript (zero dependências de run
                             (linking/) e ports (ports.ts)                                       ✅
   src/auth/                 validação do JWT do Cognito (TokenVerifier, JWKS) e UserDirectory   ✅
   src/http.ts               tipo HttpFetch: HTTP de saída injetável (JWKS, Gemini, Graph API)    ✅
-  src/assistant/            Gemini: GeminiClient, ferramentas de leitura e GeminiMessageResponder ✅ (em memória/falso; sem chamada real)
+  src/assistant/            Gemini: GeminiClient, ferramentas de leitura e GeminiMessageResponder ✅ (testes com cliente falso; o `worker` do `dev` chama o Gemini real)
   src/whatsapp/graph-sender.ts  WhatsAppSender real (Graph API), com HttpFetch injetado          ✅ (testado com falso; sem chamada real)
   src/adapters/in-memory/   store transacional, repositórios, ports do WhatsApp e seed (dev/testes) ✅
   src/adapters/aws/         SqsMessageQueue e SecretStringReader sobre clientes mínimos injetados     ✅ (cliente falso; sem chamada real)
@@ -107,7 +107,7 @@ São funções de fábrica `create…Handler(dependências) => (evento: unknown)
 
 - `SqsMessageQueue` (`MessageQueue`): corpo JSON com exatamente os quatro campos de `IncomingMessage` (o que `parseIncomingMessage` lê no worker), `MessageGroupId` = telefone, `MessageDeduplicationId` = `wamid`. Sem `QUEUE_URL` a criação falha (`LambdaConfigError`). `wamid` ou telefone fora das regras de ID do FIFO (1–128 caracteres ASCII alfanuméricos ou de pontuação) não são enviados (`MessageQueueError` `invalidMessage`). Qualquer falha do cliente vira `MessageQueueError` `sendFailed`, com mensagem fixa (sem texto, telefone, `wamid`, URL nem mensagem original; só o `name` do erro original em `causeName`), e propaga: o webhook responde 500 e a Meta reenvia. A fila precisa ter `ContentBasedDeduplication` desligada (a deduplicação é pelo `wamid`).
 - `SecretStringReader`: lê o `SecretString` uma vez por instância (a promessa fica em cache, então chamadas concorrentes compartilham a busca); **falha não é cacheada**. `SecretReadError` (`readFailed`, `noSecretString`) tem mensagem fixa, sem ID do segredo nem conteúdo. Sem `SECRET_ID` a criação falha.
-- Testes: `test/contract/message-queue.ts` (rodado contra a fila em memória e o `SqsMessageQueue` com cliente falso), `test/adapters/`. Nada foi chamado na AWS.
+- Testes: `test/contract/message-queue.ts` (rodado contra a fila em memória e o `SqsMessageQueue` com cliente falso), `test/adapters/`. Os testes não chamam a AWS; a fila real existe no `dev`.
 
 | Arquivo | Função |
 | --- | --- |
@@ -255,11 +255,11 @@ Configuração (valores públicos, sem segredo; estão em `grupuxo/grupuxo/ampli
 
 `UserDirectory` (`src/auth/user-directory.ts`): `userForSub(cognitoSub)` e `ensureUser(cognitoSub, { name })`. O `name` vem do app (`parseProfileName`: sem espaços nas pontas, 1 a 80 caracteres, sem controle); numa conta que já existe ele só é validado e **não sobrescreve** o nome. Adaptador em memória: `src/adapters/in-memory/user-directory.ts`. Teste de contrato reutilizável (inclusive concorrência no `ensureUser`): `test/contract/user-directory.ts`; o adaptador DynamoDB (`TransactWriteItems` com `Put` condicional em `COGNITO#<sub>` e, se perder a corrida, `GetItem` consistente; seção 4) tem de passar nele.
 
-Do lado do app (pendente, `Data/Remote`): enviar o access token do Amplify (`fetchAuthSession()` → `tokens.accessToken`), não o ID token.
+Do lado do app (`Data/Remote`, `AmplifyAccessTokenProvider`): envia o access token do Amplify (`fetchAuthSession()` → `tokens.accessToken`), não o ID token.
 
 Usuários que entram com Apple e com e-mail/senha são contas distintas no Cognito, cada uma com seu `sub`. Vincular os dois (mesmo e-mail) exige configuração do pool e fica fora da v1 ❓.
 
-Hoje `AppSession.currentUser` vem do `MockSeed`. Ligar a sessão ao usuário autenticado depende do passo 3 da seção 13.
+`AppSession.currentUser` vem da `RemoteHouseSession` (`GET /v1/me`): o `User.id` é o do backend, não o `sub`.
 
 **Autorização sempre no servidor.** A UI nunca é autoridade. Os casos de uso já recebem `userID` e aplicam `TaskEligibilityPolicy`; o `userID` vem do JWT (app) ou do vínculo do número (WhatsApp), **nunca de um campo enviado pelo cliente**.
 
@@ -286,7 +286,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 
 ### 6.1 Contrato das rotas (`src/lambdas/api.ts`)
 
-**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Todas as rotas abaixo estão implementadas e testadas em memória e no DynamoDB com o cliente falso (T2.5). Falta o ponto de entrada da Lambda (T3). O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
+**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Todas as rotas abaixo estão implementadas, testadas em memória e no DynamoDB com o cliente falso (T2.5), e publicadas na Lambda `api` do `dev` (`src/main/api.ts`). O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift (`RemoteAPITests`) decodifica os mesmos arquivos.
 
 **Convenções.** Tudo sob `/v1`, JSON UTF-8. `Authorization: Bearer <access token>` (esquema sem distinção de caixa); a autorização é feita na Lambda (a Function URL fica com `AuthType = NONE`). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo, da URL ou de cabeçalho; o `at` (data de referência) é do relógio do servidor, nunca do cliente. IDs são UUID em minúsculo; instantes são ISO 8601 em UTC **com milissegundos** (`2026-10-12T09:00:00.000Z`; o `.iso8601` padrão do Swift não decodifica isso, o app usa um formatador próprio). Corpos de até 4 KB; campos desconhecidos são ignorados. Rota e método são verificados antes do token. Sem `Idempotency-Key` na trilha (atalho, PLANO.md seção 2): as mutações de tarefa já são idempotentes no domínio; `POST /houses` e `POST /houses/join` repetidos respondem `409 already_in_house`.
 
@@ -447,7 +447,7 @@ Se o Gemini não reconhecer a intenção, o bot responde com a lista do que sabe
 A mensagem barrada conta como processada (nem retry nem DLQ). Vale para todos os números, inclusive os sem vínculo (o aviso de "vincule seu número" não vira spam). Limitações aceitas: uma rajada na virada da janela pode somar até o dobro do limite; uma nova tentativa depois de uma falha (SQS) conta de novo na janela.
 ### 7.4 Assistente (`src/assistant/`)
 
-Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum teste chama a rede, e nada chamou o Gemini de verdade ainda.
+Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum teste chama a rede. O `worker` do `dev` chama o Gemini real (modelo `gemini-3.1-flash-lite` em `terraform.tfvars`); a validação item a item (M1–M6) ainda não foi anotada.
 
 **`GeminiClient` / `HttpGeminiClient`** (`gemini-client.ts`): `POST https://generativelanguage.googleapis.com/v1beta/models/<GEMINI_MODEL>:generateContent` com *function calling* (`toolConfig` modo `AUTO`). Sem `temperature`: para o Gemini 3 o Google recomenda o padrão (1.0), e valores baixos podem fazer o modelo entrar em laço. `generationConfig.thinkingConfig.thinkingLevel` vem de `thinkingLevel` (padrão `"low"`, aceito por todos os modelos Gemini 3; o modelo só escolhe a ferramenta, e com o raciocínio padrão do modelo a resposta chegava a passar do timeout).
 
@@ -546,7 +546,7 @@ Cuidados:
 
 | Etapa | O que muda |
 | --- | --- |
-| ✅ Concluir tarefa | **Implementado em memória** (seção 7.4): ferramenta `complete_task(task_name)` → `CompleteTask`, com **confirmação obrigatória** antes de gravar ("Marcar *Limpar sala* como feita?"), pedido pendente guardado por 5 minutos no port `PendingActionStore` e idempotência por `wamid`. Falta o adaptador DynamoDB do port (a cargo de quem faz o DynamoDB, seção 14) e validar o *function calling* real. |
+| ✅ Concluir tarefa | **Implementado** (seção 7.4): ferramenta `complete_task(task_name)` → `CompleteTask`, com **confirmação obrigatória** antes de gravar ("Marcar *Limpar sala* como feita?"), pedido pendente guardado por 5 minutos no port `PendingActionStore` (adaptador DynamoDB em `pending-action-store.ts`) e idempotência por `wamid`. Falta anotar a validação do *function calling* real (M6). |
 | Lembretes | Mensagens iniciadas pelo bot fora da janela de 24 h exigem *template* aprovado, com custo. Usar um agendador (EventBridge Scheduler) que enfileira lembretes. Por isso o *opt-in* explícito é gravado desde a v1. |
 | Trocas, assumir esporádica | Novas ferramentas sobre os casos de uso existentes. |
 
@@ -618,11 +618,11 @@ Para a infraestrutura (Node):
 ## 13. Ordem de entrega sugerida
 
 1. ✅ **Feito:** `GrupuxoDomain` extraído como Swift Package (`grupuxo/Packages/GrupuxoDomain`); o app continua funcionando com o mock. ✅ **Feito:** domínio e algoritmo portados para TypeScript (`backend/src/domain`), com fixtures de referência geradas do Swift e os cenários dos testes Swift traduzidos.
-2. Tabela DynamoDB (Terraform), adaptadores `src/adapters/dynamodb/` (repositórios do domínio e ports) e testes contra o mesmo conjunto de cenários do mock. *A fazer; o modelo de itens está na seção 4, as interfaces de repositório do domínio e os ports da seção 14 são o contrato, e os testes de contrato (`backend/test/contract`) são reutilizáveis: cada função recebe uma fábrica do adaptador.*
-3. Lambda `api` e autenticação (login Cognito do app ✅; casa do app pela `api` (`POST /houses`, `/houses/join`) e `Data/Remote` ✅ (o Amplify Data foi abandonado sem deploy); *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; falta o `UserDirectory` em DynamoDB e o ponto de entrada da Lambda `api`); `Data/Remote` no app (trocar mocks em `AppContainer`).
-4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Os endpoints `POST /v1/me` e `POST /v1/me/whatsapp/link` já existem no handler `api` (em memória); falta a tela.*
-5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco, `GeminiMessageResponder`, `GraphWhatsAppSender`, limite de taxa e handlers no formato Lambda, com adaptadores em memória e Gemini/Graph falsos; adaptador SQS e leitor do segredo no Secrets Manager prontos com clientes falsos; falta o ponto de entrada de cada Lambda (AWS SDK e empacotamento em aberto).* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
-6. ✅ Concluir tarefas com confirmação (em memória, seção 7.4; falta o adaptador DynamoDB do `PendingActionStore`) e, por fim, lembretes.
+2. ✅ Tabela DynamoDB (Terraform), adaptadores `src/adapters/dynamodb/` (repositórios do domínio e ports) e testes contra o mesmo conjunto de cenários do mock (`backend/test/contract`, com o cliente falso).
+3. Lambda `api` e autenticação (login Cognito do app ✅; casa do app pela `api` (`POST /houses`, `/houses/join`) e `Data/Remote` ✅ (o Amplify Data foi abandonado sem deploy); *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; ✅ `UserDirectory` em DynamoDB e Lambda `api` no `dev`); ✅ `Data/Remote` no app (`AppContainer` com os repositórios remotos).
+4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Os endpoints `POST /v1/me` e `POST /v1/me/whatsapp/link` existem na `api`, e a seção de WhatsApp do `HouseView` usa o vínculo.*
+5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco, `GeminiMessageResponder`, `GraphWhatsAppSender`, limite de taxa e handlers no formato Lambda, com adaptadores em memória e Gemini/Graph falsos; adaptador SQS e leitor do segredo no Secrets Manager prontos com clientes falsos; os pontos de entrada em `src/main/` e o Terraform do `dev` estão prontos e implantados.* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
+6. ✅ Concluir tarefas com confirmação (seção 7.4, com o `PendingActionStore` em DynamoDB) e, por fim, lembretes (a fazer).
 
 Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paralelo.
 
@@ -630,7 +630,7 @@ Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paral
 
 ## 14. Estado da implementação e contrato com a tabela
 
-Código em `backend/` (`npm test`). Os testes rodam com adaptadores em memória e clientes falsos; nada nos testes acessa AWS, DynamoDB, Meta ou Gemini. Deploy do `dev`: `backend/infra/README.md`.
+Código em `backend/` (`npm test`). Os testes rodam com adaptadores em memória e clientes falsos; nada nos testes acessa AWS, DynamoDB, Meta ou Gemini. O `dev` está implantado (`backend/infra/README.md`: tabela `grupuxo-dev` com proteção contra exclusão e recuperação pontual, fila FIFO com DLQ, Lambdas `api` com 1769 MB, `webhook` e `worker`). Latência da `api` e o que já mudou por causa dela: [LATENCIA.md](LATENCIA.md).
 
 | Peça | Onde | Situação |
 | --- | --- | --- |
@@ -645,20 +645,20 @@ Código em `backend/` (`npm test`). Os testes rodam com adaptadores em memória 
 | Extração de mensagens de texto (ignora `statuses`, mídia e outros campos) | `webhook-payload.ts` | ✅ testado, com decodificação tão rígida quanto o `Decodable` do Swift |
 | Worker: idempotência por `wamid`, resolve número → morador, responde | `WhatsAppWorker` | ✅ com `EchoResponder` |
 | Ports e adaptadores em memória | `src/whatsapp/ports.ts`, `src/adapters/in-memory/` | ✅ com testes de contrato reutilizáveis |
-| Vínculo por token: gerar convite, reconhecer o token, vincular, rejeitar número já vinculado | `LinkTokenCodec`, `WhatsAppLinker` | ✅ testado (em memória) |
+| Vínculo por token: gerar convite, reconhecer o token, vincular, rejeitar número já vinculado | `LinkTokenCodec`, `WhatsAppLinker` | ✅ testado (em memória e DynamoDB com cliente falso) |
 | Validação do JWT do Cognito (`TokenVerifier`, `CognitoJwtVerifier`, JWKS com cache) | `src/auth/` | ✅ testado com chaves RSA geradas no teste, sem rede (só access token; ID token rejeitado) |
 | `UserDirectory` (conta Cognito → morador) | `src/auth/user-directory.ts`, `src/adapters/in-memory/user-directory.ts`, `src/adapters/dynamodb/user-directory.ts` | ✅ port, adaptadores em memória e DynamoDB (cliente falso) e contrato (`test/contract/user-directory.ts`) |
 | Envio pela Graph API | `src/whatsapp/graph-sender.ts` | ✅ testado com `HttpFetch` falso (seção 7.5); falta validar contra a API real |
 | Limite de taxa por número | `src/whatsapp/rate-limit.ts`, port `RateCounter`, `adapters/in-memory/rate-counter.ts`, contrato `test/contract/rate-counter.ts` | ✅ em memória e DynamoDB (itens `RATE#`, cliente falso) |
-| Handlers Lambda (`webhook`, `worker`, `api`), eventos, config, composição | `src/lambdas/` | ✅ testados ponta a ponta em memória (seção 3.1) |
+| Handlers Lambda (`webhook`, `worker`, `api`), eventos, config, composição | `src/lambdas/` | ✅ testados ponta a ponta em memória (seção 3.1); implantados no `dev` |
 | Adaptador SQS (`MessageQueue`) e leitura do Secrets Manager | `src/adapters/aws/`, contrato `test/contract/message-queue.ts` | ✅ com clientes mínimos falsos; falta validar contra a AWS real (VALIDACAO-APIS-REAIS.md A8, A9) |
-| Pontos de entrada das Lambdas (embrulham o AWS SDK nos clientes mínimos, inclusive o `DynamoClient`, e passam as retenções de TTL) e build | `src/main/`, `scripts/build.mjs`, `test/main/` | ✅ testados com o SDK real e HTTP falso; falta rodar na AWS (seção 3.1) |
+| Pontos de entrada das Lambdas (embrulham o AWS SDK nos clientes mínimos, inclusive o `DynamoClient`, e passam as retenções de TTL) e build | `src/main/`, `scripts/build.mjs`, `test/main/` | ✅ testados com o SDK real e HTTP falso; rodando no `dev` (seção 3.1) |
 | Repositórios do domínio e ports sobre o DynamoDB | `src/adapters/dynamodb/` (`client.ts`, `house-state-store.ts`, `repositories.ts`, `whatsapp-stores.ts`, `rate-counter.ts`, `pending-action-store.ts`, `user-directory.ts`), `test/support/fake-dynamo-client.ts`, `test/dynamodb/`, `test/contract/repositories.ts` | ✅ passam nos mesmos contratos dos adaptadores em memória, com **cliente falso**; teste diferencial (mesma sequência em memória e DynamoDB dá o mesmo estado); `addMember`/`removeMember` da casa de demonstração falham fechado (seção 4). Falta validar contra o DynamoDB real (D1–D6) |
-| Tabela, fila, segredo, Lambdas e Function URLs do `dev` | `backend/infra/` (Terraform, estado local; passo a passo em `infra/README.md`) | ✅ escrito; o `apply` só com autorização do dono. Conta AWS do `dev`: 580100736070, a mesma do user pool do app (a `api` valida os tokens pelo JWKS público) |
+| Tabela, fila, segredo, Lambdas e Function URLs do `dev` | `backend/infra/` (Terraform, estado local; passo a passo em `infra/README.md`) | ✅ aplicado no `dev` (o `plan`/`apply` seguem só com autorização do dono). Conta AWS do `dev`: 580100736070, a mesma do user pool do app (a `api` valida os tokens pelo JWKS público) |
 | Casa de demonstração e link de vínculo na tabela real | `backend/tools/seed-dev/seed.ts` | ✅ escrito; roda só com autorização |
-| Rotas da `api`: conta e WhatsApp (`POST /v1/me`, `/v1/me/whatsapp/link`, `GET`/`DELETE /v1/me/whatsapp`) e as da seção 6.1 (casa, cômodo, tarefa, ocorrência) | `src/lambdas/api.ts`, `api-router.ts`, `api-input.ts`, `api-routes.ts`, `api-http.ts`; testes em `test/lambdas/api*.ts` | ✅ em memória e DynamoDB (cliente falso, `oversizedWrites: "split"` ligado nos testes); tela no Perfil e `Data/Remote` a fazer (T4) |
+| Rotas da `api`: conta e WhatsApp (`POST /v1/me`, `/v1/me/whatsapp/link`, `GET`/`DELETE /v1/me/whatsapp`) e as da seção 6.1 (casa, cômodo, tarefa, ocorrência) | `src/lambdas/api.ts`, `api-router.ts`, `api-input.ts`, `api-routes.ts`, `api-http.ts`; testes em `test/lambdas/api*.ts` | ✅ em memória e DynamoDB (cliente falso, `oversizedWrites: "split"` ligado nos testes); publicadas no `dev`; o app as consome por `Data/Remote` |
 | Gemini e ferramentas de leitura (`MessageResponder` definitivo) | `src/assistant/` | ✅ testado com cliente e `HttpFetch` falsos (seção 7.4), ligado em `composeWhatsAppWorker`; falta validar contra a API real |
-| Concluir tarefa com confirmação (`complete_task`, `PendingActionStore`, `parseConfirmation`, `resolveTask`) | `src/assistant/complete-task.ts`, `gemini-responder.ts`, port em `src/whatsapp/ports.ts`, `adapters/in-memory/pending-actions.ts`, contrato `test/contract/pending-actions.ts` | ✅ em memória, testado com Gemini falso (seção 7.4); adaptador DynamoDB em `src/adapters/dynamodb/pending-action-store.ts` (cliente falso) |
+| Concluir tarefa com confirmação (`complete_task`, `PendingActionStore`, `parseConfirmation`, `resolveTask`) | `src/assistant/complete-task.ts`, `gemini-responder.ts`, port em `src/whatsapp/ports.ts`, `adapters/in-memory/pending-actions.ts`, contrato `test/contract/pending-actions.ts` | ✅ testado com Gemini falso (seção 7.4); adaptador DynamoDB em `src/adapters/dynamodb/pending-action-store.ts` (cliente falso) |
 | Intervalo de datas ("da semana") em `GetMyTasksUseCase` | `src/domain/use-cases/tasks.ts` | ✅ `range: "week" \| "all"`, fuso da casa, só a semana corrente; extensão só do servidor (ver [ALGORITMO.md](ALGORITMO.md)) |
 
 ### Verificação

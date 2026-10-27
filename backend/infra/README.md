@@ -2,10 +2,10 @@
 
 Um ambiente só (`dev`, `us-east-1`), estado local, conta AWS **580100736070** (a mesma do user pool Cognito `us-east-1_M9GpISkE3`). O provider recusa qualquer outra conta (`allowed_account_ids`). Cria:
 
-- Tabela DynamoDB `grupuxo-dev` (PK/SK, `GSI1`, TTL `ttl`, sob demanda), igual a `src/adapters/dynamodb/table-definition.ts`.
+- Tabela DynamoDB `grupuxo-dev` (PK/SK, `GSI1`, TTL `ttl`, sob demanda, proteção contra exclusão e recuperação pontual), igual a `src/adapters/dynamodb/table-definition.ts`.
 - Fila SQS FIFO `grupuxo-dev-whatsapp.fifo` com a DLQ (o alarme `grupuxo-dev-whatsapp-dlq-not-empty` existe na conta, mas fora do Terraform: o usuário de deploy não lê tags do CloudWatch).
 - Segredo `grupuxo/dev/whatsapp` **sem valor** (o dono grava; o valor nunca entra no estado).
-- Lambdas `grupuxo-dev-webhook`, `-worker` e `-api` (Node 22, arm64), roles de menor privilégio e logs com 14 dias de retenção.
+- Lambdas `grupuxo-dev-webhook` (256 MB), `-worker` (512 MB) e `-api` (1769 MB, uma vCPU inteira; medição em [../../docs/LATENCIA.md](../../docs/LATENCIA.md)) (Node 22, arm64), roles de menor privilégio e logs com 14 dias de retenção.
 - Function URLs públicas para `webhook` e `api`, cada uma com as duas permissões que a AWS exige desde out/2025.
 
 Nada aqui roda sem autorização explícita do dono (CLAUDE.md).
@@ -55,7 +55,7 @@ Console → Secrets Manager → `grupuxo/dev/whatsapp` → *Retrieve secret valu
 
 - `WHATSAPP_TOKEN`: token de acesso da Cloud API (o temporário do *API Setup* vence em 24 h; o de um *System User* do Business Manager não vence).
 - `WHATSAPP_APP_SECRET`: app da Meta → *App settings* → *Basic* → *App secret*.
-- `PHONE_NUMBER_ID`: *WhatsApp* → *API Setup*, abaixo do número de teste.
+- `PHONE_NUMBER_ID`: *WhatsApp* → *API Setup*, abaixo do número (de teste ou o real). Para trocar para o número real: grave o `PHONE_NUMBER_ID` e um `WHATSAPP_TOKEN` de *System User* no segredo, ajuste `bot_phone_number` em `terraform.tfvars` e rode `apply`. Não use `-replace` na Lambda `webhook`: a Function URL nova não estaria cadastrada na Meta.
 - `VERIFY_TOKEN`: qualquer valor aleatório, por exemplo `openssl rand -hex 32`; o mesmo vai no painel da Meta.
 - `GEMINI_API_KEY`: Google AI Studio.
 
