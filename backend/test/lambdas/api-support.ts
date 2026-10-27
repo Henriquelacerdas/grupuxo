@@ -32,12 +32,13 @@ export const ROUTES_NOW: Instant = Date.UTC(2026, 9, 14, 12);
 /** Repositórios em memória sobre um store (para os testes que só precisam do handler montado). */
 export function inMemoryApiDeps(
   store: InMemoryStore, newID = sequentialIDs(), now: () => Instant = () => ROUTES_NOW,
-): Pick<ApiDependencies, "houses" | "rooms" | "tasks" | "swaps" | "notifications" | "now" | "newID"> {
+): Pick<ApiDependencies, "snapshots" | "houses" | "rooms" | "tasks" | "swaps" | "notifications" | "now" | "newID"> {
   const ctx: CommandContext = { now, newID };
   return {
     houses: new InMemoryHouseRepository(store, ctx, sequentialAccessCodes()),
     rooms: new InMemoryRoomRepository(store, ctx),
     tasks: new InMemoryTaskRepository(store, ctx),
+    snapshots: new InMemoryTaskRepository(store, ctx),
     swaps: new InMemoryTaskSwapRepository(store, ctx),
     notifications: new InMemoryNotificationRepository(store),
     now,
@@ -76,7 +77,7 @@ const key = generateKey("kid-routes");
 interface Clock { value: Instant }
 
 function assemble(
-  base: Pick<ApiDependencies, "users" | "houses" | "rooms" | "tasks" | "swaps" | "notifications" | "newID">, clock: Clock, snapshot: () => unknown,
+  base: Pick<ApiDependencies, "users" | "snapshots" | "houses" | "rooms" | "tasks" | "swaps" | "notifications" | "newID">, clock: Clock, snapshot: () => unknown,
 ): ApiEnv {
   const links = new InMemoryWhatsAppLinkStore();
   const handler = createApiHandler({
@@ -122,7 +123,7 @@ export function dynamoApiEnv(): ApiEnv {
     users: new DynamoUserDirectory({ client, newID, now: () => clock.value }),
     houses: new DynamoHouseRepository(store, client, ctx, sequentialAccessCodes()),
     rooms: new DynamoRoomRepository(store, ctx),
-    tasks: new DynamoTaskRepository(store, ctx),
+    tasks: new DynamoTaskRepository(store, ctx), snapshots: new DynamoTaskRepository(store, ctx),
     swaps: new DynamoTaskSwapRepository(store, ctx),
     notifications: new DynamoNotificationRepository(store, client),
     newID,

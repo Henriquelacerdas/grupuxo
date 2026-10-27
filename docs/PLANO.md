@@ -23,6 +23,14 @@ Legenda: **FATO** = verificado no código/execução (arquivo:linha). **HIP** = 
 
 ---
 
+## Fluidez — implementação local em 2026-10-27
+
+- Snapshot agregado da casa, cache de sessão de 5 s e coalescência de consultas; abertura, navegação e detalhes reaproveitam os mesmos dados. Puxar para atualizar e mutações invalidam o cache; logout o substitui.
+- Concluir/desmarcar tem prévia imediata, rollback por ocorrência e reconciliação, mantendo as listas nas recargas. Fechar o detalhe atualiza também o cômodo de origem.
+- Backend com índices locais nas leituras de tarefas e sem baseline de escrita em `read`. Benchmark local: tela Casa de 168,00 ms nas consultas anteriores para 15,16 ms com snapshot; não é medição da Lambda/rede.
+- Validação local concluída: 1.125 testes do backend, 165 do app, 8 do domínio Swift; build iOS e bundles das Lambdas passaram.
+- Código e contrato em [LATENCIA.md](LATENCIA.md) e [BACKEND.md](BACKEND.md) §6.1. Publicação da `api` e validação no aparelho contra o `dev` dependem de autorização própria; nenhuma infraestrutura foi alterada nesta rodada.
+
 ## 1. Veredito
 
 O backend WhatsApp está pronto em código e testado com falsos: domínio, webhook, worker, Gemini, Graph, vínculo por token, limite de taxa e adaptadores DynamoDB (`src/adapters/dynamodb/`). O responder já acha a casa do morador vinculado e lista as tarefas (`assistant/gemini-responder.ts`: `houses(userID)` → `GetMyTasks`). O que separa o teste do TestFlight é:

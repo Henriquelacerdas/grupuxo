@@ -115,7 +115,7 @@ Com uma casa ativa na sessão, o app tem duas abas (`AppTab`: `myTasks`, `house`
 
 ## Casa e conta no servidor
 
-`ContentView` → `LoginView` (Amplify Auth) → `HouseGateView`, que carrega a `RemoteHouseSession`: `POST /v1/me` com o nome (idempotente) e `GET /v1/me` dão o `User.id` do **backend** (o `sub` do Cognito fica mapeado no servidor por `COGNITO#<sub>`; o app não usa o `sub` como id), e `GET /v1/me/house` dá a casa. Sem casa, `OnboardingView` cria (`POST /v1/houses`) ou entra por código (`POST /v1/houses/join`); sair é `DELETE /v1/me/house`. Depois, `RootView` monta o `AppContainer` com os repositórios remotos. Contrato completo em [BACKEND.md](BACKEND.md) §6.1.
+`ContentView` → `LoginView` (Amplify Auth) → `HouseGateView`, que carrega a `RemoteHouseSession`: `POST /v1/me` com o nome (idempotente) e `GET /v1/me` dão o `User.id` do **backend** (o `sub` do Cognito fica mapeado no servidor por `COGNITO#<sub>`; o app não usa o `sub` como id), e `GET /v1/me/house` dá a casa. Sem casa, `OnboardingView` cria (`POST /v1/houses`) ou entra por código (`POST /v1/houses/join`); sair é `DELETE /v1/me/house`. Na abertura, `GET /v1/me/house/snapshot` resolve identidade, casa e dados das telas numa resposta; `RemoteHouseSession.dataCache` é repassado ao `RootModel`/`AppContainer`. Se o servidor ainda não tiver a rota, o app usa `GET /me` e `GET /me/house`. Depois, `RootView` monta o `AppContainer` com os repositórios remotos. Contrato completo em [BACKEND.md](BACKEND.md) §6.1.
 
 - Toda requisição leva o **access token** do Cognito (`AmplifyAccessTokenProvider`); 401 desloga. O servidor tira o morador do token, nunca do corpo, e usa o próprio relógio (`requestedBy`/`at` dos casos de uso são ignorados pelos repositórios remotos).
 - Rota que não existe na `api` lança `APIError.unsupported`; as telas que dependem dela ficam escondidas (edição de tarefa, excluir avulsa, renomear/excluir cômodo, morador sem conta).
@@ -187,7 +187,10 @@ Conclusão e atribuição são idempotentes: repetir não duplica esforço, resp
 
 - ViewModels: `@MainActor`, recebem casos de uso pelo init, controlam carregamento, conteúdo, vazio e erro.
 - Views renderizam estado e encaminham ações; sem cálculo de distribuição e sem acesso a repositórios.
-- Após mutações, recarregar as consultas afetadas (e também ao voltar à tela).
+- As consultas dos repositórios remotos de casa, cômodos e tarefas compartilham `MyHouseCache` por sessão. Snapshot com TTL de 5 s, coalescência de buscas concorrentes, geração para descartar respostas invalidadas e fallback para rotas antigas só em `404 not_found`. Trocar de aba não altera o identificador da tarefa da aba invisível. Puxar para atualizar invalida o cache por uma closure assíncrona injetada nos ViewModels.
+- Conclusão/desmarcação em Minhas tarefas, cômodo e avulsas usa `OptimisticTaskCompletions`, só da apresentação: prévia imediata, IDs pendentes por ocorrência e rollback por linha. Outras linhas continuam disponíveis. A última escrita dispara a reconciliação; o identificador da carga e a revisão de ações impedem respostas antigas de sobrescrever a UI. Nenhuma regra de agendamento ou saldo é executada na prévia.
+- O detalhe da tarefa também apresenta a conclusão imediatamente, com revisão de ações para rejeitar cargas antigas; fechar a sheet atualiza o cômodo de origem.
+- Recargas preservam conteúdo existente em cômodos, casa, avulsas e detalhe; erros de recarga nessas telas aparecem em alerta. Em Minhas tarefas, recargas em segundo plano mantêm a lista, e atualização explícita mantém o comportamento de erro existente.
 - A tela que sai cancela o `.task`; o `APIClient` entrega isso como `CancellationError` (não como falta de rede) e o `load()` dos ViewModels ignora, mantendo o estado anterior. Latência das telas e propostas: [LATENCIA.md](LATENCIA.md).
 - `AppContainer` cria e injeta solucionador, motor, calculadores, calendário, serviços, repositórios e ViewModels. `AppSession` guarda usuário e casa atuais; o contexto é passado explicitamente aos casos de uso.
 - Isolamento padrão `nonisolated` (Domain/Data não pertencem à UI). `@MainActor` explícito em ViewModels, sessão, roteador e composição. O processamento síncrono pesado roda no actor do store: sem `Task.detached`, sem actor matemático, sem `@unchecked Sendable`.
@@ -206,3 +209,7 @@ Conclusão e atribuição são idempotentes: repetir não duplica esforço, resp
 - Testar o Húngaro isoladamente, com matrizes de resposta conhecida.
 - Mudou o algoritmo? Altere o Swift (referência) e o TypeScript, regenere as fixtures e rode as duas suítes (ver `CLAUDE.md`).
 - Alterou contrato compartilhado? Atualize estes documentos.
+
+## Validação de latência
+
+`backend/tools/performance/read-latency.ts` mede consultas com cerca de 2.500 itens usando apenas o cliente falso. A rota agregada é implementada pelo port `HouseSnapshotRepository` (`domain/commands/house-snapshot.ts`), nos repositórios de tarefas em memória e DynamoDB. A composição fica no domínio e reutiliza as políticas de acesso das consultas individuais; o handler só resolve a casa e serializa os DTOs. `taskItems` monta índices locais de usuários e atribuições uma vez por consulta. Ver medições, testes e limites em [LATENCIA.md](LATENCIA.md).

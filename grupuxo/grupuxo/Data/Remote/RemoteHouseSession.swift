@@ -4,8 +4,9 @@ import GrupuxoDomain
 
 /// Estado da casa do morador logado, vindo da `api` (substitui o `HouseService` do Amplify Data).
 ///
-/// Fluxo: `GET /v1/me` (quem sou eu; 403 = conta ainda não registrada) → `GET /v1/me/house` (404 `no_house` = sem
-/// casa, cai no onboarding). Criar e entrar registram a conta antes (`POST /v1/me`) com o nome digitado no onboarding.
+/// A composição do app abre por `GET /v1/me/house/snapshot`: identidade e dados das telas numa resposta.
+/// Servidor anterior: `GET /v1/me` → `GET /v1/me/house`. Sem conta/casa, mostra onboarding.
+/// Criar e entrar registram a conta antes (`POST /v1/me`) com o nome digitado no onboarding.
 @MainActor
 final class RemoteHouseSession: ObservableObject {
 
@@ -42,6 +43,8 @@ final class RemoteHouseSession: ObservableObject {
     /// `nil` quando o build não tem endereço de servidor (`GRUPUXO_API_BASE_URL`): o app mostra o erro em vez de tentar.
     let api: APIClient?
     private let configurationError: String?
+    private let prefersSnapshot: Bool
+    private(set) var dataCache: MyHouseCache?
 
     /// Incrementa em `reset()` e a cada `load()`: um carregamento que acorda depois de uma troca de usuário percebe e se descarta.
     private var generation = 0
@@ -52,9 +55,11 @@ final class RemoteHouseSession: ObservableObject {
     var inviteCode: String? { home?.house.accessCode }
     var currentUserId: UUID? { me?.id }
 
-    init(api: APIClient?, configurationError: String? = nil) {
+    init(api: APIClient?, configurationError: String? = nil, prefersSnapshot: Bool = false) {
         self.api = api
         self.configurationError = configurationError
+        self.prefersSnapshot = prefersSnapshot
+        self.dataCache = api.map { MyHouseCache(api: $0, prefersSnapshot: prefersSnapshot) }
     }
 
     // MARK: - Carregamento
@@ -63,17 +68,24 @@ final class RemoteHouseSession: ObservableObject {
         guard !isLoading else { return }
         generation += 1
         let current = generation
+        var cancelled = false
         isLoading = true
         errorMessage = nil
         loadError = nil
         defer {
-            if current == generation { isLoading = false; hasLoaded = true }
+            if current == generation { isLoading = false; hasLoaded = !cancelled }
         }
         guard let api else {
             loadError = .failed(configurationError ?? APIConfiguration.ConfigurationError.missing.localizedDescription)
             return
         }
         do {
+            if prefersSnapshot, let snapshot = try await dataCache?.snapshot() {
+                guard current == generation else { return }
+                me = User(id: snapshot.userID, name: "", email: nil)
+                apply(snapshot.home)
+                return
+            }
             let account = try await Self.fetchAccount(api)
             guard current == generation else { return }
             me = account
@@ -84,6 +96,12 @@ final class RemoteHouseSession: ObservableObject {
             let fetched = try await Self.fetchHome(api)
             guard current == generation else { return }
             apply(fetched)
+        } catch let error as APIError where error.code == "no_house" || error.code == "account_not_registered" {
+            guard current == generation else { return }
+            home = nil
+            me = nil
+        } catch is CancellationError {
+            cancelled = true
         } catch {
             guard current == generation else { return }
             loadError = Self.classify(error)
@@ -92,11 +110,20 @@ final class RemoteHouseSession: ObservableObject {
 
     func refresh() async {
         guard let api else { return }
+        let current = generation
+        let cache = dataCache
         do {
-            apply(try await Self.fetchHome(api))
+            await cache?.invalidate()
+            let fetched: MyHouseDTO?
+            if let cache { fetched = try await cache.myHouse() }
+            else { fetched = try await Self.fetchHome(api) }
+            guard current == generation else { return }
+            apply(fetched)
         } catch is CancellationError {
+        } catch let error as APIError where error.code == "no_house" {
+            if current == generation { home = nil }
         } catch {
-            errorMessage = Self.message(for: error)
+            if current == generation { errorMessage = Self.message(for: error) }
         }
     }
 
@@ -155,6 +182,7 @@ final class RemoteHouseSession: ObservableObject {
         leaveNeedsConfirmation = false
         leaveNeedsHouseDeletionConfirmation = false
         hasLoaded = false
+        dataCache = api.map { MyHouseCache(api: $0, prefersSnapshot: prefersSnapshot) }
     }
 
     // MARK: - Privado
@@ -187,6 +215,7 @@ final class RemoteHouseSession: ObservableObject {
         defer { isLoading = false }
         do {
             try await work(api)
+            await dataCache?.invalidate()
         } catch {
             errorMessage = Self.message(for: error)
             if case .sessionExpired = Self.classify(error) { loadError = .sessionExpired }

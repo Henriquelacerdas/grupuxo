@@ -1,3 +1,5 @@
+import { houseSnapshot } from "../src/domain/commands/house-snapshot.ts";
+import { houseSnapshotDTO } from "../src/lambdas/api-dto.ts";
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
@@ -84,4 +86,9 @@ test("contrato: pedido de troca e notificação", () => {
   const [notification] = notificationsFor(state, request.receiverID);
   assert.ok(notification !== undefined);
   check("notification", notificationDTO(notification));
+});
+
+test("contrato: snapshot da casa", () => {
+  const { seed, ctx, state } = world();
+  check("house-snapshot", houseSnapshotDTO(houseSnapshot(ctx, state, seed.house.id, seed.users.marina.id, NOW)));
 });

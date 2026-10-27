@@ -31,6 +31,8 @@ final class TaskDetailViewModel: ObservableObject {
     private let taskDefinitionID: TaskDefinition.ID
     private let userID: User.ID
     private let text: HouseOverviewText
+    private var revision = 0
+    private var loadID: UUID?
 
     init(
         getTaskOverview: GetTaskOverviewUseCase,
@@ -103,6 +105,7 @@ final class TaskDetailViewModel: ObservableObject {
 
         !isPerformingAction
             && current?.assignment?.userID == userID
+            && current?.occurrence.isCompleted == false
 
     }
 
@@ -117,8 +120,10 @@ final class TaskDetailViewModel: ObservableObject {
 
     func load() async {
 
-        state = .loading
-
+        if case .content = state {} else { state = .loading }
+        let id = UUID()
+        loadID = id
+        let currentRevision = revision
         do {
 
             let overview = try await getTaskOverview(
@@ -126,21 +131,29 @@ final class TaskDetailViewModel: ObservableObject {
                 requesting: userID
             )
 
+            try Task.checkCancellation()
+            guard loadID == id, revision == currentRevision else { return }
             upcoming = overview.upcoming
             current = overview.current
             lastCompleted = overview.lastCompleted
             state = .content(overview.definition)
 
             // O cômodo é secundário: sem ele a tela mostra o resto.
-            participation = try? await getParticipation(
+            let participation = try? await getParticipation(
                 roomID: overview.definition.roomID,
                 userID: userID
             )
+            guard loadID == id, revision == currentRevision else { return }
+            self.participation = participation
 
         } catch is CancellationError {
             // A tela saiu antes da resposta.
         } catch {
-
+            guard loadID == id, revision == currentRevision else { return }
+            if case .content = state {
+                actionError = error.localizedDescription
+                return
+            }
             state = .failure(
                 error.localizedDescription
             )
@@ -151,10 +164,15 @@ final class TaskDetailViewModel: ObservableObject {
 
     func complete() async {
 
-        guard canComplete, let occurrenceID = current?.occurrence.id else {
+        guard canComplete, let previous = current else {
             return
         }
 
+        revision += 1
+        let occurrenceID = previous.id
+        var preview = OptimisticTaskCompletions()
+        preview.begin(previous, by: userID)
+        current = preview.applying(to: previous)
         isPerformingAction = true
 
         defer {
@@ -168,12 +186,13 @@ final class TaskDetailViewModel: ObservableObject {
                 userID: userID
             )
 
+            revision += 1
             actionError = nil
-
             await load()
 
         } catch {
-
+            revision += 1
+            current = previous
             actionError =
                 error.localizedDescription
 

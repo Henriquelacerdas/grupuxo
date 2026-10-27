@@ -7,6 +7,7 @@ final class AppContainer {
     /// Estado em memória do container de testes e pré-visualizações; no container da `api` fica vazio e sem uso.
     let store: MockStore
     private let calendar: Calendar
+    private let invalidateReads: @Sendable () async -> Void
 
     let houseRepository: any HouseRepository
     let roomRepository: any RoomRepository
@@ -26,8 +27,10 @@ final class AppContainer {
         roomAccessRequestRepository: any RoomAccessRequestRepository,
         taskSwapRepository: any TaskSwapRepository,
         notificationRepository: any NotificationRepository,
-        whatsAppConnectionRepository: any WhatsAppConnectionRepository
+        whatsAppConnectionRepository: any WhatsAppConnectionRepository,
+        invalidateReads: @escaping @Sendable () async -> Void = {}
     ) {
+        self.invalidateReads = invalidateReads
         self.store = store
         self.calendar = calendar
         self.houseRepository = houseRepository
@@ -40,9 +43,9 @@ final class AppContainer {
     }
 
     /// Container sobre a `api` do servidor: casa, cômodos, tarefas, trocas, notificações e WhatsApp são reais.
-    convenience init(api: APIClient, calendar: Calendar = Calendar(identifier: .gregorian)) {
+    convenience init(api: APIClient, myHouse: MyHouseCache? = nil, calendar: Calendar = Calendar(identifier: .gregorian)) {
         // Um só `GET /v1/me/house` para casa, moradores e cômodos.
-        let myHouse = MyHouseCache(api: api)
+        let myHouse = myHouse ?? MyHouseCache(api: api, prefersSnapshot: true)
         self.init(
             store: MockStore(state: MockSeed.empty()),
             calendar: calendar,
@@ -50,9 +53,10 @@ final class AppContainer {
             roomRepository: RemoteRoomRepository(api: api, myHouse: myHouse),
             taskRepository: RemoteTaskRepository(api: api, myHouse: myHouse),
             roomAccessRequestRepository: RemoteRoomAccessRequestRepository(),
-            taskSwapRepository: RemoteTaskSwapRepository(api: api),
+            taskSwapRepository: RemoteTaskSwapRepository(api: api, myHouse: myHouse),
             notificationRepository: RemoteNotificationRepository(api: api),
-            whatsAppConnectionRepository: RemoteWhatsAppConnectionRepository(api: api)
+            whatsAppConnectionRepository: RemoteWhatsAppConnectionRepository(api: api),
+            invalidateReads: { await myHouse.invalidate() }
         )
     }
 
@@ -118,6 +122,7 @@ final class AppContainer {
         session: AppSession
     ) -> MyTasksViewModel {
         MyTasksViewModel(
+            refreshData: invalidateReads,
             getMyTasksOverview: GetMyTasksOverviewUseCase(
                 roomRepository: roomRepository,
                 taskRepository: taskRepository
@@ -139,6 +144,7 @@ final class AppContainer {
         session: AppSession
     ) -> HouseManagementViewModel {
         HouseManagementViewModel(
+            refreshData: invalidateReads,
             getHouseOverview: GetHouseOverviewUseCase(
                 roomRepository: roomRepository,
                 taskRepository: taskRepository,
@@ -162,6 +168,7 @@ final class AppContainer {
         session: AppSession
     ) -> RoomDetailViewModel {
         RoomDetailViewModel(
+            refreshData: invalidateReads,
             getParticipation: GetRoomParticipationUseCase(
                 repository: roomRepository
             ),
@@ -196,6 +203,7 @@ final class AppContainer {
     ) -> SporadicTasksViewModel {
 
         SporadicTasksViewModel(
+            refreshData: invalidateReads,
             getTasks:
                 GetSporadicTasksUseCase(
                     repository: taskRepository

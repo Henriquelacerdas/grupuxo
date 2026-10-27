@@ -8,6 +8,8 @@ struct RootView: View {
     @StateObject private var model: RootModel
 
     @State private var selectedTab: AppTab = .myTasks
+    @State private var tasksActivations = 0
+    @State private var houseActivations = 0
 
     @State private var tasksPath: [AppRoute] = []
 
@@ -19,12 +21,13 @@ struct RootView: View {
     /// Atualiza as listas quando a sheet de detalhes é fechada.
     @State private var taskChanges = 0
 
-    init(api: APIClient, user: User, house: House) {
+    init(api: APIClient, user: User, house: House, myHouse: MyHouseCache? = nil) {
         _model = StateObject(
             wrappedValue: RootModel(
                 api: api,
                 user: user,
-                house: house
+                house: house,
+                myHouse: myHouse
             )
         )
     }
@@ -85,7 +88,7 @@ struct RootView: View {
                     },
 
                     reloadTrigger: ReloadKey(
-                        tab: selectedTab,
+                        activation: tasksActivations,
                         taskChanges: taskChanges
                     )
                 )
@@ -133,7 +136,8 @@ struct RootView: View {
 
                     onSelectSporadicTasks: {
                         housePath.append(.sporadicTasks)
-                    }
+                    },
+                    reloadTrigger: ReloadKey(activation: houseActivations, taskChanges: taskChanges)
                 )
                 .navigationDestination(for: AppRoute.self) { route in
                     destination(for: route)
@@ -146,6 +150,11 @@ struct RootView: View {
                 )
             }
             .tag(AppTab.house)
+        }
+        .onChange(of: selectedTab) { _, tab in
+            // Só a aba que voltou a ficar ativa recebe uma nova chave de atualização.
+            if tab == .myTasks { tasksActivations += 1 }
+            else { houseActivations += 1 }
         }
         .sheet(
             item: $presentedTask,
@@ -205,7 +214,8 @@ struct RootView: View {
                     presentedTask = PresentedTask(
                         id: taskDefinitionID
                     )
-                }
+                },
+                reloadTrigger: taskChanges
             )
 
 
@@ -282,6 +292,6 @@ private struct PresentedTask: Identifiable {
 
 /// Identifica mudanças que exigem recarregar a lista de tarefas.
 private struct ReloadKey: Hashable {
-    let tab: AppTab
+    let activation: Int
     let taskChanges: Int
 }

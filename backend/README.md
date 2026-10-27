@@ -23,3 +23,7 @@ npm run test:fixtures  # só as comparações com o Swift
 - `infra/` Terraform do ambiente `dev` (passo a passo em [infra/README.md](infra/README.md)); `tools/seed-dev/` casa de demonstração e link de vínculo (só com autorização).
 - `tools/validate/` scripts descartáveis de validação contra a Graph API e o Gemini reais (não rodam no `npm test`; exigem autorização por item, ver o README da pasta).
 - `test/fixtures/` casos dourados gerados do Swift; para regenerar: `tools/swift-fixtures/regenerate.sh` (precisa do toolchain Swift).
+
+## Benchmark local de leitura
+
+`npm run benchmark:reads` mede 15 amostras de tarefas do morador, consultas individuais da tela Casa e snapshot agregado com 2.513 itens no cliente falso. Não acessa AWS nem exige credenciais. Instruções e limites em [tools/performance/README.md](tools/performance/README.md); resultados da auditoria em [../docs/LATENCIA.md](../docs/LATENCIA.md). A nova rota `GET /v1/me/house/snapshot` ainda precisa ser publicada na `api` para beneficiar o ambiente em uso.

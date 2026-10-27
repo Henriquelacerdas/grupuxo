@@ -5,7 +5,10 @@ import GrupuxoDomain
 @MainActor
 final class RoomDetailViewModel: ObservableObject {
     @Published var actionError: String?
-    @Published private(set) var isCompleting = false
+    @Published private var completions = OptimisticTaskCompletions()
+    var isCompleting: Bool { completions.isCompleting || isClaiming }
+    @Published private var isClaiming = false
+    private var loadID: UUID?
     @Published private(set) var state: RoomDetailState = .idle
     @Published private(set) var suggestions: [TaskSuggestion] = []
     @Published private(set) var sporadicTasks: [TaskItem] = []
@@ -31,7 +34,10 @@ final class RoomDetailViewModel: ObservableObject {
     /// Quantas sugestões aparecem de uma vez; "Outras sugestões" avança para o próximo grupo.
     static let suggestionPageSize = 3
 
+    private let refreshData: @Sendable () async -> Void
+
     init(
+        refreshData: @escaping @Sendable () async -> Void = {},
         getParticipation: GetRoomParticipationUseCase,
         addMember: AddRoomMemberUseCase,
         removeMember: RemoveRoomMemberUseCase,
@@ -45,6 +51,7 @@ final class RoomDetailViewModel: ObservableObject {
         userID: User.ID,
         calendar: Calendar
     ) {
+        self.refreshData = refreshData
         self.getParticipation = getParticipation
         self.addMember = addMember
         self.removeMember = removeMember
@@ -143,24 +150,32 @@ final class RoomDetailViewModel: ObservableObject {
     func claim(_ occurrenceID: TaskOccurrence.ID) async {
         guard let item = sporadicTasks.first(where: { $0.id == occurrenceID }),
               canClaim(item) else { return }
-        isCompleting = true
-        defer { isCompleting = false }
+        isClaiming = true
+        defer { isClaiming = false }
         do {
             try await claimTask(occurrenceID: occurrenceID, userID: userID)
             await load()
         } catch { actionError = error.localizedDescription }
     }
 
-    func load() async {
-        state = .loading
+    func load(forceRefresh: Bool = false) async {
+        if forceRefresh { await refreshData() }
+        if case .content = state {} else if case .empty = state {} else { state = .loading }
+        let id = UUID()
+        loadID = id
+        let revision = completions.revision
         do {
             let participation = try await getParticipation(roomID: roomID, userID: userID)
-            self.participation = participation
-            let tasks = try await getRoomTasks(roomID: roomID, userID: userID)
-            let uniqueTasks = try await getSporadicTasks(
+            async let pendingTasks = getRoomTasks(roomID: roomID, userID: userID)
+            async let pendingUniqueTasks = getSporadicTasks(
                 houseID: participation.room.houseID,
                 userID: userID
             )
+            let (tasks, uniqueTasks) = try await (pendingTasks, pendingUniqueTasks)
+            try Task.checkCancellation()
+            guard loadID == id, completions.revision == revision else { return }
+            completions.acceptReload()
+            self.participation = participation
             sporadicTasks = uniqueTasks.filter { $0.definition.roomID == roomID }
             let usedSuggestionIDs = Set(tasks.compactMap(\.definition.sourceSuggestionID))
             suggestions = participation.isMember
@@ -168,11 +183,14 @@ final class RoomDetailViewModel: ObservableObject {
                     !usedSuggestionIDs.contains($0.id)
                 }
                 : []
-            let content = RoomDetailContent(room: participation.room, tasks: tasks)
+            let content = RoomDetailContent(room: participation.room, tasks: tasks.map { completions.applying(to: $0) })
             state = tasks.isEmpty ? .empty(content.room) : .content(content)
         } catch is CancellationError {
             // A tela saiu antes da resposta.
         } catch {
+            guard loadID == id, completions.revision == revision else { return }
+            if case .content = state { actionError = error.localizedDescription; return }
+            if case .empty = state { actionError = error.localizedDescription; return }
             suggestions = []
             sporadicTasks = []
             state = .failure(error.localizedDescription)
@@ -212,21 +230,30 @@ final class RoomDetailViewModel: ObservableObject {
     }
 
     func canComplete(_ item: TaskItem) -> Bool {
-        !isCompleting
+        !isClaiming && !completions.pendingIDs.contains(item.id)
             && item.assignment?.userID == userID && item.occurrence.availableAt <= .now
     }
 
     func complete(_ occurrenceID: TaskOccurrence.ID) async {
-        guard !isCompleting else { return }
         guard case let .content(content) = state,
               let item = content.tasks.first(where: { $0.id == occurrenceID }),
               canComplete(item) else { return }
-        isCompleting = true
-        defer { isCompleting = false }
+        completions.begin(item, by: userID)
+        presentCompletions()
         do {
             try await completeTask(occurrenceID: occurrenceID, userID: userID, isCompleted: !item.occurrence.isCompleted)
-            await load()
-        } catch { actionError = error.localizedDescription }
+            completions.finish(occurrenceID)
+        } catch {
+            completions.finish(occurrenceID, restoring: item)
+            presentCompletions()
+            actionError = error.localizedDescription
+        }
+        if !completions.isCompleting { await load() }
+    }
+
+    private func presentCompletions() {
+        guard case let .content(content) = state else { return }
+        state = .content(RoomDetailContent(room: content.room, tasks: content.tasks.map { completions.applying(to: $0) }))
     }
 
     /// Encerra a tarefa: o histórico fica e a ocorrência da vez continua até ser concluída.

@@ -149,7 +149,7 @@ struct SporadicTasksView: View {
         }
         .refreshable {
 
-            await viewModel.load()
+            await viewModel.load(forceRefresh: true)
         }
         .alert(
             "Não foi possível realizar a ação",

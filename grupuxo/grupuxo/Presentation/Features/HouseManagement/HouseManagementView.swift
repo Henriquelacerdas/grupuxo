@@ -18,6 +18,7 @@ struct HouseManagementView: View {
 
     let onSelectRoom: (Room.ID) -> Void
     let onSelectSporadicTasks: () -> Void
+    private let reloadTrigger: AnyHashable
 
     /// Mantidos por compatibilidade com os destinos adicionados na branch remota.
     let onReorderRooms: (() -> Void)?
@@ -31,10 +32,12 @@ struct HouseManagementView: View {
         onSelectRoom: @escaping (Room.ID) -> Void,
         onSelectSporadicTasks: @escaping () -> Void,
         onReorderRooms: (() -> Void)? = nil,
-        onOpenHouseSettings: (() -> Void)? = nil
+        onOpenHouseSettings: (() -> Void)? = nil,
+        reloadTrigger: AnyHashable = 0
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
 
+        self.reloadTrigger = reloadTrigger
         self.houseName = houseName
         self.makeTaskEditorViewModel = makeTaskEditorViewModel
         self.makeRoomEditorViewModel = makeRoomEditorViewModel
@@ -183,11 +186,11 @@ struct HouseManagementView: View {
         } message: { message in
             Text(message)
         }
-        .task {
+        .task(id: reloadTrigger) {
             await viewModel.load()
         }
         .refreshable {
-            await viewModel.load()
+            await viewModel.load(forceRefresh: true)
         }
     }
 

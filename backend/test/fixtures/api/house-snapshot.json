@@ -1,0 +1,1484 @@
+{
+  "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+  "home": {
+    "house": {
+      "id": "ffffffff-ffff-4fff-8fff-000000000005",
+      "name": "Nossa casa",
+      "accessCode": "GRUPUXO",
+      "timezone": "America/Sao_Paulo",
+      "createdAt": "2026-10-14T12:00:00.000Z"
+    },
+    "members": [
+      {
+        "id": "ffffffff-ffff-4fff-8fff-000000000003",
+        "name": "Bia"
+      },
+      {
+        "id": "ffffffff-ffff-4fff-8fff-000000000002",
+        "name": "Leo"
+      },
+      {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      {
+        "id": "ffffffff-ffff-4fff-8fff-000000000004",
+        "name": "Rafa"
+      }
+    ],
+    "rooms": [
+      {
+        "id": "ffffffff-ffff-4fff-8fff-000000000006",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Casa toda",
+        "kind": "wholeHouse",
+        "category": "other",
+        "visibility": "common",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "house.fill",
+        "color": "blue"
+      },
+      {
+        "id": "ffffffff-ffff-4fff-8fff-000000000007",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Cozinha",
+        "kind": "standard",
+        "category": "kitchen",
+        "visibility": "common",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "refrigerator.fill",
+        "color": "orange"
+      },
+      {
+        "id": "ffffffff-ffff-4fff-8fff-000000000008",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Banheiro",
+        "kind": "standard",
+        "category": "bathroom",
+        "visibility": "common",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "shower.fill",
+        "color": "purple"
+      },
+      {
+        "id": "ffffffff-ffff-4fff-8fff-000000000009",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Sala",
+        "kind": "standard",
+        "category": "livingRoom",
+        "visibility": "common",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "sofa.fill",
+        "color": "green"
+      },
+      {
+        "id": "ffffffff-ffff-4fff-8fff-00000000000a",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Lavanderia",
+        "kind": "standard",
+        "category": "laundry",
+        "visibility": "common",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "washer.fill",
+        "color": "pink"
+      },
+      {
+        "id": "ffffffff-ffff-4fff-8fff-00000000000b",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Escritório privado",
+        "kind": "standard",
+        "category": "office",
+        "visibility": "privateRoom",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "display",
+        "color": "brown"
+      }
+    ]
+  },
+  "participations": [
+    {
+      "room": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000006",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Casa toda",
+        "kind": "wholeHouse",
+        "category": "other",
+        "visibility": "common",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "house.fill",
+        "color": "blue"
+      },
+      "isMember": true,
+      "memberCount": 4,
+      "responsibleNames": [
+        "Rafa"
+      ],
+      "periodStart": "2026-10-12T03:00:00.000Z",
+      "periodEnd": "2026-10-19T03:00:00.000Z"
+    },
+    {
+      "room": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000007",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Cozinha",
+        "kind": "standard",
+        "category": "kitchen",
+        "visibility": "common",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "refrigerator.fill",
+        "color": "orange"
+      },
+      "isMember": true,
+      "memberCount": 4,
+      "responsibleNames": [
+        "Bia"
+      ],
+      "periodStart": "2026-10-12T03:00:00.000Z",
+      "periodEnd": "2026-10-19T03:00:00.000Z"
+    },
+    {
+      "room": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000008",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Banheiro",
+        "kind": "standard",
+        "category": "bathroom",
+        "visibility": "common",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "shower.fill",
+        "color": "purple"
+      },
+      "isMember": true,
+      "memberCount": 4,
+      "responsibleNames": [
+        "Leo"
+      ],
+      "periodStart": "2026-10-12T03:00:00.000Z",
+      "periodEnd": "2026-10-19T03:00:00.000Z"
+    },
+    {
+      "room": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000009",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Sala",
+        "kind": "standard",
+        "category": "livingRoom",
+        "visibility": "common",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "sofa.fill",
+        "color": "green"
+      },
+      "isMember": true,
+      "memberCount": 4,
+      "responsibleNames": [
+        "Marina"
+      ],
+      "periodStart": "2026-10-12T03:00:00.000Z",
+      "periodEnd": "2026-10-19T03:00:00.000Z"
+    },
+    {
+      "room": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000000a",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Lavanderia",
+        "kind": "standard",
+        "category": "laundry",
+        "visibility": "common",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "washer.fill",
+        "color": "pink"
+      },
+      "isMember": true,
+      "memberCount": 4,
+      "responsibleNames": [
+        "Marina"
+      ],
+      "periodStart": "2026-10-12T03:00:00.000Z",
+      "periodEnd": "2026-10-19T03:00:00.000Z"
+    },
+    {
+      "room": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000000b",
+        "houseID": "ffffffff-ffff-4fff-8fff-000000000005",
+        "name": "Escritório privado",
+        "kind": "standard",
+        "category": "office",
+        "visibility": "privateRoom",
+        "periodicity": {
+          "executionsPerPeriod": 1,
+          "intervalWeeks": 1
+        },
+        "responsibleCount": 1,
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "icon": "display",
+        "color": "brown"
+      },
+      "isMember": true,
+      "memberCount": 2,
+      "responsibleNames": [
+        "Bia"
+      ],
+      "periodStart": "2026-10-12T03:00:00.000Z",
+      "periodEnd": "2026-10-19T03:00:00.000Z"
+    }
+  ],
+  "roomTasks": [
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000027",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000006",
+        "name": "Tirar o lixo",
+        "details": "Separar recicláveis",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000005d",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000027",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000005e",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000027",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000006",
+        "name": "Tirar o lixo",
+        "details": "Separar recicláveis",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000005f",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000027",
+        "availableAt": "2026-10-19T03:00:00.000Z",
+        "dueAt": "2026-10-26T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000065",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000003",
+        "assignedAt": "2026-10-19T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000003",
+        "name": "Bia"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000027",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000006",
+        "name": "Tirar o lixo",
+        "details": "Separar recicláveis",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000061",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000027",
+        "availableAt": "2026-10-26T03:00:00.000Z",
+        "dueAt": "2026-11-02T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000006f",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000002",
+        "assignedAt": "2026-10-26T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000002",
+        "name": "Leo"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000027",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000006",
+        "name": "Tirar o lixo",
+        "details": "Separar recicláveis",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000067",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000027",
+        "availableAt": "2026-11-09T03:00:00.000Z",
+        "dueAt": "2026-11-16T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000070",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000004",
+        "assignedAt": "2026-11-09T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000004",
+        "name": "Rafa"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000022",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000007",
+        "name": "Lavar a louça",
+        "details": "Limpar pia e escorredor",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000002f",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000022",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000030",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000022",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000007",
+        "name": "Lavar a louça",
+        "details": "Limpar pia e escorredor",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000033",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000022",
+        "availableAt": "2026-10-26T03:00:00.000Z",
+        "dueAt": "2026-11-02T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000071",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000004",
+        "assignedAt": "2026-10-26T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000004",
+        "name": "Rafa"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000022",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000007",
+        "name": "Lavar a louça",
+        "details": "Limpar pia e escorredor",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000035",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000022",
+        "availableAt": "2026-11-02T03:00:00.000Z",
+        "dueAt": "2026-11-09T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000072",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000002",
+        "assignedAt": "2026-11-02T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000002",
+        "name": "Leo"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000023",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000007",
+        "name": "Limpar bancada",
+        "details": "Passar pano e retirar migalhas",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "none"
+        },
+        "assignmentPolicy": "afterCompletion",
+        "calendarAnchor": null,
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000037",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000023",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": null,
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000038",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000004",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000004",
+        "name": "Rafa"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000022",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000007",
+        "name": "Lavar a louça",
+        "details": "Limpar pia e escorredor",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000043",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000022",
+        "availableAt": "2026-11-09T03:00:00.000Z",
+        "dueAt": "2026-11-16T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000073",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000003",
+        "assignedAt": "2026-11-09T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000003",
+        "name": "Bia"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000024",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000008",
+        "name": "Higienizar o banheiro",
+        "details": "Vaso, pia e espelho",
+        "effort": 3,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000039",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000024",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 3
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000003a",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000024",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000008",
+        "name": "Higienizar o banheiro",
+        "details": "Vaso, pia e espelho",
+        "effort": 3,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000003b",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000024",
+        "availableAt": "2026-10-19T03:00:00.000Z",
+        "dueAt": "2026-10-26T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 3
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000055",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000004",
+        "assignedAt": "2026-10-19T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000004",
+        "name": "Rafa"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000024",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000008",
+        "name": "Higienizar o banheiro",
+        "details": "Vaso, pia e espelho",
+        "effort": 3,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000003f",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000024",
+        "availableAt": "2026-11-02T03:00:00.000Z",
+        "dueAt": "2026-11-09T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 3
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000074",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000003",
+        "assignedAt": "2026-11-02T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000003",
+        "name": "Bia"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000025",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000008",
+        "name": "Repor papel higiênico",
+        "details": "Conferir o armário",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000045",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000025",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000046",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000025",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000008",
+        "name": "Repor papel higiênico",
+        "details": "Conferir o armário",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000047",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000025",
+        "availableAt": "2026-10-19T03:00:00.000Z",
+        "dueAt": "2026-10-26T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000059",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000004",
+        "assignedAt": "2026-10-19T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000004",
+        "name": "Rafa"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000025",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000008",
+        "name": "Repor papel higiênico",
+        "details": "Conferir o armário",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000004b",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000025",
+        "availableAt": "2026-11-02T03:00:00.000Z",
+        "dueAt": "2026-11-09T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000076",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000003",
+        "assignedAt": "2026-11-02T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000003",
+        "name": "Bia"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000024",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000008",
+        "name": "Higienizar o banheiro",
+        "details": "Vaso, pia e espelho",
+        "effort": 3,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000057",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000024",
+        "availableAt": "2026-11-09T03:00:00.000Z",
+        "dueAt": "2026-11-16T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 3
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000075",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000002",
+        "assignedAt": "2026-11-09T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000002",
+        "name": "Leo"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000025",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000008",
+        "name": "Repor papel higiênico",
+        "details": "Conferir o armário",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000005b",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000025",
+        "availableAt": "2026-11-09T03:00:00.000Z",
+        "dueAt": "2026-11-16T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000077",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000002",
+        "assignedAt": "2026-11-09T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000002",
+        "name": "Leo"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000026",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000009",
+        "name": "Aspirar a sala",
+        "details": "Incluindo embaixo do sofá",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000004d",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000026",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000004e",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000026",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000009",
+        "name": "Aspirar a sala",
+        "details": "Incluindo embaixo do sofá",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000004f",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000026",
+        "availableAt": "2026-10-19T03:00:00.000Z",
+        "dueAt": "2026-10-26T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000050",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000002",
+        "assignedAt": "2026-10-19T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000002",
+        "name": "Leo"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000026",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000009",
+        "name": "Aspirar a sala",
+        "details": "Incluindo embaixo do sofá",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000051",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000026",
+        "availableAt": "2026-10-26T03:00:00.000Z",
+        "dueAt": "2026-11-02T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000052",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000003",
+        "assignedAt": "2026-10-26T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000003",
+        "name": "Bia"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000026",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000009",
+        "name": "Aspirar a sala",
+        "details": "Incluindo embaixo do sofá",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000053",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000026",
+        "availableAt": "2026-11-02T03:00:00.000Z",
+        "dueAt": "2026-11-09T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000054",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000004",
+        "assignedAt": "2026-11-02T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000004",
+        "name": "Rafa"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000028",
+        "roomID": "ffffffff-ffff-4fff-8fff-00000000000a",
+        "name": "Lavar roupas de cama",
+        "details": "Trocar e lavar os lençóis",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "none"
+        },
+        "assignmentPolicy": "afterCompletion",
+        "calendarAnchor": null,
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000069",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000028",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": null,
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000006a",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000002",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000002",
+        "name": "Leo"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000029",
+        "roomID": "ffffffff-ffff-4fff-8fff-00000000000b",
+        "name": "Organizar documentos",
+        "details": "Tarefa do escritório privado",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000006b",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000029",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000006c",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000029",
+        "roomID": "ffffffff-ffff-4fff-8fff-00000000000b",
+        "name": "Organizar documentos",
+        "details": "Tarefa do escritório privado",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000078",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000029",
+        "availableAt": "2026-10-26T03:00:00.000Z",
+        "dueAt": "2026-11-02T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000079",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000003",
+        "assignedAt": "2026-10-26T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000003",
+        "name": "Bia"
+      },
+      "suggestedAssignee": null
+    }
+  ],
+  "myTasks": [
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000022",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000007",
+        "name": "Lavar a louça",
+        "details": "Limpar pia e escorredor",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000002f",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000022",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000030",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000024",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000008",
+        "name": "Higienizar o banheiro",
+        "details": "Vaso, pia e espelho",
+        "effort": 3,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000039",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000024",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 3
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000003a",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000025",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000008",
+        "name": "Repor papel higiênico",
+        "details": "Conferir o armário",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000045",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000025",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000046",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000026",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000009",
+        "name": "Aspirar a sala",
+        "details": "Incluindo embaixo do sofá",
+        "effort": 2,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000004d",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000026",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000004e",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000027",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000006",
+        "name": "Tirar o lixo",
+        "details": "Separar recicláveis",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "balancedAutomatically",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000005d",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000027",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000005e",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    },
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000029",
+        "roomID": "ffffffff-ffff-4fff-8fff-00000000000b",
+        "name": "Organizar documentos",
+        "details": "Tarefa do escritório privado",
+        "effort": 1,
+        "kind": "recurring",
+        "recurrence": {
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
+        },
+        "assignmentPolicy": "calendarRotation",
+        "calendarAnchor": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000006b",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000029",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": "2026-10-19T03:00:00.000Z",
+        "status": "assigned",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 1
+      },
+      "assignment": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000006c",
+        "userID": "ffffffff-ffff-4fff-8fff-000000000001",
+        "assignedAt": "2026-10-12T03:00:00.000Z",
+        "endedAt": null
+      },
+      "assignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000001",
+        "name": "Marina"
+      },
+      "suggestedAssignee": null
+    }
+  ],
+  "sporadicTasks": [
+    {
+      "definition": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000002a",
+        "roomID": "ffffffff-ffff-4fff-8fff-000000000009",
+        "name": "Trocar a lâmpada da sala",
+        "details": "Tarefa avulsa de manutenção",
+        "effort": 2,
+        "kind": "sporadic",
+        "recurrence": {
+          "kind": "none"
+        },
+        "assignmentPolicy": "selfAssigned",
+        "calendarAnchor": null,
+        "endedAt": null
+      },
+      "occurrence": {
+        "id": "ffffffff-ffff-4fff-8fff-00000000007a",
+        "taskDefinitionID": "ffffffff-ffff-4fff-8fff-00000000002a",
+        "availableAt": "2026-10-12T03:00:00.000Z",
+        "dueAt": null,
+        "status": "available",
+        "completedAt": null,
+        "completedByUserID": null,
+        "effort": 2
+      },
+      "assignment": null,
+      "assignee": null,
+      "suggestedAssignee": {
+        "id": "ffffffff-ffff-4fff-8fff-000000000003",
+        "name": "Bia"
+      }
+    }
+  ]
+}

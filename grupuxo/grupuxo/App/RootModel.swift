@@ -5,7 +5,7 @@ import GrupuxoDomain
 /// Dono do `AppContainer` e da `AppSession` da casa aberta.
 ///
 /// Fica num `@StateObject` do `RootView`: o SwiftUI cria o modelo uma vez por identidade da view e o mantém
-/// quando a struct `RootView` é reconstruída. Os dados vêm da `api` a cada abertura de tela (BACKEND.md seção 6).
+/// quando a struct `RootView` é reconstruída. O cache da sessão compartilha as leituras da `api` por 5 s (BACKEND.md seção 6).
 @MainActor
 final class RootModel: ObservableObject {
 
@@ -17,9 +17,9 @@ final class RootModel: ObservableObject {
         self.session = session
     }
 
-    convenience init(api: APIClient, user: User, house: House) {
+    convenience init(api: APIClient, user: User, house: House, myHouse: MyHouseCache? = nil) {
         self.init(
-            container: AppContainer(api: api),
+            container: AppContainer(api: api, myHouse: myHouse),
             session: AppSession(currentUser: user, currentHouse: house)
         )
     }

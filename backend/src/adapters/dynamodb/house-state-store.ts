@@ -152,8 +152,8 @@ export class HouseStateStore {
 
   /** Leitura consistente; nunca grava. */
   async read<T>(houseID: HouseID, fn: (state: StoreState) => T): Promise<T> {
-    const loaded = await this.load(houseID, []);
-    return fn(cloneStoreState(loaded.state));
+    const loaded = await this.load(houseID, [], false);
+    return fn(loaded.state);
   }
 
   /**
@@ -340,7 +340,7 @@ export class HouseStateStore {
     return [meta, ...changes];
   }
 
-  private async load(houseID: HouseID, extraProfileIDs: readonly UserID[]): Promise<LoadedHouse> {
+  private async load(houseID: HouseID, extraProfileIDs: readonly UserID[], forUpdate = true): Promise<LoadedHouse> {
     const items = await queryAll(this.client, {
       keyCondition: "#pk = :pk", names: { "#pk": "PK" }, values: { ":pk": housePK(houseID) },
       consistentRead: true, scanForward: true,
@@ -369,7 +369,7 @@ export class HouseStateStore {
     const profiles = await this.loadProfiles(wanted);
     state.users.push(...profiles);
     return {
-      exists: house !== undefined, version, state, baseline: encodePartition(houseID, state),
+      exists: house !== undefined, version, state, baseline: forUpdate ? encodePartition(houseID, state) : new Map(),
       profileIDs: new Set(profiles.map((user) => user.id)),
     };
   }

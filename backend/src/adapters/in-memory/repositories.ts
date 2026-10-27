@@ -1,3 +1,4 @@
+import { houseSnapshot, type HouseSnapshot, type HouseSnapshotRepository } from "../../domain/commands/house-snapshot.ts";
 import { acceptSwapRequest, createSwapRequest, incomingRequests, outgoingRequests, rejectSwapRequest, swapCandidates } from "../../domain/commands/swaps.ts";
 import type { CommandContext } from "../../domain/commands/context.ts";
 import {
@@ -113,12 +114,19 @@ export class InMemoryRoomRepository implements RoomRepository {
   }
 }
 
-export class InMemoryTaskRepository implements TaskRepository {
+export class InMemoryTaskRepository implements TaskRepository, HouseSnapshotRepository {
   private readonly store: InMemoryStore;
   private readonly ctx: CommandContext;
   constructor(store: InMemoryStore, ctx: CommandContext) {
     this.store = store;
     this.ctx = ctx;
+  }
+
+  async snapshot(houseID: HouseID, userID: UserID, at: Instant): Promise<HouseSnapshot> {
+    return this.store.update((s) => {
+      refreshSchedule(this.ctx, s, houseID, at);
+      return houseSnapshot(this.ctx, s, houseID, userID, at);
+    });
   }
 
   async tasks(userID: UserID, houseID: HouseID): Promise<TaskItem[]> {

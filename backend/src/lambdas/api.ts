@@ -1,3 +1,4 @@
+import type { HouseSnapshotRepository } from "../domain/commands/house-snapshot.ts";
 import { AuthenticationError, TokenVerifierUnavailableError, type TokenVerifier } from "../auth/token-verifier.ts";
 import { parseProfileName, UserDirectoryError, type UserDirectory } from "../auth/user-directory.ts";
 import type { Instant } from "../domain/dates.ts";
@@ -17,6 +18,7 @@ export interface ApiDependencies {
   readonly users: UserDirectory;
   readonly linker: Pick<WhatsAppLinker, "issueInvitation">;
   readonly links: Pick<WhatsAppLinkStore, "linkForUser" | "remove">;
+  readonly snapshots: HouseSnapshotRepository;
   readonly houses: HouseRepository;
   readonly rooms: RoomRepository;
   readonly tasks: TaskRepository;

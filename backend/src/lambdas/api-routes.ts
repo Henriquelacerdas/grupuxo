@@ -1,3 +1,4 @@
+import type { HouseSnapshotRepository } from "../domain/commands/house-snapshot.ts";
 import type { Instant } from "../domain/dates.ts";
 import type { House } from "../domain/entities.ts";
 import { isDomainError } from "../domain/errors.ts";
@@ -22,7 +23,7 @@ import {
 } from "../domain/use-cases/tasks.ts";
 import { DomainError } from "../domain/errors.ts";
 import {
-  myHouseDTO, notificationDTO, roomDTO, roomParticipationDTO, taskDefinitionDTO, taskItemDTO, taskSwapRequestDTO,
+  houseSnapshotDTO, myHouseDTO, notificationDTO, roomDTO, roomParticipationDTO, taskDefinitionDTO, taskItemDTO, taskSwapRequestDTO,
 } from "./api-dto.ts";
 import { failure, json, jsonObject, noContent } from "./api-http.ts";
 import {
@@ -37,6 +38,7 @@ import type { HttpApiResult } from "./events.ts";
 // injetado; nenhuma regra de negócio mora neste arquivo.
 
 export interface RouteDependencies {
+  readonly snapshots: HouseSnapshotRepository;
   readonly houses: HouseRepository;
   readonly rooms: RoomRepository;
   readonly tasks: TaskRepository;
@@ -109,6 +111,16 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
   return async (name, request) => {
     const { user, query } = request;
     switch (name) {
+      case "houseSnapshot": {
+        const house = await currentHouse(user);
+        if (house === null) return noHouse();
+        try {
+          return json(200, houseSnapshotDTO(await deps.snapshots.snapshot(house.id, user, now())));
+        } catch (error) {
+          if (isDomainError(error, "entityNotFound")) return noHouse();
+          throw error;
+        }
+      }
       case "myHouse": {
         const house = await currentHouse(user);
         if (house === null) return noHouse();

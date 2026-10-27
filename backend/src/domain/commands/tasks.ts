@@ -1,7 +1,7 @@
 import { at, uniqueMap } from "../arrays.ts";
 import type { Instant } from "../dates.ts";
 import {
-  isActiveAssignment, isCompleted, isCurrentMember, taskItem, type Room, type TaskDefinition, type TaskItem,
+  isActiveAssignment, isCompleted, isCurrentMember, taskItem, type Room, type TaskAssignment, type TaskDefinition, type TaskItem,
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
 import {
@@ -53,23 +53,36 @@ export function occurrenceHouseFor(state: StoreState, occurrenceID: TaskOccurren
 /** Itens (definição + ocorrência + atribuição) para consultas de tarefas. */
 export function taskItems(state: StoreState): TaskItem[] {
   const definitionByID = uniqueMap(state.definitions, (d) => d.id);
+  const usersByID = uniqueMap(state.users, (user) => user.id);
+  const activeByOccurrence = new Map<TaskOccurrenceID, TaskAssignment>();
+  const endedByOccurrence = new Map<TaskOccurrenceID, TaskAssignment[]>();
+  for (const assignment of state.assignments) {
+    if (isActiveAssignment(assignment) && !activeByOccurrence.has(assignment.occurrenceID)) {
+      activeByOccurrence.set(assignment.occurrenceID, assignment);
+    }
+    if (assignment.supersededAt === null && assignment.endedAt !== null) {
+      const ended = endedByOccurrence.get(assignment.occurrenceID) ?? [];
+      ended.push(assignment);
+      endedByOccurrence.set(assignment.occurrenceID, ended);
+    }
+  }
   const result: TaskItem[] = [];
   for (const occurrence of state.occurrences) {
     const definition = definitionByID.get(occurrence.taskDefinitionID);
     if (definition === undefined) continue;
-    let assignment = state.assignments.find((a) => a.occurrenceID === occurrence.id && isActiveAssignment(a)) ?? null;
+    let assignment = activeByOccurrence.get(occurrence.id) ?? null;
     if (assignment === null && isCompleted(occurrence)) {
-      for (let i = state.assignments.length - 1; i >= 0; i--) {
-        const a = at(state.assignments, i);
-        if (a.occurrenceID === occurrence.id && a.userID === occurrence.completedByUserID && a.supersededAt === null &&
-          a.endedAt === occurrence.completedAt) {
-          assignment = a;
+      const ended = endedByOccurrence.get(occurrence.id) ?? [];
+      for (let index = ended.length - 1; index >= 0; index--) {
+        const candidate = at(ended, index);
+        if (candidate.userID === occurrence.completedByUserID && candidate.endedAt === occurrence.completedAt) {
+          assignment = candidate;
           break;
         }
       }
     }
     const assigneeID = assignment?.userID ?? occurrence.completedByUserID;
-    const assignee = assigneeID === null ? null : (state.users.find((u) => u.id === assigneeID) ?? null);
+    const assignee = assigneeID === null ? null : (usersByID.get(assigneeID) ?? null);
     result.push(taskItem(definition, occurrence, assignment, assignee));
   }
   return result;
@@ -88,20 +101,20 @@ function canSee(item: TaskItem, room: Room, userID: UserID, state: StoreState): 
 }
 
 /** Tarefas atribuídas ao usuário, já disponíveis em `date`. Chamar `refreshSchedule` antes. */
-export function userTasks(state: StoreState, userID: UserID, houseID: HouseID, date: Instant): TaskItem[] {
+export function userTasks(state: StoreState, userID: UserID, houseID: HouseID, date: Instant, items = taskItems(state)): TaskItem[] {
   if (!state.houseMemberships.some((m) => m.houseID === houseID && m.userID === userID)) return [];
   const roomsByID = uniqueMap(state.rooms, (r) => r.id);
-  return taskItems(state).filter((item) => {
+  return items.filter((item) => {
     const room = roomsByID.get(item.definition.roomID);
     return room !== undefined && room.houseID === houseID && canSee(item, room, userID, state) &&
       item.occurrence.availableAt <= date && item.assignment?.userID === userID;
   });
 }
 
-export function roomTasks(state: StoreState, roomID: RoomID, userID: UserID): TaskItem[] {
+export function roomTasks(state: StoreState, roomID: RoomID, userID: UserID, items = taskItems(state)): TaskItem[] {
   const room = state.rooms.find((r) => r.id === roomID);
   if (room === undefined || !state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === userID)) return [];
-  return taskItems(state).filter((item) =>
+  return items.filter((item) =>
     item.definition.roomID === roomID && item.definition.kind !== "sporadic" && canSee(item, room, userID, state)
   );
 }
@@ -110,10 +123,10 @@ export function roomTasks(state: StoreState, roomID: RoomID, userID: UserID): Ta
  * Esporádicas da casa. Candidatos são os moradores atuais do cômodo (a tarefa é do cômodo); a carga da
  * semana atual é da casa toda, como na projeção do agendamento. Chamar `refreshSchedule` antes.
  */
-export function sporadicTasks(ctx: CommandContext, state: StoreState, houseID: HouseID, userID: UserID, date: Instant): TaskItem[] {
+export function sporadicTasks(ctx: CommandContext, state: StoreState, houseID: HouseID, userID: UserID, date: Instant, items = taskItems(state)): TaskItem[] {
   if (!state.houseMemberships.some((m) => m.houseID === houseID && m.userID === userID)) return [];
   const roomsByID = uniqueMap(state.rooms, (r) => r.id);
-  const tasks = taskItems(state).filter((item) => {
+  const tasks = items.filter((item) => {
     const room = roomsByID.get(item.definition.roomID);
     return room !== undefined && room.houseID === houseID && item.definition.kind === "sporadic" &&
       canSee(item, room, userID, state);

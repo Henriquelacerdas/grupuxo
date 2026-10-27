@@ -174,7 +174,7 @@ struct MyTasksView: View {
         }
 
         .refreshable {
-            await viewModel.load()
+            await viewModel.load(forceRefresh: true)
         }
     }
 

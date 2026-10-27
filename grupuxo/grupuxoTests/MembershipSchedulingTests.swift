@@ -51,20 +51,29 @@ struct MembershipSchedulingTests {
     }
 
     @Test @MainActor func myTasksKeepsCompletedTasksLastAndAllowsUndo() async throws {
-        let store = MockStore()
+        let seed = MockSeed.make()
+        let store = MockStore(state: seed)
         let repository = MockTaskRepository(store: store, scheduling: service)
         let roomRepository = MockRoomRepository(store: store, scheduling: service)
-        let seed = MockSeed.make()
-        let user = seed.users[0].id
+        // O teste de desfazer usa uma tarefa de ciclo, que continua visível após a conclusão.
+        let linkedIDs = Set(seed.definitions.filter { definition in
+            seed.rooms.first(where: { $0.id == definition.roomID }).map { definition.isLinked(to: $0) } == true
+        }.map(\.id))
+        let availableIDs = Set(seed.occurrences.filter {
+            linkedIDs.contains($0.taskDefinitionID) && $0.availableAt <= .now && !$0.isCompleted
+        }.map(\.id))
+        let owner = try #require(seed.assignments.first { $0.isActive && availableIDs.contains($0.occurrenceID) }?.userID)
+        let resident = try #require(seed.users.first { $0.id == owner })
+        let user = resident.id
         let house = seed.houses[0].id
         let viewModel = MyTasksViewModel(
             getMyTasksOverview: GetMyTasksOverviewUseCase(roomRepository: roomRepository, taskRepository: repository),
             completeTask: CompleteTaskUseCase(repository: repository),
             endTask: EndTaskUseCase(repository: repository),
-            user: seed.users[0], houseName: seed.houses[0].name, houseID: house)
+            user: resident, houseName: seed.houses[0].name, houseID: house)
         await viewModel.load()
         guard case let .content(content) = viewModel.state,
-              let item = content.allItems.first(where: { viewModel.canComplete($0) && !$0.occurrence.isCompleted }) else {
+              let item = content.cycles.flatMap(\.rows).map(\.item).first(where: { viewModel.canComplete($0) && !$0.occurrence.isCompleted }) else {
             Issue.record("Expected an assigned task"); return
         }
         await viewModel.complete(item.id)
@@ -85,7 +94,7 @@ struct MembershipSchedulingTests {
         #expect(reloaded.first { $0.id == item.id }?.occurrence.isCompleted == false)
         let roomModel = AppContainer(store: store, calendar: calendar).makeRoomDetailViewModel(
             roomID: item.definition.roomID,
-            session: AppSession(currentUser: seed.users[0], currentHouse: seed.houses[0]))
+            session: AppSession(currentUser: resident, currentHouse: seed.houses[0]))
         await roomModel.load()
         await roomModel.complete(item.id)
         #expect(roomModel.actionError == nil)

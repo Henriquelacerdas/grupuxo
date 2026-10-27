@@ -32,7 +32,20 @@ struct MyTasksOverviewTests {
 
     @Test @MainActor func cycleGroupsHoldOnlyMyTasksThatFollowTheRoomSchedule() async throws {
 
-        let overview = try await overview(container: makeContainer())
+        let container = makeContainer()
+        // O seed usa UUIDs aleatórios: o responsável pelo ciclo pode ser qualquer morador.
+        let user = try #require(await container.store.read { state -> User? in
+            let roomByID = Dictionary(uniqueKeysWithValues: state.rooms.map { ($0.id, $0) })
+            let linkedIDs = Set(state.definitions.filter { definition in
+                roomByID[definition.roomID].map { definition.isLinked(to: $0) } == true
+            }.map(\.id))
+            let availableIDs = Set(state.occurrences.filter {
+                linkedIDs.contains($0.taskDefinitionID) && $0.availableAt <= .now && !$0.isCompleted
+            }.map(\.id))
+            let owner = state.assignments.first { $0.isActive && availableIDs.contains($0.occurrenceID) }?.userID
+            return state.users.first { $0.id == owner }
+        })
+        let overview = try await overview(container: container, user: user)
 
         #expect(!overview.cycleGroups.isEmpty)
 
@@ -44,7 +57,7 @@ struct MyTasksOverviewTests {
             for item in group.tasks {
                 #expect(item.definition.roomID == group.room.id)
                 #expect(item.definition.isLinked(to: group.room))
-                #expect(item.assignment?.userID == MockSeed.currentUser.id)
+                #expect(item.assignment?.userID == user.id)
             }
         }
 

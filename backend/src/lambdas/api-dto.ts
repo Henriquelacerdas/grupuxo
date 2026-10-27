@@ -1,3 +1,4 @@
+import type { HouseSnapshot } from "../domain/commands/house-snapshot.ts";
 import { formatInstant, type Instant } from "../domain/dates.ts";
 import type {
   AppNotification, AppNotificationKind, House, Room, RoomParticipation, TaskAssignment, TaskDefinition, TaskItem,
@@ -212,4 +213,16 @@ export function notificationDTO(notification: AppNotification): NotificationDTO 
 
 export function myHouseDTO(house: House, members: readonly User[], rooms: readonly Room[]): MyHouseDTO {
   return { house: houseDTO(house), members: members.map(userDTO), rooms: rooms.map(roomDTO) };
+}
+
+/** Snapshot agregado para as telas do app. Os DTOs continuam sem detalhes internos do agendamento. */
+export function houseSnapshotDTO(snapshot: HouseSnapshot) {
+  return {
+    userID: snapshot.userID,
+    home: myHouseDTO(snapshot.house, snapshot.members, snapshot.rooms),
+    participations: snapshot.participations.map(roomParticipationDTO),
+    roomTasks: snapshot.roomTasks.map(taskItemDTO),
+    myTasks: snapshot.myTasks.map(taskItemDTO),
+    sporadicTasks: snapshot.sporadicTasks.map(taskItemDTO),
+  };
 }

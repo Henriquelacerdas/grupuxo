@@ -6,7 +6,10 @@ import GrupuxoDomain
 final class MyTasksViewModel: ObservableObject {
 
     @Published var actionError: String?
-    @Published private(set) var isCompleting = false
+    @Published private var completions = OptimisticTaskCompletions()
+    var isCompleting: Bool { completions.isCompleting }
+    private var overview: MyTasksOverview?
+    private var loadID: UUID?
     @Published private(set) var state: MyTasksState = .idle
 
     let user: User
@@ -24,7 +27,10 @@ final class MyTasksViewModel: ObservableObject {
 
     private var userID: User.ID { user.id }
 
+    private let refreshData: @Sendable () async -> Void
+
     init(
+        refreshData: @escaping @Sendable () async -> Void = {},
         getMyTasksOverview: GetMyTasksOverviewUseCase,
         completeTask: CompleteTaskUseCase,
         endTask: EndTaskUseCase,
@@ -35,6 +41,7 @@ final class MyTasksViewModel: ObservableObject {
         calendar: Calendar = .current,
         locale: Locale = HouseOverviewText.appLocale
     ) {
+        self.refreshData = refreshData
         self.getMyTasksOverview = getMyTasksOverview
         self.completeTask = completeTask
         self.endTask = endTask
@@ -46,7 +53,8 @@ final class MyTasksViewModel: ObservableObject {
         self.text = MyTasksText(calendar: calendar, locale: locale)
     }
 
-    func load(showLoading: Bool = true) async {
+    func load(showLoading: Bool = true, forceRefresh: Bool = false) async {
+        if forceRefresh { await refreshData() }
 
         // Recarregar não esvazia a tela: o conteúdo atual fica até o novo chegar.
         if showLoading {
@@ -55,6 +63,9 @@ final class MyTasksViewModel: ObservableObject {
             }
         }
 
+        let id = UUID()
+        loadID = id
+        let revision = completions.revision
         do {
             let date = now()
 
@@ -65,13 +76,16 @@ final class MyTasksViewModel: ObservableObject {
                 calendar: calendar
             )
 
-            state = overview.isEmpty
-                ? .empty
-                : .content(content(from: overview, at: date))
+            try Task.checkCancellation()
+            guard loadID == id, completions.revision == revision else { return }
+            self.overview = overview
+            completions.acceptReload()
+            presentOverview(at: date)
 
         } catch is CancellationError {
             // A tela saiu antes da resposta: fica o que já estava.
         } catch {
+            guard loadID == id, completions.revision == revision else { return }
             // Recarga em segundo plano que falha não troca a lista pela tela de erro.
             if !showLoading, state.hasLoaded { return }
             state = .failure(
@@ -84,7 +98,7 @@ final class MyTasksViewModel: ObservableObject {
         _ item: TaskItem
     ) -> Bool {
 
-        !isCompleting
+        !completions.pendingIDs.contains(item.id)
             && item.assignment?.userID == userID
             && item.occurrence.availableAt <= now()
     }
@@ -97,7 +111,9 @@ final class MyTasksViewModel: ObservableObject {
             return false
         }
 
-        return assignment.isActive
+        return !completions.pendingIDs.contains(item.id)
+            && !item.occurrence.isCompleted
+            && assignment.isActive
             && assignment.userID == userID
             && item.occurrence.availableAt <= now()
     }
@@ -137,32 +153,31 @@ final class MyTasksViewModel: ObservableObject {
         _ occurrenceID: TaskOccurrence.ID
     ) async {
 
-        guard !isCompleting else {
-            return
-        }
-
         guard case let .content(content) = state,
               let item = content.item(occurrenceID),
               canComplete(item) else { return }
 
-        isCompleting = true
-
-        defer {
-            isCompleting = false
-        }
-
+        completions.begin(item, by: userID, at: now())
+        presentOverview(at: now())
         do {
             try await completeTask(
-                occurrenceID: occurrenceID,
-                userID: userID,
+                occurrenceID: occurrenceID, userID: userID,
                 isCompleted: !item.occurrence.isCompleted
             )
-
-            await load(showLoading: false)
-
+            completions.finish(occurrenceID)
         } catch {
+            completions.finish(occurrenceID, restoring: item)
+            presentOverview(at: now())
             actionError = error.localizedDescription
         }
+        // Outras linhas continuam acionáveis; só a última escrita dispara a reconciliação.
+        if !completions.isCompleting { await load(showLoading: false) }
+    }
+
+    private func presentOverview(at date: Date) {
+        guard let overview else { return }
+        let displayed = completions.applying(to: overview)
+        state = displayed.isEmpty ? .empty : .content(content(from: displayed, at: date))
     }
 
     // MARK: - Apresentação

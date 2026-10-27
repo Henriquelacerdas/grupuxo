@@ -5,7 +5,7 @@ export type Method = "GET" | "POST" | "DELETE";
 
 export type RouteName =
   | "registerAccount" | "myAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp"
-  | "myHouse" | "leaveHouse" | "createHouse" | "joinHouse"
+  | "houseSnapshot" | "myHouse" | "leaveHouse" | "createHouse" | "joinHouse"
   | "createRoom" | "roomParticipation" | "addRoomMember" | "removeRoomMember"
   | "myTasks" | "roomTasks" | "createTask" | "taskDefinition" | "endTask"
   | "completeOccurrence" | "reopenOccurrence"
@@ -36,6 +36,7 @@ const ROUTES: readonly RouteDefinition[] = [
   { name: "issueWhatsAppLink", method: "POST", pattern: ["me", "whatsapp", "link"] },
   { name: "whatsAppStatus", method: "GET", pattern: ["me", "whatsapp"] },
   { name: "unlinkWhatsApp", method: "DELETE", pattern: ["me", "whatsapp"] },
+  { name: "houseSnapshot", method: "GET", pattern: ["me", "house", "snapshot"] },
   { name: "myHouse", method: "GET", pattern: ["me", "house"] },
   { name: "leaveHouse", method: "DELETE", pattern: ["me", "house"] },
   { name: "myTasks", method: "GET", pattern: ["me", "tasks"] },

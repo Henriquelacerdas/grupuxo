@@ -11,46 +11,102 @@ extension UUID {
     var apiString: String { uuidString.lowercased() }
 }
 
-/// `GET /v1/me/house` compartilhado pelos repositórios: casa, moradores e cômodos saem da mesma resposta, e uma tela
-/// pede mais de um deles. Quem chega com uma busca em andamento espera por ela; a resposta vale por `maxAge` e cai
-/// a cada mudança de cômodo ou de participante feita pelo app. Erros não ficam guardados.
+/// Snapshot compartilhado da sessão: uma carga alimenta as telas por `maxAge` (5 s).
+/// Coalesce consumidores concorrentes e descarta respostas invalidadas por mutações; sem cache de erros.
+/// Servidores anteriores continuam atendidos pelo cache de `GET /v1/me/house`.
 actor MyHouseCache {
     private let api: APIClient
     private let maxAge: TimeInterval
     private let now: @Sendable () -> Date
 
+    private var prefersSnapshot: Bool
+    private var cachedSnapshot: (value: RemoteHouseSnapshot, fetchedAt: Date)?
+    private var snapshotFlight: (id: UUID, task: Task<RemoteHouseSnapshot?, any Error>)?
+    private var generation = 0
     private var cached: (house: MyHouseDTO, fetchedAt: Date)?
     private var inFlight: (id: UUID, task: Task<MyHouseDTO, any Error>)?
 
-    init(api: APIClient, maxAge: TimeInterval = 5, now: @escaping @Sendable () -> Date = { .now }) {
+    init(api: APIClient, prefersSnapshot: Bool = false, maxAge: TimeInterval = 5, now: @escaping @Sendable () -> Date = { .now }) {
         self.api = api
         self.maxAge = maxAge
+        self.prefersSnapshot = prefersSnapshot
         self.now = now
     }
 
-    func myHouse() async throws -> MyHouseDTO {
-        if let cached, now().timeIntervalSince(cached.fetchedAt) < maxAge { return cached.house }
-        if let inFlight { return try await inFlight.task.value }
-
-        let id = UUID()
-        let task = Task { [api] in try await api.get(MyHouseDTO.self, "v1/me/house") }
-        inFlight = (id, task)
+    /// Consultas concorrentes compartilham a carga; respostas anteriores a uma mutação são descartadas.
+    func snapshot() async throws -> RemoteHouseSnapshot? {
+        guard prefersSnapshot else { return nil }
+        try Task.checkCancellation()
+        if let cachedSnapshot, now().timeIntervalSince(cachedSnapshot.fetchedAt) < maxAge {
+            return cachedSnapshot.value
+        }
+        let current = generation
+        let flight: (id: UUID, task: Task<RemoteHouseSnapshot?, any Error>)
+        if let snapshotFlight {
+            flight = snapshotFlight
+        } else {
+            let task = Task { [api] () throws -> RemoteHouseSnapshot? in
+                do {
+                    return try await api.get(HouseSnapshotDTO.self, "v1/me/house/snapshot").domain()
+                } catch let error as APIError where error == .http(status: 404, code: "not_found") {
+                    // Compatibilidade com o servidor anterior durante o rollout.
+                    return nil
+                }
+            }
+            flight = (UUID(), task)
+            snapshotFlight = flight
+        }
         do {
-            let house = try await task.value
-            // Uma invalidação no meio descarta esta busca: não guarda nem limpa a mais nova.
-            if inFlight?.id == id {
+            let value = try await flight.task.value
+            guard current == generation else { return try await snapshot() }
+            if snapshotFlight?.id == flight.id {
+                snapshotFlight = nil
+                if let value {
+                    cachedSnapshot = (value, now())
+                    cached = (value.home, now())
+                } else {
+                    prefersSnapshot = false
+                }
+            }
+            try Task.checkCancellation()
+            return value
+        } catch {
+            if snapshotFlight?.id == flight.id { snapshotFlight = nil }
+            throw error
+        }
+    }
+
+    func myHouse() async throws -> MyHouseDTO {
+        if let snapshot = try await snapshot() { return snapshot.home }
+        if let cached, now().timeIntervalSince(cached.fetchedAt) < maxAge { return cached.house }
+        try Task.checkCancellation()
+        let current = generation
+        let flight: (id: UUID, task: Task<MyHouseDTO, any Error>)
+        if let inFlight { flight = inFlight }
+        else {
+            flight = (UUID(), Task { [api] in try await api.get(MyHouseDTO.self, "v1/me/house") })
+            inFlight = flight
+        }
+        do {
+            let house = try await flight.task.value
+            guard current == generation else { return try await myHouse() }
+            if inFlight?.id == flight.id {
                 cached = (house, now())
                 inFlight = nil
             }
+            try Task.checkCancellation()
             return house
         } catch {
-            if inFlight?.id == id { inFlight = nil }
+            if inFlight?.id == flight.id { inFlight = nil }
             throw error
         }
     }
 
     func invalidate() {
+        generation += 1
         cached = nil
+        cachedSnapshot = nil
+        snapshotFlight = nil
         inFlight = nil
     }
 }
@@ -109,7 +165,13 @@ struct RemoteRoomRepository: RoomRepository {
     }
 
     func participation(in roomID: Room.ID, requesting userID: User.ID, at date: Date) async throws -> RoomParticipation {
-        try await api.get(RoomParticipationDTO.self, "v1/rooms/\(roomID.apiString)").domain
+        if let snapshot = try await myHouse.snapshot() {
+            guard let participation = snapshot.participations.first(where: { $0.room.id == roomID }) else {
+                throw DomainError.entityNotFound
+            }
+            return participation
+        }
+        return try await api.get(RoomParticipationDTO.self, "v1/rooms/\(roomID.apiString)").domain
     }
 
     func room(id: Room.ID, requesting userID: User.ID) async throws -> Room {
@@ -166,26 +228,46 @@ struct RemoteTaskRepository: TaskRepository {
     }
 
     func tasks(for userID: User.ID, in houseID: House.ID) async throws -> [TaskItem] {
-        try await items(from: "v1/me/tasks")
+        if let snapshot = try await myHouse.snapshot() {
+            await index.remember(snapshot.myTasks)
+            return snapshot.myTasks
+        }
+        return try await items(from: "v1/me/tasks")
     }
 
     func tasks(in roomID: Room.ID, requesting userID: User.ID) async throws -> [TaskItem] {
-        try await items(from: "v1/rooms/\(roomID.apiString)/tasks")
+        if let snapshot = try await myHouse.snapshot() {
+            let tasks = snapshot.roomTasks.filter { $0.definition.roomID == roomID }
+            await index.remember(tasks)
+            return tasks
+        }
+        return try await items(from: "v1/rooms/\(roomID.apiString)/tasks")
     }
 
     func sporadicTasks(in houseID: House.ID, requesting userID: User.ID) async throws -> [TaskItem] {
-        try await items(from: "v1/me/sporadic-tasks")
+        if let snapshot = try await myHouse.snapshot() {
+            await index.remember(snapshot.sporadicTasks)
+            return snapshot.sporadicTasks
+        }
+        return try await items(from: "v1/me/sporadic-tasks")
     }
 
     /// Sem rota própria: as ocorrências saem da lista do cômodo (`GET /v1/rooms/{roomID}/tasks`).
     func occurrences(of taskDefinitionID: TaskDefinition.ID, requesting userID: User.ID) async throws -> [TaskItem] {
         let roomID = try await index.room(of: taskDefinitionID)
+        if let snapshot = try await myHouse.snapshot() {
+            return (snapshot.roomTasks + snapshot.sporadicTasks).filter { $0.definition.id == taskDefinitionID }
+        }
         return try await items(from: "v1/rooms/\(roomID.apiString)/tasks")
             .filter { $0.definition.id == taskDefinitionID }
     }
 
     func taskDefinition(id: TaskDefinition.ID, requesting userID: User.ID) async throws -> TaskDefinition {
         let roomID = try await index.room(of: id)
+        if let snapshot = try await myHouse.snapshot(),
+           let item = (snapshot.roomTasks + snapshot.sporadicTasks).first(where: { $0.definition.id == id }) {
+            return item.definition
+        }
         let definition = try await api.get(
             TaskDefinitionDTO.self, "v1/rooms/\(roomID.apiString)/tasks/\(id.apiString)"
         ).domain()
@@ -201,7 +283,7 @@ struct RemoteTaskRepository: TaskRepository {
 
     func endTask(_ taskID: TaskDefinition.ID, requestedBy userID: User.ID, at date: Date) async throws {
         let roomID = try await index.room(of: taskID)
-        try await api.send("POST", "v1/rooms/\(roomID.apiString)/tasks/\(taskID.apiString)/end")
+        try await mutate("POST", "v1/rooms/\(roomID.apiString)/tasks/\(taskID.apiString)/end")
     }
 
     func deleteSporadicTask(id: TaskDefinition.ID, requestedBy userID: User.ID) async throws {
@@ -217,6 +299,7 @@ struct RemoteTaskRepository: TaskRepository {
         let created = try await api.post(
             TaskDefinitionDTO.self, "v1/rooms/\(definition.roomID.apiString)/tasks", body: body
         ).domain()
+        await myHouse.invalidate()
         await index.remember(created)
         return created
     }
@@ -225,32 +308,43 @@ struct RemoteTaskRepository: TaskRepository {
     func refreshSchedule(in houseID: House.ID, at date: Date) async throws {}
 
     func addMember(userID: User.ID, to roomID: Room.ID, at date: Date) async throws {
-        try await api.send("POST", "v1/rooms/\(roomID.apiString)/members", body: RoomMemberBody(userID: userID.apiString))
-        await myHouse.invalidate()
+        try await mutate("POST", "v1/rooms/\(roomID.apiString)/members", body: RoomMemberBody(userID: userID.apiString))
     }
 
     func removeMember(userID: User.ID, from roomID: Room.ID, at date: Date, confirmDeletion: Bool) async throws {
-        try await api.send(
+        try await mutate(
             "DELETE", "v1/rooms/\(roomID.apiString)/members/\(userID.apiString)",
             query: confirmDeletion ? ["confirmDeletion": "true"] : [:]
         )
-        await myHouse.invalidate()
     }
 
     func complete(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date) async throws {
-        try await api.send("POST", "v1/occurrences/\(occurrenceID.apiString)/complete")
+        try await mutate("POST", "v1/occurrences/\(occurrenceID.apiString)/complete")
     }
 
     func reopen(occurrenceID: TaskOccurrence.ID, by userID: User.ID) async throws {
-        try await api.send("POST", "v1/occurrences/\(occurrenceID.apiString)/reopen")
+        try await mutate("POST", "v1/occurrences/\(occurrenceID.apiString)/reopen")
     }
 
     func claim(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date) async throws {
-        try await api.send("POST", "v1/occurrences/\(occurrenceID.apiString)/claim")
+        try await mutate("POST", "v1/occurrences/\(occurrenceID.apiString)/claim")
     }
 
     func release(occurrenceID: TaskOccurrence.ID, by userID: User.ID) async throws {
-        try await api.send("POST", "v1/occurrences/\(occurrenceID.apiString)/release")
+        try await mutate("POST", "v1/occurrences/\(occurrenceID.apiString)/release")
+    }
+
+    private func mutate(
+        _ method: String, _ path: String, query: [String: String] = [:],
+        body: (any Encodable & Sendable)? = nil
+    ) async throws {
+        do {
+            try await api.send(method, path, query: query, body: body)
+            await myHouse.invalidate()
+        } catch {
+            await myHouse.invalidate()
+            throw error
+        }
     }
 
     private func items(from path: String) async throws -> [TaskItem] {
@@ -262,6 +356,7 @@ struct RemoteTaskRepository: TaskRepository {
 
 struct RemoteTaskSwapRepository: TaskSwapRepository {
     let api: APIClient
+    var myHouse: MyHouseCache? = nil
 
     func swapCandidates(
         for requesterID: User.ID, offering offeredOccurrenceID: TaskOccurrence.ID, in houseID: House.ID, at date: Date
@@ -288,11 +383,15 @@ struct RemoteTaskSwapRepository: TaskSwapRepository {
     }
 
     func accept(requestID: TaskSwapRequest.ID, by userID: User.ID, at date: Date) async throws -> TaskSwapRequest {
-        try await api.post(TaskSwapRequestDTO.self, "v1/swaps/\(requestID.apiString)/accept").domain
+        let result = try await api.post(TaskSwapRequestDTO.self, "v1/swaps/\(requestID.apiString)/accept").domain
+        await myHouse?.invalidate()
+        return result
     }
 
     func reject(requestID: TaskSwapRequest.ID, by userID: User.ID, at date: Date) async throws -> TaskSwapRequest {
-        try await api.post(TaskSwapRequestDTO.self, "v1/swaps/\(requestID.apiString)/reject").domain
+        let result = try await api.post(TaskSwapRequestDTO.self, "v1/swaps/\(requestID.apiString)/reject").domain
+        await myHouse?.invalidate()
+        return result
     }
 }
 

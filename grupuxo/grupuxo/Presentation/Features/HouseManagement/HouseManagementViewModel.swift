@@ -22,7 +22,10 @@ final class HouseManagementViewModel: ObservableObject {
     private let now: () -> Date
     private let text: HouseOverviewText
 
+    private let refreshData: @Sendable () async -> Void
+
     init(
+        refreshData: @escaping @Sendable () async -> Void = {},
         getHouseOverview: GetHouseOverviewUseCase,
         requestRoomAccess: RequestRoomAccessUseCase,
         cancelRoomAccessRequest: CancelRoomAccessRequestUseCase,
@@ -33,6 +36,7 @@ final class HouseManagementViewModel: ObservableObject {
         calendar: Calendar = .current,
         locale: Locale = HouseOverviewText.appLocale
     ) {
+        self.refreshData = refreshData
         self.getHouseOverview = getHouseOverview
         self.requestRoomAccess = requestRoomAccess
         self.cancelRoomAccessRequest = cancelRoomAccessRequest
@@ -43,7 +47,8 @@ final class HouseManagementViewModel: ObservableObject {
         self.text = HouseOverviewText(calendar: calendar, locale: locale)
     }
 
-    func load() async {
+    func load(forceRefresh: Bool = false) async {
+        if forceRefresh { await refreshData() }
 
         // Recarregar não esvazia a tela: o conteúdo atual fica até o novo chegar.
         if case .content = state {} else {
@@ -68,9 +73,8 @@ final class HouseManagementViewModel: ObservableObject {
             // A tela saiu antes da resposta: fica o que já estava.
         } catch {
 
-            state = .failure(
-                error.localizedDescription
-            )
+            if case .content = state { actionError = error.localizedDescription; return }
+            state = .failure(error.localizedDescription)
         }
     }
 

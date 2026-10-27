@@ -547,3 +547,221 @@ struct RemoteRepositoryTests {
         #expect(await server.keys().count == 2)
     }
 }
+
+/// Suspende respostas sem bloquear a thread principal; os testes controlam a ordem das conclusões.
+private actor GatedTransport: HTTPTransport {
+    let server: FakeServer
+    private var heldKeys: Set<String> = []
+    private var held: [String: [CheckedContinuation<Void, Never>]] = [:]
+    private var observers: [(key: String, count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+    init(server: FakeServer) { self.server = server }
+    func hold(_ key: String) { heldKeys.insert(key) }
+    func waitUntilHeld(_ key: String, count: Int = 1) async {
+        if (held[key]?.count ?? 0) >= count { return }
+        await withCheckedContinuation { observers.append((key, count, $0)) }
+    }
+    func release(_ key: String) {
+        heldKeys.remove(key)
+        let continuations = held.removeValue(forKey: key) ?? []
+        for continuation in continuations { continuation.resume() }
+    }
+    func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let response = try await server.data(for: request)
+        let key = "\(request.httpMethod ?? "GET") \(request.url!.path)"
+        if heldKeys.contains(key) {
+            await withCheckedContinuation { continuation in
+                held[key, default: []].append(continuation)
+                let count = held[key]?.count ?? 0
+                let ready = observers.filter { $0.key == key && $0.count <= count }
+                observers.removeAll { $0.key == key && $0.count <= count }
+                for observer in ready { observer.continuation.resume() }
+            }
+        }
+        return response
+    }
+}
+
+@MainActor
+struct RemoteSnapshotTests {
+    private let path = "GET /v1/me/house/snapshot"
+
+    private func setup() async throws -> (FakeServer, APIClient) {
+        let server = FakeServer()
+        await server.on(path, body: String(decoding: try fixture("house-snapshot"), as: UTF8.self))
+        return (server, client(server))
+    }
+
+    @Test func openingTheHouseAndBothTabsSharesOneRequest() async throws {
+        let (server, api) = try await setup()
+        let session = RemoteHouseSession(api: api, prefersSnapshot: true)
+        await session.load()
+        let me = try #require(session.me)
+        let house = try #require(session.house)
+        #expect(me.name == "Marina")
+        let shared = try #require(session.dataCache)
+        let container = AppContainer(api: api, myHouse: shared)
+        let appSession = AppSession(currentUser: me, currentHouse: house)
+        let myTasksModel = container.makeMyTasksViewModel(session: appSession)
+        let houseModel = container.makeHouseManagementViewModel(session: appSession)
+        async let myTasks: Void = myTasksModel.load()
+        async let houseTasks: Void = houseModel.load()
+        _ = await (myTasks, houseTasks)
+        #expect(await server.keys() == [path])
+        await myTasksModel.load(forceRefresh: true)
+        #expect(await server.keys() == [path, path])
+    }
+
+    @Test func cancellationOfOneConsumerKeepsTheSharedRequestAlive() async throws {
+        let server = FakeServer()
+        await server.on(path, body: String(decoding: try fixture("house-snapshot"), as: UTF8.self))
+        let transport = GatedTransport(server: server)
+        await transport.hold(path)
+        let api = APIClient(baseURL: baseURL, tokens: FixedToken(), transport: transport)
+        let cache = MyHouseCache(api: api, prefersSnapshot: true)
+        let first = Task { try await cache.snapshot() }
+        await transport.waitUntilHeld(path)
+        let second = Task { try await cache.snapshot() }
+        first.cancel()
+        await transport.release(path)
+        await #expect(throws: CancellationError.self) { try await first.value }
+        #expect(try await second.value?.home.house.name == "Nossa casa")
+        #expect(try await cache.snapshot()?.home.house.name == "Nossa casa")
+        #expect(await server.keys() == [path])
+    }
+
+    @Test func snapshotExpiresAndMutationsInvalidateIt() async throws {
+        let server = FakeServer()
+        await server.on(path, body: String(decoding: try fixture("house-snapshot"), as: UTF8.self))
+        let clock = TestClock()
+        let api = client(server)
+        let cache = MyHouseCache(api: api, prefersSnapshot: true, now: { clock.now })
+        let first = try #require(try await cache.snapshot())
+        _ = try await cache.snapshot()
+        #expect(await server.keys().count == 1)
+        clock.advance(by: 6)
+        _ = try await cache.snapshot()
+        #expect(await server.keys().count == 2)
+        let item = try #require(first.myTasks.first)
+        await server.on("POST /v1/occurrences/\(item.id.apiString)/complete", status: 204, body: "")
+        try await RemoteTaskRepository(api: api, myHouse: cache).complete(occurrenceID: item.id, by: first.userID, at: .now)
+        _ = try await cache.snapshot()
+        #expect(await server.keys().filter { $0 == path }.count == 3)
+    }
+
+    @Test func invalidationDiscardsAResponseAlreadyInFlight() async throws {
+        let server = FakeServer()
+        let old = String(decoding: try fixture("house-snapshot"), as: UTF8.self)
+        await server.on(path, body: old)
+        let transport = GatedTransport(server: server)
+        await transport.hold(path)
+        let api = APIClient(baseURL: baseURL, tokens: FixedToken(), transport: transport)
+        let cache = MyHouseCache(api: api, prefersSnapshot: true)
+        let first = Task { try await cache.snapshot() }
+        await transport.waitUntilHeld(path)
+        await cache.invalidate()
+        await server.on(path, body: old.replacingOccurrences(of: "Nossa casa", with: "Casa nova"))
+        let second = Task { try await cache.snapshot() }
+        await transport.waitUntilHeld(path, count: 2)
+        await transport.release(path)
+        #expect(try await first.value?.home.house.name == "Casa nova")
+        #expect(try await second.value?.home.house.name == "Casa nova")
+        #expect(await server.keys().count == 2)
+    }
+
+    @Test func oldServersFallBackOnceAndRealErrorsPropagate() async throws {
+        let server = FakeServer()
+        await server.on(path, status: 404, body: #"{"error":"not_found"}"#)
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        let cache = MyHouseCache(api: client(server), prefersSnapshot: true)
+        #expect(try await cache.myHouse().house.name == "Nossa casa")
+        #expect(try await cache.snapshot() == nil)
+        #expect(await server.keys() == [path, "GET /v1/me/house"])
+        let failingCache = MyHouseCache(api: client(server), prefersSnapshot: true)
+        await server.on(path, status: 401, body: #"{"error":"unauthorized"}"#)
+        await #expect(throws: APIError.unauthorized) { try await failingCache.snapshot() }
+    }
+
+    @Test func sessionResetReplacesTheCache() async throws {
+        let (_, api) = try await setup()
+        let session = RemoteHouseSession(api: api, prefersSnapshot: true)
+        await session.load()
+        let previous = session.dataCache
+        session.reset()
+        #expect(session.dataCache !== previous)
+        #expect(session.home == nil && session.me == nil)
+    }
+
+    @Test func completionRespondsBeforeTheServerAndRollsBackOnFailure() async throws {
+        let server = FakeServer()
+        let snapshot = try decode(HouseSnapshotDTO.self, "house-snapshot").domain()
+        await server.on(path, body: String(decoding: try fixture("house-snapshot"), as: UTF8.self))
+        let transport = GatedTransport(server: server)
+        let api = APIClient(baseURL: baseURL, tokens: FixedToken(), transport: transport)
+        let cache = MyHouseCache(api: api, prefersSnapshot: true)
+        let rooms = RemoteRoomRepository(api: api, myHouse: cache)
+        let tasks = RemoteTaskRepository(api: api, myHouse: cache)
+        let user = try #require(snapshot.home.members.first { $0.id == snapshot.userID })
+        let date = try Date("2026-10-14T12:00:00Z", strategy: .iso8601)
+        let model = MyTasksViewModel(
+            getMyTasksOverview: GetMyTasksOverviewUseCase(roomRepository: rooms, taskRepository: tasks),
+            completeTask: CompleteTaskUseCase(repository: tasks), endTask: EndTaskUseCase(repository: tasks),
+            user: user.domain, houseName: snapshot.home.house.name, houseID: snapshot.home.house.id, now: { date }
+        )
+        await model.load()
+        guard case let .content(content) = model.state else { Issue.record("sem tarefas"); return }
+        let open = content.allItems.filter { !$0.occurrence.isCompleted }
+        let first = try #require(open.first)
+        let other = try #require(open.first { $0.id != first.id })
+        let writePath = "POST /v1/occurrences/\(first.id.apiString)/complete"
+        await server.on(writePath, status: 409, body: #"{"error":"conflict"}"#)
+        await transport.hold(writePath)
+        let operation = Task { await model.complete(first.id) }
+        await transport.waitUntilHeld(writePath)
+        guard case let .content(displayed) = model.state else { Issue.record("lista removida"); return }
+        #expect(displayed.item(first.id)?.occurrence.isCompleted == true)
+        #expect(!model.canComplete(try #require(displayed.item(first.id))))
+        #expect(model.canComplete(other))
+        // Mesmo uma recarga que chega durante a escrita mantém a prévia.
+        await model.load(showLoading: false)
+        guard case let .content(reloaded) = model.state else { Issue.record("lista removida"); return }
+        #expect(reloaded.item(first.id)?.occurrence.isCompleted == true)
+        await transport.release(writePath)
+        await operation.value
+        guard case let .content(restored) = model.state else { Issue.record("lista removida"); return }
+        #expect(restored.item(first.id)?.occurrence.isCompleted == false)
+        #expect(restored.item(other.id) == other)
+        #expect(model.actionError != nil && !model.isCompleting)
+    }
+}
+
+
+struct OptimisticTaskCompletionsTests {
+    @Test func independentRowsRollbackAndReopeningKeepCycleProgressConsistent() throws {
+        let snapshot = try decode(HouseSnapshotDTO.self, "house-snapshot").domain()
+        let tasks = Array(snapshot.myTasks.filter { !$0.occurrence.isCompleted }.prefix(2))
+        #expect(tasks.count == 2)
+        let first = try #require(tasks.first)
+        let second = try #require(tasks.last)
+        let room = try #require(snapshot.home.rooms.first { $0.id == first.definition.roomID }).domain
+        let overview = MyTasksOverview(
+            cycleGroups: [CycleGroup(room: room, periodEnd: .distantFuture, progress: CycleProgress(completed: 0, total: 2), tasks: tasks)],
+            extraTasks: [], sporadicTasks: []
+        )
+        var completions = OptimisticTaskCompletions()
+        completions.begin(first, by: snapshot.userID)
+        completions.begin(second, by: snapshot.userID)
+        #expect(completions.pendingIDs == Set(tasks.map(\.id)))
+        #expect(completions.applying(to: overview).cycleGroups.first?.progress.completed == 2)
+        completions.finish(first.id, restoring: first)
+        completions.acceptReload()
+        #expect(completions.applying(to: overview).cycleGroups.first?.progress.completed == 1)
+        #expect(completions.applying(to: second).occurrence.isCompleted)
+        let completed = completions.applying(to: second)
+        completions.finish(second.id)
+        completions.begin(completed, by: snapshot.userID)
+        #expect(!completions.applying(to: second).occurrence.isCompleted)
+        #expect(completions.applying(to: second).assignment == second.assignment)
+        #expect(completions.applying(to: overview).cycleGroups.first?.progress.completed == 0)
+    }
+}

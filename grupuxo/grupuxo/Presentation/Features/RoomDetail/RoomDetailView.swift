@@ -32,6 +32,7 @@ struct RoomDetailView: View {
     private let makeSuggestionEditorViewModel: (TaskSuggestion) -> TaskEditorViewModel
 
     private let onSelectTask: (TaskDefinition.ID) -> Void
+    private let reloadTrigger: AnyHashable
 
     init(
 
@@ -41,7 +42,8 @@ struct RoomDetailView: View {
 
         makeSuggestionEditorViewModel: @escaping (TaskSuggestion) -> TaskEditorViewModel,
 
-        onSelectTask: @escaping (TaskDefinition.ID) -> Void
+        onSelectTask: @escaping (TaskDefinition.ID) -> Void,
+        reloadTrigger: AnyHashable = 0
 
     ) {
 
@@ -58,6 +60,7 @@ struct RoomDetailView: View {
             makeSuggestionEditorViewModel
 
         self.onSelectTask = onSelectTask
+        self.reloadTrigger = reloadTrigger
 
     }
 
@@ -357,7 +360,7 @@ struct RoomDetailView: View {
 
         }
 
-        .task {
+        .task(id: reloadTrigger) {
 
             await viewModel.load()
 
@@ -365,7 +368,7 @@ struct RoomDetailView: View {
 
         .refreshable {
 
-            await viewModel.load()
+            await viewModel.load(forceRefresh: true)
 
         }
 

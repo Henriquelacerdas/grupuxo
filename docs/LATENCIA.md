@@ -1,5 +1,35 @@
 # Latência das telas e o erro "Não foi possível falar com o servidor"
 
+## Correções implementadas localmente — 2026-10-27
+
+Auditoria local da abertura, navegação e conclusão/desmarcação de tarefas. Nenhuma chamada à AWS, Meta ou Gemini nesta rodada.
+
+- Backend: `taskItems` passa a indexar atribuições e moradores por ocorrência/ID; elimina a busca da lista inteira para cada ocorrência, preservando a primeira atribuição ativa e a última encerrada compatível com a conclusão.
+- `HouseStateStore.read` deixa de recodificar todos os itens para montar um baseline de escrita e de clonar os arrays de um estado que acabou de ser carregado para a própria chamada. Escritas mantêm baseline canônico, cópia e controle de versão.
+- Nova rota `GET /v1/me/house/snapshot`: uma carga da partição entrega casa, moradores, participações e tarefas visíveis. Usa as mesmas políticas das rotas individuais, com renovação transacional apenas quando a escala está desatualizada.
+- Abertura: `userID` e casa saem do snapshot; a mesma instância do cache segue da `RemoteHouseSession` até os repositórios do `AppContainer`, evitando repetir a carga nas primeiras abas.
+- App: cache compartilhado do snapshot por 5 segundos, com uma busca para consumidores concorrentes, invalidação após mutações (inclusive falha ambígua de transporte de tarefa) e descarte de respostas anteriores à invalidação. Servidor sem a rota (`404 not_found`) usa as rotas anteriores durante o rollout.
+- Interface: conclusão/desmarcação com prévia imediata em Minhas tarefas, cômodo, avulsas e detalhe; bloqueio apenas da ocorrência em gravação, reversão em falha e reconciliação após a última gravação. Recargas mantêm o conteúdo; respostas iniciadas antes de uma ação não sobrescrevem a prévia.
+
+Medição reproduzível: `cd backend && npm run benchmark:reads` (Node 25.1.0 nesta máquina, 15 amostras, 2.513 itens, cliente falso). O perfil CPU inclui custo de clonagem/expressões do falso e não equivale a uma medição de rede/Lambda. Foram comparados o código antes das correções e o código alterado, com a mesma casa; a última linha substitui as consultas da tela Casa por um snapshot.
+
+| Consulta local | Antes: mediana / p90 | Depois: mediana / p90 |
+| --- | --- | --- |
+| Tarefas do morador | 20,82 / 24,03 ms | 10,23 / 11,90 ms |
+| Consultas individuais da tela Casa | 168,00 / 175,83 ms | 84,42 / 86,65 ms |
+| Tela Casa pelo snapshot | mesmas consultas acima | **15,16 / 15,43 ms** |
+
+O snapshot reduz cerca de 91% do tempo local frente às consultas individuais anteriores. Com a escala em dia, faz uma carga da partição + um lote de perfis, sem escrita. Não elimina o crescimento do histórico na partição nem a latência de rede; arquivamento continua como evolução separada.
+
+Validação:
+
+- `npm run typecheck`, `npm test`: **1.125 testes passaram**, incluindo fixtures Swift↔TS e contrato JSON do snapshot; `npm run build` também passou.
+- `swift test --package-path grupuxo/Packages/GrupuxoDomain`: **8 testes passaram**.
+- Testes do app no simulador iPhone 17 / iOS 27: **165 testes passaram** (`-only-testing:grupuxoTests -testLanguage pt-BR -testRegion BR -enableCodeCoverage NO`). Cobrem uma chamada na abertura + duas abas, atualização explícita que ignora o TTL, expiração e invalidação, resposta invalidada em andamento, consumidor cancelado sem cancelar os outros, fallback e 401, isolamento no logout, resposta visual antes do servidor, rollback e progresso/desmarcação com ações independentes.
+- Dois testes antigos dependiam de quem recebia tarefas no seed aleatório; agora escolhem um responsável real por tarefa do ciclo para testar conclusão/desfazer, sem presumir que a Marina sempre tenha um ciclo nem que uma tarefa após-conclusão permaneça sendo a ocorrência atual.
+
+Entrega local validada: build iOS e bundles das Lambdas gerados, sem alteração de infraestrutura. Publicar a `api`, gerar/distribuir o novo build iOS e repetir a medição no aparelho contra o ambiente real continuam pendentes. A autorização específica para AWS está definida em `CLAUDE.md`; nenhuma chamada real foi necessária para os benchmarks e testes descritos aqui. As seções abaixo são o histórico anterior a estas correções.
+
 ## Sintoma
 
 Ao trocar de aba ou de tela e voltar, o app mostrava "Não foi possível falar com o servidor agora. Tente de novo em instantes." por alguns segundos e depois voltava ao normal.

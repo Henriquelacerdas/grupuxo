@@ -13,6 +13,6 @@ export const handler = lazyHandler(async () => {
   return createApiHandler({
     verifier: composeCognitoVerifier(settings, http, now),
     users: userDirectory(client),
-    linker, links, houses, rooms, tasks, swaps, notifications, now, newID,
+    linker, links, houses, rooms, tasks, swaps, notifications, snapshots: tasks, now, newID,
   });
 });

@@ -31,7 +31,7 @@ struct DomesticApp: App {
         do {
             let configuration = try APIConfiguration()
             let api = APIClient(baseURL: configuration.baseURL, tokens: AmplifyAccessTokenProvider())
-            return RemoteHouseSession(api: api)
+            return RemoteHouseSession(api: api, prefersSnapshot: true)
         } catch {
             return RemoteHouseSession(api: nil, configurationError: error.localizedDescription)
         }

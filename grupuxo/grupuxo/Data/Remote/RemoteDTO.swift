@@ -287,3 +287,31 @@ struct CreateSwapBody: Encodable, Sendable {
     let offeredOccurrenceID: String
     let requestedOccurrenceID: String
 }
+
+/// Uma carga da casa atende às telas de tarefas, casa e cômodo.
+struct HouseSnapshotDTO: Decodable, Sendable {
+    let userID: UUID
+    let home: MyHouseDTO
+    let participations: [RoomParticipationDTO]
+    let roomTasks: [TaskItemDTO]
+    let myTasks: [TaskItemDTO]
+    let sporadicTasks: [TaskItemDTO]
+
+    func domain() throws -> RemoteHouseSnapshot {
+        RemoteHouseSnapshot(
+            userID: userID, home: home, participations: participations.map(\.domain),
+            roomTasks: try roomTasks.map { try $0.domain() },
+            myTasks: try myTasks.map { try $0.domain() },
+            sporadicTasks: try sporadicTasks.map { try $0.domain() }
+        )
+    }
+}
+
+struct RemoteHouseSnapshot: Sendable {
+    let userID: UUID
+    let home: MyHouseDTO
+    let participations: [RoomParticipation]
+    let roomTasks: [TaskItem]
+    let myTasks: [TaskItem]
+    let sporadicTasks: [TaskItem]
+}
