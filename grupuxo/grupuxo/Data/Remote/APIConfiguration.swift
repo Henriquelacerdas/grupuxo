@@ -9,7 +9,7 @@ struct APIConfiguration: Equatable, Sendable {
         case missing
 
         var errorDescription: String? {
-            String(localized: "O endereço do servidor não está configurado neste build (GRUPUXO_API_BASE_URL).")
+            String(localized: "O endereço do servidor do Reveza não está configurado neste build.")
         }
     }
 

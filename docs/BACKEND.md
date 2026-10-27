@@ -398,6 +398,8 @@ A UI mostra a prévia da conclusão/desmarcação imediatamente e só bloqueia a
 
 ## 7. Fluxo do WhatsApp
 
+O texto canônico das boas-vindas do Reveza, a ajuda fixa e sua regra de manutenção estão em [WHATSAPP-MENSAGENS.md](WHATSAPP-MENSAGENS.md). As boas-vindas são enviadas ao concluir o vínculo do número; entrar em uma casa pelo app não dispara mensagem. Sempre que o bot ganhar ou perder uma capacidade, atualize a mensagem e os exemplos conforme esse documento.
+
 ### 7.1 Webhook
 
 Implementado em `WebhookHandler` (`backend/src/whatsapp/webhook/`), com testes.
@@ -428,10 +430,10 @@ Ferramentas expostas ao Gemini (sem parâmetro de usuário nem de casa: o `userI
 
 | Ferramenta | Caso de uso | Exemplo |
 | --- | --- | --- |
-| `list_my_tasks(range)` | `GetMyTasks` | "quais são minhas tarefas da semana?" |
-| `list_room_tasks(room_name)` | `GetRoomTasks` | "o que tem na cozinha?" |
-| `list_sporadic_tasks()` | `GetSporadicTasks` | "tem alguma tarefa avulsa?" |
-| `complete_task(task_name)` | `CompleteTask`, **só depois do "sim"** | "terminei de lavar a louça" |
+| `list_my_tasks(range)` | `GetMyTasks` | "Quais as minhas tarefas da semana?" |
+| `list_room_tasks(room_name)` | `GetRoomTasks` | "Quais são as tarefas da cozinha?" |
+| `list_sporadic_tasks()` | `GetSporadicTasks` | "Tem alguma tarefa avulsa?" |
+| `complete_task(task_name)` | `CompleteTask`, **só depois do "sim"** | `Marque "limpar sala" como concluído.` |
 
 Se o Gemini não reconhecer a intenção, o bot responde com a lista do que sabe fazer. O texto final **não** é gerado pelo modelo: é montado por código a partir do que o caso de uso devolveu (seção 7.4).
 
@@ -519,7 +521,7 @@ Fluxo:
 
 1. No Perfil, o usuário toca em "Conectar WhatsApp". O app chama `POST /me/whatsapp/link`.
 2. O backend (`WhatsAppLinker.issueInvitation`) cria um token aleatório de uso único e devolve `https://wa.me/<numero-do-bot>?text=<mensagem com token>`. Recusa se o morador já tem número conectado.
-3. O app abre o link. O usuário envia a mensagem pré-preenchida (`Conectar meu WhatsApp ao Grupuxo. Código: <token>`).
+3. O app abre o link. O usuário envia a mensagem pré-preenchida (`Conectar meu WhatsApp ao Reveza. Código: <token>`).
 4. O worker recebe a mensagem, o `WhatsAppLinker.handle` reconhece o token, marca-o como usado, grava o vínculo (`userID`, `phoneE164`, `consentedAt`, `linkedAt`; itens `PHONE#` e `USER#/WHATSAPP`) e confirma no chat.
 5. O app passa a mostrar "WhatsApp conectado", com opção de desconectar.
 
@@ -534,7 +536,7 @@ Respostas do bot (`WhatsAppLinker`):
 
 | Situação | Resposta |
 | --- | --- |
-| Vinculado | "Pronto! Seu WhatsApp está conectado…"; `consentedAt` = horário da mensagem do usuário, `linkedAt` = horário do processamento |
+| Vinculado | Boas-vindas "Olá, eu sou o bot do Reveza…" ([texto canônico](WHATSAPP-MENSAGENS.md)); `consentedAt` = horário da mensagem do usuário, `linkedAt` = horário do processamento |
 | Token inexistente, usado ou expirado (sem distinguir, para não vazar informação) | "Link inválido ou expirado…" |
 | Número já vinculado (a qualquer morador) | "Este número já está conectado…"; **o token não é consumido**, outro número ainda pode usá-lo |
 | Morador já tem outro número | "Sua conta já tem outro número conectado…"; o vínculo original fica intacto |

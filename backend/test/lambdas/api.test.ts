@@ -221,7 +221,7 @@ test("POST /v1/me/whatsapp/link devolve o link wa.me com o token e a validade em
   const response = await call("POST", "/v1/me/whatsapp/link");
   assert.equal(response.statusCode, 200);
   const body = parsed(response);
-  assert.match(String(body["url"]), /^https:\/\/wa\.me\/5511900000000\?text=Conectar%20meu%20WhatsApp%20ao%20Grupuxo\.%20C%C3%B3digo%3A%20[0-9a-f]{32}$/);
+  assert.match(String(body["url"]), /^https:\/\/wa\.me\/5511900000000\?text=Conectar%20meu%20WhatsApp%20ao%20Reveza\.%20C%C3%B3digo%3A%20[0-9a-f]{32}$/);
   assert.equal(body["expiresAt"], new Date(NOW + 15 * 60 * 1000).toISOString());
 });
 

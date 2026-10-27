@@ -11,7 +11,7 @@ struct WhatsAppConnectionTests {
         #expect(try await repository.connection() == nil)
         let invitation = try await CreateWhatsAppInvitationUseCase(repository: repository)()
         #expect(invitation.url.host == "wa.me")
-        #expect(invitation.url.absoluteString.contains("Grupuxo"))
+        #expect(invitation.url.absoluteString.contains("Reveza"))
         // Primeira leitura depois do convite: o mock simula o envio da mensagem no WhatsApp.
         let connection = try #require(try await GetWhatsAppConnectionUseCase(repository: repository)())
         #expect(connection.maskedPhone.contains("•"))

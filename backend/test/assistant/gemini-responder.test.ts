@@ -292,7 +292,15 @@ test("o modelo não escolheu nenhuma ferramenta: lista do que o bot sabe fazer",
   const { responder, users } = setup({ script: [[say("Olá! Como posso ajudar?")]] });
   const reply = await responder.reply("oi", users.marina.id, fresh());
   assert.equal(reply, GeminiMessageResponder.helpReply);
-  assert.match(reply, /tarefas da semana/);
+  assert.equal(reply, `Você pode me fazer perguntas como:
+- Quais as minhas tarefas da semana?
+- Quais são as tarefas da cozinha?
+- Tem alguma tarefa avulsa?
+
+E me pedir para fazer ações como:
+- Marque "limpar sala" como concluído.
+
+Para concluir uma tarefa sua, vou pedir sua confirmação.`);
 });
 
 // --- erros ---

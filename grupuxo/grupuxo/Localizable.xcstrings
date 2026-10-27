@@ -1013,12 +1013,12 @@
         }
       }
     },
-    "Ao conectar, você envia uma mensagem pelo WhatsApp e autoriza o Grupuxo a consultar suas tarefas e a marcar como feitas as que você confirmar por lá. Você pode desconectar quando quiser." : {
+    "Ao conectar, você envia uma mensagem pelo WhatsApp e autoriza o Reveza a consultar suas tarefas e a marcar como feitas as que você confirmar por lá. Você pode desconectar quando quiser." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When you connect, you send a message on WhatsApp and allow Grupuxo to look up your tasks and mark as done the ones you confirm there. You can disconnect at any time."
+            "value" : "When you connect, you send a message on WhatsApp and allow Reveza to look up your tasks and mark as done the ones you confirm there. You can disconnect at any time."
           }
         }
       }
@@ -3352,22 +3352,22 @@
         }
       }
     },
-    "O endereço do servidor não está configurado neste build (GRUPUXO_API_BASE_URL)." : {
+    "O endereço do servidor do Reveza não está configurado neste build." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The server address is not configured in this build (GRUPUXO_API_BASE_URL)."
+            "value" : "The Reveza server address is not configured in this build."
           }
         }
       }
     },
-    "O Grupuxo deixa de responder a este número. Você pode conectar de novo depois." : {
+    "O Reveza deixa de responder a este número. Você pode conectar de novo depois." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Grupuxo will stop replying to this number. You can connect again later."
+            "value" : "Reveza will stop replying to this number. You can connect again later."
           }
         }
       }

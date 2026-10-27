@@ -47,7 +47,7 @@ export interface GeminiMessageResponderDependencies {
 
 /** Instrução fixa: nada da mensagem do morador entra nela. */
 export const SYSTEM_INSTRUCTION = [
-  "Você é o seletor de consultas do Grupuxo, um app de tarefas domésticas, e atende moradores pelo WhatsApp.",
+  "Você é o seletor de consultas do Reveza, um app de tarefas domésticas, e atende moradores pelo WhatsApp.",
   "Sua única função é escolher qual ferramenta chamar para a mensagem do morador:",
   "list_my_tasks (as tarefas dele; range \"week\" para a semana atual, \"all\" para todas; na dúvida, \"week\"),",
   "list_room_tasks (as tarefas de um cômodo, com o nome do cômodo como o morador escreveu),",
@@ -79,15 +79,20 @@ type CallOutcome =
  */
 export class GeminiMessageResponder implements MessageResponder {
   static readonly noHouseReply =
-    "Você ainda não está em nenhuma casa no Grupuxo. Abra o app para criar uma casa ou entrar em uma.";
+    "Você ainda não está em nenhuma casa no Reveza. Abra o app para criar uma casa ou entrar em uma.";
   static readonly multipleHousesReply =
     "Você está em mais de uma casa, e eu ainda não consigo consultar mais de uma pelo WhatsApp. Use o app para ver suas tarefas.";
+  // Mesmos exemplos das boas-vindas, com a consulta de avulsas: docs/WHATSAPP-MENSAGENS.md.
   static readonly helpReply = [
-    "Posso te ajudar com:",
-    "• Suas tarefas da semana (ex.: \"quais são minhas tarefas da semana?\")",
-    "• As tarefas de um cômodo (ex.: \"o que tem na cozinha?\")",
-    "• Tarefas avulsas (ex.: \"tem alguma tarefa avulsa?\")",
-    "• Marcar uma tarefa sua como feita (ex.: \"terminei de lavar a louça\")",
+    "Você pode me fazer perguntas como:",
+    "- Quais as minhas tarefas da semana?",
+    "- Quais são as tarefas da cozinha?",
+    "- Tem alguma tarefa avulsa?",
+    "",
+    "E me pedir para fazer ações como:",
+    '- Marque "limpar sala" como concluído.',
+    "",
+    "Para concluir uma tarefa sua, vou pedir sua confirmação.",
   ].join("\n");
   static readonly fallbackReply = "Não consegui processar sua mensagem agora. Tente de novo em instantes.";
   static readonly unknownRoomReply = "Não encontrei esse cômodo.";
