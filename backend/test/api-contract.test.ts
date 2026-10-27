@@ -1,14 +1,19 @@
+import { houseSnapshot } from "../src/domain/commands/house-snapshot.ts";
+import { houseSnapshotDTO } from "../src/lambdas/api-dto.ts";
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { createSeed } from "../src/adapters/in-memory/seed.ts";
 import { houseMembers } from "../src/domain/commands/houses.ts";
 import { roomParticipation, roomsFor } from "../src/domain/commands/rooms.ts";
+import { notificationsFor } from "../src/domain/commands/notifications.ts";
+import { createSwapRequest, swapCandidates } from "../src/domain/commands/swaps.ts";
 import { completeTask, refreshSchedule, roomTasks, sporadicTasks, userTasks } from "../src/domain/commands/tasks.ts";
 import type { CommandContext } from "../src/domain/commands/context.ts";
 import { parseInstant } from "../src/domain/dates.ts";
 import {
-  houseDTO, myHouseDTO, roomDTO, roomParticipationDTO, taskDefinitionDTO, taskItemDTO,
+  houseDTO, myHouseDTO, notificationDTO, roomDTO, roomParticipationDTO, taskDefinitionDTO, taskItemDTO,
+  taskSwapRequestDTO,
 } from "../src/lambdas/api-dto.ts";
 import { sequentialIDs } from "./support/state-json.ts";
 
@@ -67,4 +72,23 @@ test("contrato: tarefas (pendente, concluída, esporádica) e definição", () =
   const sporadic = sporadicTasks(ctx, state, seed.house.id, marina, NOW).find((item) => item.definition.kind === "sporadic");
   assert.ok(sporadic !== undefined);
   check("task-item-sporadic", taskItemDTO(sporadic));
+});
+
+test("contrato: pedido de troca e notificação", () => {
+  const { seed, ctx, state } = world();
+  const marina = seed.users.marina.id;
+  const offered = userTasks(state, marina, seed.house.id, NOW).find((item) => item.occurrence.status === "assigned");
+  assert.ok(offered !== undefined);
+  const [requested] = swapCandidates(state, marina, offered.occurrence.id, seed.house.id, NOW);
+  assert.ok(requested !== undefined);
+  const request = createSwapRequest(ctx, state, marina, offered.occurrence.id, requested.occurrence.id, NOW);
+  check("task-swap-request", taskSwapRequestDTO(request));
+  const [notification] = notificationsFor(state, request.receiverID);
+  assert.ok(notification !== undefined);
+  check("notification", notificationDTO(notification));
+});
+
+test("contrato: snapshot da casa", () => {
+  const { seed, ctx, state } = world();
+  check("house-snapshot", houseSnapshotDTO(houseSnapshot(ctx, state, seed.house.id, seed.users.marina.id, NOW)));
 });

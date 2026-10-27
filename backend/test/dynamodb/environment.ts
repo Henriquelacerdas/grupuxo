@@ -15,6 +15,7 @@ import type { World } from "../support/world.ts";
 export const instantRuntime: DynamoRuntime = { sleep: async () => {}, random: () => 0 };
 
 export interface DynamoEnvironment extends RepositoryEnv {
+  readonly tasks: DynamoTaskRepository;
   readonly client: FakeDynamoClient;
   readonly store: HouseStateStore;
 }

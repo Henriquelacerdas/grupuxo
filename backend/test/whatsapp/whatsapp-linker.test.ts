@@ -31,7 +31,7 @@ function setup() {
     new WhatsAppWorker({ inbox, links, linker, responder, sender, rateLimiter: openRateLimiter(), now: () => NOW });
   const message = (wamid = "wamid.1", options: { from?: string; text?: string } = {}): IncomingMessage => ({
     wamid, phoneE164: options.from ?? anaPhone,
-    text: options.text ?? `Conectar meu WhatsApp ao Grupuxo. Código: ${TOKEN}`, receivedAt: sentAt,
+    text: options.text ?? `Conectar meu WhatsApp ao Reveza. Código: ${TOKEN}`, receivedAt: sentAt,
   });
   return { tokens, links, sender, makeLinker, makeWorker, message };
 }
@@ -45,7 +45,7 @@ test("o convite monta a URL wa.me com a mensagem codificada", async () => {
   const invitation = await makeLinker().issueInvitation(ana);
   assert.equal(
     invitation.url,
-    `https://wa.me/5511900000000?text=Conectar%20meu%20WhatsApp%20ao%20Grupuxo.%20C%C3%B3digo%3A%20${TOKEN}`,
+    `https://wa.me/5511900000000?text=Conectar%20meu%20WhatsApp%20ao%20Reveza.%20C%C3%B3digo%3A%20${TOKEN}`,
   );
 });
 
@@ -83,13 +83,22 @@ test("a configuração rejeita número do bot e validade inválidos", () => {
 
 // MARK: vínculo
 
-test("um token válido vincula o remetente e confirma no chat", async () => {
+test("um token válido vincula o remetente e envia as boas-vindas exatas do Reveza sem chamar o responder", async () => {
   const { makeLinker, makeWorker, links, sender, message } = setup();
   const linker = makeLinker();
   await linker.issueInvitation(ana);
-  await makeWorker(linker).process(message());
+  await makeWorker(linker, { reply: async () => { throw new Error("o vínculo não deve chamar o responder"); } }).process(message());
   assert.deepEqual(await links.linkForPhone(anaPhone), { userID: ana, phoneE164: anaPhone, consentedAt: sentAt, linkedAt: NOW });
-  assert.deepEqual(sender.sent, [{ phoneE164: anaPhone, text: WhatsAppLinker.linkedReply }]);
+  assert.deepEqual(sender.sent, [{
+    phoneE164: anaPhone,
+    text: `Olá, eu sou o bot do Reveza e vou ser seu assistente pessoal para ajudar a manter a casa organizada!
+Você pode me fazer perguntas como:
+- Quais as minhas tarefas da semana?
+- Quais são as tarefas da cozinha?
+
+E me pedir para fazer ações como:
+- Marque "limpar sala" como concluído.`,
+  }]);
 });
 
 test("depois de vincular, as mensagens vão para o responder", async () => {

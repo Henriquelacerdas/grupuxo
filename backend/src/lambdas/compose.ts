@@ -20,6 +20,8 @@ export interface WorkerCompositionDependencies {
   readonly secrets: WorkerSecrets;
   readonly http: HttpFetch;
   readonly now: () => Instant;
+  /** Espera entre tentativas do Gemini. */
+  readonly sleep: (milliseconds: number) => Promise<void>;
   readonly inbox: InboxStore;
   readonly links: WhatsAppLinkStore;
   readonly linker: Pick<WhatsAppLinker, "handle">;
@@ -33,8 +35,8 @@ export interface WorkerCompositionDependencies {
  * `GEMINI_MODEL`, a versão da Graph API ou qualquer segredo estiver ausente ou inválido (lança na criação).
  */
 export function composeWhatsAppWorker(deps: WorkerCompositionDependencies): WhatsAppWorker {
-  const { settings, secrets, http, now } = deps;
-  const gemini = new HttpGeminiClient({ apiKey: secrets.geminiApiKey, model: settings.geminiModel, http });
+  const { settings, secrets, http, now, sleep } = deps;
+  const gemini = new HttpGeminiClient({ apiKey: secrets.geminiApiKey, model: settings.geminiModel, http, sleep });
   const sender = new GraphWhatsAppSender({
     accessToken: secrets.whatsappToken, phoneNumberID: secrets.phoneNumberID, apiVersion: settings.graphVersion, http,
   });

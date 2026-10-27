@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct LoginView: View {
@@ -42,9 +43,9 @@ struct LoginView: View {
                         case .confirmSignUp:
                             showConfirmSignUp = true
                         case .resetPassword:
-                            signInError = "Redefinição de senha necessária. Clique em 'Esqueci minha senha'."
+                            signInError = String(localized: "Redefinição de senha necessária. Clique em 'Esqueci minha senha'.")
                         case .invalidCredentials:
-                            signInError = "Email ou senha incorretos."
+                            signInError = String(localized: "Email ou senha incorretos.")
                         case .error(let msg):
                             signInError = msg
                         }

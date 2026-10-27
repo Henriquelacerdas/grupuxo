@@ -12,7 +12,7 @@ struct ContentView: View {
                 HouseGateView {
                     if let api = houses.api, let me = houses.me, let house = houses.house {
                         // Estado novo por conta e por casa: sem o id, trocar de usuário reaproveitaria o anterior.
-                        RootView(api: api, user: me, house: house)
+                        RootView(api: api, user: me, house: house, myHouse: houses.dataCache)
                             .id("\(me.id)-\(house.id)")
                     }
                 }

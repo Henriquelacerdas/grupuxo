@@ -2,7 +2,9 @@ import type { DynamoClient } from "../adapters/dynamodb/client.ts";
 import { HouseStateStore } from "../adapters/dynamodb/house-state-store.ts";
 import { DynamoPendingActionStore } from "../adapters/dynamodb/pending-action-store.ts";
 import { DynamoRateCounter } from "../adapters/dynamodb/rate-counter.ts";
-import { DynamoHouseRepository, DynamoRoomRepository, DynamoTaskRepository } from "../adapters/dynamodb/repositories.ts";
+import {
+  DynamoHouseRepository, DynamoNotificationRepository, DynamoRoomRepository, DynamoTaskRepository, DynamoTaskSwapRepository,
+} from "../adapters/dynamodb/repositories.ts";
 import { DynamoUserDirectory } from "../adapters/dynamodb/user-directory.ts";
 import { DynamoInboxStore, DynamoLinkTokenStore, DynamoWhatsAppLinkStore } from "../adapters/dynamodb/whatsapp-stores.ts";
 import type { CommandContext } from "../domain/commands/context.ts";
@@ -25,6 +27,8 @@ export function houseAdapters(client: DynamoClient) {
     houses: new DynamoHouseRepository(store, client, ctx, newAccessCode),
     rooms: new DynamoRoomRepository(store, ctx),
     tasks: new DynamoTaskRepository(store, ctx),
+    swaps: new DynamoTaskSwapRepository(store, ctx),
+    notifications: new DynamoNotificationRepository(store, client),
   };
 }
 

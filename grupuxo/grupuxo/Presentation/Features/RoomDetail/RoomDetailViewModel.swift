@@ -5,9 +5,14 @@ import GrupuxoDomain
 @MainActor
 final class RoomDetailViewModel: ObservableObject {
     @Published var actionError: String?
-    @Published private(set) var isCompleting = false
+    @Published private var completions = OptimisticTaskCompletions()
+    var isCompleting: Bool { completions.isCompleting || isClaiming }
+    @Published private var isClaiming = false
+    private var loadID: UUID?
     @Published private(set) var state: RoomDetailState = .idle
     @Published private(set) var suggestions: [TaskSuggestion] = []
+    @Published private(set) var sporadicTasks: [TaskItem] = []
+    @Published private var suggestionOffset = 0
     @Published private(set) var participation: RoomParticipation?
     @Published private(set) var isChangingMembership = false
     @Published private(set) var wasDeleted = false
@@ -17,50 +22,177 @@ final class RoomDetailViewModel: ObservableObject {
     private let addMember: AddRoomMemberUseCase
     private let removeMember: RemoveRoomMemberUseCase
     private let getRoomTasks: GetRoomTasksUseCase
+    private let getSporadicTasks: GetSporadicTasksUseCase
     private let getTaskSuggestions: GetTaskSuggestionsUseCase
     private let completeTask: CompleteTaskUseCase
     private let endTask: EndTaskUseCase
+    private let claimTask: ClaimSporadicTaskUseCase
     private let roomID: Room.ID
     private let userID: User.ID
+    private let text: HouseOverviewText
+
+    /// Quantas sugestões aparecem de uma vez; "Outras sugestões" avança para o próximo grupo.
+    static let suggestionPageSize = 3
+
+    private let refreshData: @Sendable () async -> Void
 
     init(
+        refreshData: @escaping @Sendable () async -> Void = {},
         getParticipation: GetRoomParticipationUseCase,
         addMember: AddRoomMemberUseCase,
         removeMember: RemoveRoomMemberUseCase,
         getRoomTasks: GetRoomTasksUseCase,
+        getSporadicTasks: GetSporadicTasksUseCase,
         getTaskSuggestions: GetTaskSuggestionsUseCase,
         completeTask: CompleteTaskUseCase,
         endTask: EndTaskUseCase,
+        claimTask: ClaimSporadicTaskUseCase,
         roomID: Room.ID,
-        userID: User.ID
+        userID: User.ID,
+        calendar: Calendar
     ) {
+        self.refreshData = refreshData
         self.getParticipation = getParticipation
         self.addMember = addMember
         self.removeMember = removeMember
         self.getRoomTasks = getRoomTasks
+        self.getSporadicTasks = getSporadicTasks
         self.getTaskSuggestions = getTaskSuggestions
         self.completeTask = completeTask
         self.endTask = endTask
+        self.claimTask = claimTask
         self.roomID = roomID
         self.userID = userID
+        self.text = HouseOverviewText(calendar: calendar)
     }
 
-    func load() async {
-        state = .loading
+    var currentUserID: User.ID { userID }
+
+    /// "Você e Julia C.": quem está com as tarefas do ciclo do cômodo agora. Sem tarefas do
+    /// ciclo atribuídas, cai nos responsáveis do período calculados para o cômodo.
+    var responsiblesSummary: String? {
+        guard let participation else { return nil }
+
+        let assignees = cycleAssignees(in: participation.room)
+
+        if !assignees.isEmpty {
+            return text.responsibles(
+                names: assignees.map(\.name),
+                userIDs: assignees.map(\.id),
+                currentUserID: userID
+            )
+        }
+
+        return text.responsibles(
+            names: participation.responsibleNames,
+            userIDs: participation.responsibleUserIDs,
+            currentUserID: userID
+        )
+    }
+
+    /// "Semanal", "Quinzenal"...
+    var cycleDurationSummary: String? {
+        participation.map { RoomDetailText.cycleDuration($0.room.periodicity) }
+    }
+
+    /// "Todos • público".
+    var participantsSummary: String? {
+        participation.map {
+            RoomDetailText.participants(of: $0.room, memberCount: $0.memberCount)
+        }
+    }
+
+    /// Moradores com alguma tarefa do ciclo (mesma periodicidade do cômodo), sem repetir,
+    /// em ordem estável pelo ID.
+    private func cycleAssignees(in room: Room) -> [User] {
+        guard case let .content(content) = state else { return [] }
+
+        let assignees = content.tasks
+            .filter { $0.definition.kind == .recurring && $0.definition.isLinked(to: room) }
+            .compactMap(\.assignee)
+
+        return Dictionary(grouping: assignees, by: \.id)
+            .compactMap { $0.value.first }
+            .sorted { $0.id.uuidString.lowercased() < $1.id.uuidString.lowercased() }
+    }
+
+    /// "Termina domingo".
+    var deadlineSummary: String? {
+        guard let participation else { return nil }
+        return text.deadline(cycleEnd: participation.periodEnd, now: .now)
+    }
+
+    /// O grupo atual de sugestões, girando pela lista quando "Outras sugestões" é tocado.
+    var visibleSuggestions: [TaskSuggestion] {
+        guard !suggestions.isEmpty else { return [] }
+        let size = Self.suggestionPageSize
+        return (0..<min(size, suggestions.count)).map {
+            suggestions[(suggestionOffset + $0) % suggestions.count]
+        }
+    }
+
+    var hasOtherSuggestions: Bool { suggestions.count > Self.suggestionPageSize }
+
+    func showOtherSuggestions() {
+        guard hasOtherSuggestions else { return }
+        suggestionOffset = (suggestionOffset + Self.suggestionPageSize) % suggestions.count
+    }
+
+    func canClaim(_ item: TaskItem) -> Bool {
+        !isCompleting
+            && participation?.isMember == true
+            && item.definition.kind == .sporadic
+            && item.definition.endedAt == nil
+            && !item.occurrence.isCompleted
+            && item.assignment == nil
+    }
+
+    func claim(_ occurrenceID: TaskOccurrence.ID) async {
+        guard let item = sporadicTasks.first(where: { $0.id == occurrenceID }),
+              canClaim(item) else { return }
+        isClaiming = true
+        defer { isClaiming = false }
+        do {
+            try await claimTask(occurrenceID: occurrenceID, userID: userID)
+            await load()
+        } catch { actionError = error.localizedDescription }
+    }
+
+    func load(forceRefresh: Bool = false) async {
+        if forceRefresh { await refreshData() }
+        if case .content = state {} else if case .empty = state {} else { state = .loading }
+        let id = UUID()
+        loadID = id
+        let revision = completions.revision
         do {
             let participation = try await getParticipation(roomID: roomID, userID: userID)
+            async let pendingTasks = getRoomTasks(roomID: roomID, userID: userID)
+            async let pendingUniqueTasks = getSporadicTasks(
+                houseID: participation.room.houseID,
+                userID: userID
+            )
+            let (tasks, uniqueTasks) = try await (pendingTasks, pendingUniqueTasks)
+            try Task.checkCancellation()
+            guard loadID == id, completions.revision == revision else { return }
+            completions.acceptReload()
             self.participation = participation
-            let tasks = try await getRoomTasks(roomID: roomID, userID: userID)
+            sporadicTasks = uniqueTasks.filter { $0.definition.roomID == roomID }
             let usedSuggestionIDs = Set(tasks.compactMap(\.definition.sourceSuggestionID))
             suggestions = participation.isMember
                 ? getTaskSuggestions(category: participation.room.category).filter {
                     !usedSuggestionIDs.contains($0.id)
                 }
                 : []
-            let content = RoomDetailContent(room: participation.room, tasks: tasks)
+            let content = RoomDetailContent(room: participation.room, tasks: tasks.map { completions.applying(to: $0) })
             state = tasks.isEmpty ? .empty(content.room) : .content(content)
+        } catch is CancellationError {
+            // A tela saiu antes da resposta.
         } catch {
+            guard loadID == id, completions.revision == revision else { return }
+            if case .content = state { actionError = error.localizedDescription; return }
+            if case .empty = state { actionError = error.localizedDescription; return }
             suggestions = []
+            sporadicTasks = []
             state = .failure(error.localizedDescription)
         }
     }
@@ -98,30 +230,42 @@ final class RoomDetailViewModel: ObservableObject {
     }
 
     func canComplete(_ item: TaskItem) -> Bool {
-        !isCompleting
+        !isClaiming && !completions.pendingIDs.contains(item.id)
             && item.assignment?.userID == userID && item.occurrence.availableAt <= .now
     }
 
     func complete(_ occurrenceID: TaskOccurrence.ID) async {
-        guard !isCompleting else { return }
         guard case let .content(content) = state,
               let item = content.tasks.first(where: { $0.id == occurrenceID }),
               canComplete(item) else { return }
-        isCompleting = true
-        defer { isCompleting = false }
+        completions.begin(item, by: userID)
+        presentCompletions()
         do {
             try await completeTask(occurrenceID: occurrenceID, userID: userID, isCompleted: !item.occurrence.isCompleted)
-            await load()
-        } catch { actionError = error.localizedDescription }
+            completions.finish(occurrenceID)
+        } catch {
+            completions.finish(occurrenceID, restoring: item)
+            presentCompletions()
+            actionError = error.localizedDescription
+        }
+        if !completions.isCompleting { await load() }
+    }
+
+    private func presentCompletions() {
+        guard case let .content(content) = state else { return }
+        state = .content(RoomDetailContent(room: content.room, tasks: content.tasks.map { completions.applying(to: $0) }))
     }
 
     /// Encerra a tarefa: o histórico fica e a ocorrência da vez continua até ser concluída.
-    func end(taskID: TaskDefinition.ID) async {
+    @discardableResult
+    func end(taskID: TaskDefinition.ID) async -> Bool {
         do {
             try await endTask(taskID: taskID, requestedBy: userID)
             await load()
+            return true
         } catch {
             actionError = error.localizedDescription
+            return false
         }
     }
 }

@@ -1,6 +1,6 @@
 # Validação contra as APIs reais
 
-Checklist do que **ainda não foi validado** contra a Graph API da Meta, o Gemini, a Lambda Function URL e o backend Amplify (Cognito + Data). Hoje todos os testes usam `HttpFetch` falso e nunca chamam a rede. Nada abaixo foi executado: cada item que toca AWS, Meta ou Google exige **autorização explícita, caso a caso** (deploy, criar recurso, chamar a API real). Estado e decisões: [BACKEND.md](BACKEND.md) (seções 3.1, 3.2, 7.4 e 7.5).
+Checklist do que validar contra a Graph API da Meta, o Gemini, a Lambda Function URL, o SQS e o DynamoDB. **Estado (2026-10-27):** o `dev` está implantado e em uso (app na `api`, bot no número real, Gemini real no `worker`), então boa parte dos itens foi exercitada na prática, mas os resultados **não foram anotados** aqui; antes de marcar um item como feito, anote data, versão e o que diferiu do código. Os testes automatizados seguem usando `HttpFetch` falso e nunca chamam a rede. Cada item que toca AWS, Meta ou Google exige **autorização explícita, caso a caso** (deploy, criar recurso, chamar a API real). Estado e decisões: [BACKEND.md](BACKEND.md) (seções 3.1, 3.2, 7.4 e 7.5).
 
 Regras para qualquer chamada real: usar números e chaves de **teste** (ambiente `dev`), nunca registrar token, texto de mensagem nem telefone, e anotar aqui o resultado (data, versão da API, o que diferiu do código).
 

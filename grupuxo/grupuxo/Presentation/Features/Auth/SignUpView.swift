@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct SignUpView: View {
@@ -85,11 +86,11 @@ struct SignUpView: View {
         case .confirmSignUp:
             showConfirmation = true
         case .invalidCredentials where existing:
-            errorMessage = "Já existe uma conta com este e-mail. Volte e entre com sua senha, ou use \"Esqueci minha senha\"."
+            errorMessage = String(localized: "Já existe uma conta com este e-mail. Volte e entre com sua senha, ou use \"Esqueci minha senha\".")
         case .resetPassword:
-            errorMessage = "Redefinição de senha necessária. Volte e toque em \"Esqueci minha senha\"."
+            errorMessage = String(localized: "Redefinição de senha necessária. Volte e toque em \"Esqueci minha senha\".")
         case .invalidCredentials:
-            errorMessage = "Conta criada. Volte e entre com seu e-mail e senha."
+            errorMessage = String(localized: "Conta criada. Volte e entre com seu e-mail e senha.")
         case .error(let message):
             errorMessage = message
         }

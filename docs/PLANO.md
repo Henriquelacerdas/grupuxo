@@ -11,9 +11,25 @@ Duas frentes resolveram identidade, casa, moradores e convite de formas diferent
 
 Nada aqui toca AWS/Meta/Gemini sem autorização caso a caso.
 
+> **Estado em 2026-10-27 (resumo do que já foi feito além do plano original):**
+> - **T2, T3 e T4 estão feitas e no ar.** O `dev` está aplicado na conta 580100736070 (tabela `grupuxo-dev` com proteção contra exclusão e recuperação pontual, fila FIFO com DLQ, Lambdas `api` com 1769 MB, `webhook` e `worker`). O app (Debug e Release) usa a `api` do `dev` por `Grupuxo.xcconfig`. As telas que estavam escondidas voltaram com rotas novas: avulsas, trocas e notificações (2026-10-21). Seguem sem rota: editar tarefa, excluir avulsa, morador sem conta e pedido de entrada em cômodo privado.
+> - **WhatsApp com número real:** o backend foi trocado para o número real em 2026-10-25 e o app da Meta foi publicado em 2026-10-26 (verificação do negócio concluída). Falta o **teste ponta a ponta com um celular fora da lista de teste** (M1/M3). O `worker` usa `gemini-3.1-flash-lite`, com nova tentativa para falhas passageiras e `thinkingLevel` baixo (BACKEND.md §7.4).
+> - **Latência:** medida e atacada (memória da `api`, consultas sem `update`, escala publicada por morador); detalhes e o que falta (arquivar histórico, rota agregada) em [LATENCIA.md](LATENCIA.md).
+> - **Algoritmo:** criar tarefa ficou mais leve (só a próxima vez de cada morador é publicada; ALGORITMO.md, "Publicação por morador") e criar tarefa vinculada realinha as vezes da semana com os papéis novos (2026-10-27). Swift, TypeScript e fixtures andam juntos.
+> - **App:** nova UI mesclada (cômodos, detalhe da tarefa, avisos), textos em pt-BR e en (`Localizable.xcstrings`), card de resumo semanal removido, login por e-mail mais robusto, reordenar cômodos, e o último morador pode sair e excluir a casa.
+> - **Ainda aberto:** M2 (duas contas em dois aparelhos, TestFlight interno), T0 (App Store Connect, conta de demonstração para o Beta App Review), anotar os resultados da validação real em VALIDACAO-APIS-REAIS.md, D3 definitivo, `Idempotency-Key`, estado do Terraform remoto, ambiente `prod`.
+
 Legenda: **FATO** = verificado no código/execução (arquivo:linha). **HIP** = hipótese, precisa de doc oficial ou teste real.
 
 ---
+
+## Fluidez — implementação local em 2026-10-27
+
+- Snapshot agregado da casa, cache de sessão de 5 s e coalescência de consultas; abertura, navegação e detalhes reaproveitam os mesmos dados. Puxar para atualizar e mutações invalidam o cache; logout o substitui.
+- Concluir/desmarcar tem prévia imediata, rollback por ocorrência e reconciliação, mantendo as listas nas recargas. Fechar o detalhe atualiza também o cômodo de origem.
+- Backend com índices locais nas leituras de tarefas e sem baseline de escrita em `read`. Benchmark local: tela Casa de 168,00 ms nas consultas anteriores para 15,16 ms com snapshot; não é medição da Lambda/rede.
+- Validação local concluída: 1.125 testes do backend, 165 do app, 8 do domínio Swift; build iOS e bundles das Lambdas passaram.
+- Código e contrato em [LATENCIA.md](LATENCIA.md) e [BACKEND.md](BACKEND.md) §6.1. Publicação da `api` e validação no aparelho contra o `dev` dependem de autorização própria; nenhuma infraestrutura foi alterada nesta rodada.
 
 ## 1. Veredito
 
@@ -147,7 +163,7 @@ O Amplify Data não será implantado (D1 = b).
 O necessário para o teste entrou na trilha (T2–T4). Fica **para depois do teste**:
 - D3 definitivo, substituindo o `oversizedWrites: "split"`.
 - `Idempotency-Key`, ambiente `prod`, Terraform com estado remoto e CI de deploy, alarmes de 5xx.
-- Trocas, notificações e esporádicas no servidor, e as telas de volta.
+- ~~Trocas, notificações e esporádicas no servidor, e as telas de volta.~~ Feito (2026-10-21): rotas da §6.1 do BACKEND.md e `Remote{TaskSwap,Notification}Repository`. Falta: aceitar/recusar troca no app (não há tela; a rota existe), excluir avulsa e editar tarefa (sem porte no TS).
 - Morador sem conta (D4) e desvincular o WhatsApp ao sair da casa (pergunta 10; recomendo sim).
 - O `GrupuxoDomain` Swift e o gerador de fixtures saem do caminho quando o app não usar mais o Mock (regra do CLAUDE.md).
 

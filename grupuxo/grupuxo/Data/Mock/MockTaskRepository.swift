@@ -52,6 +52,28 @@ struct MockTaskRepository: TaskRepository {
         }
     }
 
+    func occurrences(
+        of taskDefinitionID: TaskDefinition.ID,
+        requesting userID: User.ID
+    ) async throws -> [TaskItem] {
+        try await store.read { state in
+            guard let definition = state.definitions.first(where: { $0.id == taskDefinitionID }),
+                  let room = state.rooms.first(where: { $0.id == definition.roomID }) else {
+                throw DomainError.entityNotFound
+            }
+            guard state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }),
+                  eligibilityPolicy.canView(
+                    definition,
+                    room: room,
+                    userID: userID,
+                    roomMemberships: state.roomMemberships
+                  ) else {
+                throw DomainError.taskUnavailable
+            }
+            return items(from: state).filter { $0.definition.id == taskDefinitionID }
+        }
+    }
+
     /// Current-week effort is house-wide, matching the scheduling projection. Candidates
     /// are restricted to current residents of the task's room because the task is room-bound.
     func sporadicTasks(in houseID: House.ID, requesting userID: User.ID) async throws -> [TaskItem] {

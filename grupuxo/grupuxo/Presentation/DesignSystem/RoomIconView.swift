@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import GrupuxoDomain
 
@@ -13,20 +14,26 @@ extension RoomColor {
         case .brown: .brown
         case .gray: .gray
         case .pink: .pink
+        case .teal: .teal
+        case .indigo: .indigo
+        case .cyan: .cyan
         }
     }
 
     var label: String {
         switch self {
-        case .red: "Vermelho"
-        case .orange: "Laranja"
-        case .yellow: "Amarelo"
-        case .green: "Verde"
-        case .blue: "Azul"
-        case .purple: "Roxo"
-        case .brown: "Marrom"
-        case .gray: "Cinza"
-        case .pink: "Rosa"
+        case .red: String(localized: "Vermelho")
+        case .orange: String(localized: "Laranja")
+        case .yellow: String(localized: "Amarelo")
+        case .green: String(localized: "Verde")
+        case .blue: String(localized: "Azul")
+        case .purple: String(localized: "Roxo")
+        case .brown: String(localized: "Marrom")
+        case .gray: String(localized: "Cinza")
+        case .pink: String(localized: "Rosa")
+        case .teal: String(localized: "Azul-petróleo")
+        case .indigo: String(localized: "Índigo")
+        case .cyan: String(localized: "Ciano")
         }
     }
 }

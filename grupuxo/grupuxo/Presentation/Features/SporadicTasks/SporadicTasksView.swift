@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import GrupuxoDomain
 
@@ -5,6 +6,9 @@ struct SporadicTasksView: View {
 
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
+
+    @Environment(\.showToast)
+    private var showToast
 
     @Environment(\.dismiss)
     private var dismiss
@@ -19,6 +23,8 @@ struct SporadicTasksView: View {
     private var pendingChangesAlert: PendingChangesAlert?
 
     private let onEditTask: (TaskDefinition.ID) -> Void
+
+    private let reloadTrigger: AnyHashable
 
     private enum PendingChangesAlert: Identifiable {
 
@@ -40,7 +46,8 @@ struct SporadicTasksView: View {
 
     init(
         viewModel: SporadicTasksViewModel,
-        onEditTask: @escaping (TaskDefinition.ID) -> Void = { _ in }
+        onEditTask: @escaping (TaskDefinition.ID) -> Void = { _ in },
+        reloadTrigger: AnyHashable = 0
     ) {
 
         _viewModel = StateObject(
@@ -48,6 +55,7 @@ struct SporadicTasksView: View {
         )
 
         self.onEditTask = onEditTask
+        self.reloadTrigger = reloadTrigger
     }
 
     var body: some View {
@@ -135,13 +143,13 @@ struct SporadicTasksView: View {
             )
             .ignoresSafeArea()
         )
-        .task {
+        .task(id: reloadTrigger) {
 
             await viewModel.load()
         }
         .refreshable {
 
-            await viewModel.load()
+            await viewModel.load(forceRefresh: true)
         }
         .alert(
             "Não foi possível realizar a ação",
@@ -204,9 +212,11 @@ struct SporadicTasksView: View {
 
                 Task {
 
-                    await viewModel.delete(
+                    if await viewModel.delete(
                         taskDefinitionID
-                    )
+                    ) {
+                        showToast(.deleted(String(localized: "Tarefa Única excluída")))
+                    }
                 }
             }
 
@@ -838,9 +848,8 @@ struct SporadicTasksView: View {
         _ count: Int
     ) -> String {
 
-        count == 1
-            ? "1 tarefa pendente"
-            : "\(count) tarefas pendentes"
+        // Singular e plural ficam nas variações do catálogo.
+        String(localized: "\(count) tarefas pendentes")
     }
 
     private func primaryActionTitle(
@@ -851,44 +860,16 @@ struct SporadicTasksView: View {
             item
         ) {
 
-            return "Desfazer"
+            return String(localized: "Desfazer")
         }
 
-        return "Adicionar a \"Minhas Tarefas\""
+        return String(localized: "Adicionar a \"Minhas Tarefas\"")
     }
 
     private func color(
         for roomColor: RoomColor
     ) -> Color {
 
-        switch roomColor {
-
-        case .red:
-            return .red
-
-        case .orange:
-            return .orange
-
-        case .yellow:
-            return .yellow
-
-        case .green:
-            return .green
-
-        case .blue:
-            return .blue
-
-        case .purple:
-            return .purple
-
-        case .brown:
-            return .brown
-
-        case .gray:
-            return .gray
-
-        case .pink:
-            return .pink
-        }
+        roomColor.tint
     }
 }

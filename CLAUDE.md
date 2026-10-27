@@ -9,8 +9,8 @@ App e domínio Swift: código em `grupuxo/grupuxo/` (Xcode project em `grupuxo/g
 - `App/` composição (`AppContainer`), sessão, `RootView`.
 - `Packages/GrupuxoDomain` entidades, value objects, repositórios (protocolos), use cases, services (algoritmos). Só `Foundation`, sem SwiftUI. API pública: tipo novo consumido pelo app precisa de `public` e `init` público explícito.
 - `Data/Auth/AuthService` login com Amplify/Cognito (e-mail/senha e Apple); o Amplify fica só com o Auth. `ContentView`: `LoginView` → `HouseGateView` (sem casa, `OnboardingView`: criar ou entrar por código) → `RootView`.
-- `Data/Remote/` o app na `api` do servidor (BACKEND.md §6.1): `APIClient` (URLSession injetável, `Authorization: Bearer` com o access token do Cognito por `AmplifyAccessTokenProvider`), DTOs (`RemoteDTO.swift`, datas ISO com milissegundos), `Remote{House,Room,Task,WhatsAppConnection}Repository` (rota que não existe lança `APIError.unsupported`; caminhos com UUID em **minúsculo**, `apiString`) e `RemoteHouseSession` (`@MainActor`, `ObservableObject`, no lugar do antigo `HouseService`: `GET /v1/me`, `GET /v1/me/house`, criar, entrar, sair). `User.id` é o id do backend. O endereço vem de `GRUPUXO_API_BASE_URL` (`grupuxo/Config/Grupuxo.xcconfig` → `Info.plist`; sem valor real, `CONFIGURE-ME`, o app falha fechado. Debug e Release (TestFlight) trazem no `Grupuxo.xcconfig` a Function URL da `api` do `dev` (não é segredo: a `api` exige o token do Cognito), então quem dá pull só precisa de uma conta no Cognito; `Config/Local.xcconfig`, fora do git e a partir de `Local.xcconfig.example`, é opcional para apontar para outro servidor; quando existir `prod`, o Release passa a apontar para ele).
-- `Data/Mock/` repositórios mockados sobre `MockStore`: só testes e os repositórios de trocas e notificações (sem rota na `api`; telas escondidas: trocas, notificações, tarefas esporádicas, edição de tarefa, tarefa única no editor).
+- `Data/Remote/` o app na `api` do servidor (BACKEND.md §6.1): `APIClient` (URLSession injetável, `Authorization: Bearer` com o access token do Cognito por `AmplifyAccessTokenProvider`), DTOs (`RemoteDTO.swift`, datas ISO com milissegundos), `Remote{House,Room,Task,TaskSwap,Notification,WhatsAppConnection}Repository` (rota que não existe lança `APIError.unsupported`; caminhos com UUID em **minúsculo**, `apiString`) e `RemoteHouseSession` (`@MainActor`, `ObservableObject`, no lugar do antigo `HouseService`: abre por `GET /v1/me/house/snapshot`, com fallback para `GET /v1/me` + `GET /v1/me/house`; criar, entrar, sair). `User.id` é o id do backend. O endereço vem de `GRUPUXO_API_BASE_URL` (`grupuxo/Config/Grupuxo.xcconfig` → `Info.plist`; sem valor real, `CONFIGURE-ME`, o app falha fechado. Debug e Release (TestFlight) trazem no `Grupuxo.xcconfig` a Function URL da `api` do `dev` (não é segredo: a `api` exige o token do Cognito), então quem dá pull só precisa de uma conta no Cognito; `Config/Local.xcconfig`, fora do git e a partir de `Local.xcconfig.example`, é opcional para apontar para outro servidor; quando existir `prod`, o Release passa a apontar para ele).
+- `Data/Mock/` repositórios mockados sobre `MockStore`: só testes. Ainda sem rota na `api` (telas escondidas ou ações ausentes): edição de tarefa, excluir tarefa avulsa, morador sem conta e pedido de entrada em cômodo privado (`RemoteRoomAccessRequestRepository` lança `APIError.unsupported`).
 - `grupuxo/amplify/` só o `auth` do Amplify Gen 2 (`referenceAuth` do user pool existente, conta 580100736070); o app usa apenas `amplify_outputs.json` (seção `auth`). O Amplify Data foi abandonado e apagado (PLANO.md, D1=b).
 - `Presentation/` `Features/<Nome>/{State,View,ViewModel}`, `Navigation/`, `DesignSystem/`.
 
@@ -36,7 +36,7 @@ Fluxo no app: View → ViewModel → UseCase → Repository → Data. No backend
 
 ## Duas implementações do algoritmo (Swift e TypeScript)
 
-O app já usa a `api` para casa, cômodos, tarefas e WhatsApp, mas trocas e notificações ainda rodam no Mock (sem rota no servidor). Até isso acabar, o `GrupuxoDomain` Swift continua sendo **a referência** do TypeScript. Regra de mudança:
+O app já usa a `api` para casa, cômodos, tarefas, avulsas, trocas, notificações e WhatsApp, mas o `GrupuxoDomain` Swift ainda roda nos testes e tem regras sem porte no servidor (edição de tarefa, exclusão de avulsa). Até isso acabar, o `GrupuxoDomain` Swift continua sendo **a referência** do TypeScript. Regra de mudança:
 
 - Mudou regra de distribuição, saldo, calendário ou política de elegibilidade? Altere o Swift (referência), altere o TypeScript, **regenere as fixtures** (`backend/tools/swift-fixtures/regenerate.sh`) e rode `npm test`. As fixtures comparam o resultado dos dois com `deepStrictEqual`.
 - Fixture divergente: o Swift é a referência até se entender a diferença. Descubra se é bug do port ou comportamento do Swift a registrar em `docs/ALGORITMO.md`; não "conserte" o TypeScript para passar sem entender.
@@ -44,14 +44,16 @@ O app já usa a `api` para casa, cômodos, tarefas e WhatsApp, mas trocas e noti
 
 ## Regras
 
+- Mensagens do WhatsApp: seguir o texto canônico de [docs/WHATSAPP-MENSAGENS.md](docs/WHATSAPP-MENSAGENS.md), fixo no código e nunca gerado pelo Gemini. Sempre que o bot ganhar ou perder uma capacidade (ferramenta em `backend/src/assistant/read-tools.ts` ou `complete_task`), atualizar as boas-vindas, a ajuda e os exemplos, junto com o documento e os testes.
 - Tipos e propriedades em inglês; textos de interface e respostas do bot em português.
+- Idioma do app: segue o do aparelho, com textos no `grupuxo/grupuxo/Localizable.xcstrings` (fonte `pt-BR`, tradução `en`; idioma sem tradução cai no inglês, `DEVELOPMENT_LANGUAGE = en` no target). Texto padrão novo entra como literal em `Text`/`Button`/`Label` ou `String(localized:)`, e ganha tradução no catálogo; o que o morador digita (nomes de casa, cômodo, tarefa, morador) vai por `Text(variável)` ou como argumento `%@`, nunca traduzido. Strings do `GrupuxoDomain` usam `String(localized:)` e entram no catálogo à mão (`extractionState: manual`).
 - Domain não importa SwiftUI nem persistência. ViewModels (`@MainActor`) recebem use cases por init, nunca repositórios concretos.
 - Sem `Singleton.shared`; dependências criadas em `AppContainer` (Swift) ou passadas por construtor (TypeScript, sem container de DI).
 - Lógica de distribuição, carga e balanceamento nunca em Views/ViewModels.
 - Swift 6 com concorrência estrita: sem `Task.detached` nem `@unchecked Sendable` para contornar erros.
 - Toda mutação de escala roda **dentro** de uma transação com cópia, commit e rollback (`MockStore.update` no Swift, `InMemoryStore.update` no TypeScript), sem `await` no meio.
 - Definição (`TaskDefinition`) e ocorrência (`TaskOccurrence`) são separadas; alterar a definição não reescreve o histórico.
-- Criar tarefa só existe em Gerenciar casa, nunca em Minhas tarefas.
+- Criar tarefa só pelo `TaskCreationSheetView`: em Gerenciar casa e no botão "+" de Minhas tarefas (a mesma sheet, sem fluxo próprio de criação em Minhas tarefas).
 - Esforço (1–3) é carga interna: não exibir como pontuação ou gamificação.
 - TypeScript: `strict` (com `noUncheckedIndexedAccess` e `exactOptionalPropertyTypes`), sem `any`, sem `@ts-ignore`/`@ts-expect-error`, sem `as` para forçar tipo em dado externo (use `unknown` e estreitamento escrito à mão). Entidades `readonly` e atualização imutável. Sem Temporal, Luxon, zod, ORM nem bibliotecas utilitárias. Datas só pelo módulo `src/domain/dates.ts` (instantes em milissegundos, calendário por fuso IANA; nunca somar múltiplos de 24 h para andar dias locais).
 - Todo desempate do algoritmo é explícito e por ID (texto do UUID em minúsculo); nunca dependa da ordem de `Map`/`Set`/objeto.
@@ -61,13 +63,20 @@ O app já usa a `api` para casa, cômodos, tarefas e WhatsApp, mas trocas e noti
 - Amplify: só o Auth. Não reintroduza Amplify Data/AppSync nem outra persistência de casa no app: casa, convite e tarefas são do backend (DynamoDB) e o app as acessa pela `api`.
 - Mudou contrato compartilhado ou regra de negócio? Atualize os docs no mesmo commit.
 
+## Latência (2026-10-27)
+
+- `GET /v1/me/house/snapshot` e `HouseSnapshotRepository` (`backend/src/domain/commands/house-snapshot.ts`) agregam as leituras sem mudar políticas de acesso. `taskItems` usa índices locais; `HouseStateStore.read` não monta baseline de escrita. Código local; publicar a `api` exige autorização própria.
+- O mesmo `MyHouseCache` sai da sessão e chega aos repositórios do container: TTL 5 s, uma busca para consumidores concorrentes, geração de invalidação e fallback só no `404 not_found` do snapshot. Mutação bem-sucedida e puxar para atualizar invalidam; logout substitui o cache. Não persistir cache entre contas nem retirar invalidações para ganhar velocidade.
+- `OptimisticTaskCompletions` só faz a prévia da UI em Minhas tarefas, cômodo e avulsas. Bloqueia por ocorrência, restaura em falha e reconcilia após a última escrita. Não mover saldo, sucessores ou distribuição para a apresentação. Cargas antigas não podem sobrescrever uma ação mais nova.
+- Medições e validação em [docs/LATENCIA.md](docs/LATENCIA.md). Benchmark local: `cd backend && node tools/performance/read-latency.ts` (sem AWS).
+
 ## Comandos
 
 ```sh
 # app e domínio Swift (referência)
 xcodebuild test -project grupuxo/grupuxo.xcodeproj -scheme grupuxo \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' \
-  -only-testing:grupuxoTests
+  -only-testing:grupuxoTests -testLanguage pt-BR -testRegion BR
 swift test --package-path grupuxo/Packages/GrupuxoDomain
 
 # backend TypeScript (Node >= 22.18; a primeira vez, `npm install` em backend)

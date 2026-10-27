@@ -5,6 +5,7 @@
 //  Created by Giovanna Spigariol on 13/10/26.
 //
 
+import Foundation
 import SwiftUI
 
 // MARK: - Modelo
@@ -55,6 +56,7 @@ struct ReordenarComodosView: View {
                         ReorderRoomRow(room: room)
                     }
                     .onMove { source, destination in
+                        Haptics.selection()
                         rooms.move(
                             fromOffsets: source,
                             toOffset: destination
@@ -184,7 +186,7 @@ private struct ReorderRoomRow: View {
         )
         .accessibilityLabel(
             room.isPrivate
-                ? "\(room.name), cômodo privado"
+                ? String(localized: "\(room.name), cômodo privado")
                 : room.name
         )
     }

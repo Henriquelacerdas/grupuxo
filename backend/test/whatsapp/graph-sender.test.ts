@@ -223,7 +223,14 @@ test("a requisição é abortada de verdade quando o timeout estoura", async () 
     new Promise((_resolve, reject) => {
       init.signal?.addEventListener("abort", () => reject(init.signal?.reason));
     });
-  await assert.rejects(sender(http, { timeoutMs: 5 }).send("oi", TO), sendError("timeout"));
+  // O timer de AbortSignal.timeout não segura o event loop (unref); no Node 22 o test runner
+  // encerraria antes do abort. Este timer mantém o processo vivo até lá.
+  const keepAlive = setTimeout(() => undefined, 1_000);
+  try {
+    await assert.rejects(sender(http, { timeoutMs: 5 }).send("oi", TO), sendError("timeout"));
+  } finally {
+    clearTimeout(keepAlive);
+  }
 });
 
 test("nenhum erro revela o token, o texto, o telefone nem o corpo da resposta", async () => {

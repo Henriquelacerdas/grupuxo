@@ -51,6 +51,7 @@ final class RoomEditorViewModel: ObservableObject {
             residents = try await getMembers(houseID: houseID, userID: creatorUserID)
             updateDraft { _ in }
         }
+        catch is CancellationError {}
         catch { residentsError = error.localizedDescription }
     }
 

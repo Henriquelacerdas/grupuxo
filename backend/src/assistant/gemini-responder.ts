@@ -36,11 +36,18 @@ export interface GeminiMessageResponderDependencies {
   readonly confirmationLifetimeSeconds?: number;
   /** Rodadas máximas do laço de function calling. Padrão: 3. */
   readonly maxIterations?: number;
+  /**
+   * Rodadas de correção (depois da primeira) só começam antes deste tempo, em milissegundos desde o início da
+   * resposta, para o pior caso caber no timeout da Lambda. Padrão: 15 000.
+   */
+  readonly correctionCutoffMs?: number;
+  /** Chamado a cada falha do Gemini (inclusive as que viram o aviso genérico), para o erro não ficar mudo no log. */
+  readonly onGeminiFailure?: (error: GeminiRequestError) => void;
 }
 
 /** Instrução fixa: nada da mensagem do morador entra nela. */
 export const SYSTEM_INSTRUCTION = [
-  "Você é o seletor de consultas do Grupuxo, um app de tarefas domésticas, e atende moradores pelo WhatsApp.",
+  "Você é o seletor de consultas do Reveza, um app de tarefas domésticas, e atende moradores pelo WhatsApp.",
   "Sua única função é escolher qual ferramenta chamar para a mensagem do morador:",
   "list_my_tasks (as tarefas dele; range \"week\" para a semana atual, \"all\" para todas; na dúvida, \"week\"),",
   "list_room_tasks (as tarefas de um cômodo, com o nome do cômodo como o morador escreveu),",
@@ -72,15 +79,20 @@ type CallOutcome =
  */
 export class GeminiMessageResponder implements MessageResponder {
   static readonly noHouseReply =
-    "Você ainda não está em nenhuma casa no Grupuxo. Abra o app para criar uma casa ou entrar em uma.";
+    "Você ainda não está em nenhuma casa no Reveza. Abra o app para criar uma casa ou entrar em uma.";
   static readonly multipleHousesReply =
     "Você está em mais de uma casa, e eu ainda não consigo consultar mais de uma pelo WhatsApp. Use o app para ver suas tarefas.";
+  // Mesmos exemplos das boas-vindas, com a consulta de avulsas: docs/WHATSAPP-MENSAGENS.md.
   static readonly helpReply = [
-    "Posso te ajudar com:",
-    "• Suas tarefas da semana (ex.: \"quais são minhas tarefas da semana?\")",
-    "• As tarefas de um cômodo (ex.: \"o que tem na cozinha?\")",
-    "• Tarefas avulsas (ex.: \"tem alguma tarefa avulsa?\")",
-    "• Marcar uma tarefa sua como feita (ex.: \"terminei de lavar a louça\")",
+    "Você pode me fazer perguntas como:",
+    "- Quais as minhas tarefas da semana?",
+    "- Quais são as tarefas da cozinha?",
+    "- Tem alguma tarefa avulsa?",
+    "",
+    "E me pedir para fazer ações como:",
+    '- Marque "limpar sala" como concluído.',
+    "",
+    "Para concluir uma tarefa sua, vou pedir sua confirmação.",
   ].join("\n");
   static readonly fallbackReply = "Não consegui processar sua mensagem agora. Tente de novo em instantes.";
   static readonly unknownRoomReply = "Não encontrei esse cômodo.";
@@ -95,11 +107,13 @@ export class GeminiMessageResponder implements MessageResponder {
   private readonly deps: GeminiMessageResponderDependencies;
   private readonly maxIterations: number;
   private readonly confirmationLifetimeMs: number;
+  private readonly correctionCutoffMs: number;
 
   constructor(deps: GeminiMessageResponderDependencies) {
     this.deps = deps;
     this.maxIterations = Math.max(1, deps.maxIterations ?? 3);
     this.confirmationLifetimeMs = Math.max(1, deps.confirmationLifetimeSeconds ?? 300) * 1000;
+    this.correctionCutoffMs = Math.max(0, deps.correctionCutoffMs ?? 15_000);
   }
 
   async reply(text: string, userID: UserID, context: ReplyContext): Promise<string> {
@@ -131,7 +145,10 @@ export class GeminiMessageResponder implements MessageResponder {
     const answered = new Set<string>();
     let problem: string | null = null;
 
+    const startedAt = this.deps.now();
     for (let iteration = 0; iteration < this.maxIterations; iteration++) {
+      // Sem tempo para outra rodada: vale o que já foi respondido (o `problem` da rodada anterior inclusive).
+      if (iteration > 0 && this.deps.now() - startedAt >= this.correctionCutoffMs) break;
       let calls: readonly Extract<GeminiPart, { kind: "functionCall" }>[];
       try {
         const { content } = await this.deps.gemini.generate({
@@ -142,6 +159,7 @@ export class GeminiMessageResponder implements MessageResponder {
         calls = content.parts.filter((part) => part.kind === "functionCall").slice(0, MAX_CALLS_PER_TURN);
       } catch (error) {
         if (!(error instanceof GeminiRequestError)) throw error;
+        this.deps.onGeminiFailure?.(error);
         // Falha na rodada de correção: o que já foi respondido vale mais do que o aviso genérico.
         if (sections.length === 0 && problem === null) return GeminiMessageResponder.fallbackReply;
         break;

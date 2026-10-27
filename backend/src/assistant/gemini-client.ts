@@ -106,10 +106,32 @@ export interface HttpGeminiClientOptions {
   /** Nome do modelo (`GEMINI_MODEL`). Sem valor, o cliente não é criado: não há modelo escondido. */
   readonly model: string | undefined;
   readonly http: HttpFetch;
-  /** Padrão: 10 s. */
+  /** Timeout de cada tentativa. Padrão: 12 s. */
   readonly timeoutMs?: number;
   /** Teto de tokens de saída por chamada (o modelo só emite chamadas de ferramenta). Padrão: 512. */
   readonly maxOutputTokens?: number;
+  /**
+   * Nível de raciocínio dos modelos Gemini 3 (`thinkingConfig.thinkingLevel`). O modelo só escolhe a ferramenta, e
+   * raciocínio alto deixa a resposta lenta a ponto de estourar o timeout. Padrão: `"low"`, aceito por todos eles.
+   */
+  readonly thinkingLevel?: GeminiThinkingLevel;
+  /** Tentativas por chamada, contando a primeira; só falhas passageiras repetem (`isTransient`). Padrão: 2. */
+  readonly maxAttempts?: number;
+  /** Espera antes de cada nova tentativa. Padrão: 500 ms. */
+  readonly retryDelayMs?: number;
+  /** Espera injetada (o assistente não usa relógio global). Sem ela, a nova tentativa sai sem espera. */
+  readonly sleep?: (milliseconds: number) => Promise<void>;
+}
+
+export type GeminiThinkingLevel = "minimal" | "low" | "medium" | "high";
+
+const THINKING_LEVELS: readonly string[] = ["minimal", "low", "medium", "high"];
+const TRANSIENT_STATUSES: ReadonlySet<number> = new Set([429, 500, 502, 503, 504]);
+
+/** Falha que vale repetir: o Gemini não respondeu a tempo, a rede caiu, cota momentânea (429) ou erro do servidor. */
+export function isTransient(error: GeminiRequestError): boolean {
+  if (error.code === "timeout" || error.code === "network") return true;
+  return error.code === "status" && error.status !== null && TRANSIENT_STATUSES.has(error.status);
 }
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/";
@@ -133,30 +155,56 @@ export class HttpGeminiClient implements GeminiClient {
   private readonly http: HttpFetch;
   private readonly timeoutMs: number;
   private readonly maxOutputTokens: number;
+  private readonly thinkingLevel: GeminiThinkingLevel;
+  private readonly maxAttempts: number;
+  private readonly retryDelayMs: number;
+  private readonly sleep: ((milliseconds: number) => Promise<void>) | undefined;
 
   constructor(options: HttpGeminiClientOptions) {
     const { apiKey, model } = options;
     if (model === undefined || model === "") throw new GeminiConfigurationError("GEMINI_MODEL não configurado");
     if (!MODEL_PATTERN.test(model)) throw new GeminiConfigurationError("GEMINI_MODEL inválido");
     if (apiKey === undefined || !API_KEY_PATTERN.test(apiKey)) throw new GeminiConfigurationError("GEMINI_API_KEY ausente ou inválida");
-    const timeoutMs = options.timeoutMs ?? 10_000;
+    const timeoutMs = options.timeoutMs ?? 12_000;
     const maxOutputTokens = options.maxOutputTokens ?? 512;
+    const thinkingLevel = options.thinkingLevel ?? "low";
+    const maxAttempts = options.maxAttempts ?? 2;
+    const retryDelayMs = options.retryDelayMs ?? 500;
     if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) throw new GeminiConfigurationError("timeout do Gemini inválido");
     if (!Number.isInteger(maxOutputTokens) || maxOutputTokens <= 0) throw new GeminiConfigurationError("teto de tokens do Gemini inválido");
+    if (!THINKING_LEVELS.includes(thinkingLevel)) throw new GeminiConfigurationError("nível de raciocínio do Gemini inválido");
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 5) throw new GeminiConfigurationError("tentativas do Gemini inválidas");
+    if (!Number.isInteger(retryDelayMs) || retryDelayMs < 0) throw new GeminiConfigurationError("espera entre tentativas do Gemini inválida");
     this.url = `${ENDPOINT}${model}:generateContent`;
     this.apiKey = apiKey;
     this.http = options.http;
     this.timeoutMs = timeoutMs;
     this.maxOutputTokens = maxOutputTokens;
+    this.thinkingLevel = thinkingLevel;
+    this.maxAttempts = maxAttempts;
+    this.retryDelayMs = retryDelayMs;
+    this.sleep = options.sleep;
   }
 
   async generate(request: GeminiRequest): Promise<GeminiResponse> {
+    const body = JSON.stringify(this.requestBody(request));
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.attempt(body);
+      } catch (error) {
+        if (!(error instanceof GeminiRequestError) || !isTransient(error) || attempt >= this.maxAttempts) throw error;
+        if (this.sleep !== undefined && this.retryDelayMs > 0) await this.sleep(this.retryDelayMs);
+      }
+    }
+  }
+
+  private async attempt(requestBody: string): Promise<GeminiResponse> {
     let text: string;
     try {
       const response = await this.http(this.url, {
         method: "POST",
         headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
-        body: JSON.stringify(this.requestBody(request)),
+        body: requestBody,
         signal: AbortSignal.timeout(this.timeoutMs),
       });
       if (!response.ok) throw new GeminiRequestError("status", response.status);
@@ -184,7 +232,9 @@ export class HttpGeminiClient implements GeminiClient {
       tools: [{ functionDeclarations: request.functions }],
       // `ANY` obrigaria o modelo a chamar uma ferramenta mesmo para um "oi"; `AUTO` deixa-o não chamar nenhuma.
       toolConfig: { functionCallingConfig: { mode: "AUTO" } },
-      generationConfig: { maxOutputTokens: this.maxOutputTokens, temperature: 0 },
+      // Sem `temperature`: para o Gemini 3 o Google recomenda o padrão (1.0); valores baixos podem fazer o modelo
+      // entrar em laço e estourar o teto de tokens ou o timeout.
+      generationConfig: { maxOutputTokens: this.maxOutputTokens, thinkingConfig: { thinkingLevel: this.thinkingLevel } },
     };
   }
 }

@@ -191,6 +191,49 @@ struct TaskListDTO: Decodable, Sendable {
     let tasks: [TaskItemDTO]
 }
 
+struct TaskSwapRequestDTO: Decodable, Sendable {
+    let id: UUID
+    let requesterID: UUID
+    let receiverID: UUID
+    let offeredOccurrenceID: UUID
+    let requestedOccurrenceID: UUID
+    let status: TaskSwapRequestStatus
+    let createdAt: Date
+    let resolvedAt: Date?
+
+    var domain: TaskSwapRequest {
+        TaskSwapRequest(
+            id: id, requesterID: requesterID, receiverID: receiverID, offeredOccurrenceID: offeredOccurrenceID,
+            requestedOccurrenceID: requestedOccurrenceID, status: status, createdAt: createdAt, resolvedAt: resolvedAt
+        )
+    }
+}
+
+struct MySwapsDTO: Decodable, Sendable {
+    let incoming: [TaskSwapRequestDTO]
+    let outgoing: [TaskSwapRequestDTO]
+}
+
+struct NotificationDTO: Decodable, Sendable {
+    let id: UUID
+    let kind: AppNotificationKind
+    let swapRequestID: UUID
+    let createdAt: Date
+    let readAt: Date?
+
+    /// O destinatário é sempre quem chamou: o servidor não repete o id.
+    func domain(recipientUserID: User.ID) -> AppNotification {
+        AppNotification(
+            id: id, recipientUserID: recipientUserID, kind: kind, swapRequestID: swapRequestID,
+            createdAt: createdAt, readAt: readAt
+        )
+    }
+}
+
+struct NotificationListDTO: Decodable, Sendable {
+    let notifications: [NotificationDTO]
+}
+
 struct RegisteredAccountDTO: Decodable, Sendable {
     let id: UUID
 }
@@ -239,3 +282,36 @@ struct CreateTaskBody: Encodable, Sendable {
 }
 
 struct RoomMemberBody: Encodable, Sendable { let userID: String }
+
+struct CreateSwapBody: Encodable, Sendable {
+    let offeredOccurrenceID: String
+    let requestedOccurrenceID: String
+}
+
+/// Uma carga da casa atende às telas de tarefas, casa e cômodo.
+struct HouseSnapshotDTO: Decodable, Sendable {
+    let userID: UUID
+    let home: MyHouseDTO
+    let participations: [RoomParticipationDTO]
+    let roomTasks: [TaskItemDTO]
+    let myTasks: [TaskItemDTO]
+    let sporadicTasks: [TaskItemDTO]
+
+    func domain() throws -> RemoteHouseSnapshot {
+        RemoteHouseSnapshot(
+            userID: userID, home: home, participations: participations.map(\.domain),
+            roomTasks: try roomTasks.map { try $0.domain() },
+            myTasks: try myTasks.map { try $0.domain() },
+            sporadicTasks: try sporadicTasks.map { try $0.domain() }
+        )
+    }
+}
+
+struct RemoteHouseSnapshot: Sendable {
+    let userID: UUID
+    let home: MyHouseDTO
+    let participations: [RoomParticipation]
+    let roomTasks: [TaskItem]
+    let myTasks: [TaskItem]
+    let sporadicTasks: [TaskItem]
+}

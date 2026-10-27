@@ -36,15 +36,19 @@ struct MockRoomRepository: RoomRepository {
             let start = try scheduling.addingWeeks(period * updated.periodicity.intervalWeeks, to: updated.calendarAnchor!)
             let end = try scheduling.addingWeeks(updated.periodicity.intervalWeeks, to: start)
             var names: [String] = []
+            var ids: [User.ID] = []
             if isMember, let version = updated.scheduleVersions.last(where: { $0.effectiveAt <= date }), !version.queue.isEmpty {
                 for role in 0..<version.responsibleCount {
                     let slot = (period - version.periodIndex) * version.responsibleCount + role
                     let user = version.queue[slot % version.queue.count]
-                    if let name = state.users.first(where: { $0.id == user })?.name { names.append(name) }
+                    if let name = state.users.first(where: { $0.id == user })?.name {
+                        names.append(name)
+                        ids.append(user)
+                    }
                 }
             }
             return RoomParticipation(room: visibleRoom(updated, userID: userID, state: state), isMember: isMember, memberCount: isMember ? members.count : 0,
-                responsibleNames: names, periodStart: start, periodEnd: end)
+                responsibleNames: names, responsibleUserIDs: ids, periodStart: start, periodEnd: end)
         }
     }
 

@@ -15,38 +15,44 @@ public enum DomainError: Error, LocalizedError, Equatable, Sendable {
     case invalidRoomParticipants
     case taskAlreadyCompleted
     case taskUnavailable
+    case roomAccessNotRequestable
 
+    /// Mensagens em português; a tradução vem do `Localizable.xcstrings` do app (`String(localized:)` busca no bundle principal).
+    /// Fora do app (`swift test`), não há catálogo e volta o texto em português.
     public var errorDescription: String? {
 
         switch self {
-        case .deletionConfirmationRequired: "Atenção: Você é o último participante desse cômodo. Se sair, o cômodo e suas tarefas serão excluídos."
-        case .wholeHouseProtected: "Casa toda sempre inclui todos os moradores e não permite saída individual nem exclusão."
-        case .invalidDistribution: "A distribuição de tarefas é inválida."
-        case .noEligibleMembers: "O cômodo não possui participantes elegíveis."
-        case .invalidSchedule: "A periodicidade e a política da tarefa são incompatíveis."
+        case .deletionConfirmationRequired: String(localized: "Atenção: Você é o último participante desse cômodo. Se sair, o cômodo e suas tarefas serão excluídos.")
+        case .wholeHouseProtected: String(localized: "Casa toda sempre inclui todos os moradores e não permite saída individual nem exclusão.")
+        case .invalidDistribution: String(localized: "A distribuição de tarefas é inválida.")
+        case .noEligibleMembers: String(localized: "O cômodo não possui participantes elegíveis.")
+        case .invalidSchedule: String(localized: "A periodicidade e a política da tarefa são incompatíveis.")
         case .entityNotFound:
-            "Item não encontrado."
+            String(localized: "Item não encontrado.")
 
         case .invalidDateInterval:
-            "O período informado é inválido."
+            String(localized: "O período informado é inválido.")
 
         case .invalidTaskName:
-            "Informe um nome para a tarefa."
+            String(localized: "Informe um nome para a tarefa.")
 
-        case .invalidResidentName: "Informe o nome do morador."
-        case .cannotRemoveCurrentUser: "Você não pode remover seu próprio perfil da casa."
+        case .invalidResidentName: String(localized: "Informe o nome do morador.")
+        case .cannotRemoveCurrentUser: String(localized: "Você não pode remover seu próprio perfil da casa.")
 
         case .invalidRoomName:
-            "Informe um nome para o cômodo."
+            String(localized: "Informe um nome para o cômodo.")
 
         case .invalidRoomParticipants:
-            "O cômodo precisa ter participantes válidos."
+            String(localized: "O cômodo precisa ter participantes válidos.")
 
         case .taskAlreadyCompleted:
-            "Esta tarefa já foi concluída."
+            String(localized: "Esta tarefa já foi concluída.")
 
         case .taskUnavailable:
-            "Esta tarefa não está disponível."
+            String(localized: "Esta tarefa não está disponível.")
+
+        case .roomAccessNotRequestable:
+            String(localized: "Só é possível pedir para entrar em cômodos privados de que você não participa.")
         }
     }
 }

@@ -1,15 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MAX_ATTEMPTS, HouseStateStore, type DynamoRuntime } from "../../src/adapters/dynamodb/house-state-store.ts";
+import { MAX_ATTEMPTS, HouseStateStore, type DynamoRuntime, type UpdateOptions } from "../../src/adapters/dynamodb/house-state-store.ts";
 import { DynamoTransactionCanceledError } from "../../src/adapters/dynamodb/client.ts";
 import { DynamoStoreError } from "../../src/adapters/dynamodb/errors.ts";
 import { ACCESS_CODE_ATTEMPTS } from "../../src/domain/commands/houses.ts";
-import { DynamoTaskRepository, DynamoHouseRepository } from "../../src/adapters/dynamodb/repositories.ts";
+import { DynamoTaskRepository, DynamoHouseRepository, DynamoRoomRepository } from "../../src/adapters/dynamodb/repositories.ts";
+import { createCalendar } from "../../src/domain/dates.ts";
+import { cloneStoreState, type StoreState } from "../../src/domain/store-state.ts";
 import { InMemoryStore } from "../../src/adapters/in-memory/store.ts";
 import { InMemoryTaskRepository } from "../../src/adapters/in-memory/repositories.ts";
 import { isDomainError } from "../../src/domain/errors.ts";
 import { isCompleted } from "../../src/domain/entities.ts";
-import { houseMembershipID, taskOccurrenceID, userID } from "../../src/domain/ids.ts";
+import { recurring } from "../../src/domain/value-objects.ts";
+import { houseMembershipID, taskOccurrenceID, userID, type HouseID } from "../../src/domain/ids.ts";
 import { dynamoEnvironment, instantRuntime } from "./environment.ts";
 import { FakeDynamoClient } from "../support/fake-dynamo-client.ts";
 import { normalizedState } from "../support/normalize.ts";
@@ -18,6 +21,21 @@ import { uuid, World } from "../support/world.ts";
 
 const SAO_PAULO = "America/Sao_Paulo";
 const version = (client: FakeDynamoClient, houseID: string): unknown => client.peek({ PK: `HOUSE#${houseID}`, SK: "META" })?.["version"];
+
+/**
+ * A demonstração com `count` tarefas a mais na casa toda. Só a próxima vez de cada morador é publicada, então a
+ * demonstração sozinha não passa de 100 escritas; aqui trocar um morador muda mais de 100 itens. A quinzenal tem
+ * periodicidade própria: a saída de um morador redistribui as vezes futuras dele.
+ */
+function crowded(world: World, count = 10, recurrence = recurring("weekly", 1)): StoreState {
+  const state = cloneStoreState(world.seed.state);
+  const service = world.service();
+  for (let i = 0; i < count; i++) {
+    const task = world.definition(world.seed.rooms.wholeHouse.id, { name: `Extra ${i}`, effort: 1 + (i % 3), recurrence });
+    service.create(task, world.now, state);
+  }
+  return state;
+}
 
 async function openTask(world: World, env: Awaited<ReturnType<typeof dynamoEnvironment>>) {
   const { users, house } = world.seed;
@@ -124,6 +142,52 @@ test("comando sem diferença não grava nada (consulta que só confere a escala)
   assert.deepEqual(env.client.snapshot(), snapshot);
 });
 
+/** Conta as transações de escrita que o adaptador abre (com ou sem diferença a gravar). */
+class CountingStore extends HouseStateStore {
+  updates = 0;
+  override async update<T>(houseID: HouseID, fn: (draft: StoreState) => T, options: UpdateOptions = {}): Promise<T> {
+    this.updates += 1;
+    return super.update(houseID, fn, options);
+  }
+}
+
+test("consultas com a escala em dia só leem; faltando escala, estendem e gravam uma vez", async () => {
+  const world = new World({ timezone: SAO_PAULO });
+  const { users, house, rooms } = world.seed;
+  const client = new FakeDynamoClient({ pageSize: 7 });
+  const store = new CountingStore(client, instantRuntime);
+  await store.seedHouse(world.seed.state);
+  const tasks = new DynamoTaskRepository(store, world.ctx);
+  const roomRepository = new DynamoRoomRepository(store, world.ctx);
+  // Mundo próprio para a referência em memória: os dois geram os mesmos IDs na mesma ordem.
+  const referenceWorld = new World({ timezone: SAO_PAULO });
+  const reference = referenceWorld.env(referenceWorld.seed.state);
+
+  await tasks.tasks(users.marina.id, house.id);
+  await reference.tasks.tasks(users.marina.id, house.id);
+  const updates = store.updates;
+  const writes = client.writes;
+  assert.deepEqual(await tasks.tasks(users.marina.id, house.id), await reference.tasks.tasks(users.marina.id, house.id));
+  assert.deepEqual(await tasks.sporadicTasks(house.id, users.leo.id), await reference.tasks.sporadicTasks(house.id, users.leo.id));
+  assert.deepEqual(
+    await roomRepository.participation(rooms.kitchen.id, users.marina.id, world.now),
+    await reference.rooms.participation(rooms.kitchen.id, users.marina.id, world.now),
+  );
+  assert.equal(store.updates, updates, "escala em dia: nenhuma transação aberta");
+  assert.equal(client.writes, writes);
+
+  // Uma semana depois falta a semana nova no horizonte: a primeira consulta estende e grava, a seguinte só lê.
+  world.now = createCalendar(SAO_PAULO).addWeeks(world.now, 1);
+  referenceWorld.now = world.now;
+  const extended = await tasks.tasks(users.marina.id, house.id);
+  assert.equal(store.updates, updates + 1);
+  assert.equal(client.writes, writes + 1);
+  assert.deepEqual(extended, await reference.tasks.tasks(users.marina.id, house.id));
+  await tasks.tasks(users.marina.id, house.id);
+  assert.equal(store.updates, updates + 1);
+  assert.deepEqual(normalizedState(await store.read(house.id, (s) => s)), normalizedState(reference.store.read((s) => s)));
+});
+
 test("comando rejeitado pelo domínio não grava nada", async () => {
   const world = new World({ timezone: SAO_PAULO });
   const env = await dynamoEnvironment(world);
@@ -135,10 +199,10 @@ test("comando rejeitado pelo domínio não grava nada", async () => {
 
 test("escritas demais para uma transação: falha fechada, sem gravar em partes", async () => {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await dynamoEnvironment(world);
+  const env = await dynamoEnvironment(world, crowded(world));
   const { users, house } = world.seed;
   const before = env.client.snapshot();
-  // Trocar um morador replaneja a escala inteira da demonstração: mais de 100 itens mudam (BACKEND.md seção 4).
+  // Trocar um morador replaneja a escala da casa cheia: mais de 100 itens mudam (BACKEND.md seção 4).
   await assert.rejects(env.houses.addMember("Nova", house.id, users.marina.id, world.now), (error: unknown) => error instanceof DynamoStoreError && error.code === "tooManyWrites");
   assert.deepEqual(env.client.snapshot(), before);
 });
@@ -285,14 +349,14 @@ function splitEnvironment(world: World, env: Awaited<ReturnType<typeof dynamoEnv
 /** O mesmo comando no adaptador em memória, em um mundo idêntico (IDs e relógio determinísticos). */
 async function referenceAddMember(): Promise<unknown> {
   const reference = new World({ timezone: SAO_PAULO });
-  const refEnv = reference.env();
+  const refEnv = reference.env(crowded(reference));
   await refEnv.houses.addMember("Nova", reference.seed.house.id, reference.seed.users.marina.id, reference.now);
   return normalizedState(refEnv.store.read((s) => s));
 }
 
 test("split: divide a escrita em transações de até 100 ações, com o META na primeira, e o resultado é o da memória", async () => {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await dynamoEnvironment(world);
+  const env = await dynamoEnvironment(world, crowded(world));
   const { users, house } = world.seed;
   const { houses } = splitEnvironment(world, env);
   const startVersion = version(env.client, house.id);
@@ -319,7 +383,7 @@ test("split: divide a escrita em transações de até 100 ações, com o META na
 
 test("split: a saída de um morador (mais de 100 ações, com apagamentos) também chega ao estado da memória", async () => {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await dynamoEnvironment(world);
+  const env = await dynamoEnvironment(world, crowded(world, 15, recurring("weekly", 2)));
   const { users, house } = world.seed;
   const { houses } = splitEnvironment(world, env);
   const before = env.client.transactions.length;
@@ -328,14 +392,14 @@ test("split: a saída de um morador (mais de 100 ações, com apagamentos) tamb�
   assert.ok(sent.length >= 2);
 
   const reference = new World({ timezone: SAO_PAULO });
-  const refEnv = reference.env();
+  const refEnv = reference.env(crowded(reference, 15, recurring("weekly", 2)));
   await refEnv.houses.leave(reference.seed.users.rafa.id, reference.seed.house.id, reference.now, false);
   assert.deepEqual(normalizedState(await env.state()), normalizedState(refEnv.store.read((s) => s)));
 });
 
 test("split: conflito de versão na primeira transação não grava nada e repete tudo", async () => {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await dynamoEnvironment(world);
+  const env = await dynamoEnvironment(world, crowded(world));
   const { users, house } = world.seed;
   const { houses } = splitEnvironment(world, env);
   const startVersion = version(env.client, house.id);
@@ -367,7 +431,7 @@ test("split: conflito de versão na primeira transação não grava nada e repet
 
 test("split: falha depois da primeira transação vira partialWrite, sem repetir e com mensagem fixa", async () => {
   const world = new World({ timezone: SAO_PAULO });
-  const env = await dynamoEnvironment(world);
+  const env = await dynamoEnvironment(world, crowded(world));
   const { users, house } = world.seed;
   const { houses } = splitEnvironment(world, env);
   const startVersion = version(env.client, house.id);

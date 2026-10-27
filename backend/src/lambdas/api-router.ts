@@ -5,16 +5,19 @@ export type Method = "GET" | "POST" | "DELETE";
 
 export type RouteName =
   | "registerAccount" | "myAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp"
-  | "myHouse" | "leaveHouse" | "createHouse" | "joinHouse"
+  | "houseSnapshot" | "myHouse" | "leaveHouse" | "createHouse" | "joinHouse"
   | "createRoom" | "roomParticipation" | "addRoomMember" | "removeRoomMember"
   | "myTasks" | "roomTasks" | "createTask" | "taskDefinition" | "endTask"
-  | "completeOccurrence" | "reopenOccurrence";
+  | "completeOccurrence" | "reopenOccurrence"
+  | "mySporadicTasks" | "claimOccurrence" | "releaseOccurrence"
+  | "swapCandidates" | "createSwap" | "mySwaps" | "acceptSwap" | "rejectSwap"
+  | "myNotifications" | "readNotification";
 
 /** Rotas de conta e de WhatsApp (tratadas em `api.ts`); as demais são de casa, cômodo, tarefa e ocorrência. */
 export type AccountRouteName = "registerAccount" | "myAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp";
 export type AppRouteName = Exclude<RouteName, AccountRouteName>;
 
-export type RouteParam = "houseID" | "roomID" | "userID" | "taskID" | "occurrenceID";
+export type RouteParam = "houseID" | "roomID" | "userID" | "taskID" | "occurrenceID" | "swapID" | "notificationID";
 
 type Segment = string | { readonly param: RouteParam };
 
@@ -33,6 +36,7 @@ const ROUTES: readonly RouteDefinition[] = [
   { name: "issueWhatsAppLink", method: "POST", pattern: ["me", "whatsapp", "link"] },
   { name: "whatsAppStatus", method: "GET", pattern: ["me", "whatsapp"] },
   { name: "unlinkWhatsApp", method: "DELETE", pattern: ["me", "whatsapp"] },
+  { name: "houseSnapshot", method: "GET", pattern: ["me", "house", "snapshot"] },
   { name: "myHouse", method: "GET", pattern: ["me", "house"] },
   { name: "leaveHouse", method: "DELETE", pattern: ["me", "house"] },
   { name: "myTasks", method: "GET", pattern: ["me", "tasks"] },
@@ -48,6 +52,16 @@ const ROUTES: readonly RouteDefinition[] = [
   { name: "endTask", method: "POST", pattern: ["rooms", param("roomID"), "tasks", param("taskID"), "end"] },
   { name: "completeOccurrence", method: "POST", pattern: ["occurrences", param("occurrenceID"), "complete"] },
   { name: "reopenOccurrence", method: "POST", pattern: ["occurrences", param("occurrenceID"), "reopen"] },
+  { name: "mySporadicTasks", method: "GET", pattern: ["me", "sporadic-tasks"] },
+  { name: "claimOccurrence", method: "POST", pattern: ["occurrences", param("occurrenceID"), "claim"] },
+  { name: "releaseOccurrence", method: "POST", pattern: ["occurrences", param("occurrenceID"), "release"] },
+  { name: "swapCandidates", method: "GET", pattern: ["occurrences", param("occurrenceID"), "swap-candidates"] },
+  { name: "createSwap", method: "POST", pattern: ["swaps"] },
+  { name: "mySwaps", method: "GET", pattern: ["me", "swaps"] },
+  { name: "acceptSwap", method: "POST", pattern: ["swaps", param("swapID"), "accept"] },
+  { name: "rejectSwap", method: "POST", pattern: ["swaps", param("swapID"), "reject"] },
+  { name: "myNotifications", method: "GET", pattern: ["me", "notifications"] },
+  { name: "readNotification", method: "POST", pattern: ["notifications", param("notificationID"), "read"] },
 ];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

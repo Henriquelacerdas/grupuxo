@@ -1,5 +1,5 @@
-import type { UserID } from "../domain/ids.ts";
-import { userID } from "../domain/ids.ts";
+import type { TaskOccurrenceID, UserID } from "../domain/ids.ts";
+import { taskOccurrenceID, userID } from "../domain/ids.ts";
 import type { TaskRange } from "../domain/use-cases/tasks.ts";
 import type { NewTaskInput } from "../domain/use-cases/tasks.ts";
 import {
@@ -36,6 +36,17 @@ export function parseJoinHouse(body: Fields): { readonly code: string } | null {
 export function parseRoomMember(body: Fields): UserID | null {
   const value = field(body, "userID");
   return typeof value === "string" && UUID.test(value) ? userID(value) : null;
+}
+
+/** `{ "offeredOccurrenceID", "requestedOccurrenceID" }` de `POST /swaps`. */
+export function parseCreateSwap(
+  body: Fields,
+): { readonly offered: TaskOccurrenceID; readonly requested: TaskOccurrenceID } | null {
+  const offered = field(body, "offeredOccurrenceID");
+  const requested = field(body, "requestedOccurrenceID");
+  return typeof offered === "string" && UUID.test(offered) && typeof requested === "string" && UUID.test(requested)
+    ? { offered: taskOccurrenceID(offered), requested: taskOccurrenceID(requested) }
+    : null;
 }
 
 function parsePeriodicity(value: unknown): WeeklyPeriodicity | null {

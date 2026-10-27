@@ -37,17 +37,23 @@ struct RoomResponsibilityTests {
         let a = try service.create(task(), at: monday, state: &s)
         let b = try service.create(task(effort: 3), at: monday, state: &s)
         #expect(a.rotationQueue.isEmpty && b.rotationQueue.isEmpty)
+        // Only each resident's next turn: the first execution of each two-week period, one period per resident.
         let dates = Set(s.occurrences.map(\.availableAt)).sorted()
-        let owners = dates.map { date in
+        #expect(dates.map { calendar.dateComponents([.day], from: monday, to: $0).day! } == [0, 14, 28, 42])
+        func ownersOn(_ date: Date) -> Set<UUID> {
             Set(s.occurrences.filter { $0.availableAt == date }.compactMap { owner($0, in: s) })
         }
+        let owners = dates.map(ownersOn)
         #expect(owners.allSatisfy { $0.count == 1 })
-        #expect(owners[0] == owners[1])
-        #expect(owners[1] != owners[2])
-        #expect(Set(owners.prefix(8).flatMap { $0 }).count == 4)
+        #expect(Set(owners.flatMap { $0 }).count == 4)
         let before = s.occurrences
         try service.refresh(houseID: MockSeed.house.id, at: monday, state: &s)
         #expect(s.occurrences == before)
+        // The period's second execution comes out when the first is overdue, same owner on both tasks.
+        let second = calendar.date(byAdding: .day, value: 7, to: monday)!
+        try service.refresh(houseID: MockSeed.house.id, at: second, state: &s)
+        #expect(ownersOn(second) == owners[0])
+        #expect(s.occurrences.filter { $0.availableAt == second }.count == 2)
     }
 
     @Test func greedyBlocksAreBalancedAndAlwaysInsideResponsibleGroup() throws {
@@ -66,13 +72,34 @@ struct RoomResponsibilityTests {
         #expect(owners.count == 2)
     }
 
-    @Test func midPeriodCreationDoesNotPublishPastDatesAndUsesExactCounts() throws {
+    @Test func tasksCreatedOneByOneMidWeekRealignThisWeeksTurnsWithTheNewRoles() throws {
+        var s = state(count: 2)
+        let wednesday = calendar.date(byAdding: .day, value: 2, to: monday)!
+        // In this order, the last creations change the greedy blocks of the earlier tasks.
+        for effort in [3, 2, 2, 1, 3] { _ = try service.create(task(effort: effort), at: wednesday, state: &s) }
+        for o in s.occurrences {
+            let d = s.definitions.first { $0.id == o.taskDefinitionID }!
+            #expect(owner(o, in: s) == (try service.roomOwner(definition: d, date: o.availableAt, state: s)))
+        }
+        #expect(Set(s.occurrences.filter { $0.availableAt == monday }.compactMap { owner($0, in: s) }).count == 2)
+    }
+
+    @Test func midPeriodCreationIncludesThisWeeksOpenExecutionAndUsesExactCounts() throws {
         var s = state(n: 3, weeks: 2)
         let start = calendar.date(byAdding: .day, value: 3, to: monday)!
         let d = try service.create(task(n: 3, weeks: 2), at: start, state: &s)
-        let dates = s.occurrences.map(\.availableAt).sorted()
-        #expect(dates.prefix(3).map { calendar.dateComponents([.day], from: monday, to: $0).day! } == [4, 9, 14])
-        #expect(dates.allSatisfy { $0 >= start })
+        func days() -> [Int] {
+            s.occurrences.map(\.availableAt).sorted().map { calendar.dateComponents([.day], from: monday, to: $0).day! }
+        }
+        // On Thursday (day 3), Monday's execution (day 0) is still open until Friday's (day 4); the other residents
+        // get the first execution of their periods.
+        #expect(days() == [0, 14, 28, 42])
+        // The period's next executions come out when the previous one is overdue, on exact dates (14 days / 3).
+        for day in [4, 9] {
+            try service.refresh(houseID: MockSeed.house.id, at: calendar.date(byAdding: .day, value: day, to: monday)!, state: &s)
+        }
+        #expect(Array(days().prefix(3)) == [0, 4, 9])
+        #expect(s.occurrences.allSatisfy { $0.availableAt >= monday })
         #expect(d.rotationQueue.isEmpty)
         let other = try service.create(task(n: 6, weeks: 4), at: start, state: &s)
         #expect(!other.rotationQueue.isEmpty) // Same ratio is not the same period.
@@ -174,7 +201,9 @@ struct RoomResponsibilityTests {
         #expect(version.queue.first == firstOwner)
         let boundary = calendar.date(byAdding: .day, value: 7, to: monday)!
         #expect(s.occurrences.filter { $0.availableAt >= boundary }.allSatisfy { owner($0, in: s) != other })
-        #expect(s.occurrences.filter { $0.taskDefinitionID == added.id }.allSatisfy { $0.availableAt >= wednesday })
+        // The new task already has this week's execution, with the room's current responsible.
+        let current = try #require(s.occurrences.first { $0.taskDefinitionID == added.id && $0.availableAt == monday })
+        #expect(owner(current, in: s) == firstOwner)
     }
 
     @Test func weeklyGroupsCrossDSTWithoutDrift() throws {
@@ -185,6 +214,8 @@ struct RoomResponsibilityTests {
         var s = state(n: 2, weeks: 2)
         for i in s.rooms.indices { s.rooms[i].calendarAnchor = start }
         _ = try planner.create(task(), at: start, state: &s)
+        // The period's second execution comes out when the first is overdue (a week later, across November 1st).
+        try planner.refresh(houseID: MockSeed.house.id, at: c.date(byAdding: .day, value: 7, to: start)!, state: &s)
         let dates = s.occurrences.map(\.availableAt).sorted()
         #expect(dates[1].timeIntervalSince(dates[0]) == 169 * 3600)
         #expect(dates.allSatisfy { c.component(.hour, from: $0) == 0 })
@@ -208,6 +239,16 @@ struct RoomResponsibilityTests {
 
     @Test func houseRemovalConfirmsPrivateCascadeAndKeepsCommonRoomsCommon() async throws {
         var seed = MockSeed.make()
+        // Só o escritório deve ser excluído em cascata: os demais cômodos privados do seed saem do cenário.
+        let otherPrivate = Set(seed.rooms.filter { $0.visibility == .privateRoom && $0.id != MockSeed.privateOffice.id }.map(\.id))
+        seed.rooms.removeAll { otherPrivate.contains($0.id) }
+        seed.roomMemberships.removeAll { otherPrivate.contains($0.roomID) }
+        seed.definitions.removeAll { otherPrivate.contains($0.roomID) }
+        let keptDefinitions = Set(seed.definitions.map(\.id))
+        seed.occurrences.removeAll { !keptDefinitions.contains($0.taskDefinitionID) }
+        let keptOccurrences = Set(seed.occurrences.map(\.id))
+        seed.assignments.removeAll { !keptOccurrences.contains($0.occurrenceID) }
+        seed.roomAccessRequests.removeAll()
         seed.roomMemberships.removeAll { $0.roomID == MockSeed.privateOffice.id }
         seed.roomMemberships.append(RoomMembership(id: UUID(), roomID: MockSeed.privateOffice.id, userID: MockSeed.rafa.id))
         let store = MockStore(state: seed)

@@ -6,7 +6,8 @@ locals {
   lambdas = {
     webhook = { memory = 256, timeout = 10 }
     worker  = { memory = 512, timeout = local.worker_timeout_seconds }
-    api     = { memory = 512, timeout = 15 }
+    # 1769 MB = 1 vCPU: o tempo da `api` é CPU (carga e cópia da partição da casa), ver docs/LATENCIA.md.
+    api     = { memory = 1769, timeout = 15 }
   }
 
   environment = {

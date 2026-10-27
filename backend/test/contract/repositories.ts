@@ -261,13 +261,13 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     assert.ok(creator !== undefined && second !== undefined);
     const room = await new CreateRoomUseCase(env.rooms, env.houses, () => world.now, world.newID).execute({
       name: "  Quarto azul  ", houseID: house.id, creatorUserID: creator.id, visibility: "privateRoom",
-      responsibleCount: members.length, icon: "bed.double.fill", color: "purple",
+      responsibleCount: members.length, icon: "bed.double.fill", color: "teal",
       selectedParticipantIDs: new Set([creator.id, second.id]),
     });
     const stored = await env.rooms.room(room.id, creator.id);
     assert.equal(stored.name, "Quarto azul");
     assert.equal(stored.icon, "bed.double.fill");
-    assert.equal(stored.color, "purple");
+    assert.equal(stored.color, "teal");
     const participation = await env.rooms.participation(room.id, second.id, world.now);
     assert.ok(participation.isMember);
     assert.equal(participation.memberCount, 2);

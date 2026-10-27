@@ -22,34 +22,40 @@ struct SchedulingTests {
         return (store, repository, definition, calendar)
     }
 
-    @Test func createsTwelveWeeksAndRefreshesWithoutDuplicates() async throws {
+    @Test func createsOneTurnPerResidentAndRefreshesWithoutDuplicates() async throws {
         let (store, repository, definition, calendar) = fixture()
         let created = try await CreateTaskUseCase(
             repository: repository,
             roomRepository: MockRoomRepository(store: store)
         )(definition: definition, requestedBy: MockSeed.currentUser.id, date: date)
         let initial = await store.read { $0.schedule }
-        #expect(initial.occurrences.count == 12)
-        #expect(initial.assignments.count == 12)
+        #expect(initial.occurrences.count == 4)
+        #expect(initial.assignments.map(\.userID) == created.rotationQueue)
         #expect(Set(created.rotationQueue).count == 4)
-        #expect(created.currentRotationIndex == 0)
+        // The turn already available leaves the cursor, which stays on the next turn not yet available.
+        #expect(created.currentRotationIndex == 1)
+        #expect(created.nextScheduledAt == calendar.date(byAdding: .weekOfYear, value: 1, to: date))
         #expect(initial.occurrences.first?.availableAt == date)
         #expect(initial.occurrences.dropFirst().allSatisfy { calendar.component(.weekday, from: $0.availableAt) == 2 })
+        // Nobody completed: weeks passing publish nothing (each resident's next turn waits for their completion).
         let future = calendar.date(byAdding: .weekOfYear, value: 5, to: date)!
         try await repository.refreshSchedule(in: MockSeed.house.id, at: future)
         try await repository.refreshSchedule(in: MockSeed.house.id, at: future)
+        #expect(await store.read { $0.occurrences } == initial.occurrences)
+        // A late completion publishes the completer's next turn not yet past due (week 4's was due in week 5).
+        let first = initial.assignments[0]
+        try await repository.complete(occurrenceID: first.occurrenceID, by: first.userID, at: future)
         let final = await store.read { $0.schedule }
-        #expect(final.occurrences.count == 17)
-        #expect(final.assignments.count == 17)
-        #expect(Array(final.occurrences.prefix(12)) == initial.occurrences)
-        #expect(Set(final.occurrences.map(\.availableAt)).count == 17)
-        #expect(final.definitions[0].currentRotationIndex == 1)
+        #expect(final.occurrences.count == 5)
+        #expect(final.occurrences.last?.availableAt == calendar.date(byAdding: .weekOfYear, value: 8, to: date))
+        #expect(final.assignments.last?.userID == first.userID)
         let repeatCreate = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: future)
         #expect(repeatCreate == final.definitions[0])
     }
 
     @Test func biweeklyAndLongIntervals() async throws {
-        for (interval, count) in [(2, 6), (20, 1)] {
+        // One turn per resident within the horizon: biweekly has 6 turns in 12 weeks, but only 4 residents.
+        for (interval, count) in [(2, 4), (20, 1)] {
             let (store, repository, original, _) = fixture()
             var definition = original
             definition.recurrence = .recurring(frequency: .weekly, interval: interval)
@@ -99,7 +105,9 @@ struct SchedulingTests {
         #expect(state.roomMemberships.filter { $0.roomID != definition.roomID }.allSatisfy { $0.fairnessDebt == 0 })
         #expect(state.occurrences.filter(\.isCompleted).count == 1)
         #expect(state.assignments.filter { $0.occurrenceID == first.occurrenceID && $0.isActive }.isEmpty)
-        #expect(state.definitions[0].currentRotationIndex == 0) // Calendar cursor does not advance on completion.
+        // The 20 completions publish a single next turn, the completer's.
+        #expect(state.occurrences.count == 5)
+        #expect(state.assignments.filter { $0.userID == first.userID && $0.isActive }.count == 1)
     }
 
     @Test func unauthorizedAndFutureCompletionsDoNotMutate() async throws {
@@ -177,7 +185,7 @@ struct SchedulingTests {
         async let b = repository.create(second, requestedBy: MockSeed.currentUser.id, at: date)
         let (firstSaved, secondSaved) = try await (a, b)
         #expect(firstSaved.rotationQueue[0] != secondSaved.rotationQueue[0])
-        #expect(await store.read { $0.occurrences.count } == 24)
+        #expect(await store.read { $0.occurrences.count } == 8)
     }
 
     @Test func membershipInsertionReplansNextWeekAndPreservesCurrentWeek() async throws {
@@ -196,8 +204,8 @@ struct SchedulingTests {
         #expect(after.occurrences.filter { $0.availableAt < boundary } == before.occurrences.filter { $0.availableAt < boundary })
         #expect(after.assignments.first { $0.occurrenceID == before.occurrences[0].id && $0.isActive } == before.assignments[0])
         #expect(after.occurrences.prefix(before.occurrences.count).map(\.id) == before.occurrences.map(\.id))
-        #expect(after.assignments.contains { $0.userID == MockSeed.rafa.id && $0.isActive && $0.assignedAt < before.definitions[0].nextScheduledAt! })
-        #expect(after.assignments.contains { $0.supersededAt == date })
+        // The newcomer gets their next turn from the boundary on.
+        #expect(after.assignments.contains { $0.userID == MockSeed.rafa.id && $0.isActive && $0.assignedAt >= boundary })
         #expect(after.assignments.allSatisfy { $0.endedAt == nil || $0.endedAt! >= $0.assignedAt })
         #expect(after.roomMemberships.filter { $0.roomID == definition.roomID && $0.userID == MockSeed.rafa.id }.count == 1)
     }
@@ -303,11 +311,12 @@ struct TaskListPresentationTests {
     @Test func deadlinesSortAscendingWithUndatedTasksLast() async throws {
         var seed = MockSeed.make()
         let roomID = MockSeed.kitchen.id
-        let definition = seed.definitions.first { $0.roomID == roomID }!
+        let definitions = Array(seed.definitions.filter { $0.roomID == roomID && $0.kind != .sporadic }.prefix(3))
+        #expect(definitions.count == 3)
         let dates: [Date?] = [nil, Date(timeIntervalSince1970: 300), Date(timeIntervalSince1970: 100)]
-        seed.occurrences = dates.map {
+        seed.occurrences = zip(definitions, dates).map { definition, dueAt in
             TaskOccurrence(id: UUID(), taskDefinitionID: definition.id, availableAt: .distantPast,
-                           dueAt: $0, status: .available, completedAt: nil, completedByUserID: nil,
+                           dueAt: dueAt, status: .available, completedAt: nil, completedByUserID: nil,
                            effortSnapshot: definition.effort)
         }
         let container = AppContainer(store: MockStore(state: seed))
@@ -320,7 +329,7 @@ struct TaskListPresentationTests {
         let container = AppContainer()
         let user = try await container.store.read { state in
             let ids = Set(state.definitions.filter { $0.roomID == MockSeed.kitchen.id }.map(\.id))
-            let occurrence = try #require(state.occurrences.first { ids.contains($0.taskDefinitionID) && $0.availableAt <= .now })
+            let occurrence = try #require(state.occurrences.first { ids.contains($0.taskDefinitionID) && $0.availableAt <= .now && !$0.isCompleted })
             let owner = try #require(state.assignments.first { $0.occurrenceID == occurrence.id && $0.isActive }?.userID)
             return try #require(state.users.first { $0.id == owner })
         }
@@ -328,7 +337,9 @@ struct TaskListPresentationTests {
         let model = container.makeRoomDetailViewModel(roomID: MockSeed.kitchen.id, session: session)
         await model.load()
         guard case let .content(content) = model.state,
-              let item = content.tasks.first(where: { $0.assignment?.userID == user.id && $0.occurrence.availableAt <= .now }) else {
+              let item = content.tasks.first(where: {
+                  $0.assignment?.userID == user.id && $0.occurrence.availableAt <= .now && !$0.occurrence.isCompleted
+              }) else {
             Issue.record("Missing assigned task")
             return
         }

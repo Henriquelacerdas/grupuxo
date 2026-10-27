@@ -22,7 +22,7 @@ export const now = (): Instant => Date.now();
 /** UUID v4 em minúsculo (texto canônico dos IDs). */
 export const newID: IDGenerator = () => randomUUID();
 
-const sleep = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
+export const sleep = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 export const dynamoRuntime: DynamoRuntime = { sleep, random: () => Math.random() };
 

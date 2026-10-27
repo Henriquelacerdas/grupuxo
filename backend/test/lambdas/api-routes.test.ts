@@ -2,6 +2,7 @@ import { dynamoApiEnv, inMemoryApiEnv } from "./api-support.ts";
 import { houseRoutes } from "./api-routes-house.ts";
 import { roomRoutes } from "./api-routes-rooms.ts";
 import { occurrenceRoutes } from "./api-routes-occurrences.ts";
+import { swapAndSporadicRoutes } from "./api-routes-swaps.ts";
 import { taskRoutes } from "./api-routes-tasks.ts";
 
 // As mesmas rotas, no adaptador em memória e no DynamoDB (cliente falso, escrita dividida ligada).
@@ -13,3 +14,5 @@ taskRoutes("em memória", inMemoryApiEnv);
 taskRoutes("DynamoDB", dynamoApiEnv);
 occurrenceRoutes("em memória", inMemoryApiEnv);
 occurrenceRoutes("DynamoDB", dynamoApiEnv);
+swapAndSporadicRoutes("em memória", inMemoryApiEnv);
+swapAndSporadicRoutes("DynamoDB", dynamoApiEnv);

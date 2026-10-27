@@ -12,7 +12,8 @@ Há duas implementações do mesmo contrato, ligadas por fixtures de referência
 - **Modelo:** filas rotativas estáticas; cada participante aparece uma vez por ciclo.
 - **Custo:** carga semanal ao quadrado (pune picos) + concentração por nível de esforço + saldo amortizado, num horizonte de 12 semanas.
 - **Otimização:** Algoritmo Húngaro por fila (O(K³)); na casa, busca local lexicográfica com até 20 passagens. Sem garantia de ótimo global.
-- **Vigência:** mudanças de participantes valem na segunda-feira imediatamente seguinte.
+- **Vigência:** mudanças de participantes replanejam a escala a partir da segunda-feira imediatamente seguinte. Quem entra já é elegível desde a segunda-feira da semana atual, para tarefas criadas na mesma semana.
+- **Publicação:** só a próxima vez de cada morador vira ocorrência; a seguinte sai quando ele conclui a sua (escala do cômodo: também quando ela atrasa). As 12 semanas do custo são projetadas sem gravar.
 - **Justiça:** saldo por cômodo (`E − E/M` ao executor, `−E/M` aos demais), amortizado por 12 no custo.
 - **Determinismo:** mesmos dados e calendário produzem o mesmo resultado; empates por UUID/índice.
 
@@ -23,7 +24,8 @@ Há duas implementações do mesmo contrato, ligadas por fixtures de referência
 | Slot | Posição na fila rotativa; ocorrências `slot, slot+K, slot+2K…` |
 | Horizonte | 12 semanas projetadas a partir da vigência |
 | Escala do cômodo | Períodos de n execuções em x semanas, com bloco guloso de tarefas por posição |
-| Publicar | Materializar uma `TaskOccurrence` com atribuição |
+| Vez | Execução de calendário (data, prazo e responsável nominal), publicada ou não |
+| Publicar | Materializar uma vez como `TaskOccurrence` com atribuição |
 | Vigência | Segunda-feira a partir da qual a nova composição vale |
 
 ## Objetivo e limites matemáticos
@@ -35,8 +37,7 @@ Para uma tarefa independente nova, as outras filas ficam fixas. Tarefas vinculad
 ## Estado e invariantes
 
 - `TaskDefinition`: configuração e `rotationQueue` para tarefas independentes, com cada participante exatamente uma vez; vazia quando não há elegíveis. `pendingRotation` guarda a fila por conclusão que passa a valer na próxima segunda-feira.
-- `currentRotationIndex`: posição da **próxima ocorrência ainda não publicada**. Não é o índice de uma ocorrência pendente: existem várias ocorrências futuras já publicadas.
-- `nextScheduledAt`: data da próxima ocorrência de calendário ainda não publicada; `nil` para esporádicas e tarefas que avançam por conclusão.
+- Cursor (`nextScheduledAt`, `currentRotationIndex`, `rotationQueue`, `pendingRotation`): a primeira vez de calendário ainda **não resolvida** e a posição da fila nela. Vezes depois do cursor podem já estar publicadas (a próxima de cada morador); o cursor só passa por vezes já disponíveis e resolvidas (ver "Publicação por morador"). `nil` para esporádicas e tarefas que avançam por conclusão. Nas de calendário, `pendingRotation` guarda a fila do replanejamento, que vale a partir da primeira vez com data na vigência ou depois.
 - `TaskOccurrence`: execução, janela de disponibilidade e `effortSnapshot`. Alterar o esforço da definição não muda snapshots existentes.
 - `TaskAssignment`: histórico de atribuições. Há no máximo uma atribuição ativa por ocorrência; uma atribuição futura só vale a partir de `assignedAt`. `supersededAt` cancela um plano substituído sem produzir `endedAt < assignedAt`; `isActive` exclui atribuições concluídas/devolvidas e substituídas.
 - `RoomMembership.fairnessDebt`: saldo relativo ao cômodo, positivo para quem executou mais que sua cota. Não é moeda nem placar. O vínculo é preservado na saída e reutilizado na reentrada, sem zerar saldo.
@@ -63,9 +64,9 @@ Concluir novamente pela mesma pessoa é idempotente. Outra pessoa não pode se a
 
 O calendário é injetado; no app a composição padrão usa calendário gregoriano e o fuso do dispositivo, e no servidor o calendário é o do **fuso da casa** (`House.timezone`, IANA). A semana começa na segunda-feira e a virada de semana acontece às 00:00 desse fuso. Datas avançam por componentes de calendário, nunca somando 604800 segundos (nem 24 h por dia), preservando transições de horário de verão.
 
-Na criação, o horizonte é `[início da semana de referência, início + 12 semanas)`. Tarefas independentes com recorrência antiga começam na criação. A nova modalidade semanal e tarefas vinculadas ao cômodo começam na primeira execução do calendário a partir da criação. Na recorrência semanal, as seguintes começam na segunda-feira da semana calculada pelo intervalo, com prazo até a próxima ocorrência. Recorrências diárias, mensais e anuais avançam pelo respectivo componente de calendário. A primeira semana pode ser parcial. Nas recorrências semanais independentes antigas, intervalo 2 gera seis ocorrências e intervalos maiores que o horizonte geram apenas a primeira. Na nova modalidade ancorada, a criação depois da última execução do período pode não gerar ocorrências dentro do horizonte; o próximo refresh continua a partir da próxima data prevista.
+Na criação, o horizonte é `[início da semana de referência, início + 12 semanas)`; ele define as vezes que a fila inicial avalia, mas só a primeira vez de cada morador nele é publicada. Tarefas independentes com recorrência antiga começam na criação. A nova modalidade semanal e tarefas vinculadas ao cômodo começam na execução do calendário ainda aberta na criação, se ela for da semana atual (a última execução da semana com data até a criação; prazo até a seguinte), ou senão na primeira execução a partir da criação. Assim, uma tarefa semanal criada na quarta-feira já tem a ocorrência desta semana (disponível desde a segunda) e um responsável nela; no cômodo, a versão da escala passa a valer a partir dessa execução. Na recorrência semanal, as seguintes começam na segunda-feira da semana calculada pelo intervalo, com prazo até a próxima ocorrência. Recorrências diárias, mensais e anuais avançam pelo respectivo componente de calendário. A primeira semana pode ser parcial. Nas recorrências semanais independentes antigas, intervalo 2 gera seis ocorrências e intervalos maiores que o horizonte geram apenas a primeira. Na nova modalidade ancorada, a criação depois da última execução do período pode não gerar ocorrências dentro do horizonte; o próximo refresh continua a partir da próxima data prevista.
 
-A projeção inclui ocorrências pendentes atribuídas de **todos os cômodos da casa**, por usuário e semana de disponibilidade, com esforço snapshot. Históricos de reassunção não duplicam carga. Concluídas não entram novamente: seu efeito histórico já está no saldo. Pendências anteriores ao horizonte continuam consultáveis, mas não são movidas artificialmente para outra semana.
+A projeção inclui ocorrências pendentes atribuídas de **todos os cômodos da casa**, por usuário e semana de disponibilidade, com esforço snapshot, mais as vezes de calendário ainda não publicadas com responsável e prazo depois do instante do cálculo (esforço da definição). Assim o custo enxerga as 12 semanas como se estivessem publicadas. Históricos de reassunção não duplicam carga. Concluídas não entram novamente: seu efeito histórico já está no saldo. Pendências anteriores ao horizonte continuam consultáveis, mas não são movidas artificialmente para outra semana.
 
 Para cada usuário `u` e semana `w`:
 
@@ -93,20 +94,35 @@ A matriz é construída em O(K² × (H+P)), com `H=12` semanas e `P` ocorrência
 
 `Room` guarda âncora, periodicidade, quantidade desejada e `RoomScheduleVersion`. Cada versão contém vigência, fila, quantidade efetiva, índice do período e o mapa tarefa → posição responsável. Os nomes avançam pela quantidade efetiva ao trocar de período. Mudanças de participantes criam versões na segunda-feira imediatamente seguinte e podem interromper o período atual sem mudar a âncora.
 
-O guloso ordena tarefas vinculadas por esforço decrescente e UUID. Aloca cada uma na posição com menor soma de esforço, depois menor quantidade de tarefas e menor índice. Os blocos são definidos antes de associar nomes; todas as execuções da tarefa no período seguem sua posição. Tarefas vinculadas não consomem cursores individuais.
+O guloso ordena tarefas vinculadas por esforço decrescente e UUID. Aloca cada uma na posição com menor soma de esforço, depois menor quantidade de tarefas e menor índice. Os blocos são definidos antes de associar nomes; todas as execuções da tarefa no período seguem sua posição. Tarefas vinculadas não consomem cursores individuais. Criar uma tarefa vinculada recalcula os blocos de todas as vinculadas na versão que começa na execução ainda aberta da semana; as ocorrências não concluídas das outras vinculadas já disponíveis desde essa execução (até o instante da criação) passam ao responsável do papel novo, e as futuras são replanejadas pelo `rebalance`. Assim nenhuma ocorrência do período fica com o responsável de uma divisão de papéis antiga.
 
 `QueueForecast.Turn.slot` identifica a posição do bloco na fila do cômodo. Várias tarefas e execuções podem contribuir para o mesmo slot. Isso mantém o custo separável por usuário/posição para o Húngaro. A busca considera filas de cômodos junto às independentes e preserva o vínculo estrutural. Na criação durante um período com execuções anteriores, a fila do cômodo fica fixa para preservar os responsáveis atuais.
 
-O horizonte continua sendo 12 semanas. A busca compara esforço, dificuldade, saldo e alterações lexicograficamente. Matrizes têm solução ótima individual; o conjunto continua sendo uma busca local, sem garantia de ótimo global. Os períodos futuros publicados além do horizonte seguem a mesma fila e as mesmas versões.
+O horizonte continua sendo 12 semanas. A busca compara esforço, dificuldade, saldo e alterações lexicograficamente. Matrizes têm solução ótima individual; o conjunto continua sendo uma busca local, sem garantia de ótimo global. Os períodos além do horizonte seguem a mesma fila e as mesmas versões.
 
 ## Calendário versus conclusão
 
 - `.calendarRotation` e `.balancedAutomatically` exigem recorrência com intervalo positivo (diária, semanal, mensal ou anual); usam o mesmo planejador de fases.
+- `.calendarRotation`/`.balancedAutomatically` publicam uma vez por morador (seção seguinte).
 - `.afterCompletion` normaliza recorrência para `.none`. Gera somente uma ocorrência. A escolha inicial usa uma contribuição na semana atual, e as demais posições têm empate estável. Cada conclusão publica exatamente uma sucessora e consome o próximo slot estático. Não se inventa uma frequência semanal para tarefas sem prazo.
 - `.sporadic` exige `.none` e `.selfAssigned`; nasce sem responsável, fora do Húngaro. Assumir/devolver não altera saldo. Concluir altera saldo e não cria sucessora. Como não possui fila, sua elegibilidade usa a participação atual no cômodo, inclusive antes da vigência da próxima rotação.
 - `.recurring + .selfAssigned` não é uma combinação aceita na criação nova.
 
-`RefreshTaskScheduleUseCase` completa a janela de 12 semanas a partir de `nextScheduledAt`. Pular semanas sem abrir o app materializa também os períodos intermediários, preservando fase e histórico. Repetir o refresh não duplica dados. Consultas pessoais e esporádicas acionam refresh; outros clientes podem chamar o caso de uso explicitamente. No app isso não é execução em background com o aplicativo fechado; no servidor o mesmo caso de uso pode ser chamado por um agendador (decisão futura).
+`RefreshTaskScheduleUseCase` publica a próxima vez de quem está sem pendente, dentro de 12 semanas a partir da semana atual. Na escala do cômodo, pular semanas sem abrir o app publica também as vezes intermediárias (atrasadas), preservando fase e histórico. Repetir o refresh não duplica dados.
+
+## Publicação por morador
+
+Para diminuir a partição da casa (ver `LATENCIA.md`), as vezes de calendário não são mais todas publicadas até 12 semanas: cada morador tem **no máximo uma vez pendente** por tarefa, a próxima dele. `TaskSchedulingService.turns` calcula as vezes a partir do cursor (data por `nextDate`, responsável pela fila com a posição avançando uma por vez, ou por `roomOwner` na escala do cômodo; ausente ou sem participação na data deixa a vez sem responsável). `plan`/`fill` decidem o que publicar:
+
+- Um morador está **satisfeito** quando tem uma ocorrência ativa, não concluída, desta tarefa. Na **escala do cômodo** (tarefa vinculada) a pendente atrasada (`dueAt <= agora`) não conta: assim que ela atrasa, a próxima vez dele já é publicada; numa casa parada há semanas, as vezes perdidas saem atrasadas, uma depois da outra, até a primeira ainda no prazo. Nas tarefas de **periodicidade própria** a pendente conta até ser concluída, mesmo atrasada.
+- Percorrendo as vezes em ordem, a primeira vez não publicada de um morador não satisfeito é publicada para ele. Nas de periodicidade própria, uma vez já vencida não é publicada (fica perdida): ao concluir atrasado, a próxima é a primeira vez dele ainda no prazo.
+- **Ausência pula a vez:** a vez sem responsável não é publicada, mas consome a posição da fila; a próxima do morador é a seguinte dele fora da ausência.
+- O cursor só passa por vezes já disponíveis (`availableAt <= agora`) e resolvidas: publicadas, sem responsável ou vencidas. Vezes futuras ficam à frente dele, publicadas ou não, e o replanejamento pode redistribuí-las.
+- Concluir publica na hora a próxima vez de quem concluiu (`complete` chama `fill` da tarefa). Reabrir não remove a que já saiu.
+- `isCurrent` (só no servidor) é falso quando o `refresh` publicaria algo; um cursor que só poderia andar (sem publicar nada) não obriga a gravar, porque não muda nenhuma resposta da `api`, e anda na próxima escrita.
+- **Escala antiga:** uma definição gravada antes (todas as vezes até 12 semanas publicadas, contínuas, e o cursor depois delas) é reconhecida por `legacyStart` (há vez publicada ainda não disponível antes do cursor, e da primeira delas até o cursor todas as datas estão publicadas). O cursor volta para essa primeira vez, com a posição da fila recuperada pela contagem, e as ocorrências dali em diante são reaproveitadas (mesmo ID) para a próxima de cada morador ou removidas. Acontece no primeiro `refresh`, conclusão ou mudança de moradores; `isCurrent` é falso enquanto houver escala antiga.
+
+Fixtures: `scheduling-complete.json` ("uma vez por morador…", "atrasada fora da escala do cômodo…", "atrasada na escala do cômodo…", "escala antiga de 12 semanas…"). Consultas pessoais e esporádicas acionam refresh; outros clientes podem chamar o caso de uso explicitamente. No app isso não é execução em background com o aplicativo fechado; no servidor o mesmo caso de uso pode ser chamado por um agendador (decisão futura).
 
 ## Entrada e saída de participantes
 
@@ -114,9 +130,13 @@ O horizonte continua sendo 12 semanas. A busca compara esforço, dificuldade, sa
 
 A vigência da nova rotação é sempre a segunda-feira **imediatamente seguinte**, mesmo quando o comando acontece numa segunda. Exemplo: uma alteração na quarta-feira, 16/09/2026, vale em 21/09/2026; uma alteração em 21/09 vale em 28/09. Entrar na escala não garante uma tarefa já na primeira semana.
 
-O serviço materializa primeiro o calendário anterior, inclusive semanas perdidas sem abrir o app. Depois registra a mudança de participação e replaneja as ocorrências não concluídas com `availableAt >= vigência`. A semana atual, atrasados e concluídos permanecem intactos, incluindo IDs, responsáveis e snapshots. Nas ocorrências futuras, preserva IDs, datas, prazos e esforço; apenas atribuições e status podem mudar. Atribuições iguais não geram novos registros.
+A participação de quem **entra**, porém, é registrada desde a segunda-feira **da semana atual** (entrada em 16/09/2026 participa desde 14/09/2026). Isso não muda os responsáveis já publicados da semana, mas uma tarefa criada depois da entrada, ainda na mesma semana, já pode ser atribuída ao novo participante (por exemplo, uma tarefa diária criada na quarta-feira). Pela mesma razão, ele entra no conjunto de elegíveis do saldo nas conclusões dessa semana. A saída continua registrada na segunda-feira seguinte.
 
-O acesso ao cômodo muda no comando. Quem sai mantém acesso específico às suas pendências preservadas e pode concluí-las depois da vigência, sem poder consultar as demais tarefas de um cômodo privado. Alterações repetidas na mesma semana consolidam a composição da mesma segunda-feira. Reentrar não apaga o histórico nem o saldo.
+O serviço publica primeiro o que faltava pelo calendário anterior (`refresh`). Depois registra a mudança de participação e replaneja as vezes não concluídas com `availableAt >= vigência`, publicadas ou não: a fila nova entra como `pendingRotation` com a vigência, e as ocorrências futuras (ainda não disponíveis) são redistribuídas pela publicação por morador. A semana atual, atrasados e concluídos permanecem intactos, incluindo IDs, responsáveis e snapshots. Uma ocorrência futura cuja data continua publicada mantém ID, datas, prazo e esforço (só a atribuição pode mudar); a que deixa de ser a próxima de alguém é removida. Atribuições iguais não geram novos registros. Para o critério de alterações, o responsável atual de uma vez não publicada é o da fila (ou da versão da escala do cômodo) anterior.
+
+Há uma só troca de fila pendente por definição: se a anterior é de uma vigência já passada e o cursor ainda não chegou nela, o cursor vai até a primeira vez dessa vigência (as vezes anteriores, todas passadas e ainda sem publicar, ficam perdidas) e a fila dela passa a valer antes de registrar a nova.
+
+O acesso ao cômodo muda no comando. Quem sai mantém acesso específico às suas pendências preservadas e pode concluí-las depois da vigência, sem poder consultar as demais tarefas de um cômodo privado. Alterações repetidas na mesma semana consolidam a composição: uma entrada descarta mudanças do mesmo membro a partir da segunda-feira atual, e uma saída, a partir da próxima. Reentrar não apaga o histórico nem o saldo.
 
 ### Reequilíbrio da casa
 
@@ -131,7 +151,7 @@ O custo é uma tupla comparada em ordem lexicográfica, sem permitir que um crit
 
 Para cada fila, remover sua contribuição da projeção, construir a matriz usuário/posição e resolver pelo Húngaro lexicográfico. Aceitar somente melhoria estrita do custo da casa. Repetir até estabilizar ou atingir 20 passagens. Executar a busca a partir das filas antigas adaptadas e também de filas reconstruídas por UUID; conservar o melhor resultado, nunca pior que a configuração adaptada. Empates do solucionador seguem índices derivados de UUID; entre resultados de mesmo custo, preservar o primeiro.
 
-Cada participante aparece uma vez por ciclo. Essa restrição e frequências distintas podem impedir igualdade perfeita. A busca é determinística e encontra melhorias locais; não promete ótimo global. O horizonte limita a avaliação, mas todas as ocorrências futuras já publicadas recebem a continuidade da fila escolhida, inclusive as que estiverem além dele. O cursor final aponta para a próxima ocorrência ainda não publicada.
+Cada participante aparece uma vez por ciclo. Essa restrição e frequências distintas podem impedir igualdade perfeita. A busca é determinística e encontra melhorias locais; não promete ótimo global. O horizonte limita a avaliação; as vezes depois dele seguem a fila escolhida.
 
 ### Tarefas por conclusão e última saída
 
@@ -166,7 +186,7 @@ Os serviços são valores `Sendable`, sem acesso a Data, SwiftUI, relógio globa
 
 O repositório executa o serviço **dentro** de `MockStore.update` (Swift) ou `InMemoryStore.update` (TypeScript), sem `await` na transação. O store altera uma cópia e a publica somente se a closure termina com sucesso. Assim, falhas revertem todas as mutações, e duas criações concorrentes não calculam sobre o mesmo snapshot desatualizado. O actor é independente do MainActor. Essa decisão serializa cálculos pequenos da casa; em escala maior, migrar para snapshot versionado e commit com compare-and-swap, nunca leitura/cálculo/gravação sem validação de versão.
 
-Ausências são respeitadas na publicação e conclusão. Se o próximo usuário estiver ausente, seu slot é consumido e a ocorrência fica sem responsável. A criação avalia a fila nominal; o replanejamento por mudança de participantes avalia apenas a carga efetivamente atribuível. Retorno de férias, por si só, não dispara reotimização. Entradas e saídas de cômodos seguem a política descrita acima; entradas na casa incluem todos os cômodos comuns; saídas removem todos os vínculos atuais da pessoa. Cada comando de casa realiza um único replanejamento e um commit atômico.
+Ausências são respeitadas na publicação e conclusão. Se o próximo usuário estiver ausente, seu slot é consumido e a vez não é publicada. A criação avalia a fila nominal; o replanejamento por mudança de participantes avalia apenas a carga efetivamente atribuível. Retorno de férias, por si só, não dispara reotimização. Entradas e saídas de cômodos seguem a política descrita acima; entradas na casa incluem todos os cômodos comuns; saídas removem todos os vínculos atuais da pessoa. Cada comando de casa realiza um único replanejamento e um commit atômico.
 
 A persistência é mockada e os dados de demonstração são gerados pelo planejador. Não há migração de backend. Entrada livre e saída confirmada estão disponíveis nos detalhes do cômodo; contratos revalidam acesso e confirmação dentro da transação.
 
@@ -210,7 +230,7 @@ Se o app passar a consumir a API, ele ganha o mesmo parâmetro sem mudar o Swift
 
 ## Verificação
 
-Testes no target `grupuxoTests` verificam matrizes escalares e lexicográficas contra enumeração exaustiva, equilíbrio semanal entre filas, transições na próxima segunda-feira, snapshots, saída e reentrada, privacidade, idempotência, atomicidade, concorrência, exclusão confirmada do último participante, avanço por conclusão, ausência, legado e horário de verão. `WeeklyLoadCalculator` conta cada ocorrência uma vez, na semana de disponibilidade, desconsiderando planos substituídos e mantendo o esforço concluído com seu executor. O mesmo conjunto de cenários roda no TypeScript (`backend/test`), somado às fixtures de referência.
+Testes no target `grupuxoTests` verificam matrizes escalares e lexicográficas contra enumeração exaustiva, equilíbrio semanal entre filas, transições na próxima segunda-feira, elegibilidade de quem entra para tarefas criadas na mesma semana, snapshots, saída e reentrada, privacidade, idempotência, atomicidade, concorrência, exclusão confirmada do último participante, avanço por conclusão, ausência, legado e horário de verão. `WeeklyLoadCalculator` conta cada ocorrência uma vez, na semana de disponibilidade, desconsiderando planos substituídos e mantendo o esforço concluído com seu executor. O mesmo conjunto de cenários roda no TypeScript (`backend/test`), somado às fixtures de referência.
 
 Executar:
 

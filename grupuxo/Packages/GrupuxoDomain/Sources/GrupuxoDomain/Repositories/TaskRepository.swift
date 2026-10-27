@@ -12,6 +12,12 @@ public protocol TaskRepository: Sendable {
         requesting userID: User.ID
     ) async throws -> [TaskItem]
 
+    /// Every scheduled occurrence of one definition (past, current and future).
+    func occurrences(
+        of taskDefinitionID: TaskDefinition.ID,
+        requesting userID: User.ID
+    ) async throws -> [TaskItem]
+
     func sporadicTasks(
         in houseID: House.ID,
         requesting userID: User.ID

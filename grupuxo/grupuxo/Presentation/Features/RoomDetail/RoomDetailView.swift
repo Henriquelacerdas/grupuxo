@@ -1,4 +1,5 @@
 import SwiftUI
+
 import GrupuxoDomain
 
 struct RoomDetailView: View {
@@ -8,25 +9,59 @@ struct RoomDetailView: View {
     @StateObject private var viewModel: RoomDetailViewModel
 
     @State private var selectedSuggestion: TaskSuggestion?
+
     @State private var taskToEnd: TaskDefinition?
+
+    @State private var isPresentingTaskCreationSheet = false
+
+    @State private var showsTaskExplanation = false
+    @State private var showsCycleDetails = false
+
+    @State private var taskFilter: TaskFilter = .now
+    @State private var suggestionOffset = 0
+
+    private enum TaskFilter: String, CaseIterable, Identifiable {
+        case now = "Agora"
+        case all = "Todas"
+
+        var id: Self { self }
+    }
+
+    private let makeTaskEditorViewModel: () -> TaskEditorViewModel
 
     private let makeSuggestionEditorViewModel: (TaskSuggestion) -> TaskEditorViewModel
 
     private let onSelectTask: (TaskDefinition.ID) -> Void
+    private let reloadTrigger: AnyHashable
 
     init(
+
         viewModel: RoomDetailViewModel,
+
+        makeTaskEditorViewModel: @escaping () -> TaskEditorViewModel,
+
         makeSuggestionEditorViewModel: @escaping (TaskSuggestion) -> TaskEditorViewModel,
-        onSelectTask: @escaping (TaskDefinition.ID) -> Void
+
+        onSelectTask: @escaping (TaskDefinition.ID) -> Void,
+        reloadTrigger: AnyHashable = 0
+
     ) {
+
         _viewModel = StateObject(
+
             wrappedValue: viewModel
+
         )
 
+        self.makeTaskEditorViewModel = makeTaskEditorViewModel
+
         self.makeSuggestionEditorViewModel =
+
             makeSuggestionEditorViewModel
 
         self.onSelectTask = onSelectTask
+        self.reloadTrigger = reloadTrigger
+
     }
 
     var body: some View {
@@ -35,83 +70,116 @@ struct RoomDetailView: View {
 
             if let info = viewModel.participation {
 
-                Section("Cômodo") {
+                Section {
+                    VStack(spacing: 0) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showsCycleDetails.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "repeat")
+                                    .font(.system(size: 22, weight: .medium))
+                                    .foregroundStyle(info.room.color.tint)
+                                    .frame(width: 44)
+                                    .accessibilityHidden(true)
 
-                    HStack(
-                        spacing: DesignSystem.contentSpacing
-                    ) {
-
-                        RoomIconView(
-                            icon: info.room.icon,
-                            color: info.room.color,
-                            size: 40
-                        )
-
-                        Text(info.room.name)
-                            .font(.headline)
-
-                    }
-
-                    Text(
-                        info.room.periodicity.label
-                    )
-
-                    Text(
-                        info.room.visibility == .common
-                            ? "Todos os moradores participam"
-                            : "Cômodo privado"
-                    )
-
-                    if info.isMember {
-
-                        Text(
-                            "Responsáveis: "
-                                + info.responsibleNames.joined(
-                                    separator: ", "
-                                )
-                        )
-
-                        Text(
-                            "\(info.periodStart.formatted(date: .abbreviated, time: .omitted)) até \(info.periodEnd.formatted(date: .abbreviated, time: .omitted))"
-                        )
-
-                        if !info.room.representsWholeHouse {
-
-                            Button(
-                                "Sair do cômodo",
-                                role: .destructive
-                            ) {
-                                Task {
-                                    await viewModel.leave()
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(
+                                        viewModel.responsiblesSummary
+                                            ?? (info.room.visibility == .common
+                                                ? "Todos os moradores"
+                                                : "Cômodo privado")
+                                    )
+                                        .font(.system(size: 17, weight: .bold))
+                                        .foregroundStyle(.primary)
+                                    Text(HouseOverviewText().deadline(cycleEnd: info.periodEnd, now: .now))
+                                        .font(.system(size: 15))
+                                        .foregroundStyle(.secondary)
                                 }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(info.room.color.tint)
+                                    .rotationEffect(.degrees(showsCycleDetails ? 180 : 0))
                             }
-                            .disabled(
-                                viewModel.isChangingMembership
-                            )
+                            .padding(.horizontal, 16)
+                            .frame(height: 68)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Detalhes do ciclo")
+                        .accessibilityValue(showsCycleDetails ? "Expandido" : "Recolhido")
+
+                        if showsCycleDetails {
+                            Divider()
+                            HStack {
+                                Text("Duração do ciclo")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Text(cycleDurationLabel(info.room))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .font(.system(size: 17))
+                            .padding(.horizontal, 16)
+                            .frame(height: 52)
+                            Divider()
+                            HStack {
+                                Text("Participantes")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Text(info.room.visibility == .common ? "Todos - público" : "Privado")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .font(.system(size: 17))
+                            .padding(.horizontal, 16)
+                            .frame(height: 52)
+                        }
+                    }
+                    .background(
+                        Color(uiColor: .secondarySystemGroupedBackground),
+                        in: RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    )
+                    .padding(.top, 20)
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+
+                if !info.isMember {
+
+                    Section {
+
+                        Text("Entre para consultar e criar tarefas neste cômodo.")
+
+                            .foregroundStyle(.secondary)
+
+                        Button("Entrar no cômodo") {
+
+                            Task { await viewModel.join() }
 
                         }
 
-                    } else {
-
-                        Text(
-                            "Entre para consultar e criar tarefas neste cômodo."
-                        )
-
-                        Button(
-                            "Entrar no cômodo"
-                        ) {
-                            Task {
-                                await viewModel.join()
-                            }
-                        }
-                        .disabled(
-                            viewModel.isChangingMembership
-                        )
+                        .disabled(viewModel.isChangingMembership)
 
                     }
 
                 }
 
+            }
+
+            if viewModel.participation?.isMember == true {
+                Section {
+                    Picker("Exibição de tarefas", selection: $taskFilter) {
+                        ForEach(TaskFilter.allCases) { filter in
+                            Text(filter.rawValue).tag(filter)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(height: 32)
+                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 0, trailing: 0))
             }
 
             switch viewModel.state {
@@ -119,43 +187,39 @@ struct RoomDetailView: View {
             case .idle, .loading:
 
                 ProgressView(
+
                     "Carregando cômodo…"
+
                 )
 
             case let .content(content):
-                Section(viewModel.participation?.isMember == true ? "Tarefas" : "Suas pendências preservadas") {
-                    ForEach(content.tasks) { item in
-                        TaskRow(item: item, canComplete: viewModel.canComplete(item)) {
-                            Task { await viewModel.complete(item.id) }
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if item.definition.endedAt == nil && viewModel.participation?.isMember == true {
-                                Button(role: .destructive) {
-                                    taskToEnd = item.definition
-                                } label: {
-                                    Label("Encerrar", systemImage: "stop.circle")
-                                }
-                            }
-                        }
-                    }
+                taskSection(
+                    "Tarefas do ciclo",
+                    tasks: visibleTasks(content.tasks.filter(isCycleTask)),
+                    includesInfo: true
+                )
 
-                }
+                taskSection(
+                    "Tarefas gerais",
+                    tasks: visibleTasks(content.tasks.filter { !isCycleTask($0) })
+                )
+                taskSection(
+                    "Tarefas únicas",
+                    tasks: visibleTasks(viewModel.sporadicTasks),
+                    isSporadic: true
+                )
 
             case .empty:
-
-                if viewModel.participation?.isMember == true
-                    && viewModel.suggestions.isEmpty {
-
-                    Text(
-                        "Nenhuma tarefa neste cômodo."
-                    )
-
-                }
+                taskSection("Tarefas do ciclo", tasks: [], includesInfo: true)
+                taskSection("Tarefas gerais", tasks: [])
+                taskSection("Tarefas únicas", tasks: visibleTasks(viewModel.sporadicTasks), isSporadic: true)
 
             case let .failure(message):
 
                 Text(
+
                     message
+
                 )
 
             }
@@ -163,114 +227,259 @@ struct RoomDetailView: View {
             if !viewModel.suggestions.isEmpty {
 
                 Section {
-
-                    ForEach(
-                        viewModel.suggestions
-                    ) { suggestion in
-
+                    ForEach(visibleSuggestions) { suggestion in
                         Button {
                             selectedSuggestion = suggestion
                         } label: {
-
-                            suggestionRow(
-                                suggestion
-                            )
-
+                            suggestionRow(suggestion)
                         }
-                        .buttonStyle(
-                            .plain
+                        .buttonStyle(.plain)
+                        .listRowInsets(
+                            EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
                         )
+                    }
+
+                    Button {
+                        let count = viewModel.suggestions.count
+                        guard count > 1 else { return }
+                        // Avança três sugestões quando houver mais de três;
+                        // com um catálogo menor, alterna a ordem dos itens disponíveis.
+                        let step = count > 3 ? 3 : 1
+                        suggestionOffset = (suggestionOffset + step) % count
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 17, weight: .regular))
+                            Text("Outras sugestões")
+                                .font(.system(size: 17, weight: .regular))
+                                .tracking(-0.43)
+                        }
+                        .foregroundStyle(Color(uiColor: .systemBlue))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(viewModel.suggestions.count < 2)
+                    .accessibilityHint(
+                        viewModel.suggestions.count > 3
+                        ? "Exibe outras sugestões disponíveis"
+                        : "Alterna as sugestões disponíveis"
+                    )
+                    .listRowInsets(
+                        EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+                    )
+
+                } header: {
+                    Text("Sugestões de tarefas")
+                        .font(.system(size: 22, weight: .bold))
+                        .tracking(-0.26)
+                        .textCase(nil)
+                        .foregroundColor(Color(uiColor: .label))
+                }
+            }
+
+        }
+
+        .listSectionSpacing(.custom(0))
+        .navigationTitle(viewModel.participation?.room.name ?? "Cômodo")
+
+        .navigationBarTitleDisplayMode(.large)
+
+        .scrollContentBackground(.hidden)
+
+         .background {
+            ZStack(alignment: .top) {
+                Color(uiColor: .systemGroupedBackground)
+                if let room = viewModel.participation?.room {
+                    LinearGradient(
+                        colors: [room.color.tint.opacity(0.75), Color(uiColor: .systemGroupedBackground).opacity(0)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 247)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .ignoresSafeArea(edges: .top)
+                }
+            }
+        }
+
+        .toolbar {
+
+            ToolbarItem(placement: .topBarTrailing) {
+
+                if viewModel.participation?.isMember == true {
+
+                    Button {
+
+                        isPresentingTaskCreationSheet = true
+
+                    } label: {
+
+                        Image(systemName: "plus")
 
                     }
 
-                } header: {
-
-                    Text(
-                        "Sugestões"
-                    )
-
-                } footer: {
-
-                    Text(
-                        "Toque em uma sugestão para editar e adicionar ao cômodo."
-                    )
+                    .accessibilityLabel("Nova tarefa")
 
                 }
 
             }
 
+            if let info = viewModel.participation,
+               info.isMember && !info.room.representsWholeHouse {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Sair do cômodo", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
+                            Task { await viewModel.leave() }
+                        }
+                        .disabled(viewModel.isChangingMembership)
+                    } label: {
+                        Image(systemName: "ellipsis")
+                    }
+                    .accessibilityLabel("Mais opções do cômodo")
+                }
+            }
         }
-        .navigationTitle(
-            viewModel.participation?.room.name
-                ?? "Cômodo"
-        )
-        .task {
-            await viewModel.load()
-        }
-        .refreshable {
-            await viewModel.load()
-        }
+
         .sheet(
-            item: $selectedSuggestion,
+
+            isPresented: $isPresentingTaskCreationSheet,
+
             onDismiss: {
-                Task {
-                    await viewModel.load()
-                }
+
+                Task { await viewModel.load() }
+
             }
+
+        ) {
+
+            TaskCreationSheetView(viewModel: makeTaskEditorViewModel())
+
+                .presentationDragIndicator(.visible)
+
+        }
+
+        .task(id: reloadTrigger) {
+
+            await viewModel.load()
+
+        }
+
+        .refreshable {
+
+            await viewModel.load(forceRefresh: true)
+
+        }
+
+        .sheet(
+
+            item: $selectedSuggestion,
+
+            onDismiss: {
+
+                Task {
+
+                    await viewModel.load()
+
+                }
+
+            }
+
         ) { suggestion in
 
             TaskCreationSheetView(
+
                 viewModel:
+
                     makeSuggestionEditorViewModel(
+
                         suggestion
+
                     )
+
             )
+
             .presentationDragIndicator(
+
                 .hidden
+
             )
 
         }
+
         .onChange(
+
             of: viewModel.wasDeleted
+
         ) { _, deleted in
 
             if deleted {
+
                 dismiss()
+
             }
 
         }
+
         .alert(
+
             "Encerrar tarefa?",
+
             isPresented: Binding(get: { taskToEnd != nil }, set: { if !$0 { taskToEnd = nil } }),
+
             presenting: taskToEnd
+
         ) { task in
+
             Button("Cancelar", role: .cancel) {}
+
             Button("Encerrar", role: .destructive) {
+
                 Task { await viewModel.end(taskID: task.id) }
+
             }
+
         } message: { task in
+
             Text("\(task.name) não será mais repetida. O histórico fica, e a vez atual continua até ser concluída.")
+
         }
+
         .alert(
+
             "Sair e excluir cômodo?",
+
             isPresented:
+
                 $viewModel.confirmsDeletion
+
         ) {
 
             Button(
+
                 "Cancelar",
+
                 role: .cancel
+
             ) {}
 
             Button(
+
                 "Sair e excluir",
+
                 role: .destructive
+
             ) {
 
                 Task {
+
                     await viewModel.leave(
+
                         confirmDeletion: true
+
                     )
+
                 }
 
             }
@@ -278,134 +487,230 @@ struct RoomDetailView: View {
         } message: {
 
             Text(
+
                 "Atenção: Você é o último participante desse cômodo. Se sair, o cômodo e suas tarefas serão excluídos."
+
             )
 
         }
+
         .alert(
+
             "Não foi possível realizar a ação",
+
             isPresented: Binding(
+
                 get: {
+
                     viewModel.actionError != nil
+
                 },
+
                 set: {
+
                     if !$0 {
+
                         viewModel.actionError = nil
+
                     }
+
                 }
+
             )
+
         ) {
 
             Button(
+
                 "OK"
+
             ) {
+
                 viewModel.actionError = nil
+
             }
 
         } message: {
 
             Text(
+
                 viewModel.actionError ?? ""
+
             )
 
         }
 
     }
 
-    private func suggestionRow(
-        _ suggestion: TaskSuggestion
+    private func cycleDurationLabel(_ room: Room) -> String {
+        room.periodicity.executionsPerPeriod == 1 && room.periodicity.intervalWeeks == 1
+            ? "Semanal" : room.periodicity.label
+    }
+
+    // Tarefas do ciclo usam a periodicidade do cômodo; recorrências próprias
+    // são listadas em "Tarefas gerais". Confirmar esta regra com o domínio.
+    private func isCycleTask(_ item: TaskItem) -> Bool {
+        if case .weekly = item.definition.recurrence { return true }
+        return false
+    }
+
+    @ViewBuilder
+    private func taskSection(
+        _ title: String,
+        tasks: [TaskItem],
+        includesInfo: Bool = false,
+        isSporadic: Bool = false
     ) -> some View {
+        Section {
+            if tasks.isEmpty {
+                Text("Nenhuma tarefa nesta seção.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(tasks) { item in
+                    Group {
+                        if isSporadic {
+                            RoomUniqueTaskRow(
+                                item: item,
+                                onSelect: { onSelectTask(item.definition.id) },
+                                onClaim: viewModel.canClaim(item) ? {
+                                    Task { await viewModel.claim(item.id) }
+                                } : nil
+                            )
+                        } else if taskFilter == .now {
+                            RoomCycleTaskRow(item: item) {
+                                onSelectTask(item.definition.id)
+                            }
+                        } else if includesInfo {
+                            RoomCycleAllTaskRow(item: item) {
+                                onSelectTask(item.definition.id)
+                            }
+                        } else {
+                            RoomGeneralTaskRow(item: item) {
+                                onSelectTask(item.definition.id)
+                            }
+                        }
+                    }
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        if !isSporadic && viewModel.canComplete(item) {
+                            Button {
+                                Task { await viewModel.complete(item.id) }
+                            } label: {
+                                Label(item.occurrence.isCompleted ? "Reabrir" : "Concluir",
+                                      systemImage: "checkmark")
+                            }
+                            .tint(.green)
+                        }
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        if !isSporadic && item.definition.endedAt == nil
+                            && viewModel.participation?.isMember == true {
+                            Button(role: .destructive) {
+                                taskToEnd = item.definition
+                            } label: {
+                                Label("Encerrar", systemImage: "stop.circle")
+                            }
+                        }
+                    }
+                }
+            }
+        } header: {
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color(uiColor: .label))
+                    .textCase(nil)
+                if includesInfo {
+                    Button {
+                        showsTaskExplanation = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 17))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.blue)
+                    .popover(isPresented: $showsTaskExplanation) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Por que ficam separadas?")
+                                .font(.headline)
+                            Text("As do ciclo repetem junto com o cômodo e mudam de pessoa a cada ciclo.\nAs gerais têm repetição própria e só mudam de pessoa depois de feitas.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(16)
+                        .frame(width: 290, alignment: .leading)
+                        .presentationCompactAdaptation(.popover)
+                    }
+                }
+            }
+        }
+    }
 
-        HStack(
-            spacing: DesignSystem.Spacing.medium
-        ) {
+    private func visibleTasks(_ tasks: [TaskItem]) -> [TaskItem] {
+        switch taskFilter {
+        case .all:
+            return tasks
+        case .now:
+            return tasks.filter { $0.occurrence.availableAt <= .now }
+        }
+    }
 
-            Image(
-                systemName: "sparkles"
-            )
-            .foregroundStyle(
-                .secondary
-            )
+    private var visibleSuggestions: [TaskSuggestion] {
+        let suggestions = viewModel.suggestions
+        guard !suggestions.isEmpty else { return [] }
+        let count = min(3, suggestions.count)
+        let start = suggestionOffset % suggestions.count
+        return (0..<count).map { offset in
+            suggestions[(start + offset) % suggestions.count]
+        }
+    }
 
-            VStack(
-                alignment: .leading,
-                spacing:
-                    DesignSystem.Spacing.extraSmall
-            ) {
-
-                Text(
-                    suggestion.name
-                )
-                .foregroundStyle(
-                    .primary
-                )
-
-                Text(
-                    effortName(
-                        suggestion.effort.points
-                    )
-                )
-                .font(
-                    .footnote
-                )
-                .foregroundStyle(
-                    .secondary
-                )
-
+    private func suggestionRow(_ suggestion: TaskSuggestion) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(suggestion.name)
+                    .font(.system(size: 17, weight: .regular))
+                    .tracking(-0.43)
+                    .foregroundStyle(.primary)
+                Text(effortName(suggestion.effort.points))
+                    .font(.system(size: 15, weight: .regular))
+                    .tracking(-0.23)
+                    .foregroundStyle(.secondary)
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            Text(
-                "\(suggestion.effort.points)"
-            )
-            .font(
-                .footnote.weight(
-                    .semibold
-                )
-            )
-            .foregroundStyle(
-                .secondary
-            )
-
-            Image(
-                systemName: "chevron.right"
-            )
-            .font(
-                .caption.weight(
-                    .semibold
-                )
-            )
-            .foregroundStyle(
-                .tertiary
-            )
-
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 24, weight: .regular))
+                .foregroundStyle(Color(uiColor: .systemBlue))
+                .frame(width: 44, height: 44)
+                .accessibilityHidden(true)
         }
-        .contentShape(
-            Rectangle()
-        )
-        .accessibilityElement(
-            children: .combine
-        )
-        .accessibilityHint(
-            "Abre o formulário para editar e adicionar esta tarefa."
-        )
-
+        .frame(height: 68)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Abre o formulário para adicionar a tarefa sugerida")
     }
 
     private func effortName(
+
         _ points: Int
+
     ) -> String {
 
         switch points {
 
         case 1:
+
             "Fácil"
 
         case 2:
+
             "Médio"
 
         default:
+
             "Difícil"
 
         }

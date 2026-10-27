@@ -10,5 +10,5 @@ public struct RoomAppearance: Hashable, Codable, Sendable {
 }
 
 public enum RoomColor: String, CaseIterable, Codable, Sendable {
-    case red, orange, yellow, green, blue, purple, brown, gray, pink
+    case red, orange, yellow, green, blue, purple, brown, gray, pink, teal, indigo, cyan
 }

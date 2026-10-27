@@ -1,8 +1,10 @@
+import Foundation
 import SwiftUI
 import GrupuxoDomain
 
 struct RoomCreationSheetView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.showToast) private var showToast
 
     @FocusState private var nameFocused: Bool
     @StateObject private var viewModel: RoomEditorViewModel
@@ -98,30 +100,27 @@ struct RoomCreationSheetView: View {
     private var cycleSummary: String {
         let when: String
 
+        // Singular e plural ficam nas variações do catálogo.
         switch cycleKind {
         case .weekly:
-            when = "A cada semana"
+            when = String(localized: "A cada semana")
 
         case .biweekly:
-            when = "A cada 2 semanas"
+            when = String(localized: "A cada 2 semanas")
 
         case .monthly:
-            when = "A cada mês"
+            when = String(localized: "A cada mês")
 
         case .custom:
             when = customWeeks == 1
-                ? "A cada semana"
-                : "A cada \(customWeeks) semanas"
+                ? String(localized: "A cada semana")
+                : String(localized: "A cada \(customWeeks) semanas")
         }
 
         let people = viewModel.state.draft
             .responsibleCount
 
-        let who = people == 1
-            ? "1 pessoa cuida"
-            : "\(people) pessoas cuidam"
-
-        return "\(when), \(who) deste cômodo."
+        return String(localized: "\(when), \(people) pessoas cuidam deste cômodo.")
     }
 
     // MARK: - Corpo
@@ -217,7 +216,8 @@ struct RoomCreationSheetView: View {
             clampPeoplePerCycle()
         }
         .onChange(of: viewModel.state) { _, state in
-            if case .saved = state {
+            if case let .saved(room) = state {
+                showToast(.created(String(localized: "Cômodo “\(room.name)” criado")))
                 dismiss()
             }
         }
@@ -317,7 +317,7 @@ struct RoomCreationSheetView: View {
                 ForEach(
                     RoomCreationCycleKind.allCases
                 ) { kind in
-                    Text(kind.rawValue)
+                    Text(kind.title)
                         .tag(kind)
                 }
             }
@@ -403,13 +403,10 @@ struct RoomCreationSheetView: View {
 
         switch count {
         case 0:
-            return "Só você"
-
-        case 1:
-            return "1 pessoa"
+            return String(localized: "Só você")
 
         default:
-            return "\(count) pessoas"
+            return String(localized: "\(count) pessoas")
         }
     }
 
@@ -727,6 +724,15 @@ private enum RoomCreationCycleKind:
         rawValue
     }
 
+    var title: String {
+        switch self {
+        case .weekly: String(localized: "Semanal")
+        case .biweekly: String(localized: "Quinzenal")
+        case .monthly: String(localized: "Mensal")
+        case .custom: String(localized: "Personalizado")
+        }
+    }
+
     init(periodicity: WeeklyPeriodicity) {
         switch periodicity.intervalWeeks {
         case 1:
@@ -822,12 +828,16 @@ private enum RoomCreationColor:
              .mint:
             return .green
 
-        case .teal,
-             .cyan:
-            return .blue
+        case .teal:
+            return .teal
 
-        case .indigo,
-             .purple:
+        case .cyan:
+            return .cyan
+
+        case .indigo:
+            return .indigo
+
+        case .purple:
             return .purple
 
         case .pink:
@@ -870,6 +880,15 @@ private enum RoomCreationColor:
 
         case .pink:
             self = .pink
+
+        case .teal:
+            self = .teal
+
+        case .indigo:
+            self = .indigo
+
+        case .cyan:
+            self = .cyan
         }
     }
 }
@@ -922,31 +941,31 @@ private enum RoomCreationAppearanceCatalog {
                 )
             ] = [
                 (
-                    ["banheiro", "lavabo", "wc"],
+                    ["banheiro", "lavabo", "wc", "bath", "toilet", "restroom"],
                     "toilet.fill",
                     .cyan,
                     .bathroom
                 ),
                 (
-                    ["cozinha", "copa"],
+                    ["cozinha", "copa", "kitchen", "pantry"],
                     "cup.and.saucer.fill",
                     .orange,
                     .kitchen
                 ),
                 (
-                    ["sala", "estar"],
+                    ["sala", "estar", "living", "lounge"],
                     "sofa.fill",
                     .brown,
                     .livingRoom
                 ),
                 (
-                    ["quarto", "suite"],
+                    ["quarto", "suite", "bedroom"],
                     "bed.double.fill",
                     .indigo,
                     .bedroom
                 ),
                 (
-                    ["garagem"],
+                    ["garagem", "garage"],
                     "car.fill",
                     .gray,
                     .outdoor
@@ -954,7 +973,8 @@ private enum RoomCreationAppearanceCatalog {
                 (
                     [
                         "lavanderia",
-                        "area de servico"
+                        "area de servico",
+                        "laundry"
                     ],
                     "washer.fill",
                     .teal,
@@ -963,7 +983,9 @@ private enum RoomCreationAppearanceCatalog {
                 (
                     [
                         "escritorio",
-                        "home office"
+                        "home office",
+                        "office",
+                        "study"
                     ],
                     "desktopcomputer",
                     .cyan,
@@ -973,14 +995,19 @@ private enum RoomCreationAppearanceCatalog {
                     [
                         "varanda",
                         "quintal",
-                        "jardim"
+                        "jardim",
+                        "balcony",
+                        "porch",
+                        "yard",
+                        "garden",
+                        "patio"
                     ],
                     "sparkles",
                     .green,
                     .outdoor
                 ),
                 (
-                    ["lixo"],
+                    ["lixo", "trash", "garbage"],
                     "trash.fill",
                     .gray,
                     .other
@@ -1126,7 +1153,7 @@ private struct RoomCreationAppearancePickerView:
     }
 
     private func block<Content: View>(
-        title: String,
+        title: LocalizedStringKey,
         @ViewBuilder
         content: () -> Content
     ) -> some View {

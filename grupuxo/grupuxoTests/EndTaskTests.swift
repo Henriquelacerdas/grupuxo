@@ -46,11 +46,14 @@ struct EndTaskTests {
         let task = recurring()
         _ = try await repository.create(task, requestedBy: me, at: date)
         let all = await occurrences(of: task, in: store)
-        #expect(all.count == 12)
+        #expect(all.count == 4) // Só a próxima vez de cada morador.
 
-        // A primeira ocorrência é concluída (histórico); a segunda já está disponível e fica pendente.
+        // A primeira ocorrência é concluída (histórico) e publica a próxima de quem concluiu; a segunda já está
+        // disponível e fica pendente.
         let first = all[0], second = all[1]
         try await repository.complete(occurrenceID: first.id, by: await owner(of: first, in: store), at: date)
+        let published = await occurrences(of: task, in: store)
+        #expect(published.count == 5)
         let endedAt = second.availableAt.addingTimeInterval(3600)
         let before = await store.read { $0.schedule }
 
@@ -60,7 +63,7 @@ struct EndTaskTests {
         let kept = await occurrences(of: task, in: store)
         #expect(kept.map(\.id) == [first.id, second.id])
         #expect(kept[0].isCompleted && !kept[1].isCompleted)
-        let removed = Set(all.dropFirst(2).map(\.id))
+        let removed = Set(published.dropFirst(2).map(\.id))
         #expect(!after.assignments.contains { removed.contains($0.occurrenceID) })
         #expect(after.assignments.filter { $0.occurrenceID == first.id } == before.assignments.filter { $0.occurrenceID == first.id })
         #expect(after.assignments.contains { $0.occurrenceID == second.id && $0.isActive })
@@ -208,7 +211,8 @@ struct EndTaskTests {
         #expect(endingKept.allSatisfy { $0.availableAt <= date.addingTimeInterval(60) })
         #expect(endingKept.count < endingAll.count)
         let otherAfter = await occurrences(of: other, in: store)
-        #expect(Array(otherAfter.prefix(otherBefore.count)) == otherBefore)   // só estendeu o horizonte
-        #expect(otherAfter.count >= otherBefore.count)
+        // A outra não perdeu nem mudou nada; só ganhou as vezes seguintes de quem atrasou.
+        #expect(otherBefore.allSatisfy { otherAfter.contains($0) })
+        #expect(otherAfter.count > otherBefore.count)
     }
 }

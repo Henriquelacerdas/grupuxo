@@ -51,35 +51,50 @@ struct MembershipSchedulingTests {
     }
 
     @Test @MainActor func myTasksKeepsCompletedTasksLastAndAllowsUndo() async throws {
-        let store = MockStore()
-        let repository = MockTaskRepository(store: store, scheduling: service)
         let seed = MockSeed.make()
-        let user = seed.users[0].id
+        let store = MockStore(state: seed)
+        let repository = MockTaskRepository(store: store, scheduling: service)
+        let roomRepository = MockRoomRepository(store: store, scheduling: service)
+        // O teste de desfazer usa uma tarefa de ciclo, que continua visível após a conclusão.
+        let linkedIDs = Set(seed.definitions.filter { definition in
+            seed.rooms.first(where: { $0.id == definition.roomID }).map { definition.isLinked(to: $0) } == true
+        }.map(\.id))
+        let availableIDs = Set(seed.occurrences.filter {
+            linkedIDs.contains($0.taskDefinitionID) && $0.availableAt <= .now && !$0.isCompleted
+        }.map(\.id))
+        let owner = try #require(seed.assignments.first { $0.isActive && availableIDs.contains($0.occurrenceID) }?.userID)
+        let resident = try #require(seed.users.first { $0.id == owner })
+        let user = resident.id
         let house = seed.houses[0].id
-        let viewModel = MyTasksViewModel(getMyTasks: GetMyTasksUseCase(repository: repository),
-                                        completeTask: CompleteTaskUseCase(repository: repository),
-                                        userID: user, houseID: house)
+        let viewModel = MyTasksViewModel(
+            getMyTasksOverview: GetMyTasksOverviewUseCase(roomRepository: roomRepository, taskRepository: repository),
+            completeTask: CompleteTaskUseCase(repository: repository),
+            endTask: EndTaskUseCase(repository: repository),
+            user: resident, houseName: seed.houses[0].name, houseID: house)
         await viewModel.load()
-        guard case let .content(tasks) = viewModel.state,
-              let item = tasks.first(where: { viewModel.canComplete($0) && !$0.occurrence.isCompleted }) else {
+        guard case let .content(content) = viewModel.state,
+              let item = content.cycles.flatMap(\.rows).map(\.item).first(where: { viewModel.canComplete($0) && !$0.occurrence.isCompleted }) else {
             Issue.record("Expected an assigned task"); return
         }
         await viewModel.complete(item.id)
         #expect(viewModel.actionError == nil)
         guard case let .content(completed) = viewModel.state,
-              let retained = completed.first(where: { $0.id == item.id }) else {
+              let retained = completed.item(item.id) else {
             Issue.record("Completed task disappeared"); return
         }
         #expect(retained.occurrence.isCompleted)
         #expect(viewModel.canComplete(retained))
-        #expect(completed.suffix(from: completed.firstIndex(where: { $0.occurrence.isCompleted })!).allSatisfy { $0.occurrence.isCompleted })
+        for rows in completed.cycles.map(\.rows) + [completed.extras, completed.sporadics] {
+            let firstCompleted = rows.firstIndex { $0.item.occurrence.isCompleted } ?? rows.endIndex
+            #expect(rows[firstCompleted...].allSatisfy { $0.item.occurrence.isCompleted })
+        }
         await viewModel.complete(item.id)
         #expect(viewModel.actionError == nil)
         let reloaded = try await repository.tasks(for: user, in: house)
         #expect(reloaded.first { $0.id == item.id }?.occurrence.isCompleted == false)
         let roomModel = AppContainer(store: store, calendar: calendar).makeRoomDetailViewModel(
             roomID: item.definition.roomID,
-            session: AppSession(currentUser: seed.users[0], currentHouse: seed.houses[0]))
+            session: AppSession(currentUser: resident, currentHouse: seed.houses[0]))
         await roomModel.load()
         await roomModel.complete(item.id)
         #expect(roomModel.actionError == nil)
@@ -112,8 +127,8 @@ struct MembershipSchedulingTests {
         let rejoined = state.roomMemberships.first { $0.id == member.id }!
         #expect(rejoined.isCurrent)
         #expect(rejoined.fairnessDebt == member.fairnessDebt)
-        #expect(!rejoined.participates(at: boundary))
-        #expect(rejoined.participates(at: calendar.date(byAdding: .weekOfYear, value: 1, to: boundary)!))
+        // Rejoining counts from the Monday of the week it happens.
+        #expect(rejoined.participates(at: boundary))
     }
 
     @Test func lastDepartureRequiresConfirmationAndDeletesTasks() throws {
@@ -216,13 +231,36 @@ struct MembershipSchedulingTests {
         state.absences.append(try Absence(id: UUID(), membershipID: membership.id, startsAt: boundary,
             endsAt: calendar.date(byAdding: .weekOfYear, value: 20, to: boundary)!))
         try service.removeMember(userID: MockSeed.rafa.id, roomID: task.roomID, at: date, state: &state)
+        #expect(before.filter { $0.availableAt < boundary }.allSatisfy { old in
+            state.occurrences.contains { $0.id == old.id }
+        })
         for old in before {
-            let new = state.occurrences.first { $0.id == old.id }!
+            guard let new = state.occurrences.first(where: { $0.id == old.id }) else { continue }
             #expect(new.availableAt == old.availableAt)
             #expect(new.dueAt == old.dueAt)
             #expect(new.effortSnapshot == old.effortSnapshot)
         }
         #expect(!state.assignments.contains { $0.isActive && $0.userID == user && $0.assignedAt >= boundary })
+    }
+
+    @Test func joiningKeepsThisWeeksOwnersButTasksCreatedThisWeekCanGoToNewcomer() throws {
+        var state = state()
+        let rafa = MockSeed.rafa.id
+        state.roomMemberships.removeAll { $0.roomID == MockSeed.kitchen.id && $0.userID == rafa }
+        _ = try service.create(definition(), at: date, state: &state)
+        func owners(_ state: TaskSchedulingState) -> [UUID: UUID] {
+            Dictionary(uniqueKeysWithValues: state.occurrences.filter { $0.availableAt < boundary }.map { o in
+                (o.id, state.assignments.first { $0.occurrenceID == o.id && $0.isActive }?.userID ?? UUID(uuidString: "00000000-0000-0000-0000-000000000000")!)
+            })
+        }
+        let before = owners(state)
+        try service.addMember(userID: rafa, roomID: MockSeed.kitchen.id, at: date, state: &state)
+        #expect(owners(state) == before)
+        var daily = definition()
+        daily.recurrence = .recurring(frequency: .daily, interval: 1)
+        let created = try service.create(daily, at: date, state: &state)
+        let thisWeek = state.occurrences.filter { $0.taskDefinitionID == created.id && $0.availableAt < boundary }
+        #expect(thisWeek.contains { o in state.assignments.contains { $0.occurrenceID == o.id && $0.isActive && $0.userID == rafa } })
     }
 
     @Test func creationDuringPendingChangeAndLegacyInitialization() throws {

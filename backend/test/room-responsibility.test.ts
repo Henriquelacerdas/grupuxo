@@ -51,15 +51,20 @@ test("tarefas vinculadas compartilham responsáveis e só rodam depois do perío
   const a = service.create(task(), monday, state);
   const b = service.create(task({ effort: 3 }), monday, state);
   assert.ok(a.rotationQueue.length === 0 && b.rotationQueue.length === 0);
+  // Só a próxima vez de cada morador: a primeira execução de cada período de duas semanas, um período por morador.
   const dates = [...new Set(state.occurrences.map((o) => o.availableAt))].sort((x, y) => x - y);
+  assert.deepEqual(dates.map((d) => calendar.daysBetween(monday, d)), [0, 14, 28, 42]);
   const owners = dates.map((d) => ownersOn(state, d));
   assert.ok(owners.every((o) => o.size === 1));
-  assert.ok(sameSet(owners[0] ?? new Set(), owners[1] ?? new Set()));
-  assert.ok(!sameSet(owners[1] ?? new Set(), owners[2] ?? new Set()));
-  assert.equal(new Set(owners.slice(0, 8).flatMap((o) => [...o])).size, 4);
+  assert.equal(new Set(owners.flatMap((o) => [...o])).size, 4);
   const before = [...state.occurrences];
   service.refresh(house.id, monday, state);
   assert.deepEqual(state.occurrences, before);
+  // A segunda execução do período sai quando a primeira atrasa, com o mesmo responsável nas duas tarefas.
+  const second = calendar.addDays(monday, 7);
+  service.refresh(house.id, second, state);
+  assert.ok(sameSet(ownersOn(state, second), owners[0] ?? new Set()));
+  assert.equal(state.occurrences.filter((o) => o.availableAt === second).length, 2);
 });
 
 test("blocos gulosos ficam equilibrados e dentro do grupo responsável", () => {
@@ -83,13 +88,33 @@ test("blocos gulosos ficam equilibrados e dentro do grupo responsável", () => {
   assert.equal(ownersOn(state, monday).size, 2);
 });
 
-test("criação no meio do período não publica datas passadas e usa contagens exatas", () => {
-  const { service, state, task } = setup({ n: 3, weeks: 2 });
+test("tarefas criadas uma a uma no meio da semana redistribuem as vezes desta semana com os papéis novos", () => {
+  const { service, state, task } = setup({ count: 2 });
+  const wednesday = calendar.addDays(monday, 2);
+  // Nesta ordem, as últimas criações mudam os blocos gulosos das tarefas anteriores.
+  for (const effort of [3, 2, 2, 1, 3]) service.create(task({ effort }), wednesday, state);
+  for (const o of state.occurrences) {
+    const d = state.definitions.find((x) => x.id === o.taskDefinitionID);
+    assert.ok(d !== undefined);
+    assert.equal(activeOwner(state, o), service.roomOwner(d, o.availableAt, state) ?? undefined);
+  }
+  assert.equal(ownersOn(state, monday).size, 2);
+});
+
+test("criação no meio do período inclui a execução desta semana ainda aberta e usa contagens exatas", () => {
+  const { service, state, task, house } = setup({ n: 3, weeks: 2 });
   const start = calendar.addDays(monday, 3);
   const d = service.create(task({ n: 3, weeks: 2 }), start, state);
-  const dates = state.occurrences.map((o) => o.availableAt).sort((a, b) => a - b);
-  assert.deepEqual(dates.slice(0, 3).map((t) => calendar.daysBetween(monday, t)), [4, 9, 14]);
-  assert.ok(dates.every((t) => t >= start));
+  const days = () => state.occurrences.map((o) => calendar.daysBetween(monday, o.availableAt)).sort((a, b) => a - b);
+  // Na quinta (dia 3), a execução de segunda (dia 0) ainda está aberta até a de sexta (dia 4); os outros moradores
+  // ficam com a primeira execução dos períodos deles.
+  assert.deepEqual(days(), [0, 14, 28, 42]);
+  // As execuções seguintes do período saem quando a anterior atrasa, nas datas exatas (14 dias / 3).
+  service.refresh(house.id, calendar.addDays(monday, 4), state);
+  service.refresh(house.id, calendar.addDays(monday, 9), state);
+  assert.deepEqual(days().slice(0, 3), [0, 4, 9]);
+  const dates = state.occurrences.map((o) => o.availableAt);
+  assert.ok(dates.every((t) => t >= monday));
   assert.equal(d.rotationQueue.length, 0);
   const other = service.create(task({ n: 6, weeks: 4 }), start, state);
   assert.ok(other.rotationQueue.length > 0); // A mesma razão não é o mesmo período.
@@ -192,7 +217,10 @@ test("tarefa nova no período mantém o responsável atual e a saída pendente",
   assert.equal(version?.queue[0], firstOwner);
   const boundary = calendar.addDays(monday, 7);
   assert.ok(state.occurrences.filter((o) => o.availableAt >= boundary).every((o) => activeOwner(state, o) !== other.id));
-  assert.ok(state.occurrences.filter((o) => o.taskDefinitionID === added.id).every((o) => o.availableAt >= wednesday));
+  // A tarefa nova já tem a execução desta semana, com o responsável atual do cômodo.
+  const current = state.occurrences.find((o) => o.taskDefinitionID === added.id && o.availableAt === monday);
+  assert.ok(current !== undefined);
+  assert.equal(activeOwner(state, current), firstOwner);
 });
 
 test("grupos semanais atravessam o horário de verão sem deriva", () => {
@@ -201,9 +229,12 @@ test("grupos semanais atravessam o horário de verão sem deriva", () => {
   const start = localToInstant(zone, { year: 2026, month: 10, day: 26 });
   const world = new World({ timezone: zone });
   const state = world.cleanState(weeklyPeriodicity(2, 2), { anchor: start });
-  world.service(zone).create(
+  const service = world.service(zone);
+  service.create(
     world.definition(world.seed.rooms.kitchen.id, { effort: 2, recurrence: weeklyRecurrence(weeklyPeriodicity(2, 2)) }), start, state,
   );
+  // A segunda execução do período sai quando a primeira atrasa (uma semana depois, atravessando 1º de novembro).
+  service.refresh(world.seed.house.id, cal.addDays(start, 7), state);
   const dates = state.occurrences.map((o) => o.availableAt).sort((a, b) => a - b);
   assert.equal((dates[1] ?? 0) - (dates[0] ?? 0), 169 * 3_600_000);
   assert.ok(dates.every((t) => cal.startOfDay(t) === t));

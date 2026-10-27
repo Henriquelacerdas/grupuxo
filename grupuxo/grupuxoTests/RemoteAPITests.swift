@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Testing
 @testable import GrupuxoDomain
 @testable import grupuxo
@@ -75,6 +76,17 @@ actor FakeServer: HTTPTransport {
 
 private let baseURL = URL(string: "http://localhost:8787")!
 
+/// Relógio que o teste avança à mão.
+private struct TestClock: Sendable {
+    private let current = OSAllocatedUnfairLock(initialState: Date(timeIntervalSince1970: 1_800_000_000))
+
+    var now: Date { current.withLock { $0 } }
+
+    func advance(by seconds: TimeInterval) {
+        current.withLock { $0 += seconds }
+    }
+}
+
 private func client(_ server: FakeServer, token: String? = "token-teste") -> APIClient {
     APIClient(baseURL: baseURL, tokens: FixedToken(value: token), transport: server)
 }
@@ -111,10 +123,10 @@ struct RemoteDTOTests {
 
     @Test func decodesTaskDefinition() throws {
         let definition = try decode(TaskDefinitionDTO.self, "task-definition").domain()
-        #expect(definition.name == "Aspirar a sala")
+        #expect(definition.name == "Lavar a louça")
         #expect(definition.effort.points == 2)
         #expect(definition.recurrence == .recurring(frequency: .weekly, interval: 1))
-        #expect(definition.assignmentPolicy == .calendarRotation)
+        #expect(definition.assignmentPolicy == .balancedAutomatically)
         #expect(definition.endedAt == nil)
     }
 
@@ -128,7 +140,7 @@ struct RemoteDTOTests {
         #expect(sporadic.definition.kind == .sporadic)
         #expect(sporadic.definition.recurrence == RecurrencePolicy.none)
         #expect(sporadic.assignment == nil)
-        #expect(sporadic.suggestedAssignee?.name == "Marina")
+        #expect(sporadic.suggestedAssignee?.name == "Bia")
 
         let completed = try decode(TaskItemDTO.self, "task-item-completed").domain()
         #expect(completed.occurrence.isCompleted)
@@ -180,6 +192,13 @@ struct APIClientTests {
         }
         await #expect(throws: APIError.unauthorized) { try await client(ok, token: nil).send("GET", "v1/me") }
         #expect(await ok.requests.count == 1, "sem token a requisição nem sai")
+    }
+
+    @Test func cancelledRequestIsCancellationNotNetworkFailure() async throws {
+        // O `URLSession` cancelado (tela que sai durante o `.task`) lança `URLError(.cancelled)`.
+        let server = FakeServer()
+        await server.fail(with: URLError(.cancelled))
+        await #expect(throws: CancellationError.self) { try await client(server).send("GET", "v1/me") }
     }
 
     @Test func encodesQueryAndBody() async throws {
@@ -371,11 +390,66 @@ struct RemoteRepositoryTests {
 
     @Test func routesWithoutServerSupportFailExplicitly() async throws {
         let tasks = RemoteTaskRepository(api: client(FakeServer()))
-        await #expect(throws: APIError.unsupported) { try await tasks.claim(occurrenceID: UUID(), by: user, at: .now) }
         await #expect(throws: APIError.unsupported) {
             try await tasks.updateTaskDetails(id: UUID(), name: "x", details: "", requestedBy: user)
         }
-        #expect(try await tasks.sporadicTasks(in: UUID(), requesting: user).isEmpty)
+        await #expect(throws: APIError.unsupported) { try await tasks.deleteSporadicTask(id: UUID(), requestedBy: user) }
+    }
+
+    @Test func sporadicTasksClaimAndRelease() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me/sporadic-tasks", body: #"{"tasks":[\#(String(decoding: try fixture("task-item-sporadic"), as: UTF8.self))]}"#)
+        let tasks = RemoteTaskRepository(api: client(server))
+        let listed = try await tasks.sporadicTasks(in: UUID(), requesting: user)
+        let item = try #require(listed.first)
+        #expect(item.definition.kind == .sporadic)
+        let path = "/v1/occurrences/\(item.occurrence.id.apiString)"
+        await server.on("POST \(path)/claim", status: 204, body: "")
+        await server.on("POST \(path)/release", status: 204, body: "")
+        try await tasks.claim(occurrenceID: item.occurrence.id, by: user, at: .now)
+        try await tasks.release(occurrenceID: item.occurrence.id, by: user)
+        #expect(await server.keys().suffix(2) == ["POST \(path)/claim", "POST \(path)/release"])
+    }
+
+    @Test func swapRequestsUseTheServerRoutes() async throws {
+        let server = FakeServer()
+        let swap = String(decoding: try fixture("task-swap-request"), as: UTF8.self)
+        let offered = UUID(uuidString: "FFFFFFFF-FFFF-4FFF-8FFF-00000000002F")!
+        let requested = UUID(uuidString: "FFFFFFFF-FFFF-4FFF-8FFF-000000000069")!
+        await server.on("GET /v1/occurrences/\(offered.apiString)/swap-candidates", body: #"{"tasks":[\#(String(decoding: try fixture("task-item"), as: UTF8.self))]}"#)
+        await server.on("POST /v1/swaps", status: 201, body: swap)
+        await server.on("GET /v1/me/swaps", body: #"{"incoming":[\#(swap)],"outgoing":[]}"#)
+        let swaps = RemoteTaskSwapRepository(api: client(server))
+
+        #expect(try await swaps.swapCandidates(for: user, offering: offered, in: UUID(), at: .now).count == 1)
+        let created = try await swaps.createRequest(
+            requesterID: user, offeredOccurrenceID: offered, requestedOccurrenceID: requested, at: .now
+        )
+        #expect(created.status == .pending)
+        #expect(created.offeredOccurrenceID == offered)
+        #expect(await server.string("offeredOccurrenceID", inBody: 1) == offered.apiString)
+        #expect(await server.string("requestedOccurrenceID", inBody: 1) == requested.apiString)
+        #expect(try await swaps.incomingRequests(for: user, in: UUID()).map(\.id) == [created.id])
+        #expect(try await swaps.outgoingRequests(for: user, in: UUID()).isEmpty)
+
+        await server.on("POST /v1/swaps/\(created.id.apiString)/accept", body: swap)
+        _ = try await swaps.accept(requestID: created.id, by: user, at: .now)
+        #expect(await server.keys().last == "POST /v1/swaps/\(created.id.apiString)/accept")
+    }
+
+    @Test func notificationsAreTheCallersAndCanBeRead() async throws {
+        let server = FakeServer()
+        let notification = String(decoding: try fixture("notification"), as: UTF8.self)
+        await server.on("GET /v1/me/notifications", body: #"{"notifications":[\#(notification)]}"#)
+        let repository = RemoteNotificationRepository(api: client(server))
+        let listed = try await repository.notifications(for: user)
+        let first = try #require(listed.first)
+        #expect(first.recipientUserID == user)
+        #expect(first.kind == .taskSwapRequested)
+        #expect(!first.isRead)
+        await server.on("POST /v1/notifications/\(first.id.apiString)/read", status: 204, body: "")
+        try await repository.markAsRead(notificationID: first.id, by: user, at: .now)
+        #expect(await server.keys().last == "POST /v1/notifications/\(first.id.apiString)/read")
     }
 
     @Test func createRoomSendsParticipantsOnlyForPrivateRooms() async throws {
@@ -420,6 +494,274 @@ struct RemoteRepositoryTests {
         #expect(try await houses.memberIDs(in: house.id).count == 4)
         await #expect(throws: DomainError.entityNotFound) { try await houses.house(id: UUID()) }
         await server.on("GET /v1/me/house", status: 404, body: #"{"error":"no_house"}"#)
+        await houses.myHouse.invalidate()
         #expect(try await houses.houses(for: user).isEmpty)
+    }
+
+    @Test func myHouseIsFetchedOnceForHouseMembersAndRooms() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        let api = client(server)
+        let myHouse = MyHouseCache(api: api)
+        let houses = RemoteHouseRepository(api: api, myHouse: myHouse)
+        let rooms = RemoteRoomRepository(api: api, myHouse: myHouse)
+        let house = try #require(try await houses.houses(for: user).first)
+
+        async let members = houses.members(in: house.id)
+        async let roomList = rooms.rooms(in: house.id, requesting: user)
+        async let again = houses.house(id: house.id)
+        _ = try await (members, roomList, again)
+
+        #expect(await server.keys() == ["GET /v1/me/house"])
+    }
+
+    @Test func myHouseIsFetchedAgainAfterItExpiresOrARoomChanges() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        let api = client(server)
+        let clock = TestClock()
+        let myHouse = MyHouseCache(api: api, maxAge: 5, now: { clock.now })
+        let rooms = RemoteRoomRepository(api: api, myHouse: myHouse)
+        let tasks = RemoteTaskRepository(api: api, myHouse: myHouse)
+        let houseID = try await myHouse.myHouse().house.id
+
+        clock.advance(by: 6)
+        _ = try await rooms.rooms(in: houseID, requesting: user)
+        #expect(await server.keys().count == 2, "venceu: busca de novo")
+
+        let roomID = UUID()
+        await server.on("POST /v1/rooms/\(roomID.apiString)/members", status: 204, body: "")
+        try await tasks.addMember(userID: user, to: roomID, at: .now)
+        _ = try await rooms.rooms(in: houseID, requesting: user)
+        #expect(await server.keys().filter { $0 == "GET /v1/me/house" }.count == 3, "entrar num cômodo invalida")
+    }
+
+    @Test func myHouseFailureIsNotCached() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me/house", status: 500, body: #"{"error":"internal"}"#)
+        let myHouse = MyHouseCache(api: client(server))
+        await #expect(throws: APIError.self) { try await myHouse.myHouse() }
+
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        _ = try await myHouse.myHouse()
+        #expect(await server.keys().count == 2)
+    }
+}
+
+/// Suspende respostas sem bloquear a thread principal; os testes controlam a ordem das conclusões.
+private actor GatedTransport: HTTPTransport {
+    let server: FakeServer
+    private var heldKeys: Set<String> = []
+    private var held: [String: [CheckedContinuation<Void, Never>]] = [:]
+    private var observers: [(key: String, count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+    init(server: FakeServer) { self.server = server }
+    func hold(_ key: String) { heldKeys.insert(key) }
+    func waitUntilHeld(_ key: String, count: Int = 1) async {
+        if (held[key]?.count ?? 0) >= count { return }
+        await withCheckedContinuation { observers.append((key, count, $0)) }
+    }
+    func release(_ key: String) {
+        heldKeys.remove(key)
+        let continuations = held.removeValue(forKey: key) ?? []
+        for continuation in continuations { continuation.resume() }
+    }
+    func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let response = try await server.data(for: request)
+        let key = "\(request.httpMethod ?? "GET") \(request.url!.path)"
+        if heldKeys.contains(key) {
+            await withCheckedContinuation { continuation in
+                held[key, default: []].append(continuation)
+                let count = held[key]?.count ?? 0
+                let ready = observers.filter { $0.key == key && $0.count <= count }
+                observers.removeAll { $0.key == key && $0.count <= count }
+                for observer in ready { observer.continuation.resume() }
+            }
+        }
+        return response
+    }
+}
+
+@MainActor
+struct RemoteSnapshotTests {
+    private let path = "GET /v1/me/house/snapshot"
+
+    private func setup() async throws -> (FakeServer, APIClient) {
+        let server = FakeServer()
+        await server.on(path, body: String(decoding: try fixture("house-snapshot"), as: UTF8.self))
+        return (server, client(server))
+    }
+
+    @Test func openingTheHouseAndBothTabsSharesOneRequest() async throws {
+        let (server, api) = try await setup()
+        let session = RemoteHouseSession(api: api, prefersSnapshot: true)
+        await session.load()
+        let me = try #require(session.me)
+        let house = try #require(session.house)
+        #expect(me.name == "Marina")
+        let shared = try #require(session.dataCache)
+        let container = AppContainer(api: api, myHouse: shared)
+        let appSession = AppSession(currentUser: me, currentHouse: house)
+        let myTasksModel = container.makeMyTasksViewModel(session: appSession)
+        let houseModel = container.makeHouseManagementViewModel(session: appSession)
+        async let myTasks: Void = myTasksModel.load()
+        async let houseTasks: Void = houseModel.load()
+        _ = await (myTasks, houseTasks)
+        #expect(await server.keys() == [path])
+        await myTasksModel.load(forceRefresh: true)
+        #expect(await server.keys() == [path, path])
+    }
+
+    @Test func cancellationOfOneConsumerKeepsTheSharedRequestAlive() async throws {
+        let server = FakeServer()
+        await server.on(path, body: String(decoding: try fixture("house-snapshot"), as: UTF8.self))
+        let transport = GatedTransport(server: server)
+        await transport.hold(path)
+        let api = APIClient(baseURL: baseURL, tokens: FixedToken(), transport: transport)
+        let cache = MyHouseCache(api: api, prefersSnapshot: true)
+        let first = Task { try await cache.snapshot() }
+        await transport.waitUntilHeld(path)
+        let second = Task { try await cache.snapshot() }
+        first.cancel()
+        await transport.release(path)
+        await #expect(throws: CancellationError.self) { try await first.value }
+        #expect(try await second.value?.home.house.name == "Nossa casa")
+        #expect(try await cache.snapshot()?.home.house.name == "Nossa casa")
+        #expect(await server.keys() == [path])
+    }
+
+    @Test func snapshotExpiresAndMutationsInvalidateIt() async throws {
+        let server = FakeServer()
+        await server.on(path, body: String(decoding: try fixture("house-snapshot"), as: UTF8.self))
+        let clock = TestClock()
+        let api = client(server)
+        let cache = MyHouseCache(api: api, prefersSnapshot: true, now: { clock.now })
+        let first = try #require(try await cache.snapshot())
+        _ = try await cache.snapshot()
+        #expect(await server.keys().count == 1)
+        clock.advance(by: 6)
+        _ = try await cache.snapshot()
+        #expect(await server.keys().count == 2)
+        let item = try #require(first.myTasks.first)
+        await server.on("POST /v1/occurrences/\(item.id.apiString)/complete", status: 204, body: "")
+        try await RemoteTaskRepository(api: api, myHouse: cache).complete(occurrenceID: item.id, by: first.userID, at: .now)
+        _ = try await cache.snapshot()
+        #expect(await server.keys().filter { $0 == path }.count == 3)
+    }
+
+    @Test func invalidationDiscardsAResponseAlreadyInFlight() async throws {
+        let server = FakeServer()
+        let old = String(decoding: try fixture("house-snapshot"), as: UTF8.self)
+        await server.on(path, body: old)
+        let transport = GatedTransport(server: server)
+        await transport.hold(path)
+        let api = APIClient(baseURL: baseURL, tokens: FixedToken(), transport: transport)
+        let cache = MyHouseCache(api: api, prefersSnapshot: true)
+        let first = Task { try await cache.snapshot() }
+        await transport.waitUntilHeld(path)
+        await cache.invalidate()
+        await server.on(path, body: old.replacingOccurrences(of: "Nossa casa", with: "Casa nova"))
+        let second = Task { try await cache.snapshot() }
+        await transport.waitUntilHeld(path, count: 2)
+        await transport.release(path)
+        #expect(try await first.value?.home.house.name == "Casa nova")
+        #expect(try await second.value?.home.house.name == "Casa nova")
+        #expect(await server.keys().count == 2)
+    }
+
+    @Test func oldServersFallBackOnceAndRealErrorsPropagate() async throws {
+        let server = FakeServer()
+        await server.on(path, status: 404, body: #"{"error":"not_found"}"#)
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        let cache = MyHouseCache(api: client(server), prefersSnapshot: true)
+        #expect(try await cache.myHouse().house.name == "Nossa casa")
+        #expect(try await cache.snapshot() == nil)
+        #expect(await server.keys() == [path, "GET /v1/me/house"])
+        let failingCache = MyHouseCache(api: client(server), prefersSnapshot: true)
+        await server.on(path, status: 401, body: #"{"error":"unauthorized"}"#)
+        await #expect(throws: APIError.unauthorized) { try await failingCache.snapshot() }
+    }
+
+    @Test func sessionResetReplacesTheCache() async throws {
+        let (_, api) = try await setup()
+        let session = RemoteHouseSession(api: api, prefersSnapshot: true)
+        await session.load()
+        let previous = session.dataCache
+        session.reset()
+        #expect(session.dataCache !== previous)
+        #expect(session.home == nil && session.me == nil)
+    }
+
+    @Test func completionRespondsBeforeTheServerAndRollsBackOnFailure() async throws {
+        let server = FakeServer()
+        let snapshot = try decode(HouseSnapshotDTO.self, "house-snapshot").domain()
+        await server.on(path, body: String(decoding: try fixture("house-snapshot"), as: UTF8.self))
+        let transport = GatedTransport(server: server)
+        let api = APIClient(baseURL: baseURL, tokens: FixedToken(), transport: transport)
+        let cache = MyHouseCache(api: api, prefersSnapshot: true)
+        let rooms = RemoteRoomRepository(api: api, myHouse: cache)
+        let tasks = RemoteTaskRepository(api: api, myHouse: cache)
+        let user = try #require(snapshot.home.members.first { $0.id == snapshot.userID })
+        let date = try Date("2026-10-14T12:00:00Z", strategy: .iso8601)
+        let model = MyTasksViewModel(
+            getMyTasksOverview: GetMyTasksOverviewUseCase(roomRepository: rooms, taskRepository: tasks),
+            completeTask: CompleteTaskUseCase(repository: tasks), endTask: EndTaskUseCase(repository: tasks),
+            user: user.domain, houseName: snapshot.home.house.name, houseID: snapshot.home.house.id, now: { date }
+        )
+        await model.load()
+        guard case let .content(content) = model.state else { Issue.record("sem tarefas"); return }
+        let open = content.allItems.filter { !$0.occurrence.isCompleted }
+        let first = try #require(open.first)
+        let other = try #require(open.first { $0.id != first.id })
+        let writePath = "POST /v1/occurrences/\(first.id.apiString)/complete"
+        await server.on(writePath, status: 409, body: #"{"error":"conflict"}"#)
+        await transport.hold(writePath)
+        let operation = Task { await model.complete(first.id) }
+        await transport.waitUntilHeld(writePath)
+        guard case let .content(displayed) = model.state else { Issue.record("lista removida"); return }
+        #expect(displayed.item(first.id)?.occurrence.isCompleted == true)
+        #expect(!model.canComplete(try #require(displayed.item(first.id))))
+        #expect(model.canComplete(other))
+        // Mesmo uma recarga que chega durante a escrita mantém a prévia.
+        await model.load(showLoading: false)
+        guard case let .content(reloaded) = model.state else { Issue.record("lista removida"); return }
+        #expect(reloaded.item(first.id)?.occurrence.isCompleted == true)
+        await transport.release(writePath)
+        await operation.value
+        guard case let .content(restored) = model.state else { Issue.record("lista removida"); return }
+        #expect(restored.item(first.id)?.occurrence.isCompleted == false)
+        #expect(restored.item(other.id) == other)
+        #expect(model.actionError != nil && !model.isCompleting)
+    }
+}
+
+
+struct OptimisticTaskCompletionsTests {
+    @Test func independentRowsRollbackAndReopeningKeepCycleProgressConsistent() throws {
+        let snapshot = try decode(HouseSnapshotDTO.self, "house-snapshot").domain()
+        let tasks = Array(snapshot.myTasks.filter { !$0.occurrence.isCompleted }.prefix(2))
+        #expect(tasks.count == 2)
+        let first = try #require(tasks.first)
+        let second = try #require(tasks.last)
+        let room = try #require(snapshot.home.rooms.first { $0.id == first.definition.roomID }).domain
+        let overview = MyTasksOverview(
+            cycleGroups: [CycleGroup(room: room, periodEnd: .distantFuture, progress: CycleProgress(completed: 0, total: 2), tasks: tasks)],
+            extraTasks: [], sporadicTasks: []
+        )
+        var completions = OptimisticTaskCompletions()
+        completions.begin(first, by: snapshot.userID)
+        completions.begin(second, by: snapshot.userID)
+        #expect(completions.pendingIDs == Set(tasks.map(\.id)))
+        #expect(completions.applying(to: overview).cycleGroups.first?.progress.completed == 2)
+        completions.finish(first.id, restoring: first)
+        completions.acceptReload()
+        #expect(completions.applying(to: overview).cycleGroups.first?.progress.completed == 1)
+        #expect(completions.applying(to: second).occurrence.isCompleted)
+        let completed = completions.applying(to: second)
+        completions.finish(second.id)
+        completions.begin(completed, by: snapshot.userID)
+        #expect(!completions.applying(to: second).occurrence.isCompleted)
+        #expect(completions.applying(to: second).assignment == second.assignment)
+        #expect(completions.applying(to: overview).cycleGroups.first?.progress.completed == 0)
     }
 }

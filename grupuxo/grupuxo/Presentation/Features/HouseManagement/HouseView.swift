@@ -1,3 +1,4 @@
+import Foundation
 import GrupuxoDomain
 import SwiftUI
 
@@ -50,7 +51,7 @@ struct HouseView: View {
                 }
             }
         }
-        .navigationTitle(houses.house?.name ?? "Minha casa")
+        .navigationTitle(houses.house?.name ?? String(localized: "Minha casa"))
         .toolbar {
             if houses.isLoading {
                 ToolbarItem(placement: .topBarTrailing) { ProgressView() }
@@ -108,7 +109,7 @@ struct HouseView: View {
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Copiar código")
 
-                ShareLink(item: "Entre na casa \"\(house.name)\" no app usando o código: \(code)") {
+                ShareLink(item: String(localized: "Entre na casa \"\(house.name)\" no app usando o código: \(code)")) {
                     Image(systemName: "square.and.arrow.up")
                 }
                 .buttonStyle(.borderless)
@@ -156,7 +157,7 @@ private struct MemberRow: View {
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(Circle().fill(Color.accentColor))
-            Text(isMe ? "\(member.name) (você)" : member.name)
+            Text(isMe ? String(localized: "\(member.name) (você)") : member.name)
             Spacer()
         }
         .accessibilityElement(children: .combine)

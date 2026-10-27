@@ -13,8 +13,9 @@ final class SporadicTasksViewModel: ObservableObject {
 
     @Published var actionError: String?
 
-    @Published private(set)
-    var isCompleting = false
+    @Published private var completions = OptimisticTaskCompletions()
+    var isCompleting: Bool { completions.isCompleting }
+    private var loadID: UUID?
 
     @Published private(set)
     var isSavingChanges = false
@@ -41,7 +42,10 @@ final class SporadicTasksViewModel: ObservableObject {
     private let userID: User.ID
     private let houseID: House.ID
 
+    private let refreshData: @Sendable () async -> Void
+
     init(
+        refreshData: @escaping @Sendable () async -> Void = {},
         getTasks: GetSporadicTasksUseCase,
         getRooms: GetHouseRoomsUseCase,
         getMembers: GetHouseMembersUseCase,
@@ -52,6 +56,7 @@ final class SporadicTasksViewModel: ObservableObject {
         userID: User.ID,
         houseID: House.ID
     ) {
+        self.refreshData = refreshData
         self.getTasks = getTasks
         self.getRooms = getRooms
         self.getMembers = getMembers
@@ -79,10 +84,13 @@ final class SporadicTasksViewModel: ObservableObject {
         !pendingReleaseIDs.isEmpty
     }
 
-    func load() async {
+    func load(forceRefresh: Bool = false) async {
+        if forceRefresh { await refreshData() }
 
-        state = .loading
-
+        if case .content = state {} else if case .empty = state {} else { state = .loading }
+        let id = UUID()
+        loadID = id
+        let revision = completions.revision
         do {
 
             async let tasksRequest = getTasks(
@@ -106,6 +114,9 @@ final class SporadicTasksViewModel: ObservableObject {
                 membersRequest
             )
 
+            try Task.checkCancellation()
+            guard loadID == id, completions.revision == revision else { return }
+            completions.acceptReload()
             let validOccurrenceIDs = Set(
                 tasks.map(\.id)
             )
@@ -158,7 +169,7 @@ final class SporadicTasksViewModel: ObservableObject {
 
                 items.append(
                     SporadicTaskCardItem(
-                        task: task,
+                        task: completions.applying(to: task),
                         room: room,
                         creator: creator
                     )
@@ -167,8 +178,15 @@ final class SporadicTasksViewModel: ObservableObject {
 
             state = .content(items)
 
+        } catch is CancellationError {
+            // A tela saiu antes da resposta.
         } catch {
 
+            guard loadID == id, completions.revision == revision else { return }
+            if case .content = state {
+                actionError = error.localizedDescription
+                return
+            }
             state = .failure(
                 error.localizedDescription
             )
@@ -402,9 +420,10 @@ final class SporadicTasksViewModel: ObservableObject {
 
     // MARK: - Delete
 
+    @discardableResult
     func delete(
         _ taskDefinitionID: TaskDefinition.ID
-    ) async {
+    ) async -> Bool {
 
         await perform {
 
@@ -424,7 +443,7 @@ final class SporadicTasksViewModel: ObservableObject {
     ) -> Bool {
 
         // Concluída continua acionável pelo responsável: concluir alterna, como em Minhas tarefas e no cômodo.
-        !isCompleting
+        !isSavingChanges && !completions.pendingIDs.contains(item.id)
             && item.assignment?.userID == userID
             && item.occurrence.availableAt <= .now
     }
@@ -433,47 +452,37 @@ final class SporadicTasksViewModel: ObservableObject {
         _ occurrenceID: TaskOccurrence.ID
     ) async {
 
-        guard !isCompleting else {
-            return
-        }
-
         guard case let .content(items) = state,
               let item = items.first(where: { $0.task.id == occurrenceID })?.task,
-              canComplete(item) else {
-            return
-        }
-
-        isCompleting = true
-
-        defer {
-            isCompleting = false
-        }
-
+              canComplete(item) else { return }
+        completions.begin(item, by: userID)
+        presentCompletions()
         do {
-
             try await completeTask(
-                occurrenceID:
-                    occurrenceID,
-                userID:
-                    userID,
-                isCompleted:
-                    !item.occurrence.isCompleted
+                occurrenceID: occurrenceID, userID: userID, isCompleted: !item.occurrence.isCompleted
             )
-
-            await load()
-
+            completions.finish(occurrenceID)
         } catch {
-
-            actionError =
-                error.localizedDescription
+            completions.finish(occurrenceID, restoring: item)
+            presentCompletions()
+            actionError = error.localizedDescription
         }
+        if !completions.isCompleting { await load() }
+    }
+
+    private func presentCompletions() {
+        guard case let .content(items) = state else { return }
+        state = .content(items.map {
+            SporadicTaskCardItem(task: completions.applying(to: $0.task), room: $0.room, creator: $0.creator)
+        })
     }
 
     // MARK: - Shared action
 
+    @discardableResult
     private func perform(
         _ action: () async throws -> Void
-    ) async {
+    ) async -> Bool {
 
         do {
 
@@ -481,10 +490,14 @@ final class SporadicTasksViewModel: ObservableObject {
 
             await load()
 
+            return true
+
         } catch {
 
             actionError =
                 error.localizedDescription
+
+            return false
         }
     }
 }

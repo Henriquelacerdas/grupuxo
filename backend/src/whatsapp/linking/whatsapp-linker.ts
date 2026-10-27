@@ -51,9 +51,18 @@ function percentEncode(text: string): string {
  * ports; o `userID` vem sempre do token, nunca do texto da mensagem.
  */
 export class WhatsAppLinker {
-  static readonly linkedReply = "Pronto! Seu WhatsApp está conectado ao Grupuxo. Pergunte, por exemplo: quais são minhas tarefas?";
+  // Texto canônico e regra de manutenção: docs/WHATSAPP-MENSAGENS.md.
+  static readonly linkedReply = [
+    "Olá, eu sou o bot do Reveza e vou ser seu assistente pessoal para ajudar a manter a casa organizada!",
+    "Você pode me fazer perguntas como:",
+    "- Quais as minhas tarefas da semana?",
+    "- Quais são as tarefas da cozinha?",
+    "",
+    "E me pedir para fazer ações como:",
+    '- Marque "limpar sala" como concluído.',
+  ].join("\n");
   // Redação neutra de propósito: vale também para a nova tentativa depois de uma falha ao enviar a confirmação.
-  static readonly alreadyLinkedReply = "Este número já está conectado ao Grupuxo.";
+  static readonly alreadyLinkedReply = "Este número já está conectado ao Reveza.";
   static readonly invalidTokenReply = "Link inválido ou expirado. Gere outro no app, em Perfil › Conectar WhatsApp.";
   static readonly userHasOtherNumberReply = "Sua conta já tem outro número conectado. Desconecte no app e tente de novo.";
 
@@ -113,7 +122,7 @@ export class WhatsAppLinker {
   }
 
   private url(token: string): string {
-    const text = `Conectar meu WhatsApp ao Grupuxo. Código: ${token}`;
+    const text = `Conectar meu WhatsApp ao Reveza. Código: ${token}`;
     return `https://wa.me/${this.config.botPhoneNumber}?text=${percentEncode(text)}`;
   }
 }

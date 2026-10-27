@@ -2,9 +2,7 @@ import Foundation
 
 extension TaskSchedulingService {
     public func isRoomLinked(_ definition: TaskDefinition, state: TaskSchedulingState) -> Bool {
-        definition.endedAt == nil && definition.kind == .recurring && definition.assignmentPolicy != .afterCompletion
-            && definition.assignmentPolicy != .selfAssigned
-            && state.rooms.contains { $0.id == definition.roomID && definition.recurrence.weeklyPeriodicity == $0.periodicity }
+        definition.endedAt == nil && state.rooms.contains { definition.isLinked(to: $0) }
     }
 
     public func initializeRooms(houseID: House.ID, at date: Date, state: inout TaskSchedulingState) throws {
@@ -96,6 +94,18 @@ extension TaskSchedulingService {
             }
             cycle += 1
         }
+    }
+
+    /// First execution of a weekly task created at `date`: the execution of the current week still open at
+    /// `date` (the task already counts this week), or else the next one.
+    public func firstCreationDate(at date: Date, definition: TaskDefinition) throws -> Date {
+        var open: Date?
+        var candidate = try firstWeeklyDate(onOrAfter: weekStart(date), definition: definition)
+        while candidate <= date {
+            open = candidate
+            candidate = try firstWeeklyDate(onOrAfter: adding(.day, 1, to: candidate), definition: definition)
+        }
+        return open ?? candidate
     }
 
     public func deleteRoom(_ roomID: Room.ID, state: inout TaskSchedulingState) {

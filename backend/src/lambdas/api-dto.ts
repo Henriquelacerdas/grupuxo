@@ -1,6 +1,8 @@
+import type { HouseSnapshot } from "../domain/commands/house-snapshot.ts";
 import { formatInstant, type Instant } from "../domain/dates.ts";
 import type {
-  House, Room, RoomParticipation, TaskAssignment, TaskDefinition, TaskItem, TaskOccurrence, User,
+  AppNotification, AppNotificationKind, House, Room, RoomParticipation, TaskAssignment, TaskDefinition, TaskItem,
+  TaskOccurrence, TaskSwapRequest, TaskSwapRequestStatus, User,
 } from "../domain/entities.ts";
 import type { RecurrencePolicy, RoomCategory, RoomColor, RoomKind, RoomVisibility, TaskAssignmentPolicy, TaskKind, TaskOccurrenceStatus, WeeklyPeriodicity } from "../domain/value-objects.ts";
 import { assertNever } from "../domain/value-objects.ts";
@@ -98,6 +100,26 @@ export interface TaskItemDTO {
   readonly suggestedAssignee: UserDTO | null;
 }
 
+export interface TaskSwapRequestDTO {
+  readonly id: string;
+  readonly requesterID: string;
+  readonly receiverID: string;
+  readonly offeredOccurrenceID: string;
+  readonly requestedOccurrenceID: string;
+  readonly status: TaskSwapRequestStatus;
+  readonly createdAt: IsoInstant;
+  readonly resolvedAt: IsoInstant | null;
+}
+
+export interface NotificationDTO {
+  readonly id: string;
+  readonly kind: AppNotificationKind;
+  readonly swapRequestID: string;
+  readonly createdAt: IsoInstant;
+  /** `null` = não lida. */
+  readonly readAt: IsoInstant | null;
+}
+
 export interface MyHouseDTO {
   readonly house: HouseDTO;
   readonly members: readonly UserDTO[];
@@ -174,6 +196,33 @@ export function taskItemDTO(item: TaskItem): TaskItemDTO {
   };
 }
 
+export function taskSwapRequestDTO(request: TaskSwapRequest): TaskSwapRequestDTO {
+  return {
+    id: request.id, requesterID: request.requesterID, receiverID: request.receiverID,
+    offeredOccurrenceID: request.offeredOccurrenceID, requestedOccurrenceID: request.requestedOccurrenceID,
+    status: request.status, createdAt: iso(request.createdAt), resolvedAt: isoOrNull(request.resolvedAt),
+  };
+}
+
+export function notificationDTO(notification: AppNotification): NotificationDTO {
+  return {
+    id: notification.id, kind: notification.kind, swapRequestID: notification.swapRequestID,
+    createdAt: iso(notification.createdAt), readAt: isoOrNull(notification.readAt),
+  };
+}
+
 export function myHouseDTO(house: House, members: readonly User[], rooms: readonly Room[]): MyHouseDTO {
   return { house: houseDTO(house), members: members.map(userDTO), rooms: rooms.map(roomDTO) };
+}
+
+/** Snapshot agregado para as telas do app. Os DTOs continuam sem detalhes internos do agendamento. */
+export function houseSnapshotDTO(snapshot: HouseSnapshot) {
+  return {
+    userID: snapshot.userID,
+    home: myHouseDTO(snapshot.house, snapshot.members, snapshot.rooms),
+    participations: snapshot.participations.map(roomParticipationDTO),
+    roomTasks: snapshot.roomTasks.map(taskItemDTO),
+    myTasks: snapshot.myTasks.map(taskItemDTO),
+    sporadicTasks: snapshot.sporadicTasks.map(taskItemDTO),
+  };
 }

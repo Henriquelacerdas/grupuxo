@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 import UIKit
@@ -10,11 +11,11 @@ private extension TaskEffortLevel {
 
         switch self {
 
-        case .light: "Leve"
+        case .light: String(localized: "Leve")
 
-        case .medium: "Médio"
+        case .medium: String(localized: "Médio")
 
-        case .intense: "Intenso"
+        case .intense: String(localized: "Intenso")
 
         }
 
@@ -102,7 +103,7 @@ private struct EffortSegmentedControl: UIViewRepresentable {
 
                 if let image = renderer.uiImage?.withRenderingMode(.alwaysOriginal) {
 
-                    image.accessibilityLabel = "\(level.title), esforço \(level.rawValue) de 3"
+                    image.accessibilityLabel = String(localized: "\(level.title), esforço \(level.rawValue) de 3")
 
                     control.setImage(image, forSegmentAt: index)
 
@@ -156,6 +157,7 @@ private struct EffortSegmentedControl: UIViewRepresentable {
 
 struct TaskCreationSheetView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.showToast) private var showToast
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @FocusState private var focusedField: Field?
@@ -183,8 +185,6 @@ struct TaskCreationSheetView: View {
         _detailsText = State(initialValue: viewModel.state.draft.details)
     }
 
-    private static let offersUniqueTasks = false
-
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -192,10 +192,7 @@ struct TaskCreationSheetView: View {
                     titleCard
 
                     VStack(spacing: DesignSystem.Spacing.large) {
-                        // Tarefas únicas (esporádicas) ainda não têm listagem nem "assumir" na `api`.
-                        if Self.offersUniqueTasks {
-                            uniqueTaskRow
-                        }
+                        uniqueTaskRow
 
                         if !isUniqueTask {
                             recurrenceSection
@@ -259,7 +256,8 @@ struct TaskCreationSheetView: View {
             await viewModel.loadRooms()
         }
         .onChange(of: viewModel.state) { _, state in
-            if case .saved = state {
+            if case let .saved(definition) = state {
+                showToast(.created(String(localized: "Tarefa “\(definition.name)” criada")))
                 dismiss()
             }
         }
@@ -453,7 +451,7 @@ struct TaskCreationSheetView: View {
     }
 
     private func selectionRow<Control: View>(
-        title: String,
+        title: LocalizedStringKey,
         systemImage: String,
         @ViewBuilder control: () -> Control
     ) -> some View {
@@ -584,7 +582,7 @@ struct TaskCreationSheetView: View {
     }
 
     private func recurrenceMenuButton(
-        _ title: String,
+        _ title: LocalizedStringKey,
         recurrence: RecurrencePolicy
     ) -> some View {
         Button(title) {
@@ -627,7 +625,7 @@ struct TaskCreationSheetView: View {
             let roomID = viewModel.state.draft.roomID,
             let room = viewModel.rooms.first(where: { $0.id == roomID })
         else {
-            return "Selecionar"
+            return String(localized: "Selecionar")
         }
 
         return room.name
@@ -642,7 +640,7 @@ struct TaskCreationSheetView: View {
     private var recurrenceName: String {
         switch viewModel.state.draft.recurrence {
         case .none:
-            "Sem repetição"
+            String(localized: "Sem repetição")
 
         case let .weekly(value):
             value.label
@@ -839,21 +837,21 @@ private enum RecurrencePresentation {
 
         switch (frequency, interval) {
 
-        case (.daily, 1): "Diariamente"
+        case (.daily, 1): String(localized: "Diariamente")
 
-        case (.weekly, 1): "Semanalmente"
+        case (.weekly, 1): String(localized: "Semanalmente")
 
-        case (.weekly, 2): "Quinzenalmente"
+        case (.weekly, 2): String(localized: "Quinzenalmente")
 
-        case (.monthly, 1): "Mensalmente"
+        case (.monthly, 1): String(localized: "Mensalmente")
 
-        case (.monthly, 3): "A cada 3 meses"
+        case (.monthly, 3): String(localized: "A cada 3 meses")
 
-        case (.monthly, 6): "A cada 6 meses"
+        case (.monthly, 6): String(localized: "A cada 6 meses")
 
-        case (.yearly, 1): "Anualmente"
+        case (.yearly, 1): String(localized: "Anualmente")
 
-        default: "A cada \(interval) \(unitName(for: frequency, interval: interval))"
+        default: String(localized: "A cada \(interval) \(unitName(for: frequency, interval: interval))")
 
         }
 
@@ -863,13 +861,13 @@ private enum RecurrencePresentation {
 
         switch frequency {
 
-        case .daily: "Diariamente"
+        case .daily: String(localized: "Diariamente")
 
-        case .weekly: "Semanalmente"
+        case .weekly: String(localized: "Semanalmente")
 
-        case .monthly: "Mensalmente"
+        case .monthly: String(localized: "Mensalmente")
 
-        case .yearly: "Anualmente"
+        case .yearly: String(localized: "Anualmente")
 
         }
 
@@ -881,19 +879,19 @@ private enum RecurrencePresentation {
 
             switch frequency {
 
-            case .daily: return "A tarefa ocorrerá todos os dias."
+            case .daily: return String(localized: "A tarefa ocorrerá todos os dias.")
 
-            case .weekly: return "A tarefa ocorrerá toda semana."
+            case .weekly: return String(localized: "A tarefa ocorrerá toda semana.")
 
-            case .monthly: return "A tarefa ocorrerá todo mês."
+            case .monthly: return String(localized: "A tarefa ocorrerá todo mês.")
 
-            case .yearly: return "A tarefa ocorrerá todo ano."
+            case .yearly: return String(localized: "A tarefa ocorrerá todo ano.")
 
             }
 
         }
 
-        return "A tarefa ocorrerá a cada \(interval) \(unitName(for: frequency, interval: interval))."
+        return String(localized: "A tarefa ocorrerá a cada \(interval) \(unitName(for: frequency, interval: interval)).")
 
     }
 
@@ -901,13 +899,13 @@ private enum RecurrencePresentation {
 
         switch frequency {
 
-        case .daily: interval == 1 ? "dia" : "dias"
+        case .daily: interval == 1 ? String(localized: "dia") : String(localized: "dias")
 
-        case .weekly: interval == 1 ? "semana" : "semanas"
+        case .weekly: interval == 1 ? String(localized: "semana") : String(localized: "semanas")
 
-        case .monthly: interval == 1 ? "mês" : "meses"
+        case .monthly: interval == 1 ? String(localized: "mês") : String(localized: "meses")
 
-        case .yearly: interval == 1 ? "ano" : "anos"
+        case .yearly: interval == 1 ? String(localized: "ano") : String(localized: "anos")
 
         }
 

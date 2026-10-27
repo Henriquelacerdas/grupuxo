@@ -4,12 +4,12 @@
 
 Clean Architecture com SwiftUI + MVVM na apresentação, com o domínio num Swift Package local (`Packages/GrupuxoDomain`) e Data/Presentation/App no target do app (camadas como pastas). Swift 6 com concorrência estrita; deployment target iOS 26.5.
 
-O app fala com a `api` do servidor (`backend/`, ver [BACKEND.md](BACKEND.md)) por `Data/Remote`: o login (Cognito via Amplify Auth) dá o access token, e casa, cômodos, moradores, código de convite, tarefas, ocorrências e o vínculo do WhatsApp são do servidor, persistidos no DynamoDB. A escala é calculada no servidor pelo domínio TypeScript, o mesmo que atende o WhatsApp, então app e bot veem a mesma casa. O `GrupuxoDomain` Swift continua sendo a **referência** do algoritmo (fixtures de comparação) e roda on-device só nos testes e nos repositórios `Mock*` que ainda alimentam trocas e notificações (sem rota na `api`; telas escondidas). Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio.
+O app fala com a `api` do servidor (`backend/`, ver [BACKEND.md](BACKEND.md)) por `Data/Remote`: o login (Cognito via Amplify Auth) dá o access token, e casa, cômodos, moradores, código de convite, tarefas, ocorrências, avulsas, trocas, notificações e o vínculo do WhatsApp são do servidor, persistidos no DynamoDB. A escala é calculada no servidor pelo domínio TypeScript, o mesmo que atende o WhatsApp, então app e bot veem a mesma casa. O `GrupuxoDomain` Swift continua sendo a **referência** do algoritmo (fixtures de comparação) e roda on-device só nos testes (repositórios `Mock*`). Trocar mocks por integrações reais não deve exigir mudanças em Views ou no domínio.
 
 | Camada | Responsabilidade | Depende de |
 | --- | --- | --- |
 | Domain | Entidades, regras, casos de uso, contratos de repositório, serviços algorítmicos | nada |
-| Data | Implementações de repositório: `Remote*` (a `api`) e `Mock*` (testes, trocas e notificações) | Domain |
+| Data | Implementações de repositório: `Remote*` (a `api`) e `Mock*` (testes) | Domain |
 | Presentation | Views, ViewModels, navegação, design system | Domain |
 | App | Inicialização, sessão, composição de dependências (`AppContainer`) | todas |
 
@@ -26,24 +26,27 @@ GrupuxoDomain (pacote)/
                 TaskDefinition, TaskOccurrence, TaskAssignment, TaskSuggestion,
                 TaskSwapRequest, AppNotification, Absence
   ValueObjects/ ValueObjects, RoomAppearance
-  Repositories/ House, Room, Task, TaskSwap, Notification
+  Repositories/ House, Room, RoomAccessRequest, Task, TaskSwap, Notification, WhatsAppConnection
   UseCases/     um arquivo por caso de uso
   Services/     algoritmos e políticas (ver abaixo)
   Errors/       DomainError
 Data/Remote/    APIClient, APIConfiguration, AmplifyAccessTokenProvider, RemoteDTO,
                 Remote{House,Room,Task,WhatsAppConnection}Repository, RemoteHouseSession
-Data/Mock/      MockStore (actor), MockSeed, Mock*Repository (testes; trocas e notificações no app)
+Data/Mock/      MockStore (actor), MockSeed, Mock*Repository (testes)
+Localizable.xcstrings catálogo de textos (fonte pt-BR, tradução en)
 Data/Auth/      AuthService (Amplify/Cognito: login, cadastro, confirmação, redefinição de senha, Apple, sessão)
 grupuxo/amplify/ só `auth` (referenceAuth do user pool existente); não é implantado pelo app
 grupuxo/package.json toolchain `ampx` (não entra no app)
 Presentation/
   Features/     MyTasks, HouseManagement, RoomDetail, RoomEditor, TaskEditor,
                 SporadicTasks, TaskSwap   (cada uma: State + View + ViewModel)
-                Profile (só os arquivos de vínculo do WhatsApp, sem tela: a seção está escondida)
+                TaskDetail (detalhe da tarefa: próximas vezes, vez atual, última conclusão)
+                Notifications (notificações e trocas pendentes)
+                Profile (vínculo do WhatsApp, usado pela seção do HouseView)
                 Auth (LoginView, SignUpView, ConfirmSignUpView, ForgotPasswordView; sem ViewModel, usam AuthService)
                 HouseManagement também tem HouseGateView, OnboardingView e HouseView (sem ViewModel: usam RemoteHouseSession)
   Navigation/   AppRoute, AppRouter
-  DesignSystem/ DesignSystem, RoomIconView
+  DesignSystem/ DesignSystem, RoomIconView, Toast (aviso curto de criado/excluído, `toastHost()` + `@Environment(\.showToast)`), Haptics, ResidentNameFormatting
 ```
 
 Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable import GrupuxoDomain`) e `Packages/GrupuxoDomain/Tests` (domínio puro: Húngaro, motor, justiça; `swift test`). `backend/test` cobre o domínio portado (cenários equivalentes aos do Swift, comparação com fixtures geradas do Swift), webhook (assinatura, verificação, filtragem), worker (idempotência, vínculo) e o contrato dos ports (`npm test` em `backend`). `grupuxo/grupuxo/Tests/` contém apenas guias históricos e não roda. DTOs e mappers da `api` ficam em `Data/Remote`; `RemoteAPITests` decodifica os mesmos JSON de `backend/test/fixtures/api/` que o teste TS grava.
@@ -52,7 +55,7 @@ Testes executáveis: `grupuxo/grupuxoTests` (target do app, usa Mock; `@testable
 
 | Serviço | Papel |
 | --- | --- |
-| `TaskSchedulingService` | Transições transacionais: criar, concluir, estender horizonte, entrar/sair de cômodo |
+| `TaskSchedulingService` | Transições transacionais: criar, concluir, publicar a próxima vez de cada morador, entrar/sair de cômodo |
 | `TaskDistributionEngine` | Matriz de custo semanal e fila inicial via Húngaro |
 | `HungarianAlgorithm` | Solucionador puro sobre `[[Double]]` |
 | `HouseQueueOptimizer` | Reequilíbrio da casa em entradas/saídas |
@@ -101,18 +104,21 @@ Diferenças deliberadas em relação ao Swift:
 
 Com uma casa ativa na sessão, o app tem duas abas (`AppTab`: `myTasks`, `house`). Sino e perfil, no canto superior direito, abrem notificações e configurações.
 
-- **Minhas tarefas** apenas consulta e age sobre ocorrências existentes (concluir, trocar). Sem botão, menu, atalho ou rota de criação.
-- **Gerenciar casa** contém criação de cômodos e tarefas, e o card de esporádicas (que não têm aba própria).
+- **Minhas tarefas** consulta e age sobre ocorrências existentes (concluir; no deslize da linha, pedir troca, abrir o detalhe e encerrar recorrente com `EndTask`). Criar tarefa só pelo botão "+" da barra, que abre a mesma `TaskCreationSheetView` da aba Casa; não há rota nem fluxo de criação próprios. A tela lê tudo por `GetMyTasksOverview` (`GetMyTasksOverviewUseCase`, só Swift: é caso de apresentação, sem equivalente no TypeScript), que compõe `TaskRepository.tasks(for:in:)` e a participação dos cômodos e separa as tarefas em três seções recolhíveis: **Seu ciclo** (por cômodo, as tarefas com `TaskDefinition.isLinked(to:)` no ciclo atual; só aparecem cômodos em que o morador tem tarefa), **Tarefas gerais** (recorrentes fora da escala do cômodo) e **Tarefas únicas** (esporádicas que o morador assumiu).
+- **Gerenciar casa** (aba Casa) contém criação de cômodos e tarefas, o card de Tarefas Únicas (esporádicas, que não têm aba própria) e um card por cômodo com responsáveis, fim do ciclo e progresso (tarefas concluídas do ciclo atual); cômodos privados sem acesso mostram só o pedido de entrada. A tela lê tudo por `GetHouseOverview`, que compõe os repositórios existentes (cômodos, participação, tarefas do cômodo, esporádicas e pedidos de entrada); `TaskDefinition.isLinked(to:)` define quais tarefas contam no ciclo do cômodo. `RequestRoomAccess` e `CancelRoomAccessRequest` (sobre `RoomAccessRequestRepository`, hoje só mock; sem rota na `api`, `RemoteRoomAccessRequestRepository` não tem pedidos abertos e pedir ou cancelar lança `APIError.unsupported`) registram e cancelam o pedido de entrada em cômodo privado; ainda não há aprovação.
+- **Cômodo** (`RoomDetail`, `AppRoute.roomDetail`): cabeçalho com duração do ciclo e participantes, e três seções de tarefas: **Tarefas do ciclo** (`RoomCycleTaskRow`, as vinculadas à escala do cômodo), **Tarefas gerais** e **Tarefas únicas** (`RoomOtherTaskRows`), mais sugestões por tipo de cômodo. Encerrar uma recorrente pede confirmação (o histórico fica e a vez atual continua até ser concluída). Quem não participa de um cômodo privado vê só o convite para pedir entrada.
+- **Detalhe da tarefa** (`TaskDetail`): definição, cômodo, vez atual, próximas vezes (`GetTaskUpcomingAssignments`) e última conclusão (`GetTaskOverview`). Edição só vale no Mock, até a `api` ter `PATCH`.
+- **Avisos** (`Toast`): criar e excluir tarefa, cômodo ou avulsa mostram um aviso curto sobre as abas (`RootView` aplica `toastHost()`); não pede ação.
 - `TaskEditor` abre pela criação em Gerenciar casa ou pela manutenção dentro de um cômodo. Sem cômodo pré-selecionado, exige escolher um `roomID` antes de salvar.
 - `settings` (engrenagem/perfil) abre o `HouseView`: código de convite, cômodos e moradores, conectar o WhatsApp (`WhatsAppConnectionSection` sobre `RemoteWhatsAppConnectionRepository`), sair da casa e sair da conta.
 - Rotas (`AppRoute`) são tipadas e carregam só identificadores: `roomDetail`, `sporadicTasks`, `taskEditor(roomID:)`, `taskSwap(offeredOccurrenceID:)`, `notifications`, `settings`. Existir uma rota não autoriza qualquer tela a apresentá-la.
 
 ## Casa e conta no servidor
 
-`ContentView` → `LoginView` (Amplify Auth) → `HouseGateView`, que carrega a `RemoteHouseSession`: `POST /v1/me` com o nome (idempotente) e `GET /v1/me` dão o `User.id` do **backend** (o `sub` do Cognito fica mapeado no servidor por `COGNITO#<sub>`; o app não usa o `sub` como id), e `GET /v1/me/house` dá a casa. Sem casa, `OnboardingView` cria (`POST /v1/houses`) ou entra por código (`POST /v1/houses/join`); sair é `DELETE /v1/me/house`. Depois, `RootView` monta o `AppContainer` com os repositórios remotos. Contrato completo em [BACKEND.md](BACKEND.md) §6.1.
+`ContentView` → `LoginView` (Amplify Auth) → `HouseGateView`, que carrega a `RemoteHouseSession`: `POST /v1/me` com o nome (idempotente) e `GET /v1/me` dão o `User.id` do **backend** (o `sub` do Cognito fica mapeado no servidor por `COGNITO#<sub>`; o app não usa o `sub` como id), e `GET /v1/me/house` dá a casa. Sem casa, `OnboardingView` cria (`POST /v1/houses`) ou entra por código (`POST /v1/houses/join`); sair é `DELETE /v1/me/house`. Na abertura, `GET /v1/me/house/snapshot` resolve identidade, casa e dados das telas numa resposta; `RemoteHouseSession.dataCache` é repassado ao `RootModel`/`AppContainer`. Se o servidor ainda não tiver a rota, o app usa `GET /me` e `GET /me/house`. Depois, `RootView` monta o `AppContainer` com os repositórios remotos. Contrato completo em [BACKEND.md](BACKEND.md) §6.1.
 
 - Toda requisição leva o **access token** do Cognito (`AmplifyAccessTokenProvider`); 401 desloga. O servidor tira o morador do token, nunca do corpo, e usa o próprio relógio (`requestedBy`/`at` dos casos de uso são ignorados pelos repositórios remotos).
-- Rota que não existe na `api` lança `APIError.unsupported`; as telas que dependem dela ficam escondidas (trocas, notificações, esporádicas, edição de tarefa, renomear/excluir cômodo, morador sem conta).
+- Rota que não existe na `api` lança `APIError.unsupported`; as telas que dependem dela ficam escondidas (edição de tarefa, excluir avulsa, renomear/excluir cômodo, morador sem conta).
 - O endereço vem do build setting `GRUPUXO_API_BASE_URL` (→ `Info.plist`, `APIConfiguration`); sem valor ou com `CONFIGURE-ME`, o app recusa falar com qualquer servidor. O Debug vem apontado para o `dev` no `Grupuxo.xcconfig`; `Local.xcconfig` (fora do git) é opcional.
 - O Amplify Data (AppSync) chegou a ser escrito e foi abandonado antes de qualquer deploy ([PLANO.md](PLANO.md), D1): a casa tem um dono só, o backend.
 
@@ -146,11 +152,11 @@ Regras estruturais:
 
 ViewModels acessam o domínio apenas por casos de uso.
 
-- **Tarefas:** `GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`, `GetTaskSuggestions`, `CreateTask`, `CompleteTask`, `ClaimSporadicTask`, `ReleaseSporadicTask`, `RefreshTaskSchedule`
-- **Cômodos:** `GetHouseRooms`, `GetRoomParticipation`, `CreateRoom`, `AddRoomMember`, `RemoveRoomMember`
+- **Tarefas:** `GetMyTasks`, `GetMyTasksOverview`, `GetRoomTasks`, `GetSporadicTasks`, `GetTaskSuggestions`, `GetTaskDefinition`, `GetTaskOverview` e `GetTaskUpcomingAssignments` (detalhe da tarefa; só Swift, casos de apresentação), `CreateTask`, `CompleteTask`, `ClaimSporadicTask`, `ReleaseSporadicTask`, `RefreshTaskSchedule`, `UpdateTaskDetails` e `DeleteSporadicTask` (sem rota na `api`, usados só com o Mock)
+- **Cômodos:** `GetHouseRooms`, `GetHouseOverview`, `GetRoomParticipation`, `CreateRoom`, `AddRoomMember`, `RemoveRoomMember`, `RequestRoomAccess`, `CancelRoomAccessRequest`
 - **Casa:** `GetHouseMembers`, `AddHouseMember`, `RemoveHouseMember`
 - **Encerrar tarefa:** `EndTask` (`TaskRepository.endTask(_:requestedBy:at:)`; `TaskSchedulingService.endTask` no Swift e `endTask` em `domain/commands/tasks.ts` no servidor). Substituiu o antigo `DeleteTask`, que apagava também o histórico. Exige morador da casa e participante atual do cômodo, mantém a ocorrência da vez e o histórico, remove só as futuras e recusa as trocas pendentes que as citam (regras em [ALGORITMO.md](ALGORITMO.md)). No servidor o repositório recebe o `roomID` (o DynamoDB não indexa definições); a UI chama de "Encerrar".
-- **Troca:** `GetTaskSwapCandidates`, `CreateTaskSwapRequest`, `AcceptTaskSwapRequest`, `RejectTaskSwapRequest`, `GetIncomingTaskSwapRequests`, `GetOutgoingTaskSwapRequests`
+- **Troca:** `GetTaskSwapCandidates`, `CreateTaskSwapRequest`, `AcceptTaskSwapRequest`, `RejectTaskSwapRequest`, `GetIncomingTaskSwapRequests`, `GetOutgoingTaskSwapRequests` Pedir fica em `TaskSwap`; responder fica em `Notifications` (`NotificationsViewModel` lista os pedidos pendentes recebidos e chama aceitar/recusar; o nome da tarefa oferecida vem de `GetTaskSwapCandidates` para a tarefa pedida, já que a elegibilidade é simétrica).
 - **Notificações:** `GetNotifications`, `MarkNotificationAsRead`
 
 Casos de uso coordenam; matemática reutilizável fica nos serviços. Calculadores recebem tipos primitivos e a data de referência, são determinísticos e não acessam UI, banco nem sessão.
@@ -181,7 +187,11 @@ Conclusão e atribuição são idempotentes: repetir não duplica esforço, resp
 
 - ViewModels: `@MainActor`, recebem casos de uso pelo init, controlam carregamento, conteúdo, vazio e erro.
 - Views renderizam estado e encaminham ações; sem cálculo de distribuição e sem acesso a repositórios.
-- Após mutações, recarregar as consultas afetadas (e também ao voltar à tela).
+- As consultas dos repositórios remotos de casa, cômodos e tarefas compartilham `MyHouseCache` por sessão. Snapshot com TTL de 5 s, coalescência de buscas concorrentes, geração para descartar respostas invalidadas e fallback para rotas antigas só em `404 not_found`. Trocar de aba não altera o identificador da tarefa da aba invisível. Puxar para atualizar invalida o cache por uma closure assíncrona injetada nos ViewModels.
+- Conclusão/desmarcação em Minhas tarefas, cômodo e avulsas usa `OptimisticTaskCompletions`, só da apresentação: prévia imediata, IDs pendentes por ocorrência e rollback por linha. Outras linhas continuam disponíveis. A última escrita dispara a reconciliação; o identificador da carga e a revisão de ações impedem respostas antigas de sobrescrever a UI. Nenhuma regra de agendamento ou saldo é executada na prévia.
+- O detalhe da tarefa também apresenta a conclusão imediatamente, com revisão de ações para rejeitar cargas antigas; fechar a sheet atualiza o cômodo de origem.
+- Recargas preservam conteúdo existente em cômodos, casa, avulsas e detalhe; erros de recarga nessas telas aparecem em alerta. Em Minhas tarefas, recargas em segundo plano mantêm a lista, e atualização explícita mantém o comportamento de erro existente.
+- A tela que sai cancela o `.task`; o `APIClient` entrega isso como `CancellationError` (não como falta de rede) e o `load()` dos ViewModels ignora, mantendo o estado anterior. Latência das telas e propostas: [LATENCIA.md](LATENCIA.md).
 - `AppContainer` cria e injeta solucionador, motor, calculadores, calendário, serviços, repositórios e ViewModels. `AppSession` guarda usuário e casa atuais; o contexto é passado explicitamente aos casos de uso.
 - Isolamento padrão `nonisolated` (Domain/Data não pertencem à UI). `@MainActor` explícito em ViewModels, sessão, roteador e composição. O processamento síncrono pesado roda no actor do store: sem `Task.detached`, sem actor matemático, sem `@unchecked Sendable`.
 
@@ -199,3 +209,7 @@ Conclusão e atribuição são idempotentes: repetir não duplica esforço, resp
 - Testar o Húngaro isoladamente, com matrizes de resposta conhecida.
 - Mudou o algoritmo? Altere o Swift (referência) e o TypeScript, regenere as fixtures e rode as duas suítes (ver `CLAUDE.md`).
 - Alterou contrato compartilhado? Atualize estes documentos.
+
+## Validação de latência
+
+`backend/tools/performance/read-latency.ts` mede consultas com cerca de 2.500 itens usando apenas o cliente falso. A rota agregada é implementada pelo port `HouseSnapshotRepository` (`domain/commands/house-snapshot.ts`), nos repositórios de tarefas em memória e DynamoDB. A composição fica no domínio e reutiliza as políticas de acesso das consultas individuais; o handler só resolve a casa e serializa os DTOs. `taskItems` monta índices locais de usuários e atribuições uma vez por consulta. Ver medições, testes e limites em [LATENCIA.md](LATENCIA.md).

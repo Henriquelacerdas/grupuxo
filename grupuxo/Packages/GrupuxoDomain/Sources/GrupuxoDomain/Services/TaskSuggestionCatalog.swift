@@ -7,6 +7,7 @@
 
 import Foundation
 
+/// Nomes em português; a tradução vem do `Localizable.xcstrings` do app (ver `DomainError`).
 public struct TaskSuggestionCatalog: Sendable {
     public init() {}
 
@@ -21,28 +22,28 @@ public struct TaskSuggestionCatalog: Sendable {
             return [
                 TaskSuggestion(
                     id: "kitchen.cleanFloor",
-                    name: "Limpar o chão",
+                    name: String(localized: "Limpar o chão"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 ),
 
                 TaskSuggestion(
                     id: "kitchen.cleanSink",
-                    name: "Limpar a pia",
+                    name: String(localized: "Limpar a pia"),
                     details: "",
                     effort: TaskEffort(points: 1)
                 ),
 
                 TaskSuggestion(
                     id: "kitchen.cleanStove",
-                    name: "Limpar o fogão",
+                    name: String(localized: "Limpar o fogão"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 ),
 
                 TaskSuggestion(
                     id: "kitchen.organizeFridge",
-                    name: "Organizar a geladeira",
+                    name: String(localized: "Organizar a geladeira"),
                     details: "",
                     effort: TaskEffort(points: 3)
                 )
@@ -52,28 +53,28 @@ public struct TaskSuggestionCatalog: Sendable {
             return [
                 TaskSuggestion(
                     id: "bathroom.cleanToilet",
-                    name: "Limpar o vaso sanitário",
+                    name: String(localized: "Limpar o vaso sanitário"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 ),
 
                 TaskSuggestion(
                     id: "bathroom.cleanSink",
-                    name: "Limpar a pia",
+                    name: String(localized: "Limpar a pia"),
                     details: "",
                     effort: TaskEffort(points: 1)
                 ),
 
                 TaskSuggestion(
                     id: "bathroom.cleanMirror",
-                    name: "Limpar o espelho",
+                    name: String(localized: "Limpar o espelho"),
                     details: "",
                     effort: TaskEffort(points: 1)
                 ),
 
                 TaskSuggestion(
                     id: "bathroom.cleanShower",
-                    name: "Lavar o box",
+                    name: String(localized: "Lavar o box"),
                     details: "",
                     effort: TaskEffort(points: 3)
                 )
@@ -83,28 +84,28 @@ public struct TaskSuggestionCatalog: Sendable {
             return [
                 TaskSuggestion(
                     id: "bedroom.changeSheets",
-                    name: "Trocar roupa de cama",
+                    name: String(localized: "Trocar roupa de cama"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 ),
 
                 TaskSuggestion(
                     id: "bedroom.cleanFloor",
-                    name: "Limpar o chão",
+                    name: String(localized: "Limpar o chão"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 ),
 
                 TaskSuggestion(
                     id: "bedroom.dust",
-                    name: "Tirar o pó",
+                    name: String(localized: "Tirar o pó"),
                     details: "",
                     effort: TaskEffort(points: 1)
                 ),
 
                 TaskSuggestion(
                     id: "bedroom.organizeWardrobe",
-                    name: "Organizar o guarda-roupa",
+                    name: String(localized: "Organizar o guarda-roupa"),
                     details: "",
                     effort: TaskEffort(points: 3)
                 )
@@ -114,21 +115,21 @@ public struct TaskSuggestionCatalog: Sendable {
             return [
                 TaskSuggestion(
                     id: "livingRoom.vacuum",
-                    name: "Aspirar o chão",
+                    name: String(localized: "Aspirar o chão"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 ),
 
                 TaskSuggestion(
                     id: "livingRoom.dust",
-                    name: "Tirar o pó",
+                    name: String(localized: "Tirar o pó"),
                     details: "",
                     effort: TaskEffort(points: 1)
                 ),
 
                 TaskSuggestion(
                     id: "livingRoom.cleanFurniture",
-                    name: "Limpar os móveis",
+                    name: String(localized: "Limpar os móveis"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 )
@@ -138,21 +139,21 @@ public struct TaskSuggestionCatalog: Sendable {
             return [
                 TaskSuggestion(
                     id: "laundry.washClothes",
-                    name: "Lavar roupas",
+                    name: String(localized: "Lavar roupas"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 ),
 
                 TaskSuggestion(
                     id: "laundry.cleanFloor",
-                    name: "Limpar o chão",
+                    name: String(localized: "Limpar o chão"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 ),
 
                 TaskSuggestion(
                     id: "laundry.organizeProducts",
-                    name: "Organizar produtos de limpeza",
+                    name: String(localized: "Organizar produtos de limpeza"),
                     details: "",
                     effort: TaskEffort(points: 1)
                 )
@@ -162,21 +163,21 @@ public struct TaskSuggestionCatalog: Sendable {
             return [
                 TaskSuggestion(
                     id: "office.dust",
-                    name: "Tirar o pó",
+                    name: String(localized: "Tirar o pó"),
                     details: "",
                     effort: TaskEffort(points: 1)
                 ),
 
                 TaskSuggestion(
                     id: "office.organizeDesk",
-                    name: "Organizar a mesa",
+                    name: String(localized: "Organizar a mesa"),
                     details: "",
                     effort: TaskEffort(points: 1)
                 ),
 
                 TaskSuggestion(
                     id: "office.cleanFloor",
-                    name: "Limpar o chão",
+                    name: String(localized: "Limpar o chão"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 )
@@ -186,14 +187,14 @@ public struct TaskSuggestionCatalog: Sendable {
             return [
                 TaskSuggestion(
                     id: "outdoor.sweep",
-                    name: "Varrer a área",
+                    name: String(localized: "Varrer a área"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 ),
 
                 TaskSuggestion(
                     id: "outdoor.organize",
-                    name: "Organizar a área",
+                    name: String(localized: "Organizar a área"),
                     details: "",
                     effort: TaskEffort(points: 2)
                 )

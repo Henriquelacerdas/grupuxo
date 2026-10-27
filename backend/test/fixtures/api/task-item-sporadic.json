@@ -14,7 +14,7 @@
     "endedAt": null
   },
   "occurrence": {
-    "id": "ffffffff-ffff-4fff-8fff-0000000000f3",
+    "id": "ffffffff-ffff-4fff-8fff-00000000007a",
     "taskDefinitionID": "ffffffff-ffff-4fff-8fff-00000000002a",
     "availableAt": "2026-10-12T03:00:00.000Z",
     "dueAt": null,
@@ -26,7 +26,7 @@
   "assignment": null,
   "assignee": null,
   "suggestedAssignee": {
-    "id": "ffffffff-ffff-4fff-8fff-000000000001",
-    "name": "Marina"
+    "id": "ffffffff-ffff-4fff-8fff-000000000003",
+    "name": "Bia"
   }
 }

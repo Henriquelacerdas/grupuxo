@@ -1,17 +1,17 @@
 # Backend e integração com WhatsApp
 
-Arquitetura do backend e do canal WhatsApp. Status: **rascunho para revisão, com a primeira parte implementada** em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token, validação do JWT do Cognito, assistente Gemini, sender da Graph API, limite de taxa e handlers no formato Lambda, tudo com adaptadores em memória, sem DynamoDB nem AWS de verdade (ver seção 14). Concluir tarefa pelo WhatsApp, com confirmação, também está implementado em memória (seções 7.4 e 9). Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
+Arquitetura do backend e do canal WhatsApp. Status: **implementado e implantado no ambiente `dev`** (conta AWS 580100736070, `us-east-1`; Terraform em `backend/infra/`) em Node.js + TypeScript (`backend/`): domínio e algoritmo portados do Swift, webhook, worker, vínculo por token, validação do JWT do Cognito, assistente Gemini, sender da Graph API, limite de taxa, adaptadores DynamoDB/SQS/Secrets Manager e as três Lambdas (`api`, `webhook`, `worker`). O app usa a `api` e o bot responde no número real do WhatsApp (app da Meta publicado em 2026-10-26); falta o teste ponta a ponta com um celular de fora da lista de teste. Concluir tarefa pelo WhatsApp, com confirmação, está implementado (seções 7.4 e 9). Os testes seguem rodando só com adaptadores em memória e clientes falsos (seção 14); os resultados da validação real, item a item, ainda precisam ser anotados em [VALIDACAO-APIS-REAIS.md](VALIDACAO-APIS-REAIS.md). Ainda não há ambiente `prod`. Decisões marcadas com ✅ já foram tomadas; as marcadas com ❓ estão em aberto (seção 12).
 
 Documentos relacionados: [ARQUITETURA.md](ARQUITETURA.md) (app), [ALGORITMO.md](ALGORITMO.md) (contrato matemático), [PRODUTO.md](PRODUTO.md).
 
 ## 1. Objetivo e escopo
 
-Login: Amazon Cognito via Amplify Auth (e-mail/senha e Sign in with Apple). O app fala com a `api` deste backend (`grupuxo/grupuxo/Data/Remote`, contrato na §6.1): casa, código de convite, cômodos, tarefas, ocorrências e vínculo do WhatsApp são persistidos no DynamoDB (seção 4) e a escala é calculada aqui; o `MockStore` do app sobra só para testes e para trocas e notificações (sem rota ainda). Este documento define:
+Login: Amazon Cognito via Amplify Auth (e-mail/senha e Sign in with Apple). O app fala com a `api` deste backend (`grupuxo/grupuxo/Data/Remote`, contrato na §6.1): casa, código de convite, cômodos, tarefas, ocorrências, tarefas avulsas, trocas, notificações e vínculo do WhatsApp são persistidos no DynamoDB (seção 4) e a escala é calculada aqui; o `MockStore` do app sobra só para testes. Este documento define:
 
 1. Um backend AWS que passa a ser a **fonte de verdade** dos dados.
 2. Um canal WhatsApp que atua como **mais um cliente** desse backend.
 
-**v1 do WhatsApp (✅): consulta**, por exemplo "quais são minhas tarefas da semana?". **Concluir tarefa com confirmação** ("terminei de lavar a louça" → "Marcar *Lavar a louça* como feita?" → "sim") já está implementada e testada com adaptadores em memória (seções 7.4 e 9). Lembretes proativos e trocas ficam para versões seguintes, mas o desenho já os comporta (seção 9).
+**v1 do WhatsApp (✅): consulta**, por exemplo "quais são minhas tarefas da semana?". **Concluir tarefa com confirmação** ("terminei de lavar a louça" → "Marcar *Lavar a louça* como feita?" → "sim") está implementada e testada (seções 7.4 e 9). Lembretes proativos e trocas ficam para versões seguintes, mas o desenho já os comporta (seção 9).
 
 Fora de escopo: avaliação da casa, widget, Siri, lista de mercado e financeiro (ver roadmap em PRODUTO.md).
 
@@ -84,7 +84,7 @@ backend/                 projeto Node.js + TypeScript (zero dependências de run
                             (linking/) e ports (ports.ts)                                       ✅
   src/auth/                 validação do JWT do Cognito (TokenVerifier, JWKS) e UserDirectory   ✅
   src/http.ts               tipo HttpFetch: HTTP de saída injetável (JWKS, Gemini, Graph API)    ✅
-  src/assistant/            Gemini: GeminiClient, ferramentas de leitura e GeminiMessageResponder ✅ (em memória/falso; sem chamada real)
+  src/assistant/            Gemini: GeminiClient, ferramentas de leitura e GeminiMessageResponder ✅ (testes com cliente falso; o `worker` do `dev` chama o Gemini real)
   src/whatsapp/graph-sender.ts  WhatsAppSender real (Graph API), com HttpFetch injetado          ✅ (testado com falso; sem chamada real)
   src/adapters/in-memory/   store transacional, repositórios, ports do WhatsApp e seed (dev/testes) ✅
   src/adapters/aws/         SqsMessageQueue e SecretStringReader sobre clientes mínimos injetados     ✅ (cliente falso; sem chamada real)
@@ -107,14 +107,14 @@ São funções de fábrica `create…Handler(dependências) => (evento: unknown)
 
 - `SqsMessageQueue` (`MessageQueue`): corpo JSON com exatamente os quatro campos de `IncomingMessage` (o que `parseIncomingMessage` lê no worker), `MessageGroupId` = telefone, `MessageDeduplicationId` = `wamid`. Sem `QUEUE_URL` a criação falha (`LambdaConfigError`). `wamid` ou telefone fora das regras de ID do FIFO (1–128 caracteres ASCII alfanuméricos ou de pontuação) não são enviados (`MessageQueueError` `invalidMessage`). Qualquer falha do cliente vira `MessageQueueError` `sendFailed`, com mensagem fixa (sem texto, telefone, `wamid`, URL nem mensagem original; só o `name` do erro original em `causeName`), e propaga: o webhook responde 500 e a Meta reenvia. A fila precisa ter `ContentBasedDeduplication` desligada (a deduplicação é pelo `wamid`).
 - `SecretStringReader`: lê o `SecretString` uma vez por instância (a promessa fica em cache, então chamadas concorrentes compartilham a busca); **falha não é cacheada**. `SecretReadError` (`readFailed`, `noSecretString`) tem mensagem fixa, sem ID do segredo nem conteúdo. Sem `SECRET_ID` a criação falha.
-- Testes: `test/contract/message-queue.ts` (rodado contra a fila em memória e o `SqsMessageQueue` com cliente falso), `test/adapters/`. Nada foi chamado na AWS.
+- Testes: `test/contract/message-queue.ts` (rodado contra a fila em memória e o `SqsMessageQueue` com cliente falso), `test/adapters/`. Os testes não chamam a AWS; a fila real existe no `dev`.
 
 | Arquivo | Função |
 | --- | --- |
 | `events.ts` | Estreitamento (de `unknown`, sem `as`) dos eventos das Lambda Function URLs (payload 2.0, idêntico ao do HTTP API v2) e do SQS. Corpo `isBase64Encoded` é decodificado para os **bytes brutos** (a assinatura do webhook cobre esses bytes); corpo em texto vira UTF-8 exato; base64 mal formado invalida o evento. A query string é lida de `rawQueryString` (decodificada com `URLSearchParams`; vale a primeira ocorrência), com `queryStringParameters` só como reserva. Cabeçalhos em minúsculo. |
 | `webhook.ts` | `createWebhookHandler(WebhookHandler)`: evento → `WebhookRequest` → resposta (`text/plain`). Evento que não é HTTP: 400. |
 | `worker.ts` | `createWorkerHandler(WhatsAppWorker)`: cada registro do SQS → `JSON.parse` → `parseIncomingMessage` → `WhatsAppWorker.process`. Devolve `batchItemFailures` (a fila precisa de `ReportBatchItemFailures`): o registro que falha (inclusive corpo inválido) e **os seguintes do mesmo `MessageGroupId`** são reportados sem serem processados, para manter a ordem por telefone; outros telefones seguem. Cada falha chama `onFailure` com `describeFailure` (nome da classe, `code` e `status`, nunca mensagem, telefone, `wamid` nem texto); `src/main/worker.ts` a grava em stderr (CloudWatch). Evento que não é um lote do SQS lança erro. |
-| `api.ts` | `createApiHandler({ verifier, users, linker, links, houses, rooms, tasks, now, newID })`: autenticação (token → `UserDirectory`), 401/403/404/405/503 e o mapeamento de erros; as rotas da seção 6.1 ficam em `api-router.ts` (tabela de rotas; parâmetro de caminho só casa se for UUID em minúsculo, senão 404), `api-input.ts` (estreitamento do corpo e da query, de `unknown`, sem `as`), `api-routes.ts` (casa, cômodo, tarefa e ocorrência: só traduz entrada em casos de uso e monta o JSON de `api-dto.ts`) e `api-http.ts` (respostas e tabela `DomainError`/`DynamoStoreError` → HTTP). Variáveis `houses`, `rooms` e `tasks` são os repositórios do domínio (memória ou DynamoDB); `now` é o relógio do servidor. |
+| `api.ts` | `createApiHandler({ verifier, users, linker, links, houses, rooms, tasks, swaps, notifications, now, newID })`: autenticação (token → `UserDirectory`), 401/403/404/405/503 e o mapeamento de erros; as rotas da seção 6.1 ficam em `api-router.ts` (tabela de rotas; parâmetro de caminho só casa se for UUID em minúsculo, senão 404), `api-input.ts` (estreitamento do corpo e da query, de `unknown`, sem `as`), `api-routes.ts` (casa, cômodo, tarefa, ocorrência, troca e notificação: só traduz entrada em casos de uso e monta o JSON de `api-dto.ts`) e `api-http.ts` (respostas e tabela `DomainError`/`DynamoStoreError` → HTTP). Variáveis `houses`, `rooms`, `tasks`, `swaps` e `notifications` são os repositórios do domínio (memória ou DynamoDB); `now` é o relógio do servidor. |
 | `config.ts` | `parseWorkerSettings`, `parseApiSettings` (variáveis de ambiente) e `parseWebhookSecrets`/`parseWorkerSecrets` (o `SecretString` do segredo, JSON com as chaves da seção 10). Nada tem valor padrão escondido; o erro nomeia a variável, nunca o valor. |
 | `compose.ts` | `composeWhatsAppWorker` (`WhatsAppWorker` + `GeminiMessageResponder` + `GraphWhatsAppSender` + `MessageRateLimiter`, falha fechada na criação) e `composeCognitoVerifier` (`CognitoJwtVerifier` + `HttpJwksSource`). |
 
@@ -202,7 +202,7 @@ Cada comando transacional (`create`, `complete`, `refreshSchedule`, `addMember`,
 
 1. Carregar a partição da casa (`Query` consistente) e os perfis dos membros; montar o `StoreState` e guardar o `version` lido do item `META`.
 2. Executar o comando de domínio (`src/domain/commands/`, puro e síncrono, sem I/O) sobre uma cópia, exatamente como no `InMemoryStore.update`.
-3. Calcular a diferença entre o estado lido e o novo (os dois **re-codificados** pelo mesmo codec, então um item cujo conteúdo não mudou nunca é regravado): itens novos ou alterados viram `Put`, itens removidos viram `Delete`. Se não houver diferença, **nada é gravado** (uma consulta que chama `refreshSchedule` sem materializar nada continua sendo só leitura).
+3. Calcular a diferença entre o estado lido e o novo (os dois **re-codificados** pelo mesmo codec, então um item cujo conteúdo não mudou nunca é regravado): itens novos ou alterados viram `Put`, itens removidos viram `Delete`. Se não houver diferença, **nada é gravado** (uma consulta que chama `refreshSchedule` sem materializar nada continua sendo só leitura). As consultas que dependem da escala (`tasks` do morador, avulsas, snapshot e participação no cômodo) nem abrem a transação quando ela está em dia: o adaptador lê a partição (`store.read`) e confere `scheduleIsCurrent` (`TaskSchedulingService.isCurrent`, com as mesmas condições do `refresh`, sem mutar) ou `roomScheduleReady` (escala dos cômodos já inicializada); só quando falta escala roda `refreshSchedule` (ou a inicialização) num `store.update`. Assim a consulta comum não roda o motor, nem copia o estado, nem calcula a diferença; o teste `schedule-current.test.ts` garante que `isCurrent` nunca é verdadeiro quando o `refresh` mudaria algo. Motivo e medição: [LATENCIA.md](LATENCIA.md).
 4. Gravar tudo num único `TransactWriteItems`, com um `Update` no `META` condicionado a `version = :lido` (e `SET version = version + 1`). Se outro pedido gravou a casa no meio, a transação é cancelada (`TransactionCanceledException` com `ConditionalCheckFailed` **na ação 0**, o `META`, que é sempre a primeira), nada é aplicado e o adaptador **recarrega e repete** (até 3 tentativas, `MAX_ATTEMPTS`, com *jitter* de `sleep` e `random` injetados); esgotadas, `DynamoStoreError("conflict")` (a `api` responde 500/409 e o SQS tenta de novo). Cancelamento por outra ação (por exemplo o `Put` condicional de um perfil novo) e qualquer outro erro propagam sem repetir e sem aplicar nada. Os perfis novos (`USER#/PROFILE`) entram na mesma transação com `attribute_not_exists(PK)`; alterar um perfil existente, ou a própria casa, por um comando de domínio não é suportado (`DynamoStoreError("unsupportedChange")`).
 
 Mutações de escala são por casa, então o conflito nunca envolve casas diferentes. Conclusão e atribuição continuam **idempotentes**: repetir não duplica esforço nem `fairnessDebt`. Isso é essencial porque o WhatsApp entrega *at-least-once* e porque o bloqueio otimista repete o comando.
@@ -219,6 +219,8 @@ Limites do DynamoDB a respeitar no adaptador:
 **Excluir a casa (o último morador sai).** Com `confirmHouseDeletion`, o comando `leaveHouse` do último morador tira do estado a casa e tudo o que é dela (participações, ausências, cômodos, tarefas, ocorrências, atribuições, trocas e notificações; os perfis `USER#/PROFILE` ficam, porque a conta não é da casa). O `HouseStateStore.update` reconhece o estado sem a casa e grava a exclusão: na **primeira** transação, `Delete` do `META` condicionado a `version` (ação 0; conflito recarrega e repete como em toda escrita), `Delete` do `ACCESSCODE#<code>` (condição `houseID` = a casa; o código fica livre) e das participações `MEMBER#` (o `GSI1` deixa de mostrar a casa); o resto da partição vai na mesma transação ou, se passar de 100 ações, em transações seguintes **mesmo com `oversizedWrites: "fail"`**, porque sem o `META` nenhuma consulta enxerga esses itens. Falha numa transação seguinte é `partialWrite` e deixa itens órfãos inertes na partição (como uma carga inicial interrompida). O comando não pode mexer em perfis nem deixar itens na partição (`unsupportedChange`). Pedidos pendentes de conclusão (`PENDING#`) que citem ocorrências da casa expiram pelo TTL; o vínculo do WhatsApp é do morador e continua.
 
 Carga inicial: `HouseStateStore.seedHouse(state)` (desenvolvimento e testes; delega a `createHouse`; não é operação do domínio) confere que o ID e o `accessCode` ainda não existem, grava os perfis e os itens em lotes de 25 e **só no fim** publica a casa (`META` com `version = 0` e `ACCESSCODE#` numa transação condicional); uma carga interrompida deixa itens órfãos inertes (nenhuma consulta os enxerga sem o `META`) e pode ser repetida.
+
+`HouseStateStore.read` decodifica um estado novo por chamada e o entrega à consulta; não monta baseline canônico de escrita nem clona novamente seus arrays. `update` continua com baseline recodificado, cópia para rollback e a mesma condição de versão. Nenhuma alteração nas chaves, índices ou atributos da tabela é necessária para o snapshot.
 
 Sem conexões persistentes: o SDK usa HTTPS com *keep-alive*, então não existe pool de conexões nem proxy. Fuso: o `timezone` (IANA) do item `META` é lido na carga do estado e define o calendário do serviço de agendamento. O contrato que o código do WhatsApp espera está na seção 14.
 
@@ -255,11 +257,11 @@ Configuração (valores públicos, sem segredo; estão em `grupuxo/grupuxo/ampli
 
 `UserDirectory` (`src/auth/user-directory.ts`): `userForSub(cognitoSub)` e `ensureUser(cognitoSub, { name })`. O `name` vem do app (`parseProfileName`: sem espaços nas pontas, 1 a 80 caracteres, sem controle); numa conta que já existe ele só é validado e **não sobrescreve** o nome. Adaptador em memória: `src/adapters/in-memory/user-directory.ts`. Teste de contrato reutilizável (inclusive concorrência no `ensureUser`): `test/contract/user-directory.ts`; o adaptador DynamoDB (`TransactWriteItems` com `Put` condicional em `COGNITO#<sub>` e, se perder a corrida, `GetItem` consistente; seção 4) tem de passar nele.
 
-Do lado do app (pendente, `Data/Remote`): enviar o access token do Amplify (`fetchAuthSession()` → `tokens.accessToken`), não o ID token.
+Do lado do app (`Data/Remote`, `AmplifyAccessTokenProvider`): envia o access token do Amplify (`fetchAuthSession()` → `tokens.accessToken`), não o ID token.
 
 Usuários que entram com Apple e com e-mail/senha são contas distintas no Cognito, cada uma com seu `sub`. Vincular os dois (mesmo e-mail) exige configuração do pool e fica fora da v1 ❓.
 
-Hoje `AppSession.currentUser` vem do `MockSeed`. Ligar a sessão ao usuário autenticado depende do passo 3 da seção 13.
+`AppSession.currentUser` vem da `RemoteHouseSession` (`GET /v1/me`): o `User.id` é o do backend, não o `sub`.
 
 **Autorização sempre no servidor.** A UI nunca é autoridade. Os casos de uso já recebem `userID` e aplicam `TaskEligibilityPolicy`; o `userID` vem do JWT (app) ou do vínculo do número (WhatsApp), **nunca de um campo enviado pelo cliente**.
 
@@ -286,7 +288,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 
 ### 6.1 Contrato das rotas (`src/lambdas/api.ts`)
 
-**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Todas as rotas abaixo estão implementadas e testadas em memória e no DynamoDB com o cliente falso (T2.5). Falta o ponto de entrada da Lambda (T3). O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift de T4 decodifica os mesmos arquivos.
+**Contrato da trilha rápida ([PLANO.md](PLANO.md), seção 3, T1), aprovado pelo dono.** Todas as rotas abaixo estão implementadas, testadas em memória e no DynamoDB com o cliente falso (T2.5), e publicadas na Lambda `api` do `dev` (`src/main/api.ts`). O código segue esta seção à risca; mudança aqui antes de mudança no código. O formato JSON das respostas é executável: `src/lambdas/api-dto.ts` gera os arquivos de `test/fixtures/api/` (`API_FIXTURES=write npm test` regrava; sem a variável o teste `test/api-contract.test.ts` compara), e o teste Swift (`RemoteAPITests`) decodifica os mesmos arquivos.
 
 **Convenções.** Tudo sob `/v1`, JSON UTF-8. `Authorization: Bearer <access token>` (esquema sem distinção de caixa); a autorização é feita na Lambda (a Function URL fica com `AuthType = NONE`). O `userID` vem sempre do token (via `UserDirectory`), nunca do corpo, da URL ou de cabeçalho; o `at` (data de referência) é do relógio do servidor, nunca do cliente. IDs são UUID em minúsculo; instantes são ISO 8601 em UTC **com milissegundos** (`2026-10-12T09:00:00.000Z`; o `.iso8601` padrão do Swift não decodifica isso, o app usa um formatador próprio). Corpos de até 4 KB; campos desconhecidos são ignorados. Rota e método são verificados antes do token. Sem `Idempotency-Key` na trilha (atalho, PLANO.md seção 2): as mutações de tarefa já são idempotentes no domínio; `POST /houses` e `POST /houses/join` repetidos respondem `409 already_in_house`.
 
@@ -307,6 +309,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | Rota | Entrada | Resposta e erros |
 | --- | --- | --- |
 | `GET /v1/me/house` | | `200 MyHouse` = `{ house, members: [User], rooms: [Room] }` (`house` inclui `accessCode`). Sem casa → `404 no_house`. A casa do morador vem do `GSI1` (eventualmente consistente): logo depois de criar ou entrar pode demorar frações de segundo para aparecer (use a resposta de `POST /houses` e `join`, montada a partir do próprio comando), e logo depois de sair o índice pode mostrar a casa antiga, caso em que a rota responde `no_house`. |
+| `GET /v1/me/house/snapshot` | | `200 HouseSnapshot` = `{ userID, home: MyHouse, participations: [RoomParticipation], roomTasks: [TaskItem], myTasks: [TaskItem], sporadicTasks: [TaskItem] }`. Uma carga da partição (mais os perfis) atende às telas de tarefas/casa/cômodo e à abertura do app; faltando escala, renova dentro de `update`. Sem casa → `404 no_house`; conta não registrada → `403 account_not_registered`. Listas usam as mesmas regras de acesso das rotas individuais, inclusive pendências preservadas de ex-participantes. **Código local em 2026-10-27; publicação pendente.** |
 | `POST /v1/houses` | `{ "name", "timezone" }` (nome 1 a 80 caracteres sem controle; `timezone` IANA válido) | `201 MyHouse`; cria a casa com o cômodo "Casa toda" e o fundador. `400 invalid_house_name`, `400 invalid_timezone`, `409 already_in_house`. |
 | `POST /v1/houses/join` | `{ "code" }` | `200 MyHouse`. Código inexistente ou malformado → `404 invalid_code` (uniforme); `409 already_in_house`. Replaneja a escala da casa. |
 | `DELETE /v1/me/house` | queries opcionais `confirmRoomDeletion=true` e `confirmHouseDeletion=true` (outro valor que não `true`/`false` → `400 bad_request`) | `204`. Sem casa → `404 no_house`; o morador é o último participante de um cômodo, que seria excluído → `409 room_deletion_confirmation_required`; o morador é o **último da casa** → `409 house_deletion_confirmation_required` (vale com ou sem `confirmRoomDeletion`). Em ambos o app confirma e repete com a query. Com `confirmHouseDeletion=true`, o último morador sai e a casa é **excluída** inteira (cômodos, tarefas, histórico e código de convite; seção 4, "Excluir a casa"). Fora isso, replaneja a escala. |
@@ -332,7 +335,24 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | `POST /v1/occurrences/{occurrenceID}/complete` | | `204`; idempotente. |
 | `POST /v1/occurrences/{occurrenceID}/reopen` | | `204`. |
 
-Uma tarefa criada começa na próxima segunda-feira do fuso da casa (comportamento do domínio): até lá `GET /me/tasks` não a mostra, e `GET /rooms/{roomID}/tasks` já lista as ocorrências futuras. Quem não é da casa e quem não vê a tarefa (cômodo privado de que não participa) recebem `404 not_found` ao ler ou encerrar; `403 task_unavailable` é só para criar tarefa em cômodo da própria casa de que não se participa.
+Uma tarefa semanal criada já tem a ocorrência da semana atual ainda aberta (comportamento do domínio, ALGORITMO.md): `GET /me/tasks` a mostra logo para o responsável, e `GET /rooms/{roomID}/tasks` lista também as ocorrências futuras. Quem não é da casa e quem não vê a tarefa (cômodo privado de que não participa) recebem `404 not_found` ao ler ou encerrar; `403 task_unavailable` é só para criar tarefa em cômodo da própria casa de que não se participa.
+
+#### Tarefas avulsas, trocas e notificações (implementada)
+
+| Rota | Entrada | Resposta e erros |
+| --- | --- | --- |
+| `GET /v1/me/sporadic-tasks` | | `200 { "tasks": [TaskItem] }`: as avulsas da casa do morador que ele pode ver (abertas e assumidas). Sem casa → `404 no_house`. |
+| `POST /v1/occurrences/{occurrenceID}/claim` | | `204`: assume a avulsa. Já assumida por outro ou não avulsa → `403 task_unavailable`. |
+| `POST /v1/occurrences/{occurrenceID}/release` | | `204`: devolve a avulsa assumida. Devolver a de outro não faz nada (idempotente, como no domínio). |
+| `GET /v1/occurrences/{occurrenceID}/swap-candidates` | | `200 { "tasks": [TaskItem] }`: ocorrências de outros moradores que podem ser trocadas pela oferecida (`TaskSwapEligibilityPolicy`). Ocorrência que o morador não pode oferecer → `403 task_unavailable`. |
+| `POST /v1/swaps` | `{ "offeredOccurrenceID", "requestedOccurrenceID" }` (UUIDs) | `201 TaskSwapRequest` (pendente); notifica quem recebe. Troca inválida ou repetida → `403 task_unavailable`. |
+| `GET /v1/me/swaps` | | `200 { "incoming": [TaskSwapRequest], "outgoing": [TaskSwapRequest] }` da casa do morador, mais recentes primeiro. Sem casa → `404 no_house`. |
+| `POST /v1/swaps/{swapID}/accept` | | `200 TaskSwapRequest`: troca as atribuições e notifica quem pediu. Só quem recebeu responde, e só pedido pendente: senão `403 task_unavailable`. |
+| `POST /v1/swaps/{swapID}/reject` | | `200 TaskSwapRequest`, mesmas regras do aceite. |
+| `GET /v1/me/notifications` | | `200 { "notifications": [Notification] }` do morador, mais recentes primeiro. |
+| `POST /v1/notifications/{notificationID}/read` | | `204`; idempotente. |
+
+Ocorrência de outra casa, pedido de troca em que o morador não está e notificação de outro morador respondem `404 not_found`, igual aos inexistentes. Ainda sem rota: excluir avulsa e editar tarefa (o servidor TS não tem `createdByUserID` nem `updateTaskDetails`), e o texto da notificação de tarefa editada.
 
 Desvios do PLANO.md seção 3, decididos em T1: as rotas de tarefa por ID (`GET/PATCH /v1/tasks/{id}`, `POST /v1/tasks/{id}/end`) viram caminhos **sob o cômodo**, porque o DynamoDB não indexa `TASKDEF#` no `GSI1` (só o `roomID` acha a partição) e o servidor TS não tem `updateTaskDetails` nem `taskDefinition(id)`. **`PATCH` fica fora da trilha**: a edição de tarefa é escondida no build de teste (PLANO.md seção 2). `DELETE /rooms/{id}/members` recebe o `userID` no caminho (DELETE sem corpo).
 
@@ -342,12 +362,15 @@ Todos em `src/lambdas/api-dto.ts`; exemplos em `test/fixtures/api/`. Campos inte
 
 | Tipo | Campos | Exemplo |
 | --- | --- | --- |
+| `HouseSnapshot` | `userID`, `home`, `participations`, `roomTasks` (recorrentes visíveis), `myTasks` (atribuídas ao morador, já disponíveis), `sporadicTasks` (inclui sugestão de responsável) | `house-snapshot.json` |
 | `User` | `id`, `name` | `me-house.json` |
 | `House` | `id`, `name`, `accessCode`, `timezone`, `createdAt` | `house.json` |
 | `Room` | `id`, `houseID`, `name`, `kind` (`wholeHouse`\|`standard`), `category`, `visibility`, `periodicity { executionsPerPeriod, intervalWeeks }`, `responsibleCount`, `calendarAnchor`\|null, `icon`, `color` | `room.json` |
 | `RoomParticipation` | `room`, `isMember`, `memberCount`, `responsibleNames`, `periodStart`, `periodEnd` | `room-participation.json` |
 | `Recurrence` | `{ kind: "none" }` \| `{ kind: "recurring", frequency, interval }` \| `{ kind: "weekly", periodicity }` | `task-definition.json` |
 | `TaskDefinition` | `id`, `roomID`, `name`, `details`, `effort` (1 a 3; carga interna, não exibir como pontuação), `kind`, `recurrence`, `assignmentPolicy`, `calendarAnchor`, `endedAt` (null = ativa) | `task-definition.json` |
+| `TaskSwapRequest` | `id`, `requesterID`, `receiverID`, `offeredOccurrenceID`, `requestedOccurrenceID`, `status` (`pending`\|`accepted`\|`rejected`), `createdAt`, `resolvedAt`\|null | `task-swap-request.json` |
+| `Notification` | `id`, `kind` (`taskSwapRequested`\|`taskSwapAccepted`\|`taskSwapRejected`), `swapRequestID`, `createdAt`, `readAt`\|null (o destinatário é sempre quem chama) | `notification.json` |
 | `TaskItem` | `definition`, `occurrence { id, taskDefinitionID, availableAt, dueAt, status, completedAt, completedByUserID, effort }`, `assignment { id, userID, assignedAt, endedAt }`\|null, `assignee`\|null, `suggestedAssignee`\|null | `task-item.json`, `task-item-completed.json`, `task-item-sporadic.json` |
 
 #### Erros
@@ -369,9 +392,13 @@ Formato único: `{ "error": "<código>" }`, sem detalhe. Sem token válido (ause
 
 ### Sincronização do app
 
-v1: o app consulta a API a cada abertura de tela e após mutações (já é o que os ViewModels fazem: "recarregar após mutações"). Sem *offline-first*. Notificações push (APNs) ficam para depois ❓.
+O app compartilha `GET /v1/me/house/snapshot` num `MyHouseCache` em memória, válido por 5 segundos e restrito à sessão. A abertura resolve `userID` e casa na mesma resposta, que é reaproveitada pelas abas e pelos detalhes. Consultas simultâneas aguardam uma única busca. Concluir/reabrir/assumir/devolver tarefa, criar/encerrar tarefa, mudar cômodo/participantes e aceitar/recusar troca invalidam o cache; puxar para atualizar também o invalida. Logout substitui o cache, isolando a próxima conta. Resposta anterior à invalidação não repovoa o cache nem substitui a nova busca.
+
+A UI mostra a prévia da conclusão/desmarcação imediatamente e só bloqueia a ocorrência em gravação. Falha restaura a linha e mostra o erro; após a última gravação pendente, uma recarga reconcilia sucessores, progresso e histórico com o servidor. A prévia não altera saldo, distribuição nem a transação do domínio. Servidor anterior sem a rota (`404 not_found`) faz o app usar as rotas individuais; 401, `no_house` e outras falhas continuam sendo erros reais. Sem persistência offline nem fila de escritas. Notificações push (APNs) ficam para depois ❓.
 
 ## 7. Fluxo do WhatsApp
+
+O texto canônico das boas-vindas do Reveza, a ajuda fixa e sua regra de manutenção estão em [WHATSAPP-MENSAGENS.md](WHATSAPP-MENSAGENS.md). As boas-vindas são enviadas ao concluir o vínculo do número; entrar em uma casa pelo app não dispara mensagem. Sempre que o bot ganhar ou perder uma capacidade, atualize a mensagem e os exemplos conforme esse documento.
 
 ### 7.1 Webhook
 
@@ -403,10 +430,10 @@ Ferramentas expostas ao Gemini (sem parâmetro de usuário nem de casa: o `userI
 
 | Ferramenta | Caso de uso | Exemplo |
 | --- | --- | --- |
-| `list_my_tasks(range)` | `GetMyTasks` | "quais são minhas tarefas da semana?" |
-| `list_room_tasks(room_name)` | `GetRoomTasks` | "o que tem na cozinha?" |
-| `list_sporadic_tasks()` | `GetSporadicTasks` | "tem alguma tarefa avulsa?" |
-| `complete_task(task_name)` | `CompleteTask`, **só depois do "sim"** | "terminei de lavar a louça" |
+| `list_my_tasks(range)` | `GetMyTasks` | "Quais as minhas tarefas da semana?" |
+| `list_room_tasks(room_name)` | `GetRoomTasks` | "Quais são as tarefas da cozinha?" |
+| `list_sporadic_tasks()` | `GetSporadicTasks` | "Tem alguma tarefa avulsa?" |
+| `complete_task(task_name)` | `CompleteTask`, **só depois do "sim"** | `Marque "limpar sala" como concluído.` |
 
 Se o Gemini não reconhecer a intenção, o bot responde com a lista do que sabe fazer. O texto final **não** é gerado pelo modelo: é montado por código a partir do que o caso de uso devolveu (seção 7.4).
 
@@ -428,13 +455,14 @@ Se o Gemini não reconhecer a intenção, o bot responde com a lista do que sabe
 A mensagem barrada conta como processada (nem retry nem DLQ). Vale para todos os números, inclusive os sem vínculo (o aviso de "vincule seu número" não vira spam). Limitações aceitas: uma rajada na virada da janela pode somar até o dobro do limite; uma nova tentativa depois de uma falha (SQS) conta de novo na janela.
 ### 7.4 Assistente (`src/assistant/`)
 
-Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum teste chama a rede, e nada chamou o Gemini de verdade ainda.
+Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum teste chama a rede. O `worker` do `dev` chama o Gemini real (modelo `gemini-3.1-flash-lite` em `terraform.tfvars`); a validação item a item (M1–M6) ainda não foi anotada.
 
-**`GeminiClient` / `HttpGeminiClient`** (`gemini-client.ts`): `POST https://generativelanguage.googleapis.com/v1beta/models/<GEMINI_MODEL>:generateContent` com *function calling* (`toolConfig` modo `AUTO`, `temperature` 0).
+**`GeminiClient` / `HttpGeminiClient`** (`gemini-client.ts`): `POST https://generativelanguage.googleapis.com/v1beta/models/<GEMINI_MODEL>:generateContent` com *function calling* (`toolConfig` modo `AUTO`). Sem `temperature`: para o Gemini 3 o Google recomenda o padrão (1.0), e valores baixos podem fazer o modelo entrar em laço. `generationConfig.thinkingConfig.thinkingLevel` vem de `thinkingLevel` (padrão `"low"`, aceito por todos os modelos Gemini 3; o modelo só escolhe a ferramenta, e com o raciocínio padrão do modelo a resposta chegava a passar do timeout).
 
 - A chave da API vai só no cabeçalho `x-goog-api-key`: nunca na URL, no corpo ou em mensagem de erro.
 - O modelo vem de `GEMINI_MODEL` e é validado antes de entrar na URL (`^[a-z0-9][a-z0-9.-]{0,63}$`: um pouco mais estrito que `^[a-z0-9.-]+$`, para barrar `.`/`..` como nome). **Sem `GEMINI_MODEL` (ou sem chave) o cliente não é criado** (`GeminiConfigurationError`): não existe modelo escondido. O nome vem como `string | undefined` para a composição passar a variável de ambiente direto e falhar fechada.
-- Timeout (padrão 10 s) e teto de tokens de saída (padrão 512; o modelo só emite chamadas de ferramenta).
+- Timeout **por tentativa** (padrão 12 s) e teto de tokens de saída (padrão 512; o modelo só emite chamadas de ferramenta).
+- Novas tentativas (`maxAttempts`, padrão 2, contando a primeira) só para falhas passageiras (`isTransient`: `timeout`, `network` e `status` 429/500/502/503/504), com espera fixa (`retryDelayMs`, padrão 500 ms) pelo `sleep` injetado. 4xx, `invalidResponse` e `blocked` não repetem. Pior caso de uma chamada: ~24,5 s.
 - Erros tipados (`GeminiRequestError`: `network`, `timeout`, `status` com o status HTTP, `invalidResponse`, `blocked`), com mensagem fixa: sem corpo de resposta, sem o erro original, sem texto do usuário. Resposta com mais de 256 KB é recusada. A resposta é lida com estreitamento escrito à mão; partes de raciocínio (`thought`) e tipos desconhecidos são descartados.
 - Modelo padrão **recomendado**: `gemini-2.5-flash-lite` (o mais barato com *function calling*). Conferido em 2026-10-05 na página de depreciações do Google: estável (GA), sem data de desligamento anunciada. Já existe o `gemini-3.5-flash-lite` (também sem data). O `gemini-1.5-flash` foi desativado e, segundo a mesma página, o `gemini-2.0-flash-lite` tinha desligamento anunciado para 1/6/2026: nenhum dos dois pode ser usado. O valor concreto é configuração do ambiente; reconferir a página antes de cada release.
 
@@ -456,8 +484,9 @@ Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum test
 2. Mensagem em branco → lista do que o bot sabe fazer, sem chamar o modelo. Texto cortado em 500 caracteres antes de ir ao modelo.
 3. Laço de *function calling* com limite de rodadas (padrão 3) e no máximo 3 chamadas por rodada; consultas repetidas respondem uma vez. A instrução de sistema é fixa; o texto do morador só vai como mensagem de usuário.
 4. A saída das ferramentas **não** volta ao modelo. A resposta é montada em `task-format.ts` a partir do que os casos de uso devolveram, então nomes e datas só vêm dos dados, e o texto que o modelo escrever é descartado: uma instrução escondida na mensagem ou num nome de tarefa de outro morador não consegue ditar o que o bot diz. Só uma falha recuperável (argumento inválido, cômodo não encontrado/ambíguo) volta ao modelo, como erro de código fixo mais os nomes dos cômodos, para ele corrigir a chamada.
-5. Falha do Gemini (`GeminiRequestError`) → mensagem fixa em português ("Tente de novo em instantes"). Qualquer outro erro (banco, bug) propaga e o SQS tenta de novo. Se a rodada de correção falhar, mantém o que já foi respondido.
-6. Nada do conteúdo é registrado em log nem guardado (teste dedicado: console, `stdout`/`stderr`, responder sem estado, caixa de entrada só com `wamid` e horários).
+5. Falha do Gemini (`GeminiRequestError`, já depois das novas tentativas do cliente) → mensagem fixa em português ("Tente de novo em instantes"). Qualquer outro erro (banco, bug) propaga e o SQS tenta de novo. Se a rodada de correção falhar, mantém o que já foi respondido. Toda falha do Gemini chama `onGeminiFailure`; na Lambda `worker` isso escreve `worker: gemini falhou: GeminiRequestError code=… status=…` no stderr (`describeFailure`, sem conteúdo).
+6. Rodadas de correção (depois da primeira) só começam até `correctionCutoffMs` (padrão 15 s) desde o início da resposta; depois disso vale o que já foi respondido. Assim o pior caso (~40 s) cabe no timeout de 60 s da Lambda.
+7. Nada do conteúdo é registrado em log nem guardado (teste dedicado: console, `stdout`/`stderr`, responder sem estado, caixa de entrada só com `wamid` e horários).
 
 **Concluir tarefa com confirmação** (`complete-task.ts`, `GeminiMessageResponder`; port `PendingActionStore`, seção 14). Duas etapas, e quem grava é sempre o código:
 
@@ -492,7 +521,7 @@ Fluxo:
 
 1. No Perfil, o usuário toca em "Conectar WhatsApp". O app chama `POST /me/whatsapp/link`.
 2. O backend (`WhatsAppLinker.issueInvitation`) cria um token aleatório de uso único e devolve `https://wa.me/<numero-do-bot>?text=<mensagem com token>`. Recusa se o morador já tem número conectado.
-3. O app abre o link. O usuário envia a mensagem pré-preenchida (`Conectar meu WhatsApp ao Grupuxo. Código: <token>`).
+3. O app abre o link. O usuário envia a mensagem pré-preenchida (`Conectar meu WhatsApp ao Reveza. Código: <token>`).
 4. O worker recebe a mensagem, o `WhatsAppLinker.handle` reconhece o token, marca-o como usado, grava o vínculo (`userID`, `phoneE164`, `consentedAt`, `linkedAt`; itens `PHONE#` e `USER#/WHATSAPP`) e confirma no chat.
 5. O app passa a mostrar "WhatsApp conectado", com opção de desconectar.
 
@@ -507,7 +536,7 @@ Respostas do bot (`WhatsAppLinker`):
 
 | Situação | Resposta |
 | --- | --- |
-| Vinculado | "Pronto! Seu WhatsApp está conectado…"; `consentedAt` = horário da mensagem do usuário, `linkedAt` = horário do processamento |
+| Vinculado | Boas-vindas "Olá, eu sou o bot do Reveza…" ([texto canônico](WHATSAPP-MENSAGENS.md)); `consentedAt` = horário da mensagem do usuário, `linkedAt` = horário do processamento |
 | Token inexistente, usado ou expirado (sem distinguir, para não vazar informação) | "Link inválido ou expirado…" |
 | Número já vinculado (a qualquer morador) | "Este número já está conectado…"; **o token não é consumido**, outro número ainda pode usá-lo |
 | Morador já tem outro número | "Sua conta já tem outro número conectado…"; o vínculo original fica intacto |
@@ -525,7 +554,7 @@ Cuidados:
 
 | Etapa | O que muda |
 | --- | --- |
-| ✅ Concluir tarefa | **Implementado em memória** (seção 7.4): ferramenta `complete_task(task_name)` → `CompleteTask`, com **confirmação obrigatória** antes de gravar ("Marcar *Limpar sala* como feita?"), pedido pendente guardado por 5 minutos no port `PendingActionStore` e idempotência por `wamid`. Falta o adaptador DynamoDB do port (a cargo de quem faz o DynamoDB, seção 14) e validar o *function calling* real. |
+| ✅ Concluir tarefa | **Implementado** (seção 7.4): ferramenta `complete_task(task_name)` → `CompleteTask`, com **confirmação obrigatória** antes de gravar ("Marcar *Limpar sala* como feita?"), pedido pendente guardado por 5 minutos no port `PendingActionStore` (adaptador DynamoDB em `pending-action-store.ts`) e idempotência por `wamid`. Falta anotar a validação do *function calling* real (M6). |
 | Lembretes | Mensagens iniciadas pelo bot fora da janela de 24 h exigem *template* aprovado, com custo. Usar um agendador (EventBridge Scheduler) que enfileira lembretes. Por isso o *opt-in* explícito é gravado desde a v1. |
 | Trocas, assumir esporádica | Novas ferramentas sobre os casos de uso existentes. |
 
@@ -568,7 +597,7 @@ Dados pessoais tratados: nome, e-mail, número de telefone e conteúdo das mensa
 
 Para a modelagem e a infraestrutura de dados (DynamoDB):
 
-1. `addMember` (~140 itens) e `removeMember` (~110) da casa de demonstração **excedem** as 100 ações de um `TransactWriteItems` (medido; seção 4), então falham fechado no DynamoDB. Decidir entre (a) registro de intenção (`INTENT#`) gravado de forma condicional e aplicado em transações idempotentes com *roll-forward* por quem o encontrar, (b) materializar a escala em lotes menores no domínio, ou (c) agrupar atribuições em menos itens. Medir também `refreshSchedule` de casas paradas há muitas semanas. **Provisório (2026-10-12), implementado:** `oversizedWrites: "split"` para o teste (seção 4: primeira transação com o `META`, `partialWrite` se uma seguinte falhar; testado com o cliente falso em divisão, conflito na primeira e falha no meio); recomendação para o definitivo: (c).
+1. `addMember` (~140 itens) e `removeMember` (~110) da casa de demonstração **excediam** as 100 ações de um `TransactWriteItems` (medido; seção 4), então falhavam fechado no DynamoDB. Com a publicação por morador (ALGORITMO.md, 2026-10-25) o `addMember` da demonstração caiu para 52 ações, mas uma casa com muitas tarefas ainda passa de 100. Decidir entre (a) registro de intenção (`INTENT#`) gravado de forma condicional e aplicado em transações idempotentes com *roll-forward* por quem o encontrar, (b) materializar a escala em lotes menores no domínio, ou (c) agrupar atribuições em menos itens. Medir também `refreshSchedule` de casas paradas há muitas semanas. **Provisório (2026-10-12), implementado:** `oversizedWrites: "split"` para o teste (seção 4: primeira transação com o `META`, `partialWrite` se uma seguinte falhar; testado com o cliente falso em divisão, conflito na primeira e falha no meio); recomendação para o definitivo: (c).
 2. Arquivar ocorrências antigas concluídas numa partição `HOUSEARCHIVE#<id>` quando a `Query` da casa pesar (seção 4)?
 3. PITR em `prod` (custo por GB) e o prazo de retenção dos backups, que também são dado pessoal (seção 11).
 4. Região da tabela e das Lambdas: `sa-east-1` ou `us-east-1`? O Cognito já está em `us-east-1`, o que favorece manter tudo lá; `sa-east-1` favorece a latência e a LGPD. **Provisório (2026-10-12):** `us-east-1` para o ambiente `dev` do teste; rever antes de `prod`.
@@ -597,11 +626,11 @@ Para a infraestrutura (Node):
 ## 13. Ordem de entrega sugerida
 
 1. ✅ **Feito:** `GrupuxoDomain` extraído como Swift Package (`grupuxo/Packages/GrupuxoDomain`); o app continua funcionando com o mock. ✅ **Feito:** domínio e algoritmo portados para TypeScript (`backend/src/domain`), com fixtures de referência geradas do Swift e os cenários dos testes Swift traduzidos.
-2. Tabela DynamoDB (Terraform), adaptadores `src/adapters/dynamodb/` (repositórios do domínio e ports) e testes contra o mesmo conjunto de cenários do mock. *A fazer; o modelo de itens está na seção 4, as interfaces de repositório do domínio e os ports da seção 14 são o contrato, e os testes de contrato (`backend/test/contract`) são reutilizáveis: cada função recebe uma fábrica do adaptador.*
-3. Lambda `api` e autenticação (login Cognito do app ✅; casa do app pela `api` (`POST /houses`, `/houses/join`) e `Data/Remote` ✅ (o Amplify Data foi abandonado sem deploy); *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; falta o `UserDirectory` em DynamoDB e o ponto de entrada da Lambda `api`); `Data/Remote` no app (trocar mocks em `AppContainer`).
-4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Os endpoints `POST /v1/me` e `POST /v1/me/whatsapp/link` já existem no handler `api` (em memória); falta a tela.*
-5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco, `GeminiMessageResponder`, `GraphWhatsAppSender`, limite de taxa e handlers no formato Lambda, com adaptadores em memória e Gemini/Graph falsos; adaptador SQS e leitor do segredo no Secrets Manager prontos com clientes falsos; falta o ponto de entrada de cada Lambda (AWS SDK e empacotamento em aberto).* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
-6. ✅ Concluir tarefas com confirmação (em memória, seção 7.4; falta o adaptador DynamoDB do `PendingActionStore`) e, por fim, lembretes.
+2. ✅ Tabela DynamoDB (Terraform), adaptadores `src/adapters/dynamodb/` (repositórios do domínio e ports) e testes contra o mesmo conjunto de cenários do mock (`backend/test/contract`, com o cliente falso).
+3. Lambda `api` e autenticação (login Cognito do app ✅; casa do app pela `api` (`POST /houses`, `/houses/join`) e `Data/Remote` ✅ (o Amplify Data foi abandonado sem deploy); *✅ validação do JWT e `UserDirectory` prontos e testados, em memória*; ✅ `UserDirectory` em DynamoDB e Lambda `api` no `dev`); ✅ `Data/Remote` no app (`AppContainer` com os repositórios remotos).
+4. Vínculo do número (`wa.me`) e tela no Perfil. *✅ Lado servidor pronto e testado (em memória): gerar o convite, reconhecer o token e vincular no worker (`WhatsAppLinker`). Os endpoints `POST /v1/me` e `POST /v1/me/whatsapp/link` existem na `api`, e a seção de WhatsApp do `HouseView` usa o vínculo.*
+5. Webhook + fila + worker, primeiro só eco, depois Gemini com as ferramentas de leitura. *✅ Webhook, ports, worker, eco, `GeminiMessageResponder`, `GraphWhatsAppSender`, limite de taxa e handlers no formato Lambda, com adaptadores em memória e Gemini/Graph falsos; adaptador SQS e leitor do segredo no Secrets Manager prontos com clientes falsos; os pontos de entrada em `src/main/` e o Terraform do `dev` estão prontos e implantados.* O Gemini chama casos de uso do domínio TypeScript (`GetMyTasks`, `GetRoomTasks`, `GetSporadicTasks`), com o `userID` injetado pelo worker.
+6. ✅ Concluir tarefas com confirmação (seção 7.4, com o `PendingActionStore` em DynamoDB) e, por fim, lembretes (a fazer).
 
 Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paralelo.
 
@@ -609,7 +638,7 @@ Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paral
 
 ## 14. Estado da implementação e contrato com a tabela
 
-Código em `backend/` (`npm test`). Os testes rodam com adaptadores em memória e clientes falsos; nada nos testes acessa AWS, DynamoDB, Meta ou Gemini. Deploy do `dev`: `backend/infra/README.md`.
+Código em `backend/` (`npm test`). Os testes rodam com adaptadores em memória e clientes falsos; nada nos testes acessa AWS, DynamoDB, Meta ou Gemini. O `dev` está implantado (`backend/infra/README.md`: tabela `grupuxo-dev` com proteção contra exclusão e recuperação pontual, fila FIFO com DLQ, Lambdas `api` com 1769 MB, `webhook` e `worker`). Latência da `api` e o que já mudou por causa dela: [LATENCIA.md](LATENCIA.md).
 
 | Peça | Onde | Situação |
 | --- | --- | --- |
@@ -624,20 +653,20 @@ Código em `backend/` (`npm test`). Os testes rodam com adaptadores em memória 
 | Extração de mensagens de texto (ignora `statuses`, mídia e outros campos) | `webhook-payload.ts` | ✅ testado, com decodificação tão rígida quanto o `Decodable` do Swift |
 | Worker: idempotência por `wamid`, resolve número → morador, responde | `WhatsAppWorker` | ✅ com `EchoResponder` |
 | Ports e adaptadores em memória | `src/whatsapp/ports.ts`, `src/adapters/in-memory/` | ✅ com testes de contrato reutilizáveis |
-| Vínculo por token: gerar convite, reconhecer o token, vincular, rejeitar número já vinculado | `LinkTokenCodec`, `WhatsAppLinker` | ✅ testado (em memória) |
+| Vínculo por token: gerar convite, reconhecer o token, vincular, rejeitar número já vinculado | `LinkTokenCodec`, `WhatsAppLinker` | ✅ testado (em memória e DynamoDB com cliente falso) |
 | Validação do JWT do Cognito (`TokenVerifier`, `CognitoJwtVerifier`, JWKS com cache) | `src/auth/` | ✅ testado com chaves RSA geradas no teste, sem rede (só access token; ID token rejeitado) |
 | `UserDirectory` (conta Cognito → morador) | `src/auth/user-directory.ts`, `src/adapters/in-memory/user-directory.ts`, `src/adapters/dynamodb/user-directory.ts` | ✅ port, adaptadores em memória e DynamoDB (cliente falso) e contrato (`test/contract/user-directory.ts`) |
 | Envio pela Graph API | `src/whatsapp/graph-sender.ts` | ✅ testado com `HttpFetch` falso (seção 7.5); falta validar contra a API real |
 | Limite de taxa por número | `src/whatsapp/rate-limit.ts`, port `RateCounter`, `adapters/in-memory/rate-counter.ts`, contrato `test/contract/rate-counter.ts` | ✅ em memória e DynamoDB (itens `RATE#`, cliente falso) |
-| Handlers Lambda (`webhook`, `worker`, `api`), eventos, config, composição | `src/lambdas/` | ✅ testados ponta a ponta em memória (seção 3.1) |
+| Handlers Lambda (`webhook`, `worker`, `api`), eventos, config, composição | `src/lambdas/` | ✅ testados ponta a ponta em memória (seção 3.1); implantados no `dev` |
 | Adaptador SQS (`MessageQueue`) e leitura do Secrets Manager | `src/adapters/aws/`, contrato `test/contract/message-queue.ts` | ✅ com clientes mínimos falsos; falta validar contra a AWS real (VALIDACAO-APIS-REAIS.md A8, A9) |
-| Pontos de entrada das Lambdas (embrulham o AWS SDK nos clientes mínimos, inclusive o `DynamoClient`, e passam as retenções de TTL) e build | `src/main/`, `scripts/build.mjs`, `test/main/` | ✅ testados com o SDK real e HTTP falso; falta rodar na AWS (seção 3.1) |
+| Pontos de entrada das Lambdas (embrulham o AWS SDK nos clientes mínimos, inclusive o `DynamoClient`, e passam as retenções de TTL) e build | `src/main/`, `scripts/build.mjs`, `test/main/` | ✅ testados com o SDK real e HTTP falso; rodando no `dev` (seção 3.1) |
 | Repositórios do domínio e ports sobre o DynamoDB | `src/adapters/dynamodb/` (`client.ts`, `house-state-store.ts`, `repositories.ts`, `whatsapp-stores.ts`, `rate-counter.ts`, `pending-action-store.ts`, `user-directory.ts`), `test/support/fake-dynamo-client.ts`, `test/dynamodb/`, `test/contract/repositories.ts` | ✅ passam nos mesmos contratos dos adaptadores em memória, com **cliente falso**; teste diferencial (mesma sequência em memória e DynamoDB dá o mesmo estado); `addMember`/`removeMember` da casa de demonstração falham fechado (seção 4). Falta validar contra o DynamoDB real (D1–D6) |
-| Tabela, fila, segredo, Lambdas e Function URLs do `dev` | `backend/infra/` (Terraform, estado local; passo a passo em `infra/README.md`) | ✅ escrito; o `apply` só com autorização do dono. Conta AWS do `dev`: 580100736070, a mesma do user pool do app (a `api` valida os tokens pelo JWKS público) |
+| Tabela, fila, segredo, Lambdas e Function URLs do `dev` | `backend/infra/` (Terraform, estado local; passo a passo em `infra/README.md`) | ✅ aplicado no `dev` (o `plan`/`apply` seguem só com autorização do dono). Conta AWS do `dev`: 580100736070, a mesma do user pool do app (a `api` valida os tokens pelo JWKS público) |
 | Casa de demonstração e link de vínculo na tabela real | `backend/tools/seed-dev/seed.ts` | ✅ escrito; roda só com autorização |
-| Rotas da `api`: conta e WhatsApp (`POST /v1/me`, `/v1/me/whatsapp/link`, `GET`/`DELETE /v1/me/whatsapp`) e as da seção 6.1 (casa, cômodo, tarefa, ocorrência) | `src/lambdas/api.ts`, `api-router.ts`, `api-input.ts`, `api-routes.ts`, `api-http.ts`; testes em `test/lambdas/api*.ts` | ✅ em memória e DynamoDB (cliente falso, `oversizedWrites: "split"` ligado nos testes); tela no Perfil e `Data/Remote` a fazer (T4) |
+| Rotas da `api`: conta e WhatsApp (`POST /v1/me`, `/v1/me/whatsapp/link`, `GET`/`DELETE /v1/me/whatsapp`) e as da seção 6.1 (casa, cômodo, tarefa, ocorrência) | `src/lambdas/api.ts`, `api-router.ts`, `api-input.ts`, `api-routes.ts`, `api-http.ts`; testes em `test/lambdas/api*.ts` | ✅ em memória e DynamoDB (cliente falso, `oversizedWrites: "split"` ligado nos testes); publicadas no `dev`; o app as consome por `Data/Remote` |
 | Gemini e ferramentas de leitura (`MessageResponder` definitivo) | `src/assistant/` | ✅ testado com cliente e `HttpFetch` falsos (seção 7.4), ligado em `composeWhatsAppWorker`; falta validar contra a API real |
-| Concluir tarefa com confirmação (`complete_task`, `PendingActionStore`, `parseConfirmation`, `resolveTask`) | `src/assistant/complete-task.ts`, `gemini-responder.ts`, port em `src/whatsapp/ports.ts`, `adapters/in-memory/pending-actions.ts`, contrato `test/contract/pending-actions.ts` | ✅ em memória, testado com Gemini falso (seção 7.4); adaptador DynamoDB em `src/adapters/dynamodb/pending-action-store.ts` (cliente falso) |
+| Concluir tarefa com confirmação (`complete_task`, `PendingActionStore`, `parseConfirmation`, `resolveTask`) | `src/assistant/complete-task.ts`, `gemini-responder.ts`, port em `src/whatsapp/ports.ts`, `adapters/in-memory/pending-actions.ts`, contrato `test/contract/pending-actions.ts` | ✅ testado com Gemini falso (seção 7.4); adaptador DynamoDB em `src/adapters/dynamodb/pending-action-store.ts` (cliente falso) |
 | Intervalo de datas ("da semana") em `GetMyTasksUseCase` | `src/domain/use-cases/tasks.ts` | ✅ `range: "week" \| "all"`, fuso da casa, só a semana corrente; extensão só do servidor (ver [ALGORITMO.md](ALGORITMO.md)) |
 
 ### Verificação
