@@ -126,6 +126,7 @@ export class TaskSchedulingService {
           // A versão precisa já cobrir uma execução anterior desta semana, para ela ganhar responsável.
           this.configureRoom(definition.roomID, Math.min(firstDate, date), state);
           state.definitions = state.definitions.filter((d) => d.id !== definition.id);
+          this.realignStartedRoomTurns(definition.roomID, Math.min(firstDate, date), date, state);
         }
         this.fill(definition, date, this.addingWeeks(HORIZON_WEEKS, start), state);
       }
@@ -550,6 +551,22 @@ export class TaskSchedulingService {
         this.fill(definition, date, end, state, this.replaceable(definition.id, boundary, date, state));
         state.definitions[i] = { ...definition };
       }
+    });
+  }
+
+  /**
+   * A versão nova do cômodo pode redistribuir os papéis entre as tarefas vinculadas. As vezes já disponíveis
+   * (`from <= availableAt <= date`) e não concluídas seguem os papéis novos, como as futuras no `rebalance`;
+   * senão a semana atual ficaria com os responsáveis da versão anterior.
+   */
+  private realignStartedRoomTurns(roomID: RoomID, from: Instant, date: Instant, state: SchedulingState): void {
+    const linked = new Map(
+      state.definitions.filter((d) => d.roomID === roomID && this.isRoomLinked(d, state)).map((d) => [d.id, d]),
+    );
+    state.occurrences.forEach((o, j) => {
+      const definition = linked.get(o.taskDefinitionID);
+      if (definition === undefined || isCompleted(o) || o.availableAt < from || o.availableAt > date) return;
+      this.replaceAssignment(j, this.roomOwner(definition, o.availableAt, state), date, state);
     });
   }
 

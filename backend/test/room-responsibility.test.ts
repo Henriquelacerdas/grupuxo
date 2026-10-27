@@ -88,6 +88,19 @@ test("blocos gulosos ficam equilibrados e dentro do grupo responsável", () => {
   assert.equal(ownersOn(state, monday).size, 2);
 });
 
+test("tarefas criadas uma a uma no meio da semana redistribuem as vezes desta semana com os papéis novos", () => {
+  const { service, state, task } = setup({ count: 2 });
+  const wednesday = calendar.addDays(monday, 2);
+  // Nesta ordem, as últimas criações mudam os blocos gulosos das tarefas anteriores.
+  for (const effort of [3, 2, 2, 1, 3]) service.create(task({ effort }), wednesday, state);
+  for (const o of state.occurrences) {
+    const d = state.definitions.find((x) => x.id === o.taskDefinitionID);
+    assert.ok(d !== undefined);
+    assert.equal(activeOwner(state, o), service.roomOwner(d, o.availableAt, state) ?? undefined);
+  }
+  assert.equal(ownersOn(state, monday).size, 2);
+});
+
 test("criação no meio do período inclui a execução desta semana ainda aberta e usa contagens exatas", () => {
   const { service, state, task, house } = setup({ n: 3, weeks: 2 });
   const start = calendar.addDays(monday, 3);

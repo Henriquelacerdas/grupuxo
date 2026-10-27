@@ -72,6 +72,18 @@ struct RoomResponsibilityTests {
         #expect(owners.count == 2)
     }
 
+    @Test func tasksCreatedOneByOneMidWeekRealignThisWeeksTurnsWithTheNewRoles() throws {
+        var s = state(count: 2)
+        let wednesday = calendar.date(byAdding: .day, value: 2, to: monday)!
+        // In this order, the last creations change the greedy blocks of the earlier tasks.
+        for effort in [3, 2, 2, 1, 3] { _ = try service.create(task(effort: effort), at: wednesday, state: &s) }
+        for o in s.occurrences {
+            let d = s.definitions.first { $0.id == o.taskDefinitionID }!
+            #expect(owner(o, in: s) == (try service.roomOwner(definition: d, date: o.availableAt, state: s)))
+        }
+        #expect(Set(s.occurrences.filter { $0.availableAt == monday }.compactMap { owner($0, in: s) }).count == 2)
+    }
+
     @Test func midPeriodCreationIncludesThisWeeksOpenExecutionAndUsesExactCounts() throws {
         var s = state(n: 3, weeks: 2)
         let start = calendar.date(byAdding: .day, value: 3, to: monday)!

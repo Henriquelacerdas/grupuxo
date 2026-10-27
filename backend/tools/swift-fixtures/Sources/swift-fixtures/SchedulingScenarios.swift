@@ -67,6 +67,16 @@ func createScenarios() -> [Scenario] {
         .create(task(3, room: W.bathroom, effort: 1), at: days(8)),
         .refresh(at: days(60)),
     ]))
+    // Cada criação redistribui os papéis (blocos gulosos): as vezes desta semana já publicadas seguem os papéis novos.
+    list.append(Scenario(name: "cômodo compartilhado: tarefas criadas uma a uma no meio da semana redistribuem a semana atual", zone: "UTC",
+        state: world(kitchen: WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 2), responsible: 2), steps: [
+        .create(task(1, room: W.kitchen, effort: 3, recurrence: .weekly(WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 2))), at: wed),
+        .create(task(2, room: W.kitchen, effort: 2, recurrence: .weekly(WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 2))), at: wed),
+        .create(task(3, room: W.kitchen, effort: 2, recurrence: .weekly(WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 2))), at: wed),
+        .create(task(4, room: W.kitchen, effort: 1, recurrence: .weekly(WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 2))), at: wed),
+        .create(task(5, room: W.kitchen, effort: 3, recurrence: .weekly(WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 2))), at: wed),
+        .refresh(at: days(21)),
+    ]))
     list.append(Scenario(name: "vinculada à periodicidade padrão do cômodo (1 vez por semana)", zone: "UTC",
         state: world(kitchen: WeeklyPeriodicity()), steps: [
         .create(task(1, room: W.kitchen, effort: 2), at: wed),

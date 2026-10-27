@@ -100,6 +100,7 @@ public struct TaskSchedulingService: Sendable {
                     // The version must already cover an execution earlier this week, so it gets its owner.
                     try configureRoom(roomID: definition.roomID, boundary: min(firstDate, date), state: &state)
                     state.definitions.removeAll { $0.id == definition.id }
+                    try realignStartedRoomTurns(roomID: definition.roomID, from: min(firstDate, date), at: date, state: &state)
                 }
                 try fill(definition: &definition, at: date, through: addingWeeks(12, to: start), state: &state)
             }
@@ -450,6 +451,26 @@ public struct TaskSchedulingService: Sendable {
                          replaceable: replaceable(of: definition.id, from: boundary, at: date, state: state))
                 state.definitions[i] = definition
             }
+        }
+    }
+
+    /// A versão nova do cômodo pode redistribuir os papéis entre as tarefas vinculadas. As vezes já disponíveis
+    /// (`from <= availableAt <= date`) e não concluídas seguem os papéis novos, como as futuras no `rebalance`;
+    /// senão a semana atual ficaria com os responsáveis da versão anterior.
+    private func realignStartedRoomTurns(roomID: Room.ID, from: Date, at date: Date,
+                                         state: inout TaskSchedulingState) throws {
+        let linked = Dictionary(
+            state.definitions.filter { $0.roomID == roomID && isRoomLinked($0, state: state) }.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        for j in state.occurrences.indices {
+            let occurrence = state.occurrences[j]
+            guard let definition = linked[occurrence.taskDefinitionID], !occurrence.isCompleted,
+                  occurrence.availableAt >= from, occurrence.availableAt <= date else { continue }
+            replaceAssignment(
+                occurrenceIndex: j, userID: try roomOwner(definition: definition, date: occurrence.availableAt, state: state),
+                at: date, state: &state
+            )
         }
     }
 
