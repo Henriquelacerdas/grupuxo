@@ -1,7 +1,7 @@
 import Combine
 import Foundation
 import GrupuxoDomain
-import EventKit
+@preconcurrency import EventKit
 
 struct AppReminder: Identifiable, Sendable {
     let id: String // reminder.calendarItemIdentifier
@@ -10,6 +10,8 @@ struct AppReminder: Identifiable, Sendable {
     let dueDate: Date?
     let isCompleted: Bool
     let priority: Int
+    /// Ocorrência do app a que o lembrete está vinculado (guardada na URL do lembrete).
+    let occurrenceID: UUID?
 }
 
 @MainActor
@@ -31,6 +33,19 @@ final class MyTasksViewModel: ObservableObject {
     var authorizationStatus: EKAuthorizationStatus = .notDetermined
     var errorMessage: String?
     var isLoading = false
+    private var reminderSyncTask: Task<Void, Never>?
+    private var needsReminderResync = false
+    /// Ocorrências cuja propagação Lembretes → app falhou nesta sessão; não reinsiste (evita laço de erros).
+    private var failedReminderKeys = Set<String>()
+    private var knownStatesKey: String { "reminderSync.completion.\(userID.uuidString)" }
+    /// Último estado (concluído ou não) em que lembrete e app estavam de acordo, por ocorrência.
+    /// É o que permite saber QUEM mudou: se o lembrete difere disto, foi mudado no app Lembretes.
+    private var knownReminderStates: [String: Bool] {
+        get { UserDefaults.standard.dictionary(forKey: knownStatesKey) as? [String: Bool] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: knownStatesKey) }
+    }
+    private enum SyncDirection { case none, reminderToApp, appToReminder }
+    private var cancellables = Set<AnyCancellable>()
     
     let eventStore = EKEventStore()
     var eventStoreAccess: EKEventStore { eventStore }
@@ -71,6 +86,13 @@ final class MyTasksViewModel: ObservableObject {
         self.now = now
         self.calendar = calendar
         self.text = MyTasksText(calendar: calendar, locale: locale)
+
+        // Concluir/editar no app Lembretes dispara esta notificação (ao vivo ou ao voltar pro app).
+        NotificationCenter.default
+            .publisher(for: .EKEventStoreChanged, object: eventStore)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.reminderStoreDidChange() }
+            .store(in: &cancellables)
     }
     
     func load(showLoading: Bool = true, forceRefresh: Bool = false) async {
@@ -100,8 +122,7 @@ final class MyTasksViewModel: ObservableObject {
             state = content.allItems.isEmpty ? .empty : .content(content)
             
             if case let .content(loadedTasks) = state {
-                await requestAccess()
-                await syncReminders(for: loadedTasks.allItems)
+                scheduleReminderSync(for: reminderEligibleItems(in: loadedTasks))
             }
 
             try Task.checkCancellation()
@@ -275,28 +296,160 @@ final class MyTasksViewModel: ObservableObject {
         )
     }
     
-    func syncReminders(for tasks: [TaskItem]) async {
-        if authorizationStatus == .fullAccess {
-            await fetchReminders()
+    private func reminderStoreDidChange() {
+        guard case let .content(content) = state else { return }
+        scheduleReminderSync(for: reminderEligibleItems(in: content))
+    }
+
+    /// Só vão para o Lembretes as tarefas do seu ciclo e as únicas que você assumiu.
+    /// "Tarefas gerais" (`extras`) ficam de fora.
+    private func reminderEligibleItems(in content: MyTasksContent) -> [TaskItem] {
+        (content.cycles.flatMap(\.rows) + content.sporadics).map(\.item)
+    }
+
+    private func currentItem(_ id: TaskOccurrence.ID) -> TaskItem? {
+        guard case let .content(content) = state else { return nil }
+        return content.item(id)
+    }
+
+    /// No máximo uma sincronização por vez; pedidos que chegam durante uma rodada
+    /// viram uma nova rodada ao final (a sincronização é idempotente, então termina).
+    private func scheduleReminderSync(for tasks: [TaskItem]) {
+        guard reminderSyncTask == nil else {
+            needsReminderResync = true
+            return
         }
-        
-        for item in tasks {
-            // Evita criar duplicatas caso o lembrete já exista
-            let alreadyExists = reminders.contains { reminder in
-                reminder.title == item.definition.name
-            }
-            
-            if !alreadyExists {
-                _ = await createReminder(
-                    title: item.definition.name,
-                    dueDate: item.occurrence.dueAt,
-                    priority: 0,
-                    notes: item.definition.details.isEmpty ? nil : item.definition.details
-                )
+        reminderSyncTask = Task { [weak self] in
+            guard let self else { return }
+            await self.runReminderSync(for: tasks)
+            self.reminderSyncTask = nil
+            if self.needsReminderResync {
+                self.needsReminderResync = false
+                self.reminderStoreDidChange()
             }
         }
     }
-    
+
+    private func runReminderSync(for tasks: [TaskItem]) async {
+        checkAuthorizationStatus()
+        if authorizationStatus != .fullAccess {
+            guard authorizationStatus == .notDetermined else { return } // negado: não insiste
+            await requestAccess()
+        }
+        guard authorizationStatus == .fullAccess else { return }
+        eventStore.refreshSourcesIfNecessary()
+        await syncReminders(for: tasks)
+    }
+
+    func syncReminders(for tasks: [TaskItem]) async {
+        guard authorizationStatus == .fullAccess else { return }
+        await fetchReminders(showCompleted: true)
+
+        // 1+2) Mantém lembrete e tarefa em acordo, nos dois sentidos, para concluir e reabrir.
+        var known = knownReminderStates
+
+        for reminder in reminders {
+            guard let id = reminder.occurrenceID,
+                  tasks.contains(where: { $0.id == id }),
+                  let live = currentItem(id) else { continue }
+
+            let key = id.uuidString
+            let appDone = live.occurrence.isCompleted
+            let direction: SyncDirection
+
+            if appDone == reminder.isCompleted {
+                direction = .none
+            } else if let last = known[key] {
+                // Quem saiu do último estado combinado foi quem mudou.
+                direction = (reminder.isCompleted != last) ? .reminderToApp : .appToReminder
+            } else {
+                // Sem histórico: o lado "concluído" vence (mantém o comportamento anterior).
+                direction = reminder.isCompleted ? .reminderToApp : .appToReminder
+            }
+
+            switch direction {
+            case .none:
+                known[key] = reminder.isCompleted
+
+            case .reminderToApp:
+                guard !failedReminderKeys.contains(key), canComplete(live) else { continue }
+                actionError = nil // para distinguir uma falha desta chamada de um erro antigo
+                await complete(id) // alterna: conclui a aberta ou reabre a concluída
+                if currentItem(id)?.occurrence.isCompleted == reminder.isCompleted {
+                    known[key] = reminder.isCompleted
+                } else if actionError != nil {
+                    failedReminderKeys.insert(key)
+                }
+
+            case .appToReminder:
+                if await setReminderCompleted(reminder, appDone) {
+                    known[key] = appDone
+                }
+            }
+        }
+
+        let linked = Set(reminders.compactMap { $0.occurrenceID?.uuidString })
+        knownReminderStates = known.filter { linked.contains($0.key) }
+
+        // 3) Cria o que falta (uma vez por ocorrência).
+        for item in tasks where !item.occurrence.isCompleted {
+            if reminders.contains(where: { $0.occurrenceID == item.id }) { continue }
+
+            // Lembrete criado antes do vínculo existir: adota em vez de duplicar.
+            if let legacy = reminders.first(where: {
+                $0.occurrenceID == nil && !$0.isCompleted && $0.title == item.definition.name
+            }) {
+                _ = await linkReminder(legacy, to: item.id)
+                continue
+            }
+
+            _ = await createReminder(
+                title: item.definition.name,
+                dueDate: item.occurrence.dueAt,
+                priority: 0,
+                notes: item.definition.details.isEmpty ? nil : item.definition.details,
+                occurrenceID: item.id
+            )
+        }
+    }
+
+    // MARK: - Vínculo lembrete ↔ ocorrência
+
+    private nonisolated static func reminderURL(for occurrenceID: UUID) -> URL? {
+        URL(string: "grupuxo://occurrence/\(occurrenceID.uuidString)")
+    }
+
+    private nonisolated static func occurrenceID(from url: URL?) -> UUID? {
+        guard let url, url.scheme == "grupuxo", url.host == "occurrence" else { return nil }
+        return UUID(uuidString: url.lastPathComponent)
+    }
+
+    private func linkReminder(_ reminder: AppReminder, to occurrenceID: UUID) async -> Bool {
+        guard let ek = eventStore.calendarItem(withIdentifier: reminder.id) as? EKReminder else { return false }
+        ek.url = Self.reminderURL(for: occurrenceID)
+        do {
+            try eventStore.save(ek, commit: true)
+            await fetchReminders(showCompleted: true)
+            return true
+        } catch {
+            errorMessage = "Failed to link reminder \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    private func setReminderCompleted(_ reminder: AppReminder, _ completed: Bool) async -> Bool {
+        guard let ek = eventStore.calendarItem(withIdentifier: reminder.id) as? EKReminder else { return false }
+        ek.isCompleted = completed
+        do {
+            try eventStore.save(ek, commit: true)
+            await fetchReminders(showCompleted: true)
+            return true
+        } catch {
+            errorMessage = "Failed to update reminder \(error.localizedDescription)"
+            return false
+        }
+    }
+
     func checkAuthorizationStatus() {
         authorizationStatus = EKEventStore.authorizationStatus(for: .reminder)
     }
@@ -321,7 +474,8 @@ final class MyTasksViewModel: ObservableObject {
         title: String,
         dueDate: Date? = nil,
         priority: Int = 0,
-        notes: String? = nil
+        notes: String? = nil,
+        occurrenceID: UUID? = nil
     ) async -> Bool {
         checkAuthorizationStatus()
         
@@ -343,6 +497,7 @@ final class MyTasksViewModel: ObservableObject {
         newReminder.title = title
         newReminder.notes = notes
         newReminder.calendar = defaultCalendar
+        if let occurrenceID { newReminder.url = Self.reminderURL(for: occurrenceID) }
         
         if let dueDate {
             newReminder.dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
@@ -361,7 +516,7 @@ final class MyTasksViewModel: ObservableObject {
         }
     }
     
-    func fetchReminders(showCompleted: Bool = false) async {
+    func fetchReminders(showCompleted: Bool = true) async {
         checkAuthorizationStatus()
             
         guard authorizationStatus == .fullAccess else {
@@ -372,30 +527,7 @@ final class MyTasksViewModel: ObservableObject {
         
         isLoading = true
         
-        let predicate: NSPredicate = showCompleted
-        ? eventStore.predicateForReminders(in: nil)
-        : eventStore.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: nil)
-        
-        let fetchedReminders: [AppReminder] = await withUnsafeContinuation { continuation in
-            eventStore.fetchReminders(matching: predicate) { ekReminders in
-                guard let ekReminders else {
-                    continuation.resume(returning: [])
-                    return
-                }
-                
-                let mappedItems = ekReminders.map { ek -> AppReminder in
-                    AppReminder(
-                        id: ek.calendarItemIdentifier,
-                        title: ek.title ?? "",
-                        notes: ek.notes,
-                        dueDate: ek.dueDateComponents?.date,
-                        isCompleted: ek.isCompleted,
-                        priority: ek.priority
-                    )
-                }
-                continuation.resume(returning: mappedItems)
-            }
-        }
+        let fetchedReminders = await Self.loadReminders(store: EventStoreBox(store: eventStore), showCompleted: showCompleted)
         
         reminders = fetchedReminders.sorted { first, second in
             switch (first.dueDate, second.dueDate) {
@@ -413,6 +545,42 @@ final class MyTasksViewModel: ObservableObject {
         isLoading = false
     }
     
+    /// EKEventStore não é Sendable; a caixa só atravessa o isolamento para a busca.
+    private struct EventStoreBox: @unchecked Sendable {
+        let store: EKEventStore
+    }
+
+    /// `nonisolated` de propósito: o EventKit chama o completion numa fila em segundo plano.
+    /// Um closure criado dentro de um método @MainActor herdaria o isolamento e, no Swift 6,
+    /// derrubaria o app com "Incorrect actor executor assumption".
+    /// O predicate é criado aqui dentro porque NSPredicate não é Sendable.
+    private nonisolated static func loadReminders(
+        store box: EventStoreBox,
+        showCompleted: Bool
+    ) async -> [AppReminder] {
+        let store = box.store
+        let predicate: NSPredicate = showCompleted
+            ? store.predicateForReminders(in: nil)
+            : store.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: nil)
+
+        return await withCheckedContinuation { continuation in
+            store.fetchReminders(matching: predicate) { ekReminders in
+                let mapped = (ekReminders ?? []).map { ek in
+                    AppReminder(
+                        id: ek.calendarItemIdentifier,
+                        title: ek.title ?? "",
+                        notes: ek.notes,
+                        dueDate: ek.dueDateComponents?.date,
+                        isCompleted: ek.isCompleted,
+                        priority: ek.priority,
+                        occurrenceID: MyTasksViewModel.occurrenceID(from: ek.url)
+                    )
+                }
+                continuation.resume(returning: mapped)
+            }
+        }
+    }
+
     func toggleComplete(_ reminder: AppReminder) async -> Bool {
         // Recupera o objeto nativo EKReminder no EventKit usando o id (calendarItemIdentifier)
         guard let ekReminder = eventStore.calendarItem(withIdentifier: reminder.id) as? EKReminder else {
