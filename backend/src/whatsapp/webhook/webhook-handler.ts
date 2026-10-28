@@ -1,3 +1,4 @@
+import { measure, noLatency, recordAge, type LatencyObserver } from "../../latency.ts";
 import type { Instant } from "../../domain/dates.ts";
 import type { MessageQueue } from "../ports.ts";
 import { constantTimeEquals, SignatureVerifier } from "./signature-verifier.ts";
@@ -41,8 +42,15 @@ export class WebhookHandler {
   private readonly verifier: SignatureVerifier;
   private readonly queue: MessageQueue;
   private readonly now: () => Instant;
+  private readonly latency: LatencyObserver;
+  private readonly arrivalTime: (() => Instant) | undefined;
 
-  constructor(config: WebhookConfig, queue: MessageQueue, now: () => Instant) {
+  constructor(
+    config: WebhookConfig, queue: MessageQueue, now: () => Instant, latency: LatencyObserver = noLatency,
+    arrivalTime?: () => Instant,
+  ) {
+    this.latency = latency;
+    this.arrivalTime = arrivalTime;
     this.config = config;
     this.verifier = new SignatureVerifier(config.appSecret);
     this.queue = queue;
@@ -71,17 +79,25 @@ export class WebhookHandler {
   }
 
   private async receive(request: WebhookRequest): Promise<WebhookResponse> {
+    const arrivedAt = this.arrivalTime?.() ?? this.now();
     const body = request.body ?? new Uint8Array();
     if (!this.verifier.isValid(header(request, "X-Hub-Signature-256"), body)) return { statusCode: 401, body: "" };
     let messages;
     try {
       const json: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
-      messages = incomingTextMessages(decodeWebhookPayload(json), this.now());
+      messages = incomingTextMessages(decodeWebhookPayload(json), this.now(), (timestamp) => {
+        if (timestamp === null) this.latency.add("timestampFallbacks");
+        else recordAge(this.latency, "metaDeliveryMs", arrivedAt, timestamp);
+      });
+      this.latency.add("textMessages", messages.length);
     } catch {
       return { statusCode: 400, body: "" };
     }
     try {
-      for (const message of messages) await this.queue.enqueue(message);
+      for (const message of messages) {
+        await measure(this.latency, "enqueueMs", () => this.queue.enqueue(message));
+        this.latency.add("enqueuedMessages");
+      }
     } catch {
       // 5xx faz a Meta reenviar o evento; mensagens já enfileiradas são deduplicadas por `wamid`.
       return { statusCode: 500, body: "" };

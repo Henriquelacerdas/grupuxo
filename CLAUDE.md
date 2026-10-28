@@ -63,11 +63,12 @@ O app já usa a `api` para casa, cômodos, tarefas, avulsas, trocas, notificaç�
 - Amplify: só o Auth. Não reintroduza Amplify Data/AppSync nem outra persistência de casa no app: casa, convite e tarefas são do backend (DynamoDB) e o app as acessa pela `api`.
 - Mudou contrato compartilhado ou regra de negócio? Atualize os docs no mesmo commit.
 
-## Latência (2026-10-27)
+## Latência (2026-10-28)
 
 - `GET /v1/me/house/snapshot` e `HouseSnapshotRepository` (`backend/src/domain/commands/house-snapshot.ts`) agregam as leituras sem mudar políticas de acesso. `taskItems` usa índices locais; `HouseStateStore.read` não monta baseline de escrita. Código local; publicar a `api` exige autorização própria.
 - O mesmo `MyHouseCache` sai da sessão e chega aos repositórios do container: TTL 5 s, uma busca para consumidores concorrentes, geração de invalidação e fallback só no `404 not_found` do snapshot. Mutação bem-sucedida e puxar para atualizar invalidam; logout substitui o cache. Não persistir cache entre contas nem retirar invalidações para ganhar velocidade.
 - `OptimisticTaskCompletions` só faz a prévia da UI em Minhas tarefas, cômodo e avulsas. Bloqueia por ocorrência, restaura em falha e reconcilia após a última escrita. Não mover saldo, sucessores ou distribuição para a apresentação. Cargas antigas não podem sobrescrever uma ação mais nova.
+- WhatsApp: `src/latency.ts` é um port de telemetria numérica, permitido em WhatsApp/assistant/adaptadores; nunca no domínio. Só `main/latency.ts` publica logs, com contexto isolado por mensagem e campos fechados, sem texto, telefone, wamid ou outros IDs. Instrumentação e otimizações existentes publicadas no worker/webhook do dev em 28/10; memória, timeout, modelo e fila preservados (docs/LATENCIA.md).
 - Medições e validação em [docs/LATENCIA.md](docs/LATENCIA.md). Benchmark local: `cd backend && node tools/performance/read-latency.ts` (sem AWS).
 
 ## Comandos

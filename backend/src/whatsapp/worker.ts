@@ -1,3 +1,4 @@
+import { measure, noLatency, recordAge, type LatencyObserver } from "../latency.ts";
 import type { Instant } from "../domain/dates.ts";
 import type { IncomingMessage } from "./incoming-message.ts";
 import type { WhatsAppLinker } from "./linking/whatsapp-linker.ts";
@@ -13,6 +14,7 @@ export interface WhatsAppWorkerDependencies {
   /** Limite de mensagens por número (BACKEND.md 7.3). Obrigatório: não existe worker sem controle de custo. */
   readonly rateLimiter: Pick<MessageRateLimiter, "check">;
   readonly now: () => Instant;
+  readonly latency?: LatencyObserver;
 }
 
 /**
@@ -33,27 +35,37 @@ export class WhatsAppWorker {
 
   async process(message: IncomingMessage): Promise<void> {
     const { inbox, links, linker, responder, sender, rateLimiter, now } = this.deps;
-    if ((await inbox.claim(message.wamid, message.receivedAt)) !== "claimed") return;
+    const latency = this.deps.latency ?? noLatency;
+    if ((await measure(latency, "claimMs", () => inbox.claim(message.wamid, message.receivedAt))) !== "claimed") {
+      latency.outcome("duplicate");
+      return;
+    }
 
     // Antes do vínculo e do Gemini, para um número que exagera não gerar consulta, chamada ao modelo nem resposta.
     // Mensagem barrada conta como processada (não vai para nova tentativa nem DLQ); só a primeira da janela é avisada.
     // Limitação conhecida: uma nova tentativa depois de falha conta de novo na janela.
-    const decision = await rateLimiter.check(message.phoneE164, now());
+    const decision = await measure(latency, "rateLimitMs", () => rateLimiter.check(message.phoneE164, now()));
     if (decision !== "allowed") {
-      if (decision === "limitedFirst") await sender.send(WhatsAppWorker.rateLimitedReply, message.phoneE164);
-      await inbox.markProcessed(message.wamid, now());
+      if (decision === "limitedFirst") {
+        await sender.send(WhatsAppWorker.rateLimitedReply, message.phoneE164);
+        recordAge(latency, "sourceToGraphMs", now(), message.receivedAt);
+      }
+      await measure(latency, "markProcessedMs", () => inbox.markProcessed(message.wamid, now()));
+      latency.outcome("limited");
       return;
     }
 
     let reply: string;
-    const linkReply = await linker.handle(message);
+    const linkReply = await measure(latency, "linkMs", () => linker.handle(message));
     if (linkReply !== null) {
       reply = linkReply;
     } else {
-      const link = await links.linkForPhone(message.phoneE164);
-      reply = link !== null ? await responder.reply(message.text, link.userID, { wamid: message.wamid }) : WhatsAppWorker.unlinkedReply;
+      const link = await measure(latency, "linkMs", () => links.linkForPhone(message.phoneE164));
+      reply = link !== null ? await measure(latency, "responderMs", () => responder.reply(message.text, link.userID, { wamid: message.wamid })) : WhatsAppWorker.unlinkedReply;
     }
     await sender.send(reply, message.phoneE164);
-    await inbox.markProcessed(message.wamid, now());
+    recordAge(latency, "sourceToGraphMs", now(), message.receivedAt);
+    await measure(latency, "markProcessedMs", () => inbox.markProcessed(message.wamid, now()));
+    latency.outcome("success");
   }
 }

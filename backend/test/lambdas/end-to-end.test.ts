@@ -1,3 +1,5 @@
+import { latencyRuntime } from "../../src/main/latency.ts";
+import type { LatencyObserver, LatencyScope, LatencyReport } from "../../src/latency.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { SqsMessageQueue } from "../../src/adapters/aws/sqs-message-queue.ts";
@@ -55,7 +57,7 @@ function workerDeps(http: HttpFetch, rateLimit = "2"): { world: World; links: In
   return { world, links, deps };
 }
 
-function setup(geminiBody: string) {
+function setup(geminiBody: string, telemetry?: { observer: LatencyObserver; scope: LatencyScope }) {
   const calls: Call[] = [];
   const http: HttpFetch = async (url, init) => {
     calls.push({ url, init });
@@ -65,7 +67,7 @@ function setup(geminiBody: string) {
   const sqs = new FakeSqsClient();
   const queue = new SqsMessageQueue({ client: sqs, queueURL: "https://sqs.sa-east-1.amazonaws.com/123456789012/grupuxo-dev.fifo" });
   const webhook = createWebhookHandler(new WebhookHandler({ verifyToken: VERIFY_TOKEN, appSecret: APP_SECRET }, queue, deps.now));
-  const worker = createWorkerHandler(composeWhatsAppWorker(deps));
+  const worker = createWorkerHandler(composeWhatsAppWorker({ ...deps, ...(telemetry === undefined ? {} : { latency: telemetry.observer }) }), () => {}, telemetry?.scope);
   const graphCalls = () => calls.filter((c) => c.url.startsWith(GRAPH));
   const geminiCalls = () => calls.filter((c) => c.url.startsWith(GEMINI));
 
@@ -164,4 +166,26 @@ test("composeCognitoVerifier busca o JWKS do pool configurado e valida um access
   const verified = await verifier.verify(signJWT({ key }));
   assert.equal(verified.cognitoSub, "5b9c1e0a-3f4d-4a8e-9a77-0c2d6f1b8e11");
   assert.deepEqual(urls, [`https://cognito-idp.us-east-1.amazonaws.com/${USER_POOL_ID}/.well-known/jwks.json`]);
+});
+
+
+test("telemetria na composição: uma consulta e sua duplicata preservam resposta e idempotência", async () => {
+  const reports: LatencyReport[] = [];
+  const telemetry = latencyRuntime((report) => reports.push(report), () => 10, () => NOW);
+  const { world, links, deliver, graphCalls } = setup(functionCall("list_my_tasks", { range: "week" }), telemetry);
+  await links.create({ userID: world.seed.users.marina.id, phoneE164: PHONE, consentedAt: 1, linkedAt: 1 });
+  await deliver("wamid.private", "mensagem privada");
+  await deliver("wamid.private", "mensagem privada");
+  assert.equal(graphCalls().length, 1);
+  assert.ok(sentText(graphCalls()[0]).startsWith("Suas tarefas da semana:"));
+  const [first, duplicate] = reports;
+  assert.equal(first?.outcome, "success");
+  assert.equal(first?.geminiRounds, 1); assert.equal(first?.geminiAttempts, 1);
+  assert.equal(first?.myTaskCalls, 1); assert.equal(first?.graphCalls, 1);
+  assert.equal(duplicate?.outcome, "duplicate");
+  assert.equal(duplicate?.geminiAttempts, 0); assert.equal(duplicate?.graphCalls, 0);
+  const serialized = JSON.stringify(reports);
+  for (const secret of ["wamid.private", "mensagem privada", PHONE, GEMINI_KEY, WHATSAPP_TOKEN, world.seed.users.marina.id]) {
+    assert.ok(!serialized.includes(secret), secret);
+  }
 });

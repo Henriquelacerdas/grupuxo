@@ -1,5 +1,92 @@
 # Latência das telas e o erro "Não foi possível falar com o servidor"
 
+## WhatsApp — diagnóstico e instrumentação local (2026-10-28)
+
+Investigação autorizada em CloudWatch, somente leitura, seguida de aprovação para implementar e rodar a instrumentação local. Publicação autorizada posteriormente e concluída em **28/10/2026 às 10:13, Brasília**, no worker e webhook do `dev`. Nenhuma alteração de memória, timeout, fila ou modelo; não houve envio real pela Graph, chamada real ao Gemini ou operação na DLQ pelo agente. Testes locais usam clientes falsos.
+
+Janela principal: **20/10 21:00 a 28/10 09:13:34, Brasília** (21/10 00:00 a 28/10 12:13:34 UTC), `us-east-1`, grupos `/aws/lambda/grupuxo-dev-webhook` e `/aws/lambda/grupuxo-dev-worker`. Logs Insights `platform.report`:
+
+| Medida | Amostras | Mediana | p90 |
+| --- | ---: | ---: | ---: |
+| Webhook, todas as requisições (inclui callbacks sem texto) | 166 invocações | 2,39 ms | 429,22 ms |
+| Worker, versões da janela | 44 invocações | 3.417,71 ms | 13.640,54 ms |
+| Worker desde a implantação de 26/10 11:53:11 Brasília | 16 invocações | 5.427,31 ms | 15.316,07 ms |
+| Init do worker atual, somente invocações frias | 5 reports | 429,44 ms | 491,17 ms |
+
+Duração de invocação exclui `initDurationMs`; setup preguiçoso/segredo fica dentro dela. Batch pode conter várias mensagens: invocação não equivale a mensagem respondida. Queries de origem: `2b3c805a-e140-4559-acb8-a1353ae3d5e9` (janela principal) e `9d9175a7-dcb0-45e6-8261-88b5a2ecedf2` (worker atual). A consulta usa `filter type = "platform.report" | stats count(*), pct(record.metrics.durationMs,50), pct(record.metrics.durationMs,90) by @log` e os intervalos acima.
+
+Sem instrumentação implantada, **Meta→webhook, espera por mensagem no SQS, Gemini por tentativa/rodada, carga da casa e Graph não têm p50/p90 separados**. Não deduzir esses tempos subtraindo percentis de populações diferentes.
+
+Configuração efetiva conferida: worker **512 MB / 60 s**, API **1769 MB / 15 s**, webhook **256 MB / 10 s**; Gemini `gemini-3.1-flash-lite`, duas tentativas de 12 s, backoff de 500 ms, thinking `low`; até três rodadas com cutoff de 15 s para iniciar correção (não é deadline da chamada). SQS FIFO: batch **5**, janela **0**, visibilidade **360 s**, `maxReceiveCount=3`, sem máximo de concorrência do mapping ou reserva configurados para o worker. Processamento sequencial inclusive entre grupos do lote; mesmo telefone mantém FIFO.
+
+Métricas `AWS/SQS` de uma hora mostraram idade máxima **1372 s (22 min 52 s)**, backlog visível máximo 2, 42 envios/49 recebimentos/39 exclusões reportados (não contagens de mensagens únicas) e DLQ com máximo de oito itens. Idade máxima agregada não é tempo individual de espera. Sem throttles/erros de Lambda; respostas parciais/fallback podem falhar sem elevar a métrica `Errors`. Logs seguros registraram três Graph HTTP 400 e cinco 401, todos anteriores à implantação atual, com sequências próximas de 360 s. Depois da implantação atual: quatro falhas finais Gemini 503 e um timeout. Falhas finais não contam retries recuperados. Não há evidência para trocar modelo ou aumentar timeout agora.
+
+O SHA-256 base64 do ZIP local `backend/infra/build/worker.zip`, **`T3owSq2Qts5YZjNK9zB05fyYTWC/0AEZN3Y8W44Aizo=`**, coincide com o `CodeSha256` implantado. O bundle reconstruído de `6e32523` coincide após remover comentários de caminho. Esse código ainda recodifica baseline/clona leituras e faz buscas repetidas em `taskItems`; as otimizações do commit `101779e` (27/10), já no checkout, ainda não estavam implantadas no worker.
+
+Benchmark offline da investigação: Node 25.1.0, 15 amostras/cenário, seed determinístico com **2508 itens na partição**, mais perfis; cliente falso com uma página por carga, Gemini e Graph falsos. Sem RTT, SDK ou limitação de CPU da Lambda. Baseline equivalente ao bundle implantado versus HEAD antes desta instrumentação:
+
+| Cenário | Cargas completas | Rodadas Gemini | Implantado: mediana / p90 | HEAD: mediana / p90 |
+| --- | ---: | ---: | ---: | ---: |
+| Minhas tarefas da semana | 2 | 1 | 27,41 / 28,22 ms | 15,41 / 15,59 ms |
+| Cômodo | 2 | 1 | 23,51 / 24,68 ms | 11,27 / 11,51 ms |
+| Avulsas | 2 | 1 | 32,07 / 32,42 ms | 19,79 / 20,82 ms |
+| Três ferramentas | 4 | 1 | 71,66 / 74,09 ms | 35,80 / 37,19 ms |
+| Pedir conclusão | 2 | 1 | 27,58 / 28,36 ms | 15,27 / 16,78 ms |
+| Confirmar com "sim" | 3 | 0 | 36,19 / 37,04 ms | 22,95 / 24,37 ms |
+| Três correções de tarefa não resolvida | 4 | 3 | 69,97 / 71,21 ms | 34,64 / 36,42 ms |
+
+Ajuda sem ferramenta ainda faz uma carga antes do modelo. `houses.houses` é GSI + lote de META, sem carga completa; o fuso de `GetMyTasks(week)` é um `GetItem`, não outra carga. Cada carga completa pode ter várias páginas e lotes de perfis. Escala vencida acrescenta a leitura transacional; conflitos repetem a carga. Nos perfis CPU locais, `taskItems` na pilha caiu de ~2,29 s para ~0,10 s em 200 mensagens; a clonagem/expressões do falso também aparecem e não representam custo do DynamoDB real. Os números acima antecedem a instrumentação; não são projeção do ganho fim a fim na Lambda.
+
+### Instrumentação implementada e publicada no dev
+
+`src/latency.ts` define campos fechados, timers com relógio injetado e samples sem conteúdo. `src/main/latency.ts` usa relógio monotônico e `AsyncLocalStorage`: uma medição por mensagem, sem contador compartilhado entre usuários/invocações; só `main/` escreve JSON em stdout. Falha do destino do log não muda o retorno/erro original. Não entram texto, telefone, wamid, IDs de casa/morador, argumentos, nomes de tarefa/cômodo, URL, token, corpo ou mensagem de erro. Não há novas dependências de runtime.
+
+Evento **`whatsapp_latency`**, `version=1`, com `kind`:
+
+- `webhook`: requisição inteira, inclusive setup na primeira; status traduzido em `success`, `rejected` ou `failure`. `textMessages`, `timestampFallbacks`, `invalidTimestamps`, `enqueuedMessages`, `metaDeliveryMs` e `enqueueMs`. `metaDeliveryMs` soma os atrasos de timestamps válidos num payload; **filtrar `textMessages=1`, fallback/inválidos zero para percentis por mensagem**. Timestamp da Meta tem precisão limitada e não mede o gesto no aparelho.
+- `batch`: duração do handler do worker, inclusive setup e todos os registros. `setup` registra separadamente a montagem preguiçosa/dependências, somente quando ela acontece, inclusive falhas. Não somar esses tempos aninhados.
+- `message`: um registro SQS, inclusive JSON inválido ou grupo bloqueado. `batchSize`, `batchIndex`, `receiveCount`; `queueDispatchMs` = chegada ao handler externo menos `SentTimestamp` (inclui reentregas); `firstQueueWaitMs` = primeiro recebimento SQS menos envio; `batchWaitMs` = início do registro menos chegada ao handler externo, incluindo setup e registros anteriores. Atributos opcionais inválidos não descartam a mensagem nem viram espera zero. `outcome` distingue `success`, `failure`, `duplicate`, `limited` e `blocked_group`.
+
+Dentro de cada mensagem: `claimMs`, `rateLimitMs`, `linkMs`, `resolveHouseMs`, `roomsMs`, `responderMs`, `toolMs`, `markProcessedMs`; `geminiRounds`, `geminiAttempts`, `geminiRetries`, `geminiFailures`, `geminiCutoffs`, `geminiRetrySleepMs` e `geminiAttemptTimings` (cada tentativa traz duração, outcome constante e status HTTP quando disponível, inclusive falhas recuperadas). `toolCalls` conta chamadas recebidas; contadores específicos distinguem execução de minhas tarefas/cômodo/avulsas, pedidos e confirmações. Gemini continua decidindo somente a ferramenta; "sim" continua decidido pelo código.
+
+Armazenamento: `houseLoads`, `housePages`, `houseItems`, `profileBatches`, `profiles`, `houseConflicts` e `houseTransactions`; tempos `houseReadMs`, `houseUpdateMs`, `houseLoadMs`, `houseQueryMs`, `houseDecodeMs`, `profileMs`, `houseBaselineMs`, `houseCloneMs`, `houseCommandMs`, `houseDiffMs`, `houseWriteMs`. São tempos aninhados: `houseLoadMs` inclui query/decodificação/perfis; `houseCommandMs` inclui o callback de domínio; `houseQueryMs` inclui SDK/rede, `houseDecodeMs` é só o decoder do adaptador. Não somar pais/filhos. Páginas/itens contam retornos recebidos, cargas/transações contam tentativas.
+
+Envio: `graphMs`, `graphCalls`, `graphStatus`, falhas/timeout/rede, `replyChars` e indicadores de corte do responder/sender. Continua um envio por resposta; limites 3800/4096 pontos de código. `sourceToWorkerMs` e `sourceToGraphMs` usam `IncomingMessage.receivedAt` (timestamp original ou fallback legado). **Graph aceita o envio; isso não comprova entrega no aparelho.** Não há novo tratamento de callbacks de entrega.
+
+Contadores começam em zero; durações não executadas e timestamps/status ausentes ficam ausentes. Um `outcome=success` com `geminiFailures>0` pode ser envio bem-sucedido do fallback, não interpretação bem-sucedida. Usar `kind=message` para percentis por registro e separar essas populações. `totalMs` de mensagem exclui `batchWaitMs`; `platform.report.initDurationMs` continua a fonte de inicialização do runtime anterior ao handler JavaScript.
+
+Consultas nos grupos de worker/webhook, em uma janela explícita após a publicação:
+
+```text
+parse @message /(?<payload>\{.*\})/
+| fields jsonParse(payload) as m
+| filter m.event = "whatsapp_latency" and m.kind = "message"
+| stats count(*) as n,
+    pct(m.queueDispatchMs,50) as queue_p50, pct(m.queueDispatchMs,90) as queue_p90,
+    pct(m.batchWaitMs,50) as batch_p50, pct(m.batchWaitMs,90) as batch_p90,
+    pct(m.totalMs,50) as worker_p50, pct(m.totalMs,90) as worker_p90,
+    pct(m.geminiMs,50) as gemini_p50, pct(m.geminiMs,90) as gemini_p90,
+    pct(m.houseLoadMs,50) as house_p50, pct(m.houseLoadMs,90) as house_p90,
+    pct(m.graphMs,50) as graph_p50, pct(m.graphMs,90) as graph_p90
+  by m.outcome
+```
+
+```text
+parse @message /(?<payload>\{.*\})/
+| fields jsonParse(payload) as m
+| filter m.event = "whatsapp_latency" and m.kind = "message"
+| unnest m.geminiAttemptTimings into attempt
+| stats count(*) as n, pct(attempt.durationMs,50) as p50,
+    pct(attempt.durationMs,90) as p90 by attempt.outcome, attempt.status
+```
+
+Validação local: `npm test` em `backend/` — **1139 testes passaram**, incluindo 14 novos cenários de telemetria (privacidade, isolamento concorrente, retry recuperado, timeout do corpo, Graph 401/corte, SQS/reentrega/grupo bloqueado, fallback de timestamp, paginação, conflito e falha de comando, cutoff e idempotência na composição). `npm run typecheck`, `npm run build` e `git diff --check` passaram. Sem chamadas a serviços reais. As consultas seguem a sintaxe oficial de [jsonParse/unnest do CloudWatch](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax-Unnest.html).
+
+Publicação de 28/10: plano Terraform direcionado às duas Lambdas, validado como **0 criações, 2 atualizações de código, 0 exclusões**, sem mudanças de configuração. Worker `qtlNo8MLBfqaw1GLNeNIudviT7mWcWN1byvoYQgOhBM=`; webhook `JcVP0KsDZCrytaFNtYlnw3xiPf0adwEj0/pDhO10LWI=` (SHA-256 base64). Ambos confirmados `Active`/`Successful` e com hashes iguais aos pacotes locais. O bundle do worker também inclui as otimizações de leitura e `taskItems` já existentes no checkout. API preservada (hash `vBE07EKMSXJc3Fbu8UY96AW4bBp/ghIP8MhvwmcZ0PA=`). Smoke tests: lote SQS vazio e GET de verificação sem token, sem erros de execução; não exercitam conversa real. CloudWatch confirmou dois eventos `setup=success`, um `batch=success` e um `webhook=rejected` (esperado sem token). Query validada `719fbe8e-308d-4d80-8f4b-45b7dddbdc47`; extração explícita de JSON nas consultas abaixo evita o resultado vazio observado ao filtrar diretamente o alias de `jsonParse(@message)`.
+
+Próxima medição: comparar caminhos, tamanho/estado da casa e versão equivalentes; separar cold starts, retries, falhas/fallback e número de cargas. A publicação permite medir o efeito das otimizações já existentes. Depois avaliar uma mudança por vez: memória 512→1769 MB, leitura agregada por mensagem/rodada e orçamento global Gemini. Permanecem timeout 60 s, visibilidade 360 s, modelo e FIFO. Mudanças adicionais de infraestrutura continuam dependendo de autorização específica.
+
+
 ## Correções implementadas localmente — 2026-10-27
 
 Auditoria local da abertura, navegação e conclusão/desmarcação de tarefas. Nenhuma chamada à AWS, Meta ou Gemini nesta rodada.

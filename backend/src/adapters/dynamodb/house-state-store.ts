@@ -1,3 +1,4 @@
+import { measure, measureSync, noLatency, type LatencyObserver } from "../../latency.ts";
 import { DomainError } from "../../domain/errors.ts";
 import type { House } from "../../domain/entities.ts";
 import { userID, type HouseID, type UserID } from "../../domain/ids.ts";
@@ -36,6 +37,7 @@ export type LookupKind = keyof typeof lookupPK;
 export type OversizedWrites = "fail" | "split";
 
 export interface HouseStateStoreOptions {
+  readonly latency?: LatencyObserver;
   /**
    * `fail` (padrão): falha fechado, sem gravar (`tooManyWrites`). `split`: divide a escrita em várias transações
    * (atalho provisório do TestFlight, PLANO.md seção 2): a primeira leva o `META` condicionado a `version`; se uma
@@ -143,8 +145,10 @@ export class HouseStateStore {
   private readonly client: DynamoClient;
   private readonly runtime: DynamoRuntime;
   private readonly oversizedWrites: OversizedWrites;
+  private readonly latency: LatencyObserver;
 
   constructor(client: DynamoClient, runtime: DynamoRuntime, options: HouseStateStoreOptions = {}) {
+    this.latency = options.latency ?? noLatency;
     this.client = client;
     this.runtime = runtime;
     this.oversizedWrites = options.oversizedWrites ?? "fail";
@@ -152,8 +156,10 @@ export class HouseStateStore {
 
   /** Leitura consistente; nunca grava. */
   async read<T>(houseID: HouseID, fn: (state: StoreState) => T): Promise<T> {
-    const loaded = await this.load(houseID, [], false);
-    return fn(loaded.state);
+    return measure(this.latency, "houseReadMs", async () => {
+      const loaded = await this.load(houseID, [], false);
+      return measureSync(this.latency, "houseCommandMs", () => fn(loaded.state));
+    });
   }
 
   /**
@@ -164,11 +170,15 @@ export class HouseStateStore {
    * (o último morador saiu), apaga a partição inteira e o `ACCESSCODE#` (veja `deletion`).
    */
   async update<T>(houseID: HouseID, fn: (draft: StoreState) => T, options: UpdateOptions = {}): Promise<T> {
+    return measure(this.latency, "houseUpdateMs", () => this.performUpdate(houseID, fn, options));
+  }
+
+  private async performUpdate<T>(houseID: HouseID, fn: (draft: StoreState) => T, options: UpdateOptions): Promise<T> {
     for (let attempt = 1; ; attempt += 1) {
       const loaded = await this.load(houseID, options.extraProfileIDs ?? []);
-      const draft = cloneStoreState(loaded.state);
-      const result = fn(draft);
-      const { actions, deletesHouse } = this.diff(houseID, loaded, draft);
+      const draft = measureSync(this.latency, "houseCloneMs", () => cloneStoreState(loaded.state));
+      const result = measureSync(this.latency, "houseCommandMs", () => fn(draft));
+      const { actions, deletesHouse } = measureSync(this.latency, "houseDiffMs", () => this.diff(houseID, loaded, draft));
       if (actions.length === 0) return result;
       if (!loaded.exists) throw new DomainError("entityNotFound");
       // Excluir a casa sempre pode dividir: a primeira transação apaga o `META` e o resto fica inerte (veja `deletion`).
@@ -177,11 +187,13 @@ export class HouseStateStore {
       }
       const [first = [], ...rest] = splitTransactions(actions);
       try {
-        await this.client.transactWrite(first);
+        this.latency.add("houseTransactions");
+        await measure(this.latency, "houseWriteMs", () => this.client.transactWrite(first));
       } catch (error) {
         // A ação 0 é sempre o `META` condicionado a `version`: só a falha dela é conflito de concorrência.
         const conflict = error instanceof DynamoTransactionCanceledError && error.reasons[0] === "ConditionalCheckFailed";
         if (!conflict) throw error;
+        this.latency.add("houseConflicts");
         if (attempt >= MAX_ATTEMPTS) throw new DynamoStoreError("conflict");
         await this.runtime.sleep(Math.floor(this.runtime.random() * MAX_JITTER_MS * attempt));
         continue;
@@ -189,7 +201,8 @@ export class HouseStateStore {
       // A primeira transação (com o `META`) já foi aplicada: daqui em diante não há como repetir nem desfazer.
       for (const batch of rest) {
         try {
-          await this.client.transactWrite(batch);
+          this.latency.add("houseTransactions");
+          await measure(this.latency, "houseWriteMs", () => this.client.transactWrite(batch));
         } catch {
           throw new DynamoStoreError("partialWrite");
         }
@@ -341,35 +354,43 @@ export class HouseStateStore {
   }
 
   private async load(houseID: HouseID, extraProfileIDs: readonly UserID[], forUpdate = true): Promise<LoadedHouse> {
-    const items = await queryAll(this.client, {
+    return measure(this.latency, "houseLoadMs", () => this.loadState(houseID, extraProfileIDs, forUpdate));
+  }
+
+  private async loadState(houseID: HouseID, extraProfileIDs: readonly UserID[], forUpdate: boolean): Promise<LoadedHouse> {
+    this.latency.add("houseLoads");
+    const items = await measure(this.latency, "houseQueryMs", () => queryAll(this.client, {
       keyCondition: "#pk = :pk", names: { "#pk": "PK" }, values: { ":pk": housePK(houseID) },
       consistentRead: true, scanForward: true,
-    });
+    }, (count) => { this.latency.add("housePages"); this.latency.add("houseItems", count); }));
     const state = emptyStoreState();
     let house: House | undefined;
     let version = 0;
-    for (const item of items) {
-      const sk = str(item, "SK");
-      if (sk === META_SK) {
-        const decoded = decodeHouse(item);
-        house = decoded.house;
-        version = decoded.version;
-        state.houses.push(decoded.house);
-      } else if (sk.startsWith(SK_PREFIX.membership)) state.houseMemberships.push(decodeHouseMembership(item, houseID));
-      else if (sk.startsWith(SK_PREFIX.roomMembership)) state.roomMemberships.push(decodeRoomMembership(item));
-      else if (sk.startsWith(SK_PREFIX.room)) state.rooms.push(decodeRoom(item, houseID));
-      else if (sk.startsWith(SK_PREFIX.definition)) state.definitions.push(decodeDefinition(item));
-      else if (sk.startsWith(SK_PREFIX.occurrence)) state.occurrences.push(decodeOccurrence(item));
-      else if (sk.startsWith(SK_PREFIX.assignment)) state.assignments.push(decodeAssignment(item));
-      else if (sk.startsWith(SK_PREFIX.swap)) state.taskSwapRequests.push(decodeSwap(item));
-      else if (sk.startsWith(SK_PREFIX.notification)) state.notifications.push(decodeNotification(item));
-      else if (sk.startsWith(SK_PREFIX.absence)) state.absences.push(decodeAbsence(item));
-    }
+    const stopDecode = this.latency.start("houseDecodeMs");
+    try {
+      for (const item of items) {
+        const sk = str(item, "SK");
+        if (sk === META_SK) {
+          const decoded = decodeHouse(item);
+          house = decoded.house;
+          version = decoded.version;
+          state.houses.push(decoded.house);
+        } else if (sk.startsWith(SK_PREFIX.membership)) state.houseMemberships.push(decodeHouseMembership(item, houseID));
+        else if (sk.startsWith(SK_PREFIX.roomMembership)) state.roomMemberships.push(decodeRoomMembership(item));
+        else if (sk.startsWith(SK_PREFIX.room)) state.rooms.push(decodeRoom(item, houseID));
+        else if (sk.startsWith(SK_PREFIX.definition)) state.definitions.push(decodeDefinition(item));
+        else if (sk.startsWith(SK_PREFIX.occurrence)) state.occurrences.push(decodeOccurrence(item));
+        else if (sk.startsWith(SK_PREFIX.assignment)) state.assignments.push(decodeAssignment(item));
+        else if (sk.startsWith(SK_PREFIX.swap)) state.taskSwapRequests.push(decodeSwap(item));
+        else if (sk.startsWith(SK_PREFIX.notification)) state.notifications.push(decodeNotification(item));
+        else if (sk.startsWith(SK_PREFIX.absence)) state.absences.push(decodeAbsence(item));
+      }
+    } finally { stopDecode(); }
     const wanted = [...new Set([...referencedUserIDs(state), ...extraProfileIDs])].sort();
-    const profiles = await this.loadProfiles(wanted);
+    const profiles = await measure(this.latency, "profileMs", () => this.loadProfiles(wanted));
     state.users.push(...profiles);
     return {
-      exists: house !== undefined, version, state, baseline: forUpdate ? encodePartition(houseID, state) : new Map(),
+      exists: house !== undefined, version, state, baseline: forUpdate ? measureSync(this.latency, "houseBaselineMs", () => encodePartition(houseID, state)) : new Map(),
       profileIDs: new Set(profiles.map((user) => user.id)),
     };
   }
@@ -378,7 +399,9 @@ export class HouseStateStore {
     const users: StoreState["users"] = [];
     for (const batch of chunks(ids, MAX_BATCH_GET_KEYS)) {
       const keys: DynamoKey[] = batch.map((id) => ({ PK: userPK(id), SK: PROFILE_SK }));
+      this.latency.add("profileBatches");
       const items = await this.client.batchGet(keys);
+      this.latency.add("profiles", items.length);
       for (const item of items) users.push(decodeUser(item));
     }
     return users.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));

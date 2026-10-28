@@ -638,7 +638,7 @@ Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paral
 
 ## 14. Estado da implementação e contrato com a tabela
 
-Código em `backend/` (`npm test`). Os testes rodam com adaptadores em memória e clientes falsos; nada nos testes acessa AWS, DynamoDB, Meta ou Gemini. O `dev` está implantado (`backend/infra/README.md`: tabela `grupuxo-dev` com proteção contra exclusão e recuperação pontual, fila FIFO com DLQ, Lambdas `api` com 1769 MB, `webhook` e `worker`). Latência da `api` e o que já mudou por causa dela: [LATENCIA.md](LATENCIA.md).
+Código em `backend/` (`npm test`). Os testes rodam com adaptadores em memória e clientes falsos; nada nos testes acessa AWS, DynamoDB, Meta ou Gemini. O `dev` está implantado (`backend/infra/README.md`: tabela `grupuxo-dev` com proteção contra exclusão e recuperação pontual, fila FIFO com DLQ, Lambdas `api` com 1769 MB, `webhook` e `worker`). Latência da `api` e do WhatsApp, diagnóstico e instrumentação publicada no worker/webhook em 28/10: [LATENCIA.md](LATENCIA.md). O canal emite telemetria numérica por mensagem/requisição, sem conteúdo ou identificadores; `SentTimestamp`, primeiro recebimento e receive count do SQS passam a ser metadados opcionais na conversão do evento, sem mudar o corpo da fila, a tabela ou os ports do domínio.
 
 | Peça | Onde | Situação |
 | --- | --- | --- |

@@ -118,11 +118,14 @@ export class DynamoTransactionCanceledError extends Error {
 }
 
 /** Todas as páginas de uma consulta. */
-export async function queryAll(client: DynamoClient, input: Omit<DynamoQueryInput, "startKey">): Promise<DynamoItem[]> {
+export async function queryAll(
+  client: DynamoClient, input: Omit<DynamoQueryInput, "startKey">, onPage: (itemCount: number) => void = () => {},
+): Promise<DynamoItem[]> {
   const items: DynamoItem[] = [];
   let startKey: DynamoItem | undefined;
   do {
     const page = await client.query(startKey === undefined ? input : { ...input, startKey });
+    onPage(page.items.length);
     items.push(...page.items);
     startKey = page.lastKey;
   } while (startKey !== undefined);

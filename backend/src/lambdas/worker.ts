@@ -1,3 +1,4 @@
+import { noLatency, recordAge, type LatencyObserver, type LatencyScope } from "../latency.ts";
 import { parseIncomingMessage } from "../whatsapp/incoming-message.ts";
 import type { WhatsAppWorker } from "../whatsapp/worker.ts";
 import { parseSqsEvent } from "./events.ts";
@@ -34,27 +35,45 @@ export function describeFailure(error: unknown): string {
 export function createWorkerHandler(
   worker: Pick<WhatsAppWorker, "process">,
   onFailure: (description: string) => void = () => {},
+  scope?: LatencyScope,
 ): (event: unknown) => Promise<SqsBatchResponse> {
   return async (event) => {
+    const dispatchedAt = scope?.invocationStartedAt?.() ?? scope?.wallNow();
     const records = parseSqsEvent(event);
     if (records === null) throw new TypeError("evento SQS inválido");
     const failedGroups = new Set<string>();
     const failures: { itemIdentifier: string }[] = [];
-    for (const record of records) {
-      // Sem grupo (fila padrão), cada mensagem é o seu próprio grupo.
-      const group = record.messageGroupId ?? `message:${record.messageId}`;
-      if (failedGroups.has(group)) {
-        failures.push({ itemIdentifier: record.messageId });
-        continue;
-      }
-      try {
-        const body: unknown = JSON.parse(record.body);
-        await worker.process(parseIncomingMessage(body));
-      } catch (error) {
-        onFailure(describeFailure(error));
-        failedGroups.add(group);
-        failures.push({ itemIdentifier: record.messageId });
-      }
+    for (const [index, record] of records.entries()) {
+      const process = async (latency: LatencyObserver): Promise<void> => {
+        latency.add("batchSize", records.length);
+        latency.add("batchIndex", index);
+        if (record.firstReceivedAt !== undefined) recordAge(latency, "firstQueueWaitMs", record.firstReceivedAt, record.sentAt);
+        if (record.receiveCount !== undefined) latency.add("receiveCount", record.receiveCount);
+        if (dispatchedAt !== undefined) {
+          recordAge(latency, "queueDispatchMs", dispatchedAt, record.sentAt);
+          if (scope !== undefined) recordAge(latency, "batchWaitMs", scope.wallNow(), dispatchedAt);
+        }
+        const group = record.messageGroupId ?? `message:${record.messageId}`;
+        if (failedGroups.has(group)) {
+          failures.push({ itemIdentifier: record.messageId });
+          latency.outcome("blocked_group");
+          return;
+        }
+        try {
+          const body: unknown = JSON.parse(record.body);
+          const message = parseIncomingMessage(body);
+          if (scope !== undefined) recordAge(latency, "sourceToWorkerMs", scope.wallNow(), message.receivedAt);
+          latency.outcome("success");
+          await worker.process(message);
+        } catch (error) {
+          latency.outcome("failure");
+          onFailure(describeFailure(error));
+          failedGroups.add(group);
+          failures.push({ itemIdentifier: record.messageId });
+        }
+      };
+      if (scope === undefined) await process(noLatency);
+      else await scope.run("message", process);
     }
     return { batchItemFailures: failures };
   };

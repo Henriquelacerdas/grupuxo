@@ -109,7 +109,9 @@ export function e164FromWhatsAppID(id: string): string | null {
  * Mensagens de texto do payload, na ordem de chegada. Outros tipos (imagem, áudio, reação...) e os eventos de
  * `statuses` (entregue, lido) são descartados na v1. Sem `timestamp` válido, vale `fallbackDate`.
  */
-export function incomingTextMessages(payload: WebhookPayload, fallbackDate: Instant): IncomingMessage[] {
+export function incomingTextMessages(
+  payload: WebhookPayload, fallbackDate: Instant, onTimestamp: (timestamp: Instant | null) => void = () => {},
+): IncomingMessage[] {
   if (payload.object !== "whatsapp_business_account") return [];
   const result: IncomingMessage[] = [];
   for (const entry of payload.entry ?? []) {
@@ -119,15 +121,16 @@ export function incomingTextMessages(payload: WebhookPayload, fallbackDate: Inst
         const body = message.text?.body;
         const phone = e164FromWhatsAppID(message.from);
         if (message.type !== "text" || body === undefined || body === "" || phone === null) continue;
-        result.push({ wamid: message.id, phoneE164: phone, text: body, receivedAt: receivedAt(message.timestamp, fallbackDate) });
+        result.push({ wamid: message.id, phoneE164: phone, text: body, receivedAt: receivedAt(message.timestamp, fallbackDate, onTimestamp) });
       }
     }
   }
   return result;
 }
 
-function receivedAt(timestamp: string | null, fallback: Instant): Instant {
-  if (timestamp === null || !/^\d+(\.\d+)?$/.test(timestamp)) return fallback;
-  const milliseconds = Number(timestamp) * 1000;
-  return Number.isFinite(milliseconds) && Math.abs(milliseconds) <= 8.64e15 ? milliseconds : fallback;
+function receivedAt(timestamp: string | null, fallback: Instant, onTimestamp: (timestamp: Instant | null) => void): Instant {
+  const milliseconds = timestamp !== null && /^\d+(\.\d+)?$/.test(timestamp) ? Number(timestamp) * 1000 : NaN;
+  const valid = Number.isFinite(milliseconds) && Math.abs(milliseconds) <= 8.64e15;
+  onTimestamp(valid ? milliseconds : null);
+  return valid ? milliseconds : fallback;
 }

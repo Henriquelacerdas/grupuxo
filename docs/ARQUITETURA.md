@@ -81,6 +81,7 @@ backend/
     use-cases/           um por caso de uso (classes com execute)
   src/whatsapp/          webhook/ (payload, assinatura, handler), worker, linking/ (token e vínculo), ports
   src/assistant/         Gemini: cliente, ferramentas de leitura e responder
+  src/latency.ts         telemetria numérica com campos fechados; sem I/O, relógio/destino injetados
   src/auth/              JWT do Cognito (TokenVerifier, JWKS) e UserDirectory
   src/lambdas/           handlers webhook, worker e api (rotas da §6.1), config e composição
   src/main/              pontos de entrada das Lambdas: única camada com process.env, relógio e AWS SDK
@@ -96,6 +97,7 @@ backend/
 Diferenças deliberadas em relação ao Swift:
 
 - **A lógica transacional sai dos repositórios.** No app ela está nos `Mock*Repository` (acesso, claim/release, trocas, entrada/saída de casa). No TypeScript ela vive em `domain/commands/` como funções puras sobre o estado, e o adaptador só faz `store.update(estado => comando(...))`. Assim o adaptador DynamoDB carrega o estado da casa, chama o mesmo comando e grava a diferença, sem reimplementar regras.
+- **Telemetria do WhatsApp.** WhatsApp, assistant e adaptadores podem importar `latency.ts` (como `http.ts`); o domínio não depende de observabilidade. `main/latency.ts` isola contextos por mensagem com `AsyncLocalStorage`, injeta relógio monotônico e escreve somente campos numéricos/rótulos constantes em stdout. Sem conteúdo, telefone, wamid, IDs ou dados de erro. Campos e consultas em [LATENCIA.md](LATENCIA.md).
 - **Relógio e IDs injetados.** Nada no domínio lê o relógio nem gera UUID: `now` e `newID` entram por construtor (`CommandContext`, `TaskSchedulingService`, casos de uso).
 - **Fuso por casa.** `House.timezone` (IANA) é campo do domínio TypeScript; o calendário do serviço de agendamento é montado a partir dele. O Swift recebe o `Calendar` por injeção e não guarda o fuso na casa.
 - **Imutabilidade.** Entidades são `readonly` e atualizadas por cópia. O `SchedulingState` é um objeto com arrays que o serviço altera por substituição de elementos; copiar os arrays (`cloneSchedulingState`, `cloneStoreState`) é uma cópia por valor correta porque entidades nunca mudam no lugar.

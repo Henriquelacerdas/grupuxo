@@ -1,3 +1,4 @@
+import { noLatency, type LatencyObserver } from "../latency.ts";
 import type { HttpFetch } from "../http.ts";
 import type { WhatsAppSender } from "./ports.ts";
 
@@ -48,6 +49,7 @@ export class GraphSendError extends Error {
 }
 
 export interface GraphWhatsAppSenderOptions {
+  readonly latency?: LatencyObserver;
   /** Token permanente do System User (Secrets Manager, `WHATSAPP_TOKEN`). Vai só no cabeçalho `Authorization`. */
   readonly accessToken: string | undefined;
   /** `PHONE_NUMBER_ID` do número do bot. Entra na URL, por isso só dígitos. */
@@ -90,12 +92,14 @@ export function truncateMessage(text: string): string {
 }
 
 export class GraphWhatsAppSender implements WhatsAppSender {
+  private readonly latency: LatencyObserver;
   private readonly url: string;
   private readonly accessToken: string;
   private readonly http: HttpFetch;
   private readonly timeoutMs: number;
 
   constructor(options: GraphWhatsAppSenderOptions) {
+    this.latency = options.latency ?? noLatency;
     const { accessToken, phoneNumberID, apiVersion } = options;
     if (apiVersion === undefined || apiVersion === "") throw new GraphConfigurationError("WHATSAPP_GRAPH_VERSION não configurada");
     if (!VERSION_PATTERN.test(apiVersion)) throw new GraphConfigurationError("WHATSAPP_GRAPH_VERSION inválida");
@@ -120,7 +124,12 @@ export class GraphWhatsAppSender implements WhatsAppSender {
   async send(text: string, toPhone: string): Promise<void> {
     if (!RECIPIENT_PATTERN.test(toPhone)) throw new GraphSendError("invalidRecipient");
     if (text === "") throw new GraphSendError("emptyMessage");
+    const stop = this.latency.start("graphMs");
     try {
+      const body = truncateMessage(text);
+      this.latency.add("replyChars", Array.from(body).length);
+      if (body !== text) this.latency.add("graphTruncations");
+      this.latency.add("graphCalls");
       const response = await this.http(this.url, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${this.accessToken}` },
@@ -129,16 +138,19 @@ export class GraphWhatsAppSender implements WhatsAppSender {
           recipient_type: "individual",
           to: graphRecipient(toPhone),
           type: "text",
-          text: { body: truncateMessage(text) },
+          text: { body },
         }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
+      this.latency.add("graphStatus", response.status);
       if (!response.ok) throw new GraphSendError("status", response.status);
     } catch (error) {
+      this.latency.add("graphFailures");
       if (error instanceof GraphSendError) throw error;
       // O erro original não é repassado: nada dele precisa chegar a log ou resposta.
       const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+      this.latency.add(timedOut ? "graphTimeouts" : "graphNetworkFailures");
       throw new GraphSendError(timedOut ? "timeout" : "network");
-    }
+    } finally { stop(); }
   }
 }

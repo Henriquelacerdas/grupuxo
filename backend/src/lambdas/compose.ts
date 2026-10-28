@@ -1,3 +1,4 @@
+import { noLatency, type LatencyObserver } from "../latency.ts";
 import { HttpGeminiClient } from "../assistant/gemini-client.ts";
 import { GeminiMessageResponder, type GeminiMessageResponderDependencies } from "../assistant/gemini-responder.ts";
 import { CognitoJwtVerifier, cognitoJwksURL } from "../auth/cognito-jwt-verifier.ts";
@@ -16,6 +17,7 @@ import type { ApiSettings, WorkerSecrets, WorkerSettings } from "./config.ts";
 // por port).
 
 export interface WorkerCompositionDependencies {
+  readonly latency?: LatencyObserver;
   readonly settings: WorkerSettings;
   readonly secrets: WorkerSecrets;
   readonly http: HttpFetch;
@@ -36,18 +38,19 @@ export interface WorkerCompositionDependencies {
  */
 export function composeWhatsAppWorker(deps: WorkerCompositionDependencies): WhatsAppWorker {
   const { settings, secrets, http, now, sleep } = deps;
-  const gemini = new HttpGeminiClient({ apiKey: secrets.geminiApiKey, model: settings.geminiModel, http, sleep });
+  const latency = deps.latency ?? noLatency;
+  const gemini = new HttpGeminiClient({ latency, apiKey: secrets.geminiApiKey, model: settings.geminiModel, http, sleep });
   const sender = new GraphWhatsAppSender({
-    accessToken: secrets.whatsappToken, phoneNumberID: secrets.phoneNumberID, apiVersion: settings.graphVersion, http,
+    latency, accessToken: secrets.whatsappToken, phoneNumberID: secrets.phoneNumberID, apiVersion: settings.graphVersion, http,
   });
   return new WhatsAppWorker({
     inbox: deps.inbox,
     links: deps.links,
     linker: deps.linker,
-    responder: new GeminiMessageResponder({ ...deps.assistant, gemini, now }),
+    responder: new GeminiMessageResponder({ ...deps.assistant, gemini, now, latency }),
     sender,
     rateLimiter: new MessageRateLimiter({ counter: deps.rateCounter, ...settings.rateLimit }),
-    now,
+    now, latency,
   });
 }
 
