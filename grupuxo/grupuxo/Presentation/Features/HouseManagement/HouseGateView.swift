@@ -23,6 +23,7 @@ struct HouseGateView<Content: View>: View {
                     Button("Tentar novamente") { Task { await houses.load() } }
                         .buttonStyle(.borderedProminent)
                     Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
+                    DeleteAccountButton()
                 }
             } else {
                 OnboardingView()

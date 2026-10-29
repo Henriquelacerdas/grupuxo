@@ -45,6 +45,8 @@ struct HouseView: View {
                 Button("Sair da conta", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                     Task { await authService.signOut() }
                 }
+
+                DeleteAccountButton()
             } footer: {
                 if isLastMember {
                     Text("Você é o único morador: se sair, a casa será excluída.")

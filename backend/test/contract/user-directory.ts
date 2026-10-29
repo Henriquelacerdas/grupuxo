@@ -73,4 +73,16 @@ export function userDirectoryContract(name: string, make: () => UserDirectory): 
     const results = await Promise.all(subs.map((sub) => directory.ensureUser(sub, { name: "Morador" })));
     assert.equal(new Set(results).size, subs.length);
   });
+
+  test(`${name}: deleteUser apaga a conta, é idempotente e a mesma conta recomeça com outro morador`, async () => {
+    const directory = make();
+    const first = await directory.ensureUser(ana, { name: "Ana" });
+    const other = await directory.ensureUser(bia, { name: "Bia" });
+    await directory.deleteUser(ana);
+    await directory.deleteUser(ana);
+    assert.equal(await directory.userForSub(ana), null);
+    assert.equal(await directory.userForSub(bia), other);
+    const again = await directory.ensureUser(ana, { name: "Ana" });
+    assert.notEqual(again, first);
+  });
 }

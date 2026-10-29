@@ -303,6 +303,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | `POST /v1/me/whatsapp/link` | `200 { "url", "expiresAt" }` com o link `wa.me`; número já conectado → `409 already_linked`. |
 | `GET /v1/me/whatsapp` | `200 { "linked": false }` ou `{ "linked": true, "phone": "+55•••••••8888", "linkedAt" }` (telefone mascarado). |
 | `DELETE /v1/me/whatsapp` | `204`, idempotente. |
+| `DELETE /v1/me` | Exclui a conta (exigência da App Store): sai da casa com as duas confirmações (o último morador leva a casa junto), desvincula o WhatsApp e apaga `COGNITO#<sub>` e o perfil `USER#<id>`. `204`, sem corpo nem query. Cada passo é idempotente; repetir depois de uma falha termina o serviço, e uma conta já apagada devolve `403 account_not_registered`, que o app trata como feito. O usuário do Cognito é apagado pelo **app** (`Amplify.Auth.deleteUser`) depois do `204`, para o servidor não precisar de permissão administrativa no user pool. O item `PENDING#<id>` (pedido de conclusão) não é apagado: só guarda o ID da ocorrência e expira por TTL. |
 
 #### Casa (implementada)
 

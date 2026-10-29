@@ -116,6 +116,10 @@ struct OnboardingView: View {
                     }
                     .disabled(!canSubmit)
                 }
+
+                Section {
+                    DeleteAccountButton()
+                }
             }
             .navigationTitle("Sua casa")
             .toolbar {

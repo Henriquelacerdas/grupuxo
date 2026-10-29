@@ -105,7 +105,7 @@ test("chaves do Cognito indisponíveis: 503, não 401", async () => {
 test("erro inesperado: 500 sem detalhe", async () => {
   const handler = createApiHandler({
     verifier: { verify: async () => ({ cognitoSub: sub }) },
-    users: { userForSub: async () => { throw new Error("senha do banco: hunter2"); }, ensureUser: async () => { throw new Error("hunter2"); } },
+    users: { userForSub: async () => { throw new Error("senha do banco: hunter2"); }, ensureUser: async () => { throw new Error("hunter2"); }, deleteUser: async () => undefined },
     linker: { issueInvitation: async () => { throw new Error("hunter2"); } },
     links: { linkForUser: async () => null, remove: async () => undefined },
     ...inMemoryApiDeps(new InMemoryStore(emptyState())),
@@ -125,9 +125,9 @@ test("rota desconhecida: 404; método errado: 405 com a lista de métodos permit
   assert.equal((await call("GET", "/v1/me/", { token: null })).statusCode, 404);
   assert.equal((await call("GET", "/v1/__proto__", { token: null })).statusCode, 404);
   assert.equal((await call("GET", "/v1/constructor", { token: null })).statusCode, 404);
-  const wrong = await call("DELETE", "/v1/me", { token: null });
+  const wrong = await call("PUT", "/v1/me", { token: null });
   assert.equal(wrong.statusCode, 405);
-  assert.equal(wrong.headers?.["allow"], "POST, GET");
+  assert.equal(wrong.headers?.["allow"], "POST, GET, DELETE");
   assert.equal((await call("PUT", "/v1/me/whatsapp", { token: null })).headers?.["allow"], "GET, DELETE");
   assert.equal((await call("GET", "/v1/me/whatsapp/link", { token: null })).statusCode, 405);
 });
@@ -314,7 +314,7 @@ test("erros do armazenamento: conflito é 409 conflict; os demais e os desconhec
   const houses = new FailingHouses(store, { now: () => 0, newID: deps.newID }, () => "ABCD1234");
   const handler = createApiHandler({
     verifier: { verify: async () => ({ cognitoSub: sub }) },
-    users: { userForSub: async () => userID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), ensureUser: async () => userID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa") },
+    users: { userForSub: async () => userID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), ensureUser: async () => userID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), deleteUser: async () => undefined },
     linker: { issueInvitation: async () => { throw new Error("não usado"); } },
     links: { linkForUser: async () => null, remove: async () => undefined },
     ...deps, houses,

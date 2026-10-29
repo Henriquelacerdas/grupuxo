@@ -2,6 +2,7 @@ import type { HouseSnapshotRepository } from "../domain/commands/house-snapshot.
 import { AuthenticationError, TokenVerifierUnavailableError, type TokenVerifier } from "../auth/token-verifier.ts";
 import { parseProfileName, UserDirectoryError, type UserDirectory } from "../auth/user-directory.ts";
 import type { Instant } from "../domain/dates.ts";
+import { isDomainError } from "../domain/errors.ts";
 import type { IDGenerator, UserID } from "../domain/ids.ts";
 import type {
   HouseRepository, NotificationRepository, RoomRepository, TaskRepository, TaskSwapRepository,
@@ -66,6 +67,7 @@ export function createApiHandler(deps: ApiDependencies): (event: unknown) => Pro
       const user = await deps.users.userForSub(cognitoSub);
       if (user === null) return failure(403, "account_not_registered");
       if (match.name === "myAccount") return json(200, { id: user });
+      if (match.name === "deleteAccount") return await deleteAccount(deps, cognitoSub, user);
       if (isAccountRoute(match.name)) return await whatsAppRoute(deps, match.name, user);
       return await appRoutes(match.name, { user, params: match.params, query: request.queryParameters, body: request.body });
     } catch (error) {
@@ -76,7 +78,7 @@ export function createApiHandler(deps: ApiDependencies): (event: unknown) => Pro
   };
 }
 
-type WhatsAppRouteName = Exclude<AccountRouteName, "registerAccount" | "myAccount">;
+type WhatsAppRouteName = Exclude<AccountRouteName, "registerAccount" | "myAccount" | "deleteAccount">;
 
 function isAccountRoute(name: RouteName): name is WhatsAppRouteName {
   return name === "issueWhatsAppLink" || name === "whatsAppStatus" || name === "unlinkWhatsApp";
@@ -95,6 +97,27 @@ async function registerAccount(
     if (error instanceof UserDirectoryError) return failure(400, "invalid_name");
     throw error;
   }
+}
+
+/**
+ * `DELETE /v1/me`: tira o morador da casa (o último morador leva a casa junto), desvincula o WhatsApp e apaga a
+ * conta do diretório. A confirmação é do app. Cada passo é idempotente, então repetir depois de uma falha termina o
+ * serviço. O usuário do Cognito é apagado pelo app, depois deste 204.
+ */
+async function deleteAccount(
+  deps: ApiDependencies, cognitoSub: Parameters<UserDirectory["userForSub"]>[0], user: UserID,
+): Promise<HttpApiResult> {
+  for (const house of await deps.houses.houses(user)) {
+    try {
+      await deps.houses.leave(user, house.id, deps.now(), true, true);
+    } catch (error) {
+      // O índice ainda mostrava uma casa de que o morador já saiu (tentativa anterior): nada a fazer.
+      if (!isDomainError(error, "entityNotFound")) throw error;
+    }
+  }
+  await deps.links.remove(user);
+  await deps.users.deleteUser(cognitoSub);
+  return { statusCode: 204, body: "" };
 }
 
 async function whatsAppRoute(deps: ApiDependencies, name: WhatsAppRouteName, user: UserID): Promise<HttpApiResult> {

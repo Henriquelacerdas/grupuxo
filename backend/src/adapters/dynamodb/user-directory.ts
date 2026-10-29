@@ -29,6 +29,15 @@ export class DynamoUserDirectory implements UserDirectory {
     return item === undefined ? null : decoding(() => userID(str(item, "userID")));
   }
 
+  async deleteUser(cognitoSub: CognitoSub): Promise<void> {
+    const id = await this.userForSub(cognitoSub);
+    if (id === null) return;
+    await this.client.transactWrite([
+      { kind: "delete", key: { PK: cognitoPK(cognitoSub), SK: COGNITO_SK } },
+      { kind: "delete", key: { PK: userPK(id), SK: PROFILE_SK } },
+    ]);
+  }
+
   async ensureUser(cognitoSub: CognitoSub, profile: UserProfile): Promise<UserID> {
     if (parseProfileName(profile.name) !== profile.name) throw new UserDirectoryError("invalidProfile");
     const existing = await this.userForSub(cognitoSub);

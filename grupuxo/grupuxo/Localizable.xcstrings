@@ -2397,6 +2397,66 @@
         }
       }
     },
+    "Excluir conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete account"
+          }
+        }
+      }
+    },
+    "Excluir sua conta?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete your account?"
+          }
+        }
+      }
+    },
+    "Seu perfil e o vínculo com o WhatsApp serão apagados e você sai da casa. Se for o último morador, a casa, os cômodos e as tarefas também serão excluídos. Não dá para desfazer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your profile and WhatsApp link will be erased and you will leave the house. If you are the last resident, the house, rooms and tasks will be deleted too. This cannot be undone."
+          }
+        }
+      }
+    },
+    "Não foi possível excluir a conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't delete the account"
+          }
+        }
+      }
+    },
+    "Tente de novo em instantes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again in a moment."
+          }
+        }
+      }
+    },
+    "Sem conexão. Tente de novo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection. Try again."
+          }
+        }
+      }
+    },
     "Excluir a casa?" : {
       "localizations" : {
         "en" : {

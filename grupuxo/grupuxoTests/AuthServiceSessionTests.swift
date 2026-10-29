@@ -7,24 +7,30 @@ private struct FakeSessionError: Error {}
 private final class FakeAuthSessionClient: AuthSessionClient {
     let fetchResult: Result<AuthSessionSnapshot, FakeSessionError>
     let signOutOutcome: AuthSignOutOutcome
+    let deleteFails: Bool
     private let stream: AsyncStream<AuthSessionEvent>
     private let continuation: AsyncStream<AuthSessionEvent>.Continuation
 
     init(
         fetch: Result<AuthSessionSnapshot, FakeSessionError>,
-        signOut: AuthSignOutOutcome = .complete
+        signOut: AuthSignOutOutcome = .complete,
+        deleteFails: Bool = false
     ) {
         self.fetchResult = fetch
         self.signOutOutcome = signOut
+        self.deleteFails = deleteFails
         (stream, continuation) = AsyncStream.makeStream()
     }
 
-    convenience init(_ snapshot: AuthSessionSnapshot, signOut: AuthSignOutOutcome = .complete) {
-        self.init(fetch: .success(snapshot), signOut: signOut)
+    convenience init(_ snapshot: AuthSessionSnapshot, signOut: AuthSignOutOutcome = .complete, deleteFails: Bool = false) {
+        self.init(fetch: .success(snapshot), signOut: signOut, deleteFails: deleteFails)
     }
 
     func fetchSession() async throws -> AuthSessionSnapshot { try fetchResult.get() }
     func signOut() async -> AuthSignOutOutcome { signOutOutcome }
+    func deleteUser() async throws {
+        if deleteFails { throw FakeSessionError() }
+    }
     func clearStaleSession() async {}
     func events() -> AsyncStream<AuthSessionEvent> { stream }
     func send(_ event: AuthSessionEvent) { continuation.yield(event) }
@@ -99,6 +105,21 @@ struct AuthServiceSessionTests {
         #expect(service.isSignedIn)
         await service.signOut()
         #expect(!service.isSignedIn)
+    }
+
+    @Test func deleteAccountSignsOut() async {
+        let service = AuthService(client: FakeAuthSessionClient(valid))
+        await service.checkSession()
+        #expect(await service.deleteAccount() == .deleted)
+        #expect(!service.isSignedIn)
+    }
+
+    @Test func deleteAccountFailureKeepsTheSession() async {
+        let service = AuthService(client: FakeAuthSessionClient(valid, deleteFails: true))
+        await service.checkSession()
+        let outcome = await service.deleteAccount()
+        if case .failed = outcome {} else { Issue.record("esperava .failed, veio \(outcome)") }
+        #expect(service.isSignedIn)
     }
 }
 

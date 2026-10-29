@@ -102,6 +102,31 @@ export function houseRoutes(name: string, make: ApiEnvFactory): void {
     assert.equal(rec((await join(env, "bia", house.code))["house"])["id"], house.id);
   });
 
+  test(`${name}: excluir conta: sai da casa, a conta some e uma nova conta com o mesmo token recomeça do zero`, async () => {
+    const env = make();
+    const { house } = await twoHousesScenario(env);
+    expectError(await env.call(null, "DELETE", "/v1/me"), 401, "unauthorized");
+    assert.equal((await env.call("bia", "DELETE", "/v1/me")).statusCode, 204);
+    expectError(await env.call("bia", "GET", "/v1/me"), 403, "account_not_registered");
+    expectError(await env.call("bia", "GET", "/v1/me/house"), 403, "account_not_registered");
+    const remaining = bodyOf(await env.call("ana", "GET", "/v1/me/house"));
+    assert.deepEqual(list(remaining["members"]).map((member) => rec(member)["name"]), ["Ana"]);
+    await register(env, "bia", "Bia");
+    expectError(await env.call("bia", "GET", "/v1/me/house"), 404, "no_house");
+    assert.equal(rec((await join(env, "bia", house.code))["house"])["id"], house.id);
+  });
+
+  test(`${name}: excluir conta do último morador apaga a casa; sem casa também funciona`, async () => {
+    const env = make();
+    await register(env, "ana", "Ana");
+    const house = await createHouse(env, "ana");
+    assert.equal((await env.call("ana", "DELETE", "/v1/me")).statusCode, 204);
+    expectError(await env.call("ana", "GET", "/v1/me"), 403, "account_not_registered");
+    await register(env, "bia", "Bia");
+    expectError(await env.call("bia", "POST", "/v1/houses/join", { body: JSON.stringify({ code: house.code }) }), 404, "invalid_code");
+    assert.equal((await env.call("bia", "DELETE", "/v1/me")).statusCode, 204);
+  });
+
   test(`${name}: o último morador só sai confirmando, e a casa é excluída (o código deixa de valer)`, async () => {
     const env = make();
     await register(env, "ana", "Ana");

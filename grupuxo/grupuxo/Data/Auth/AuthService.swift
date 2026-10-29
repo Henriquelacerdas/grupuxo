@@ -40,6 +40,12 @@ class AuthService: ObservableObject {
         case failed(String)
     }
 
+    enum DeleteAccountOutcome: Equatable {
+        case deleted
+        case offline
+        case failed(String)
+    }
+
     enum ConfirmSignUpOutcome: Equatable {
         case confirmed
         case failed(String)
@@ -135,6 +141,22 @@ class AuthService: ObservableObject {
             print("Logout remoto falhou; limpando o estado local.")
         }
         isSignedIn = false
+    }
+
+    /// Apaga a conta no Cognito (o servidor já apagou os dados). Quem chama confirma com o morador antes.
+    func deleteAccount() async -> DeleteAccountOutcome {
+        do {
+            try await client.deleteUser()
+            isSignedIn = false
+            return .deleted
+        } catch let error as AuthError {
+            print("Erro ao excluir a conta: \(error)")
+            if case .network = Self.cognitoError(error) { return .offline }
+            return .failed(Self.message(for: error))
+        } catch {
+            print("Erro ao excluir a conta: \(error)")
+            return .failed(Self.message(for: error))
+        }
     }
 
     // Faz o cadastro de um novo usuário (o e-mail é o nome de usuário no Cognito).
