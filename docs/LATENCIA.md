@@ -1,5 +1,15 @@
 # Latência das telas e o erro "Não foi possível falar com o servidor"
 
+## WhatsApp — indicador "digitando…" (publicado no dev em 28/10/2026)
+
+O worker aciona o indicador nativo em paralelo ao responder, depois da deduplicação, do limite de taxa e da identificação do vínculo. Uma chamada por processamento, com timeout próprio de 1 s, cancelada e encerrada quando a resposta fica pronta; sem mensagem intermediária, renovação periódica ou retry do indicador. Falhas nele não impedem o envio final. Também marca a mensagem recebida como lida; o indicador desaparece com a resposta ou após até 25 s. Não cobre tempo anterior ao worker na fila e não reduz o tempo real de Gemini/DynamoDB.
+
+Métricas próprias: `typingMs`, `typingCalls`, `typingFailures`, `typingTimeouts`, `typingCancellations`, `typingStatus`. Não somar `typingMs` a `responderMs`: são operações concorrentes. `graphMs`/`graphCalls` continuam medindo o envio final de texto. Payload, concorrência, cancelamento, falhas, idempotência, limite de taxa e privacidade são verificados com HTTP falso, sem chamada real à Graph.
+
+Validação local: **1.149 testes passaram** (`npm test`), `npm run typecheck` e `npm run build` passaram.
+
+Publicação autorizada e concluída em **28/10/2026 às 12:03, Brasília**. Plano Terraform direcionado ao worker: **0 criações, 1 atualização de código, 0 exclusões**; único campo alterado `source_code_hash`. ZIP implantado: `q3Zdk1i1ihme/BiQLvENv2dkv5wEqqdDfeVixf/CmKQ=` (SHA-256 base64), confirmado na Lambda `grupuxo-dev-worker`, `Active`/`Successful`, com 512 MB e timeout de 60 s preservados. Hashes da API e do webhook permanecem os da publicação anterior; fila, modelo e ambiente não mudaram. Teste de inicialização com lote SQS vazio retornou HTTP 200, sem `FunctionError`; não envia mensagens nem chama o Gemini. A exibição do indicador no aparelho ainda precisa ser conferida em uma conversa real.
+
 ## WhatsApp — diagnóstico e instrumentação local (2026-10-28)
 
 Investigação autorizada em CloudWatch, somente leitura, seguida de aprovação para implementar e rodar a instrumentação local. Publicação autorizada posteriormente e concluída em **28/10/2026 às 10:13, Brasília**, no worker e webhook do `dev`. Nenhuma alteração de memória, timeout, fila ou modelo; não houve envio real pela Graph, chamada real ao Gemini ou operação na DLQ pelo agente. Testes locais usam clientes falsos.

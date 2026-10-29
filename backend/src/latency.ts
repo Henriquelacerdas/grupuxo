@@ -3,7 +3,7 @@ export const LATENCY_STAGES = [
   "totalMs", "setupMs", "claimMs", "rateLimitMs", "linkMs", "resolveHouseMs", "roomsMs", "responderMs",
   "geminiMs", "geminiAttemptMs", "geminiRetrySleepMs", "toolMs", "houseReadMs", "houseUpdateMs",
   "houseLoadMs", "houseQueryMs", "houseDecodeMs", "profileMs", "houseBaselineMs", "houseCloneMs",
-  "houseCommandMs", "houseDiffMs", "houseWriteMs", "graphMs", "markProcessedMs", "enqueueMs",
+  "houseCommandMs", "houseDiffMs", "houseWriteMs", "graphMs", "typingMs", "markProcessedMs", "enqueueMs",
 ] as const;
 export const LATENCY_COUNTERS = [
   "batchSize", "batchIndex", "receiveCount", "firstQueueWaitMs", "queueDispatchMs", "batchWaitMs", "sourceToWorkerMs",
@@ -11,7 +11,7 @@ export const LATENCY_COUNTERS = [
   "enqueuedMessages", "geminiRounds", "geminiAttempts", "geminiRetries", "geminiFailures", "geminiCutoffs",
   "toolCalls", "toolProblems", "myTaskCalls", "roomTaskCalls", "sporadicTaskCalls", "completionRequests", "completionConfirmations", "houseLoads", "housePages", "houseItems", "profileBatches", "profiles",
   "houseConflicts", "houseTransactions", "graphCalls", "graphStatus", "graphFailures", "graphTimeouts", "graphNetworkFailures", "replyChars",
-  "responderTruncations", "graphTruncations",
+  "responderTruncations", "graphTruncations", "typingCalls", "typingFailures", "typingTimeouts", "typingCancellations", "typingStatus",
 ] as const;
 export type LatencyStage = typeof LATENCY_STAGES[number];
 export type LatencyCounter = typeof LATENCY_COUNTERS[number];
@@ -44,7 +44,7 @@ const ATTEMPT_OUTCOMES: readonly string[] = ["success", "timeout", "network", "s
 const valid = (value: number): boolean => Number.isFinite(value) && value >= 0;
 const rounded = (value: number): number => Number(value.toFixed(3));
 const GAUGES: readonly LatencyCounter[] = ["batchSize", "batchIndex", "receiveCount", "firstQueueWaitMs", "queueDispatchMs", "batchWaitMs",
-  "sourceToWorkerMs", "sourceToGraphMs", "metaDeliveryMs", "graphStatus"];
+  "sourceToWorkerMs", "sourceToGraphMs", "metaDeliveryMs", "graphStatus", "typingStatus"];
 export type LatencyReport = Readonly<Partial<Record<LatencyStage | LatencyCounter, number>>> & {
   readonly event: "whatsapp_latency"; readonly version: 1; readonly kind: LatencyKind; readonly outcome: LatencyOutcome;
   readonly geminiAttemptTimings: readonly GeminiAttemptTiming[];

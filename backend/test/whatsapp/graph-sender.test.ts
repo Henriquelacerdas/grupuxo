@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import type { HttpFetch, HttpRequestInit, HttpResponse } from "../../src/http.ts";
 import {
   GraphConfigurationError, GraphSendError, GraphWhatsAppSender, MAX_MESSAGE_CHARS, graphRecipient, truncateMessage,
@@ -39,6 +40,56 @@ function bodyOf(call: Recorded | undefined): Record<string, unknown> {
   assert.ok(typeof parsed === "object" && parsed !== null && !Array.isArray(parsed));
   return Object.fromEntries(Object.entries(parsed));
 }
+
+test("digitando usa o wamid recebido, marca como lido e não envia mensagem de texto", async () => {
+  const { http, calls } = fakeHttp();
+  await sender(http).showTyping("wamid.recebida", new AbortController().signal);
+  assert.equal(calls.length, 1);
+  const call = calls[0];
+  assert.equal(call?.url, `https://graph.facebook.com/${VERSION}/${PHONE_NUMBER_ID}/messages`);
+  assert.equal(call?.init.method, "POST");
+  assert.equal(call?.init.headers?.authorization, `Bearer ${TOKEN}`);
+  assert.deepEqual(bodyOf(call), { messaging_product: "whatsapp", status: "read", message_id: "wamid.recebida", typing_indicator: { type: "text" } });
+  assert.ok(!(call?.init.body ?? "").includes(TOKEN));
+});
+
+test("digitando ignora falhas HTTP/rede e nunca lê o corpo da resposta", async () => {
+  let reads = 0;
+  for (const status of [200, 400, 401, 429, 503]) {
+    const { http } = fakeHttp(() => ({ ok: status === 200, status, text: async () => { reads++; throw new Error("corpo privado"); } }));
+    await sender(http).showTyping("wamid.recebida", new AbortController().signal);
+  }
+  await sender(async () => { throw new Error("token e conteúdo privados"); }).showTyping("wamid.recebida", new AbortController().signal);
+  assert.equal(reads, 0);
+});
+
+test("digitando já cancelado ou sem wamid válido não faz chamada à Graph", async () => {
+  const { http, calls } = fakeHttp();
+  const cancelled = new AbortController(); cancelled.abort();
+  await sender(http).showTyping("wamid.recebida", cancelled.signal);
+  for (const wamid of ["", "   ", "a".repeat(513)]) await sender(http).showTyping(wamid, new AbortController().signal);
+  assert.equal(calls.length, 0);
+  for (const typingTimeoutMs of [0, -1, 1.5, Number.NaN]) assert.throws(() => sender(http, { typingTimeoutMs }), GraphConfigurationError);
+});
+
+test("digitando encerra a rede pelo timeout curto e pelo cancelamento externo", async () => {
+  const signals: AbortSignal[] = [];
+  const http: HttpFetch = async (_url, init) => {
+    const signal = init.signal; assert.ok(signal); signals.push(signal);
+    signal.throwIfAborted();
+    return new Promise<HttpResponse>((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+  };
+  const timeout = sender(http, { typingTimeoutMs: 5 }).showTyping("wamid.recebida", new AbortController().signal);
+  // AbortSignal.timeout não mantém o processo vivo; este timer mantém o teste até o aborto.
+  await delay(20);
+  await timeout;
+  assert.equal(signals[0]?.aborted, true);
+  const cancellation = new AbortController();
+  const pending = sender(http).showTyping("wamid.recebida", cancellation.signal);
+  cancellation.abort();
+  await pending;
+  assert.equal(signals[1]?.aborted, true);
+});
 
 const sendError = (code: GraphSendError["code"], status: number | null = null) => (error: unknown) =>
   error instanceof GraphSendError && error.code === code && error.status === status;

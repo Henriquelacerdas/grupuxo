@@ -68,7 +68,8 @@ function setup(geminiBody: string, telemetry?: { observer: LatencyObserver; scop
   const queue = new SqsMessageQueue({ client: sqs, queueURL: "https://sqs.sa-east-1.amazonaws.com/123456789012/grupuxo-dev.fifo" });
   const webhook = createWebhookHandler(new WebhookHandler({ verifyToken: VERIFY_TOKEN, appSecret: APP_SECRET }, queue, deps.now));
   const worker = createWorkerHandler(composeWhatsAppWorker({ ...deps, ...(telemetry === undefined ? {} : { latency: telemetry.observer }) }), () => {}, telemetry?.scope);
-  const graphCalls = () => calls.filter((c) => c.url.startsWith(GRAPH));
+  const graphCalls = () => calls.filter((c) => c.url.startsWith(GRAPH) && JSON.parse(c.init.body ?? "{}").type === "text");
+  const typingCalls = () => calls.filter((c) => c.url.startsWith(GRAPH) && JSON.parse(c.init.body ?? "{}").typing_indicator !== undefined);
   const geminiCalls = () => calls.filter((c) => c.url.startsWith(GEMINI));
 
   /** Entrega uma mensagem do morador: webhook assinado → fila → worker. */
@@ -81,7 +82,7 @@ function setup(geminiBody: string, telemetry?: { observer: LatencyObserver; scop
     const result = await worker(sqsEvent(...sent.map((m) => ({ messageId: m.messageDeduplicationID, group: m.messageGroupID, body: m.body }))));
     assert.deepEqual(result, { batchItemFailures: [] });
   }
-  return { world, links, deliver, graphCalls, geminiCalls };
+  return { world, links, deliver, graphCalls, geminiCalls, typingCalls };
 }
 
 const functionCall = (name: string, args: Record<string, unknown>): string =>
@@ -95,7 +96,7 @@ function sentText(call: Call | undefined): string {
 }
 
 test("webhook assinado → fila → worker → Gemini → Graph: o morador recebe as tarefas dele", async () => {
-  const { world, links, deliver, graphCalls, geminiCalls } = setup(functionCall("list_my_tasks", { range: "week" }));
+  const { world, links, deliver, graphCalls, geminiCalls, typingCalls } = setup(functionCall("list_my_tasks", { range: "week" }));
   await links.create({ userID: world.seed.users.marina.id, phoneE164: PHONE, consentedAt: 1, linkedAt: 1 });
   await deliver("wamid.1", "quais são minhas tarefas da semana?");
 
@@ -106,30 +107,37 @@ test("webhook assinado → fila → worker → Gemini → Graph: o morador receb
   assert.equal(graph?.init.headers?.["authorization"], `Bearer ${WHATSAPP_TOKEN}`);
   assert.ok(sentText(graph).startsWith("Suas tarefas da semana:"), sentText(graph));
   assert.equal(JSON.parse(graph?.init.body ?? "{}").to, PHONE);
+  assert.equal(typingCalls().length, 1);
+  assert.deepEqual(JSON.parse(typingCalls()[0]?.init.body ?? "{}"), {
+    messaging_product: "whatsapp", status: "read", message_id: "wamid.1", typing_indicator: { type: "text" },
+  });
 });
 
 test("número sem vínculo: orientação fixa, sem chamar o Gemini", async () => {
-  const { deliver, graphCalls, geminiCalls } = setup(functionCall("list_my_tasks", {}));
+  const { deliver, graphCalls, geminiCalls, typingCalls } = setup(functionCall("list_my_tasks", {}));
   await deliver("wamid.1", "oi");
   assert.equal(geminiCalls().length, 0);
   assert.equal(sentText(graphCalls()[0]), WhatsAppWorker.unlinkedReply);
+  assert.equal(typingCalls().length, 0);
 });
 
 test("a mesma mensagem entregue duas vezes é respondida uma só", async () => {
-  const { world, links, deliver, graphCalls } = setup(functionCall("list_my_tasks", { range: "week" }));
+  const { world, links, deliver, graphCalls, typingCalls } = setup(functionCall("list_my_tasks", { range: "week" }));
   await links.create({ userID: world.seed.users.marina.id, phoneE164: PHONE, consentedAt: 1, linkedAt: 1 });
   await deliver("wamid.1", "minhas tarefas");
   await deliver("wamid.1", "minhas tarefas");
   assert.equal(graphCalls().length, 1);
+  assert.equal(typingCalls().length, 1);
 });
 
 test("limite de taxa: duas respondidas, uma avisada, o resto em silêncio e sem custo de Gemini", async () => {
-  const { world, links, deliver, graphCalls, geminiCalls } = setup(functionCall("list_my_tasks", { range: "week" }));
+  const { world, links, deliver, graphCalls, geminiCalls, typingCalls } = setup(functionCall("list_my_tasks", { range: "week" }));
   await links.create({ userID: world.seed.users.marina.id, phoneE164: PHONE, consentedAt: 1, linkedAt: 1 });
   for (const wamid of ["w1", "w2", "w3", "w4", "w5"]) await deliver(wamid, "minhas tarefas");
   assert.equal(geminiCalls().length, 2);
   assert.equal(graphCalls().length, 3);
   assert.equal(sentText(graphCalls()[2]), WhatsAppWorker.rateLimitedReply);
+  assert.equal(typingCalls().length, 2);
 });
 
 test("falha da Graph API: a mensagem volta em batchItemFailures para o SQS tentar de novo", async () => {
@@ -142,6 +150,38 @@ test("falha da Graph API: a mensagem volta em batchItemFailures para o SQS tenta
   const body = JSON.stringify({ wamid: "wamid.X", phoneE164: PHONE, text: "oi", receivedAt: 1 });
   const result = await worker(sqsEvent({ messageId: "m1", group: PHONE, body }));
   assert.deepEqual(result, { batchItemFailures: [{ itemIdentifier: "m1" }] });
+});
+
+test("indicador HTTP recusado, falha de rede ou pendente não impedem a resposta nem geram retry", async () => {
+  for (const scenario of ["status", "network", "pending"]) {
+    let replies = 0;
+    let indicators = 0;
+    const http: HttpFetch = async (url, init) => {
+      if (url.startsWith(GEMINI)) return { ok: true, status: 200, text: async () => functionCall("list_my_tasks", { range: "week" }) };
+      const body: unknown = JSON.parse(init.body ?? "{}");
+      if (typeof body === "object" && body !== null && "typing_indicator" in body) {
+        indicators++;
+        if (scenario === "network") throw new Error("erro privado da Graph");
+        if (scenario === "pending") {
+          const signal = init.signal; assert.ok(signal);
+          signal.throwIfAborted();
+          return new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+        }
+        return { ok: false, status: 400, text: async () => { throw new Error("não ler corpo privado"); } };
+      }
+      replies++;
+      return { ok: true, status: 200, text: async () => "{}" };
+    };
+    const { world, links, deps } = workerDeps(http, "5");
+    await links.create({ userID: world.seed.users.marina.id, phoneE164: PHONE, consentedAt: 1, linkedAt: 1 });
+    const worker = createWorkerHandler(composeWhatsAppWorker(deps));
+    const body = JSON.stringify({ wamid: "wamid.typing", phoneE164: PHONE, text: "minhas tarefas", receivedAt: 1 });
+    const event = sqsEvent({ messageId: "m1", group: PHONE, body });
+    assert.deepEqual(await worker(event), { batchItemFailures: [] }, scenario);
+    assert.deepEqual(await worker(event), { batchItemFailures: [] }, scenario);
+    assert.equal(replies, 1, scenario);
+    assert.equal(indicators, 1, scenario);
+  }
 });
 
 test("a composição falha fechada: sem modelo, sem versão ou com segredo inválido o worker não é criado", () => {

@@ -2,7 +2,7 @@ import { measure, noLatency, recordAge, type LatencyObserver } from "../latency.
 import type { Instant } from "../domain/dates.ts";
 import type { IncomingMessage } from "./incoming-message.ts";
 import type { WhatsAppLinker } from "./linking/whatsapp-linker.ts";
-import type { InboxStore, MessageResponder, WhatsAppLinkStore, WhatsAppSender } from "./ports.ts";
+import type { InboxStore, MessageResponder, WhatsAppLinkStore, WhatsAppSender, WhatsAppTypingIndicator } from "./ports.ts";
 import type { MessageRateLimiter } from "./rate-limit.ts";
 
 export interface WhatsAppWorkerDependencies {
@@ -11,6 +11,7 @@ export interface WhatsAppWorkerDependencies {
   readonly linker: Pick<WhatsAppLinker, "handle">;
   readonly responder: MessageResponder;
   readonly sender: WhatsAppSender;
+  readonly typing?: WhatsAppTypingIndicator;
   /** Limite de mensagens por número (BACKEND.md 7.3). Obrigatório: não existe worker sem controle de custo. */
   readonly rateLimiter: Pick<MessageRateLimiter, "check">;
   readonly now: () => Instant;
@@ -61,7 +62,24 @@ export class WhatsAppWorker {
       reply = linkReply;
     } else {
       const link = await measure(latency, "linkMs", () => links.linkForPhone(message.phoneE164));
-      reply = link !== null ? await measure(latency, "responderMs", () => responder.reply(message.text, link.userID, { wamid: message.wamid })) : WhatsAppWorker.unlinkedReply;
+      if (link === null) {
+        reply = WhatsAppWorker.unlinkedReply;
+      } else {
+        const cancellation = new AbortController();
+        const indicate = async (): Promise<void> => {
+          try { await this.deps.typing?.showTyping(message.wamid, cancellation.signal); }
+          catch { /* Indicador indisponível não falha a mensagem nem gera retry. */ }
+        };
+        // Inicia junto da resposta; não espera a Graph antes de consultar o domínio/Gemini.
+        const activity = indicate();
+        try {
+          reply = await measure(latency, "responderMs", () => responder.reply(message.text, link.userID, { wamid: message.wamid }));
+        } finally {
+          cancellation.abort();
+          // Encerra a requisição antes do envio final e não deixa trabalho pendurado na Lambda.
+          await activity;
+        }
+      }
     }
     await sender.send(reply, message.phoneE164);
     recordAge(latency, "sourceToGraphMs", now(), message.receivedAt);

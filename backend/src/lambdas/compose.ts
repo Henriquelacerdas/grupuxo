@@ -48,7 +48,7 @@ export function composeWhatsAppWorker(deps: WorkerCompositionDependencies): What
     links: deps.links,
     linker: deps.linker,
     responder: new GeminiMessageResponder({ ...deps.assistant, gemini, now, latency }),
-    sender,
+    sender, typing: sender,
     rateLimiter: new MessageRateLimiter({ counter: deps.rateCounter, ...settings.rateLimit }),
     now, latency,
   });

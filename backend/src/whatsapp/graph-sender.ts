@@ -1,6 +1,6 @@
 import { noLatency, type LatencyObserver } from "../latency.ts";
 import type { HttpFetch } from "../http.ts";
-import type { WhatsAppSender } from "./ports.ts";
+import type { WhatsAppSender, WhatsAppTypingIndicator } from "./ports.ts";
 
 // Envio de mensagens de texto pela Graph API da Meta (WhatsApp Cloud API). Nenhuma mensagem de erro carrega o
 // corpo da resposta, o token, o texto da mensagem nem o telefone do destinatário.
@@ -59,6 +59,8 @@ export interface GraphWhatsAppSenderOptions {
   readonly http: HttpFetch;
   /** Padrão: 10 s. */
   readonly timeoutMs?: number;
+  /** Indicador opcional: no máximo 1 s por padrão, cancelável quando a resposta fica pronta. */
+  readonly typingTimeoutMs?: number;
 }
 
 const GRAPH_ORIGIN = "https://graph.facebook.com/";
@@ -91,12 +93,13 @@ export function truncateMessage(text: string): string {
   return `${codePoints.slice(0, MAX_MESSAGE_CHARS - 1).join("")}${ELLIPSIS}`;
 }
 
-export class GraphWhatsAppSender implements WhatsAppSender {
+export class GraphWhatsAppSender implements WhatsAppSender, WhatsAppTypingIndicator {
   private readonly latency: LatencyObserver;
   private readonly url: string;
   private readonly accessToken: string;
   private readonly http: HttpFetch;
   private readonly timeoutMs: number;
+  private readonly typingTimeoutMs: number;
 
   constructor(options: GraphWhatsAppSenderOptions) {
     this.latency = options.latency ?? noLatency;
@@ -111,10 +114,37 @@ export class GraphWhatsAppSender implements WhatsAppSender {
     }
     const timeoutMs = options.timeoutMs ?? 10_000;
     if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) throw new GraphConfigurationError("timeout da Graph API inválido");
+    const typingTimeoutMs = options.typingTimeoutMs ?? 1_000;
+    if (!Number.isInteger(typingTimeoutMs) || typingTimeoutMs <= 0) throw new GraphConfigurationError("timeout do indicador inválido");
     this.url = `${GRAPH_ORIGIN}${apiVersion}/${phoneNumberID}/messages`;
     this.accessToken = accessToken;
     this.http = options.http;
     this.timeoutMs = timeoutMs;
+    this.typingTimeoutMs = typingTimeoutMs;
+  }
+
+  /** Marca a mensagem como lida e mostra o indicador nativo. Falhas são opcionais, sem retry ou log de conteúdo. */
+  async showTyping(wamid: string, signal: AbortSignal): Promise<void> {
+    if (signal.aborted || wamid.trim() === "" || wamid.length > 512) return;
+    const stop = this.latency.start("typingMs");
+    const timeout = AbortSignal.timeout(this.typingTimeoutMs);
+    try {
+      this.latency.add("typingCalls");
+      const response = await this.http(this.url, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${this.accessToken}` },
+        body: JSON.stringify({ messaging_product: "whatsapp", status: "read", message_id: wamid, typing_indicator: { type: "text" } }),
+        signal: AbortSignal.any([signal, timeout]),
+      });
+      this.latency.add("typingStatus", response.status);
+      if (!response.ok) this.latency.add("typingFailures");
+    } catch {
+      if (signal.aborted) this.latency.add("typingCancellations");
+      else {
+        this.latency.add("typingFailures");
+        if (timeout.aborted) this.latency.add("typingTimeouts");
+      }
+    } finally { stop(); }
   }
 
   /**

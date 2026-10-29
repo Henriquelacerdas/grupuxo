@@ -136,6 +136,30 @@ test("Graph: duração, corte e falha HTTP sem corpo/telefone/chave no relatóri
   assertPrivate(i.reports);
 });
 
+test("digitando: falhas e cancelamento têm métricas próprias, sem conteúdo nem IDs", async () => {
+  const i = instrumentation();
+  const cancellation = new AbortController();
+  let attempt = 0;
+  const sender = new GraphWhatsAppSender({ accessToken: "token-secreto", phoneNumberID: "12345", apiVersion: "v25.0",
+    latency: i.observer, http: async () => {
+      i.advance(7);
+      if (attempt++ === 0) return { ok: false, status: 503, text: async () => { throw new Error(privateText); } };
+      if (attempt === 3) cancellation.abort();
+      throw new Error(privateText);
+    },
+  });
+  await i.scope.run("message", async (observer) => {
+    for (let call = 0; call < 3; call++) await sender.showTyping("wamid.privado", cancellation.signal);
+    observer.outcome("success");
+  });
+  const r = i.reports[0];
+  assert.equal(r?.outcome, "success");
+  assert.equal(r?.typingMs, 21); assert.equal(r?.typingCalls, 3);
+  assert.equal(r?.typingFailures, 2); assert.equal(r?.typingCancellations, 1); assert.equal(r?.typingStatus, 503);
+  assert.equal(r?.graphCalls, 0); assert.equal(r?.replyChars, 0);
+  assertPrivate(i.reports);
+});
+
 test("SQS: separa espera inicial, reentrega e lote; registra grupo bloqueado sem seus IDs", async () => {
   const i = instrumentation();
   const handler = createWorkerHandler({ process: async () => { i.advance(40); throw new Error(privateText); } }, () => {}, i.scope);
