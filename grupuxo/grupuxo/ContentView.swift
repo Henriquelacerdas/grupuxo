@@ -4,6 +4,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var houses: RemoteHouseSession
+    @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
 
     var body: some View {
         Group {
@@ -16,9 +17,12 @@ struct ContentView: View {
                             .id("\(me.id)-\(house.id)")
                     }
                 }
-            } else {
+            } else if hasSeenWelcome {
                 // Se não estiver logado, mostra a interface de autenticação
                 LoginView()
+            } else {
+                // Primeira abertura: apresenta o Reveza antes do login (não volta depois do logout).
+                WelcomeView { hasSeenWelcome = true }
             }
         }
         .task {

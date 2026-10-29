@@ -713,6 +713,16 @@
         }
       }
     },
+    "A cada ciclo, cada cômodo passa para outra pessoa, como na lousa da república." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each cycle, every room moves on to someone else, like the chore board in a shared house."
+          }
+        }
+      }
+    },
     "A cada mês" : {
       "localizations" : {
         "en" : {
@@ -1023,6 +1033,16 @@
         }
       }
     },
+    "Ao continuar, você concorda com os Termos de Uso e a Política de Privacidade." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By continuing, you agree to the Terms of Use and the Privacy Policy."
+          }
+        }
+      }
+    },
     "Ao descartar as alterações nenhuma Tarefa Única será atribuída a você." : {
       "localizations" : {
         "en" : {
@@ -1126,6 +1146,16 @@
         }
       }
     },
+    "As tarefas são divididas pelo esforço de cada uma. Ninguém fica sempre com a parte pesada." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chores are split by the effort each one takes. Nobody is always stuck with the heavy part."
+          }
+        }
+      }
+    },
     "Aspirar o chão" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1210,32 +1240,32 @@
         }
       }
     },
+    "Boas-vindas ao Reveza" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome to Reveza"
+          }
+        }
+      }
+    },
+    "Cada cômodo tem a sua vez" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every room takes its turn"
+          }
+        }
+      }
+    },
     "Cada Tarefa Única realizada pula sua vez na próxima Tarefa Extra." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Each One-off Task you complete skips your turn on the next Extra Task."
-          }
-        }
-      }
-    },
-    "Cadastrar" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign up"
-          }
-        }
-      }
-    },
-    "Cadastre-se" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign up"
           }
         }
       }
@@ -1421,22 +1451,22 @@
         }
       }
     },
+    "Código" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Code"
+          }
+        }
+      }
+    },
     "Código (6 caracteres)" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Code (6 characters)"
-          }
-        }
-      }
-    },
-    "Código de confirmação" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Confirmation code"
           }
         }
       }
@@ -1467,26 +1497,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Incorrect code. Check the latest email you received."
-          }
-        }
-      }
-    },
-    "Código inválido ou senha não atende aos requisitos." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invalid code, or the password doesn't meet the requirements."
-          }
-        }
-      }
-    },
-    "Código numérico" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Numeric code"
           }
         }
       }
@@ -1661,12 +1671,22 @@
         }
       }
     },
-    "Confirmar" : {
+    "Confira o Wi-Fi ou os dados móveis e tente de novo." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Confirm"
+            "value" : "Check your Wi-Fi or mobile data and try again."
+          }
+        }
+      }
+    },
+    "Confira seu e-mail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check your email"
           }
         }
       }
@@ -1741,6 +1761,16 @@
         }
       }
     },
+    "Continuar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        }
+      }
+    },
     "Continuar com a Apple" : {
       "localizations" : {
         "en" : {
@@ -1801,12 +1831,12 @@
         }
       }
     },
-    "Criar Conta" : {
+    "Criar conta" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Create Account"
+            "value" : "Create account"
           }
         }
       }
@@ -1827,6 +1857,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Create the house and invite the residents, or join an existing house with an invite code."
+          }
+        }
+      }
+    },
+    "Crie uma senha nova" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a new password"
+          }
+        }
+      }
+    },
+    "Depois disso, você entra direto no Reveza." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After that, you'll go straight into Reveza."
           }
         }
       }
@@ -1975,22 +2025,12 @@
         }
       }
     },
-    "Digite seu email para receber um código de redefinição." : {
+    "Digite seu e-mail. Vamos mandar um código para você criar uma senha nova." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enter your email to receive a reset code."
-          }
-        }
-      }
-    },
-    "Digite seu email." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Enter your email."
+            "value" : "Enter your email. We'll send you a code to create a new password."
           }
         }
       }
@@ -2005,12 +2045,42 @@
         }
       }
     },
+    "Divisão justa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A fair split"
+          }
+        }
+      }
+    },
     "Duração do ciclo" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cycle length"
+          }
+        }
+      }
+    },
+    "E-mail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email"
+          }
+        }
+      }
+    },
+    "E-mail ou senha incorretos. Tente de novo ou toque em Esqueci a senha." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wrong email or password. Try again or tap Forgot password."
           }
         }
       }
@@ -2045,26 +2115,6 @@
         }
       }
     },
-    "Email" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Email"
-          }
-        }
-      }
-    },
-    "Email ou senha incorretos." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Incorrect email or password."
-          }
-        }
-      }
-    },
     "Encerrar" : {
       "localizations" : {
         "en" : {
@@ -2085,22 +2135,32 @@
         }
       }
     },
-    "Entrar" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign in"
-          }
-        }
-      }
-    },
     "Entrar com código" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Join with code"
+          }
+        }
+      }
+    },
+    "Entrar com e-mail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with email"
+          }
+        }
+      }
+    },
+    "Entrar com esse e-mail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with this email"
           }
         }
       }
@@ -2151,22 +2211,12 @@
         }
       }
     },
-    "Enviamos um código de confirmação para o seu e-mail. Se não chegar em alguns minutos, confira o spam ou a pasta de promoções." : {
+    "Entre para criar uma casa ou participar de uma que já existe." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "We sent a confirmation code to your email. If it doesn't arrive in a few minutes, check your spam or promotions folder."
-          }
-        }
-      }
-    },
-    "Enviamos um código para seu email." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "We sent a code to your email."
+            "value" : "Sign in to create a house or join one that already exists."
           }
         }
       }
@@ -2197,16 +2247,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Balance automatically"
-          }
-        }
-      }
-    },
-    "Erro ao solicitar redefinição. Verifique o email digitado." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't request the reset. Check the email you entered."
           }
         }
       }
@@ -2267,12 +2307,32 @@
         }
       }
     },
-    "Esqueci minha senha" : {
+    "Esqueceu a senha?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "I forgot my password"
+            "value" : "Forgot your password?"
+          }
+        }
+      }
+    },
+    "Esqueci a senha" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forgot password"
+          }
+        }
+      }
+    },
+    "Esse e-mail já tem uma conta no Reveza." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This email already has a Reveza account."
           }
         }
       }
@@ -2615,22 +2675,22 @@
         }
       }
     },
-    "Já existe uma conta com este e-mail. Volte e entre com sua senha, ou use \"Esqueci minha senha\"." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "There is already an account with this email. Go back and sign in with your password, or use \"I forgot my password\"."
-          }
-        }
-      }
-    },
     "Já tem responsável" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Already assigned"
+          }
+        }
+      }
+    },
+    "Já tenho uma conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I already have an account"
           }
         }
       }
@@ -2663,6 +2723,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Do the laundry"
+          }
+        }
+      }
+    },
+    "Lembretes na hora certa, e todo mundo vê o que já foi feito." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminders at the right time, and everyone sees what's already done."
           }
         }
       }
@@ -2743,16 +2813,6 @@
         }
       }
     },
-    "Login" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign in"
-          }
-        }
-      }
-    },
     "Mais opções" : {
       "localizations" : {
         "en" : {
@@ -2765,6 +2825,16 @@
     },
     "Mais opções do cômodo" : {
 
+    },
+    "Mandamos um código para %@. Se não chegar, olhe o spam." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We sent a code to %@. If it doesn't arrive, check your spam folder."
+          }
+        }
+      }
     },
     "Marcar como concluída" : {
       "localizations" : {
@@ -2954,6 +3024,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "We couldn't send the email with the code. Try again in a few minutes."
+          }
+        }
+      }
+    },
+    "Não encontramos uma conta com este e-mail." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We couldn't find an account with this email."
           }
         }
       }
@@ -3222,6 +3302,16 @@
         }
       }
     },
+    "Ninguém precisa cobrar ninguém" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nobody has to chase anybody"
+          }
+        }
+      }
+    },
     "Nível de esforço" : {
       "localizations" : {
         "en" : {
@@ -3278,16 +3368,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "New house"
-          }
-        }
-      }
-    },
-    "Nova senha" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New password"
           }
         }
       }
@@ -3508,12 +3588,12 @@
         }
       }
     },
-    "OU" : {
+    "ou" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "OR"
+            "value" : "or"
           }
         }
       }
@@ -3778,42 +3858,12 @@
         }
       }
     },
-    "Redefinição de senha necessária. Clique em 'Esqueci minha senha'." : {
+    "Redefinição de senha necessária. Toque em Esqueci a senha." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Password reset required. Tap 'I forgot my password'."
-          }
-        }
-      }
-    },
-    "Redefinição de senha necessária. Volte e toque em \"Esqueci minha senha\"." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Password reset required. Go back and tap \"I forgot my password\"."
-          }
-        }
-      }
-    },
-    "Redefinir senha" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset password"
-          }
-        }
-      }
-    },
-    "Redefinir Senha" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset Password"
+            "value" : "You need to reset your password. Tap Forgot password."
           }
         }
       }
@@ -3864,6 +3914,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Assigned to: %@"
+          }
+        }
+      }
+    },
+    "Reveza" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveza"
           }
         }
       }
@@ -4018,6 +4078,16 @@
         }
       }
     },
+    "Salvar e entrar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save and sign in"
+          }
+        }
+      }
+    },
     "Salvar ordem" : {
       "localizations" : {
         "en" : {
@@ -4075,6 +4145,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Select a room."
+          }
+        }
+      }
+    },
+    "Sem conexão" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No connection"
           }
         }
       }
@@ -4180,6 +4260,26 @@
         }
       }
     },
+    "Senha alterada, mas não deu para entrar: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password changed, but we couldn't sign you in: %@"
+          }
+        }
+      }
+    },
+    "Senha alterada. Volte e entre com a senha nova." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password changed. Go back and sign in with your new password."
+          }
+        }
+      }
+    },
     "Senha fraca. %@" : {
       "localizations" : {
         "en" : {
@@ -4190,12 +4290,12 @@
         }
       }
     },
-    "Senha redefinida com sucesso!" : {
+    "Senha nova" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Password reset successfully!"
+            "value" : "New password"
           }
         }
       }
@@ -4765,6 +4865,16 @@
         }
       }
     },
+    "Use um e-mail que você acessa. É por ele que você recupera a senha." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use an email you can access. It's how you'll recover your password."
+          }
+        }
+      }
+    },
     "Varrer a área" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4802,16 +4912,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Green"
-          }
-        }
-      }
-    },
-    "Verificar Email" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verify Email"
           }
         }
       }
@@ -4906,16 +5006,6 @@
         }
       }
     },
-    "Você já pode fazer login com sua nova senha." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can now sign in with your new password."
-          }
-        }
-      }
-    },
     "Você já tem um WhatsApp conectado." : {
       "localizations" : {
         "en" : {
@@ -4987,12 +5077,12 @@
         }
       }
     },
-    "Voltar para o Login" : {
+    "Voltar para o login" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Back to Sign In"
+            "value" : "Back to sign in"
           }
         }
       }

@@ -1,103 +1,153 @@
 import Foundation
 import SwiftUI
 
+/// Redefinição de senha: e-mail → código que o Cognito manda → senha nova (e já entra).
 struct ForgotPasswordView: View {
     @EnvironmentObject var authService: AuthService
     @Environment(\.dismiss) var dismiss
-    
+
     @State var username: String = ""
     @State private var newPassword = ""
     @State private var confirmationCode = ""
     @State private var step: Step = .request
     @State private var message = ""
-    
+    @State private var isError = true
+    @State private var isWorking = false
+    @State private var showOffline = false
+
     enum Step {
         case request
-        case confirm
-        case success
+        case code
+        case newPassword
     }
-    
+
+    private var email: String { AuthService.normalizedEmail(username) }
+
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Redefinir Senha")
-                .font(.largeTitle)
-                .bold()
-            
-            if step == .request {
-                Text("Digite seu email para receber um código de redefinição.")
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
-                
-                TextField("Email", text: $username)
-                    .textFieldStyle(.roundedBorder)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.emailAddress)
-                
-                Button("Enviar código") {
-                    Task {
-                        guard !username.isEmpty else {
-                            message = String(localized: "Digite seu email.")
-                            return
-                        }
-                        let success = await authService.resetPassword(username: username)
-                        if success {
-                            message = ""
-                            step = .confirm
-                        } else {
-                            message = String(localized: "Erro ao solicitar redefinição. Verifique o email digitado.")
-                        }
+        AuthScreen {
+            switch step {
+            case .request:
+                AuthHeader(
+                    title: "Esqueceu a senha?",
+                    subtitle: "Digite seu e-mail. Vamos mandar um código para você criar uma senha nova."
+                )
+                AuthFieldGroup {
+                    TextField("E-mail", text: $username)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                        .textContentType(.username)
+                        .autocorrectionDisabled()
+                        .authField()
+                }
+            case .code:
+                AuthCheckEmailHeader(email: email)
+                AuthCodeField(code: $confirmationCode)
+                    .padding(.top, DesignSystem.Spacing.large)
+            case .newPassword:
+                AuthHeader(
+                    title: "Crie uma senha nova",
+                    subtitle: "Depois disso, você entra direto no Reveza."
+                )
+                VStack(spacing: DesignSystem.Spacing.medium) {
+                    AuthFieldGroup {
+                        SecureField("Senha nova", text: $newPassword)
+                            .textContentType(.newPassword)
+                            .authField()
+                    }
+                    if message.isEmpty {
+                        AuthFootnote(text: AuthService.passwordRules)
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
-                
-            } else if step == .confirm {
-                Text("Enviamos um código para seu email.")
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(.secondary)
-                
-                TextField("Código de confirmação", text: $confirmationCode)
-                    .textFieldStyle(.roundedBorder)
-                    .keyboardType(.numberPad)
-                
-                SecureField("Nova senha", text: $newPassword)
-                    .textFieldStyle(.roundedBorder)
-                
-                Button("Redefinir senha") {
-                    Task {
-                        let success = await authService.confirmResetPassword(username: username, newPassword: newPassword, code: confirmationCode)
-                        if success {
-                            message = String(localized: "Senha redefinida com sucesso!")
-                            step = .success
-                        } else {
-                            message = String(localized: "Código inválido ou senha não atende aos requisitos.")
-                        }
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
-                
-            } else if step == .success {
-                Text("Você já pode fazer login com sua nova senha.")
-                    .multilineTextAlignment(.center)
-                
-                Button("Voltar para o Login") {
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                .padding(.top)
             }
-            
+
             if !message.isEmpty {
-                Text(message)
-                    .foregroundColor(step == .success ? .green : .red)
-                    .multilineTextAlignment(.center)
-                    .font(.footnote)
+                AuthFootnote(text: message, isError: isError)
             }
-            
-            Spacer()
+        } footer: {
+            switch step {
+            case .request:
+                Button {
+                    Task { await requestCode() }
+                } label: {
+                    AuthButtonLabel(title: "Enviar código", isWorking: isWorking)
+                }
+                .buttonStyle(.authPrimary)
+                .disabled(email.isEmpty || isWorking)
+            case .code:
+                Button("Continuar") {
+                    message = ""
+                    step = .newPassword
+                }
+                .buttonStyle(.authPrimary)
+                .disabled(confirmationCode.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button("Reenviar código") {
+                    Task { await requestCode() }
+                }
+                .font(.callout)
+                .disabled(isWorking)
+            case .newPassword:
+                Button {
+                    Task { await saveAndSignIn() }
+                } label: {
+                    AuthButtonLabel(title: "Salvar e entrar", isWorking: isWorking)
+                }
+                .buttonStyle(.authPrimary)
+                .disabled(newPassword.isEmpty || isWorking)
+            }
         }
-        .padding()
-        .navigationBarTitleDisplayMode(.inline)
+        .offlineAlert(isPresented: $showOffline)
+    }
+
+    private func requestCode() async {
+        message = ""
+        isWorking = true
+        defer { isWorking = false }
+        switch await authService.resetPassword(username: username) {
+        case .done:
+            if step == .code {
+                show(String(localized: "Enviamos um novo código para \(email)."), error: false)
+            }
+            step = .code
+        case .offline:
+            showOffline = true
+        case .invalidCode(let failure), .failed(let failure):
+            show(failure, error: true)
+        }
+    }
+
+    private func saveAndSignIn() async {
+        message = ""
+        isWorking = true
+        defer { isWorking = false }
+        switch await authService.confirmResetPassword(username: username, newPassword: newPassword, code: confirmationCode) {
+        case .done:
+            break
+        case .offline:
+            showOffline = true
+            return
+        case .invalidCode(let failure):
+            step = .code
+            show(failure, error: true)
+            return
+        case .failed(let failure):
+            show(failure, error: true)
+            return
+        }
+        // Senha trocada: entra direto; o app troca de tela quando `isSignedIn` muda.
+        switch await authService.signIn(username: username, password: newPassword) {
+        case .success, .cancelled:
+            break
+        case .offline:
+            showOffline = true
+        case .error(let failure):
+            show(String(localized: "Senha alterada, mas não deu para entrar: \(failure)"), error: true)
+        default:
+            show(String(localized: "Senha alterada. Volte e entre com a senha nova."), error: false)
+        }
+    }
+
+    private func show(_ text: String, error: Bool) {
+        message = text
+        isError = error
     }
 }

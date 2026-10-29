@@ -15,9 +15,11 @@ class AuthService: ObservableObject {
         case invalidCredentials
         /// O usuário fechou a folha de login (Apple); não é erro.
         case cancelled
+        /// Sem internet: a tela mostra o alerta "Sem conexão".
+        case offline
         case error(String)
     }
-    
+
     enum SignUpOutcome: Equatable {
         /// Conta criada; falta o código enviado por e-mail.
         case confirmationRequired
@@ -25,6 +27,16 @@ class AuthService: ObservableObject {
         case completed
         /// Já existe conta com este e-mail: o caminho é entrar (ou confirmar, se nunca confirmou).
         case alreadyExists
+        case offline
+        case failed(String)
+    }
+
+    /// Resultado de pedir o código de redefinição e de gravar a senha nova.
+    enum PasswordResetOutcome: Equatable {
+        case done
+        case offline
+        /// Código errado ou vencido: a tela volta ao passo do código.
+        case invalidCode(String)
         case failed(String)
     }
 
@@ -107,6 +119,7 @@ class AuthService: ObservableObject {
             case .userNotConfirmed: return .confirmSignUp
             case .passwordResetRequired: return .resetPassword
             case .userNotFound: return .invalidCredentials
+            case .network: return .offline
             default: return .error(Self.message(for: error))
             }
         } catch {
@@ -137,6 +150,7 @@ class AuthService: ObservableObject {
             print("Erro no cadastro: \(error)")
             switch Self.cognitoError(error) {
             case .usernameExists, .aliasExists: return .alreadyExists
+            case .network: return .offline
             case .invalidPassword: return .failed(String(localized: "Senha fraca. \(Self.passwordRules)"))
             case .invalidParameter: return .failed(String(localized: "Confira o e-mail e a senha. \(Self.passwordRules)"))
             default: return .failed(Self.message(for: error))
@@ -192,29 +206,47 @@ class AuthService: ObservableObject {
         }
     }
 
-    // Inicia fluxo de redefinição de senha
-    func resetPassword(username: String) async -> Bool {
+    // Inicia fluxo de redefinição de senha: o Cognito manda um código por e-mail.
+    func resetPassword(username: String) async -> PasswordResetOutcome {
+        let email = Self.normalizedEmail(username)
+        guard !email.isEmpty else { return .failed(String(localized: "Informe o e-mail.")) }
         do {
-            _ = try await Amplify.Auth.resetPassword(for: Self.normalizedEmail(username))
-            return true
+            _ = try await Amplify.Auth.resetPassword(for: email)
+            return .done
+        } catch let error as AuthError {
+            print("Erro ao solicitar redefinição: \(error)")
+            switch Self.cognitoError(error) {
+            case .network: return .offline
+            case .userNotFound: return .failed(String(localized: "Não encontramos uma conta com este e-mail."))
+            default: return .failed(Self.message(for: error))
+            }
         } catch {
             print("Erro ao solicitar redefinição: \(error)")
-            return false
+            return .failed(Self.message(for: error))
         }
     }
 
     // Confirma fluxo de redefinição de senha
-    func confirmResetPassword(username: String, newPassword: String, code: String) async -> Bool {
+    func confirmResetPassword(username: String, newPassword: String, code: String) async -> PasswordResetOutcome {
         do {
             try await Amplify.Auth.confirmResetPassword(
                 for: Self.normalizedEmail(username),
                 with: newPassword,
                 confirmationCode: code.trimmingCharacters(in: .whitespacesAndNewlines)
             )
-            return true
+            return .done
+        } catch let error as AuthError {
+            print("Erro ao confirmar redefinição: \(error)")
+            switch Self.cognitoError(error) {
+            case .network: return .offline
+            case .codeMismatch: return .invalidCode(String(localized: "Código incorreto. Confira o último e-mail recebido."))
+            case .codeExpired: return .invalidCode(String(localized: "O código expirou. Toque em \"Reenviar código\"."))
+            case .invalidPassword: return .failed(String(localized: "Senha fraca. \(Self.passwordRules)"))
+            default: return .failed(Self.message(for: error))
+            }
         } catch {
             print("Erro ao confirmar redefinição: \(error)")
-            return false
+            return .failed(Self.message(for: error))
         }
     }
 
@@ -278,6 +310,7 @@ class AuthService: ObservableObject {
                 return .cancelled
             }
             print("Erro no login com Apple: \(error)")
+            if Self.cognitoError(error) == .network { return .offline }
             return .error(Self.message(for: error))
         } catch {
             print("Erro no login com Apple: \(error)")

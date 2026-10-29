@@ -5,7 +5,7 @@ struct ConfirmSignUpView: View {
     @EnvironmentObject var authService: AuthService
     @Environment(\.dismiss) var dismiss
 
-    @State var email: String
+    let email: String
     /// Senha digitada no cadastro ou no login: com ela, confirmar já entra no app.
     let password: String?
     /// Vindo do login de uma conta nunca confirmada, o código antigo pode ter expirado ou se perdido: manda outro.
@@ -19,67 +19,42 @@ struct ConfirmSignUpView: View {
     @State private var sentOnAppear = false
 
     init(email: String, password: String? = nil, sendCodeOnAppear: Bool = false) {
-        _email = State(initialValue: email)
+        self.email = email
         self.password = password
         self.sendCodeOnAppear = sendCodeOnAppear
     }
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Verificar Email")
-                .font(.largeTitle)
-                .bold()
+        AuthScreen {
+            AuthCheckEmailHeader(email: email)
 
-            Text("Enviamos um código de confirmação para o seu e-mail. Se não chegar em alguns minutos, confira o spam ou a pasta de promoções.")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-
-            TextField("Email", text: $email)
-                .textFieldStyle(.roundedBorder)
-                .keyboardType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .disabled(isConfirmed)
-
-            TextField("Código numérico", text: $code)
-                .textFieldStyle(.roundedBorder)
-                .keyboardType(.numberPad)
-                .textContentType(.oneTimeCode)
-                .disabled(isConfirmed)
-
-            Button {
-                Task { await confirm() }
-            } label: {
-                Group {
-                    if isWorking { ProgressView() } else { Text("Confirmar") }
+            VStack(spacing: DesignSystem.Spacing.medium) {
+                AuthCodeField(code: $code)
+                    .disabled(isConfirmed)
+                if !message.isEmpty {
+                    AuthFootnote(text: message, isError: isError)
                 }
-                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(isConfirmed || isWorking)
-
-            if !isConfirmed {
+            .padding(.top, DesignSystem.Spacing.large)
+        } footer: {
+            if isConfirmed {
+                Button("Voltar para o login") { dismiss() }
+                    .buttonStyle(.authPrimary)
+            } else {
+                Button {
+                    Task { await confirm() }
+                } label: {
+                    AuthButtonLabel(title: "Continuar", isWorking: isWorking)
+                }
+                .buttonStyle(.authPrimary)
+                .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty || isWorking)
                 Button("Reenviar código") {
                     Task { await resend() }
                 }
-                .font(.footnote)
+                .font(.callout)
                 .disabled(isWorking)
             }
-
-            if !message.isEmpty {
-                Text(message)
-                    .foregroundColor(isError ? .red : .green)
-                    .multilineTextAlignment(.center)
-            }
-
-            if isConfirmed {
-                Button("Voltar para o Login") {
-                    dismiss()
-                }
-                .padding(.top)
-            }
         }
-        .padding()
         .task {
             guard sendCodeOnAppear, !sentOnAppear else { return }
             sentOnAppear = true
