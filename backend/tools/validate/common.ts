@@ -229,10 +229,28 @@ const DRY_RUN_UNKNOWN_PHONE_NUMBER_ID = "100000000000001";
 
 /** Imita Graph e Gemini com respostas fixas, só para exercitar os scripts. Não valida nada do mundo real. */
 export function dryRunHttp(): HttpFetch {
+  // Quebra-gelos gravados por `POST .../conversational_automation`, devolvidos pelo GET seguinte.
+  const automation: { prompts: unknown } = { prompts: undefined };
   return async (url, init) => {
     const target = new URL(url);
     const parsedBody = init.body === undefined ? undefined : parseJson(init.body);
-    if (target.hostname === "graph.facebook.com") return dryRunGraph(target, init.method, init.headers ?? {}, parsedBody);
+    if (target.hostname === "graph.facebook.com") {
+      if (init.headers?.["authorization"] !== "Bearer invalid") {
+        if (init.method === "POST" && target.pathname.endsWith("/conversational_automation")) {
+          const prompts = field(parsedBody, "prompts");
+          if (!Array.isArray(prompts)) return jsonResponse(400, { error: { message: "dry-run", type: "OAuthException", code: 100 } });
+          automation.prompts = prompts;
+          return jsonResponse(200, { success: true });
+        }
+        if (init.method === "GET" && target.searchParams.get("fields") === "conversational_automation") {
+          return jsonResponse(200, {
+            ...(automation.prompts === undefined ? {} : { conversational_automation: { prompts: automation.prompts } }),
+            id: "dry-run",
+          });
+        }
+      }
+      return dryRunGraph(target, init.method, init.headers ?? {}, parsedBody);
+    }
     if (target.hostname === "generativelanguage.googleapis.com") return dryRunGemini(target, init.method, init.headers ?? {}, parsedBody);
     return jsonResponse(404, { error: "dry-run: host desconhecido" });
   };

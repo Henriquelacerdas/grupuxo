@@ -12,6 +12,7 @@ import { parseConfirmation, resolveTask } from "./complete-task.ts";
 import {
   GeminiRequestError, type GeminiClient, type GeminiContent, type GeminiPart,
 } from "./gemini-client.ts";
+import { isHelpIceBreaker } from "./ice-breakers.ts";
 import {
   ASSISTANT_FUNCTIONS, COMPLETE_TASK, invocationKey, LIST_MY_TASKS, LIST_ROOM_TASKS, LIST_SPORADIC_TASKS,
   normalizeRoomName, parseToolCall, resolveRoom, type ToolInvocation,
@@ -126,7 +127,7 @@ export class GeminiMessageResponder implements MessageResponder {
     if (others.length > 0) return GeminiMessageResponder.multipleHousesReply;
 
     const message = Array.from(text.trim()).slice(0, MAX_INPUT_CHARS).join("");
-    if (message === "") return GeminiMessageResponder.helpReply;
+    if (message === "" || isHelpIceBreaker(message)) return GeminiMessageResponder.helpReply;
 
     const rooms = await measure(latency, "roomsMs", () => this.deps.rooms.rooms(house.id, userID));
     const ctx: FormatContext = {

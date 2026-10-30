@@ -28,6 +28,7 @@ Backend TypeScript: `backend/` (Node 22, ESM, `strict`, **zero dependências de 
 - `test/` testes (`node:test`), `test/contract/` testes de contrato reutilizáveis dos ports e dos repositórios do domínio (inclui `MessageQueue`, rodado contra a fila em memória e o `SqsMessageQueue`; os demais rodam contra o adaptador em memória e o DynamoDB com cliente falso), `test/fixtures/` casos dourados gerados do Swift.
 - `tools/swift-fixtures/` gerador (SwiftPM) das fixtures, a partir do `GrupuxoDomain`.
 - `tools/seed-dev/` casa de demonstração e link de vínculo na tabela **real** do `dev` (só com autorização).
+- `tools/whatsapp-config/` grava na Graph API **real** a configuração do número do bot (quebra-gelos de `src/assistant/ice-breakers.ts`, docs/WHATSAPP-MENSAGENS.md); `apply` só com autorização.
 - `tools/validate/` scripts descartáveis que chamam a Graph API e o Gemini **reais** (fora do `npm test`); só rodam com autorização explícita, item por item (README da pasta e `docs/VALIDACAO-APIS-REAIS.md`).
 
 Testes Swift: `grupuxo/grupuxoTests` (app + Mock) e `Packages/GrupuxoDomain/Tests` (domínio puro, `swift test`). `grupuxo/grupuxo/Tests/` são guias históricos, não rodam.
@@ -44,7 +45,7 @@ O app já usa a `api` para casa, cômodos, tarefas, avulsas, trocas, notificaç�
 
 ## Regras
 
-- Mensagens do WhatsApp: seguir o texto canônico de [docs/WHATSAPP-MENSAGENS.md](docs/WHATSAPP-MENSAGENS.md), fixo no código e nunca gerado pelo Gemini. Sempre que o bot ganhar ou perder uma capacidade (ferramenta em `backend/src/assistant/read-tools.ts` ou `complete_task`), atualizar as boas-vindas, a ajuda e os exemplos, junto com o documento e os testes.
+- Mensagens do WhatsApp: seguir o texto canônico de [docs/WHATSAPP-MENSAGENS.md](docs/WHATSAPP-MENSAGENS.md), fixo no código e nunca gerado pelo Gemini. Sempre que o bot ganhar ou perder uma capacidade (ferramenta em `backend/src/assistant/read-tools.ts` ou `complete_task`), atualizar as boas-vindas, a ajuda, os quebra-gelos (`ICE_BREAKERS`, regravados no número) e os exemplos, junto com o documento e os testes.
 - Tipos e propriedades em inglês; textos de interface e respostas do bot em português.
 - Idioma do app: segue o do aparelho, com textos no `grupuxo/grupuxo/Localizable.xcstrings` (fonte `pt-BR`, tradução `en`; idioma sem tradução cai no inglês, `DEVELOPMENT_LANGUAGE = en` no target). Texto padrão novo entra como literal em `Text`/`Button`/`Label` ou `String(localized:)`, e ganha tradução no catálogo; o que o morador digita (nomes de casa, cômodo, tarefa, morador) vai por `Text(variável)` ou como argumento `%@`, nunca traduzido. Strings do `GrupuxoDomain` usam `String(localized:)` e entram no catálogo à mão (`extractionState: manual`).
 - Domain não importa SwiftUI nem persistência. ViewModels (`@MainActor`) recebem use cases por init, nunca repositórios concretos.
