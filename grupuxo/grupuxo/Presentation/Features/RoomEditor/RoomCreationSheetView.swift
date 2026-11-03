@@ -449,23 +449,19 @@ struct RoomCreationSheetView: View {
         }
 
         ToolbarItem(
-            placement: .topBarTrailing
+            placement: .confirmationAction
         ) {
             if isSaving {
                 ProgressView("Criando cômodo")
-            } else if canSave {
-                saveButton
-                    .buttonStyle(.borderedProminent)
             } else {
                 saveButton
-                    .buttonStyle(.bordered)
-                    .disabled(true)
+                    .disabled(!canSave)
             }
         }
     }
 
     private var saveButton: some View {
-        Button {
+        Button("Criar cômodo", systemImage: "checkmark") {
             nameFocused = false
 
             viewModel.updateDraft {
@@ -475,9 +471,8 @@ struct RoomCreationSheetView: View {
             Task {
                 await viewModel.save()
             }
-        } label: {
-            Image(systemName: "checkmark")
         }
+        .labelStyle(.iconOnly)
         .accessibilityLabel("Criar cômodo")
         .accessibilityIdentifier("saveRoom")
     }
