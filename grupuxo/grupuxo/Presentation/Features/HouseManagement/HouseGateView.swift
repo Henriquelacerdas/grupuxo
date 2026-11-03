@@ -7,6 +7,7 @@ struct HouseGateView<Content: View>: View {
     @EnvironmentObject private var houses: RemoteHouseSession
     @EnvironmentObject private var authService: AuthService
     @ViewBuilder var content: () -> Content
+    @State private var confirmSignOut = false
 
     var body: some View {
         Group {
@@ -22,12 +23,15 @@ struct HouseGateView<Content: View>: View {
                 } actions: {
                     Button("Tentar novamente") { Task { await houses.load() } }
                         .buttonStyle(.borderedProminent)
-                    Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
+                    Button("Sair da conta", role: .destructive) { confirmSignOut = true }
                     DeleteAccountButton()
                 }
             } else {
                 OnboardingView()
             }
+        }
+        .confirmationDialog("Sair da conta?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
         }
         .animation(.default, value: houses.house?.id)
         .task {

@@ -23,6 +23,7 @@ struct OnboardingView: View {
     @State private var myName = ""
     @State private var houseName = ""
     @State private var inviteCode = ""
+    @State private var confirmSignOut = false
     @FocusState private var focused: Bool
 
     private var canSubmit: Bool {
@@ -125,9 +126,12 @@ struct OnboardingView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Sair", systemImage: "rectangle.portrait.and.arrow.right") {
-                        Task { await authService.signOut() }
+                        confirmSignOut = true
                     }
                 }
+            }
+            .confirmationDialog("Sair da conta?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+                Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
             }
             .onChange(of: mode) { houses.errorMessage = nil }
             .task { await prefillName() }

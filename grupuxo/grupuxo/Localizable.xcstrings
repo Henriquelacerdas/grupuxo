@@ -4048,6 +4048,16 @@
         }
       }
     },
+    "Sair da conta?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign out?"
+          }
+        }
+      }
+    },
     "Sair da casa?" : {
       "localizations" : {
         "en" : {
