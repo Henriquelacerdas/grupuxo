@@ -840,6 +840,9 @@
         }
       }
     },
+    "Abre a tela de Minhas Tarefas do Grupuxo." : {
+
+    },
     "Abre as tarefas únicas da casa" : {
       "localizations" : {
         "en" : {
@@ -865,6 +868,12 @@
       }
     },
     "Abre os detalhes da tarefa" : {
+
+    },
+    "Abrir Minhas Tarefas" : {
+
+    },
+    "Abrir Tarefas Avulsas" : {
 
     },
     "Ação ainda não conectada" : {
@@ -2866,6 +2875,9 @@
         }
       }
     },
+    "Minhas Tarefas" : {
+
+    },
     "Mínimo de 8 caracteres, com letra maiúscula, minúscula, número e símbolo." : {
       "localizations" : {
         "en" : {
@@ -3362,16 +3374,6 @@
         }
       }
     },
-    "O Reveza deixa de responder a este número. Você pode conectar de novo depois." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reveza will stop replying to this number. You can connect again later."
-          }
-        }
-      }
-    },
     "O login com a Apple não foi concluído." : {
       "localizations" : {
         "en" : {
@@ -3409,6 +3411,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The period entered is invalid."
+          }
+        }
+      }
+    },
+    "O Reveza deixa de responder a este número. Você pode conectar de novo depois." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveza will stop replying to this number. You can connect again later."
           }
         }
       }
@@ -4462,6 +4474,9 @@
           }
         }
       }
+    },
+    "Tarefas Avulsas" : {
+
     },
     "Tarefas do ciclo" : {
       "extractionState" : "stale",

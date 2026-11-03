@@ -6,6 +6,8 @@ import GrupuxoDomain
 struct RootView: View {
 
     @StateObject private var model: RootModel
+    
+    @StateObject private var shortcutManager = ShortcutNavigationManager.shared
 
     @State private var selectedTab: AppTab = .myTasks
     @State private var tasksActivations = 0
@@ -43,6 +45,29 @@ struct RootView: View {
     var body: some View {
         tabs
             .toastHost()
+            .onChange(
+                of: shortcutManager.pendingDestination
+            ) { _, destination in
+
+                guard let destination else { return }
+
+                switch destination {
+
+                case .myTasks:
+                    selectedTab = .myTasks
+                    tasksPath = []
+
+                case .house:
+                    selectedTab = .house
+                    housePath = []
+
+                case .sporadicTasks:
+                    selectedTab = .house
+                    housePath = [.sporadicTasks]
+                }
+
+                shortcutManager.pendingDestination = nil
+            }
     }
 
     private var tabs: some View {
