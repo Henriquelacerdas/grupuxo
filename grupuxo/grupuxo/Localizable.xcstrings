@@ -2996,6 +2996,16 @@
         }
       }
     },
+    "Morador" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resident"
+          }
+        }
+      }
+    },
     "Morador sugerido: %@" : {
       "localizations" : {
         "en" : {

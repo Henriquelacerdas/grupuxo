@@ -144,17 +144,27 @@ struct OnboardingView: View {
         }
     }
 
-    /// Preenche o nome com o atributo do Cognito (Apple manda "name" só no 1º login).
+    /// Preenche o nome com o atributo do Cognito (Apple manda "name" só no 1º login e o
+    /// morador pode ocultá-lo). Nunca deixa o campo vazio: sem nome, usa o início do
+    /// e-mail (exceto o relay privado da Apple, cujo prefixo é aleatório) e, por fim, "Morador".
     private func prefillName() async {
-        guard myName.isEmpty,
-              let attributes = try? await Amplify.Auth.fetchUserAttributes() else { return }
-        let name = attributes.first { $0.key == .name }?.value
-            ?? attributes.first { $0.key == .givenName }?.value
-            ?? attributes.first { $0.key == .email }?.value.components(separatedBy: "@").first
-        if let name, myName.isEmpty { myName = name }
+        guard myName.isEmpty else { return }
+        let attributes = (try? await Amplify.Auth.fetchUserAttributes()) ?? []
+        func value(_ key: AuthUserAttributeKey) -> String? {
+            attributes.first { $0.key == key }?.value
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .nilIfEmpty
+        }
+        let emailPrefix: String? = value(.email).flatMap { email in
+            guard !email.lowercased().hasSuffix("@privaterelay.appleid.com") else { return nil }
+            return email.components(separatedBy: "@").first?.nilIfEmpty
+        }
+        let name = value(.name) ?? value(.givenName) ?? emailPrefix ?? String(localized: "Morador")
+        if myName.isEmpty { myName = name }
     }
 }
 
 private extension String {
     var isBlank: Bool { trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
