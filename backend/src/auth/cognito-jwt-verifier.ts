@@ -2,7 +2,7 @@ import { verify } from "node:crypto";
 import type { Instant } from "../domain/dates.ts";
 import { JwksKeyResolver, type JwksSource } from "./jwks.ts";
 import {
-  AuthenticationError, TokenVerifierUnavailableError, parseCognitoSub,
+  AuthenticationError, TokenVerifierUnavailableError, parseCognitoSub, parseCognitoUsername,
   type AuthenticationFailure, type TokenVerifier, type VerifiedToken,
 } from "./token-verifier.ts";
 
@@ -157,7 +157,9 @@ export class CognitoJwtVerifier implements TokenVerifier {
     const sub = field(claims, "sub");
     const cognitoSub = typeof sub === "string" ? parseCognitoSub(sub) : null;
     if (cognitoSub === null) throw new AuthenticationError("invalidClaims");
-    return { cognitoSub };
+    const rawUsername = field(claims, "username");
+    const username = typeof rawUsername === "string" ? parseCognitoUsername(rawUsername) : null;
+    return username === null ? { cognitoSub } : { cognitoSub, username };
   }
 }
 

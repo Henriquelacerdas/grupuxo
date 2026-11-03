@@ -70,6 +70,12 @@ data "aws_iam_policy_document" "api" {
     actions   = local.table_actions
     resources = local.table_resources
   }
+  # Excluir a conta: o servidor apaga o usuário do Cognito (o `DeleteUser` do app exige um escopo que o login com a
+  # Apple não traz). Só esta ação, só neste user pool; o usuário a apagar vem do access token de quem chama.
+  statement {
+    actions   = ["cognito-idp:AdminDeleteUser"]
+    resources = ["arn:aws:cognito-idp:${var.region}:${var.account_id}:userpool/${var.cognito_user_pool_id}"]
+  }
 }
 
 resource "aws_iam_role_policy" "app" {

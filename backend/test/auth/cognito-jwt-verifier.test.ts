@@ -35,9 +35,21 @@ async function rejectsWith(verifier: CognitoJwtVerifier, token: string, reason: 
   });
 }
 
-test("aceita um access token válido e devolve só o sub", async () => {
+test("aceita um access token válido e devolve o sub e o username", async () => {
   const { verifier } = setup();
-  assert.deepEqual(await verifier.verify(signJWT({ key: keyA })), { cognitoSub: parseCognitoSub(SUB) });
+  assert.deepEqual(await verifier.verify(signJWT({ key: keyA })), { cognitoSub: parseCognitoSub(SUB), username: SUB });
+});
+
+test("o username do token é o do usuário externo (Apple) e fica de fora se faltar ou for inválido", async () => {
+  const { verifier } = setup();
+  const sub = parseCognitoSub(SUB);
+  assert.deepEqual(
+    await verifier.verify(signJWT({ key: keyA, claims: accessClaims({ username: "signinwithapple_001234.abcdef.5678" }) })),
+    { cognitoSub: sub, username: "signinwithapple_001234.abcdef.5678" },
+  );
+  for (const claims of [without(accessClaims(), "username"), accessClaims({ username: "" }), accessClaims({ username: "com espaço" }), accessClaims({ username: 7 })]) {
+    assert.deepEqual(await verifier.verify(signJWT({ key: keyA, claims })), { cognitoSub: sub });
+  }
 });
 
 test("o issuer e a URL do JWKS saem do ID do pool", () => {

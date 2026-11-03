@@ -2447,16 +2447,6 @@
         }
       }
     },
-    "Sem conexão. Tente de novo." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No connection. Try again."
-          }
-        }
-      }
-    },
     "Excluir a casa?" : {
       "localizations" : {
         "en" : {

@@ -19,7 +19,7 @@ import type { House } from "../../src/domain/entities.ts";
 import { DomainError, type DomainErrorCode } from "../../src/domain/errors.ts";
 import { userID } from "../../src/domain/ids.ts";
 import { storageOrDomainFailure } from "../../src/lambdas/api-http.ts";
-import { inMemoryApiDeps } from "./api-support.ts";
+import { FakeIdentityRemover, inMemoryApiDeps } from "./api-support.ts";
 import { httpEvent } from "./support.ts";
 
 const key = generateKey("kid-1");
@@ -37,15 +37,16 @@ function setup() {
   const store = new InMemoryStore(emptyState());
   const users = new InMemoryUserDirectory(store, sequentialIDs());
   const links = new InMemoryWhatsAppLinkStore();
+  const identities = new FakeIdentityRemover();
   const linker = new WhatsAppLinker(createLinkConfig("5511900000000"), new InMemoryLinkTokenStore(), links, () => NOW);
-  const handler = createApiHandler({ verifier, users, linker, links, ...inMemoryApiDeps(store) });
+  const handler = createApiHandler({ verifier, users, identities, linker, links, ...inMemoryApiDeps(store) });
   const call = (method: string, path: string, options: { token?: string | null; body?: string; headers?: Record<string, string> } = {}) =>
     handler(httpEvent({
       method, path,
       headers: { ...(options.token === null ? {} : { authorization: `Bearer ${options.token ?? signJWT({ key })}` }), ...options.headers },
       ...(options.body === undefined ? {} : { body: options.body }),
     }));
-  return { jwks, users, links, linker, handler, call };
+  return { jwks, users, links, linker, handler, call, identities };
 }
 
 const parsed = (response: HttpApiResult): Record<string, unknown> => {
@@ -106,6 +107,7 @@ test("erro inesperado: 500 sem detalhe", async () => {
   const handler = createApiHandler({
     verifier: { verify: async () => ({ cognitoSub: sub }) },
     users: { userForSub: async () => { throw new Error("senha do banco: hunter2"); }, ensureUser: async () => { throw new Error("hunter2"); }, deleteUser: async () => undefined },
+    identities: { deleteIdentity: async () => undefined },
     linker: { issueInvitation: async () => { throw new Error("hunter2"); } },
     links: { linkForUser: async () => null, remove: async () => undefined },
     ...inMemoryApiDeps(new InMemoryStore(emptyState())),
@@ -315,6 +317,7 @@ test("erros do armazenamento: conflito é 409 conflict; os demais e os desconhec
   const handler = createApiHandler({
     verifier: { verify: async () => ({ cognitoSub: sub }) },
     users: { userForSub: async () => userID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), ensureUser: async () => userID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"), deleteUser: async () => undefined },
+    identities: { deleteIdentity: async () => undefined },
     linker: { issueInvitation: async () => { throw new Error("não usado"); } },
     links: { linkForUser: async () => null, remove: async () => undefined },
     ...deps, houses,

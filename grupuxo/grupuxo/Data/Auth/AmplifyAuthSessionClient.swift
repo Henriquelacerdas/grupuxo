@@ -37,10 +37,6 @@ struct AmplifyAuthSessionClient: AuthSessionClient {
         }
     }
 
-    func deleteUser() async throws {
-        try await Amplify.Auth.deleteUser()
-    }
-
     func clearStaleSession() async {
         guard let session = try? await Amplify.Auth.fetchAuthSession(), session.isSignedIn else { return }
         _ = await Amplify.Auth.signOut(options: .init(globalSignOut: false))

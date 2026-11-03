@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// "Excluir conta" com confirmação: apaga os dados no servidor e, só então, o usuário no Cognito.
-/// Se o Cognito falhar depois do servidor, repetir é seguro (o servidor trata conta já apagada como feita).
+/// "Excluir conta" com confirmação: o servidor apaga os dados e o usuário no Cognito (`DELETE /v1/me`; o `DeleteUser`
+/// do app não funciona com o login da Apple) e o app só encerra a sessão local. Se o servidor falhar no meio, repetir
+/// é seguro: cada passo dele é idempotente.
 struct DeleteAccountButton: View {
     @EnvironmentObject private var houses: RemoteHouseSession
     @EnvironmentObject private var authService: AuthService
@@ -36,10 +37,6 @@ struct DeleteAccountButton: View {
             errorMessage = houses.errorMessage ?? String(localized: "Tente de novo em instantes.")
             return
         }
-        switch await authService.deleteAccount() {
-        case .deleted: break
-        case .offline: errorMessage = String(localized: "Sem conexão. Tente de novo.")
-        case .failed(let message): errorMessage = message
-        }
+        await authService.signOut()
     }
 }

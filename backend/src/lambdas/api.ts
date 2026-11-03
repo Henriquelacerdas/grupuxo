@@ -1,5 +1,6 @@
 import type { HouseSnapshotRepository } from "../domain/commands/house-snapshot.ts";
-import { AuthenticationError, TokenVerifierUnavailableError, type TokenVerifier } from "../auth/token-verifier.ts";
+import type { IdentityRemover } from "../auth/identity-remover.ts";
+import { AuthenticationError, TokenVerifierUnavailableError, type TokenVerifier, type VerifiedToken } from "../auth/token-verifier.ts";
 import { parseProfileName, UserDirectoryError, type UserDirectory } from "../auth/user-directory.ts";
 import type { Instant } from "../domain/dates.ts";
 import { isDomainError } from "../domain/errors.ts";
@@ -17,6 +18,8 @@ import { field, parseHttpApiEvent, type HttpApiRequest, type HttpApiResult } fro
 export interface ApiDependencies {
   readonly verifier: TokenVerifier;
   readonly users: UserDirectory;
+  /** Apaga o usuário do Cognito ao excluir a conta (`DELETE /v1/me`). */
+  readonly identities: IdentityRemover;
   readonly linker: Pick<WhatsAppLinker, "issueInvitation">;
   readonly links: Pick<WhatsAppLinkStore, "linkForUser" | "remove">;
   readonly snapshots: HouseSnapshotRepository;
@@ -60,14 +63,16 @@ export function createApiHandler(deps: ApiDependencies): (event: unknown) => Pro
     try {
       const token = bearerToken(request);
       if (token === null) return failure(401, "unauthorized");
-      const { cognitoSub } = await deps.verifier.verify(token);
+      const verified = await deps.verifier.verify(token);
+      const { cognitoSub } = verified;
       if (match.name === "registerAccount") return await registerAccount(deps, cognitoSub, request);
 
-      // As demais rotas exigem que a conta já tenha passado pelo `POST /v1/me`.
       const user = await deps.users.userForSub(cognitoSub);
+      // Excluir a conta vale também para quem nunca passou pelo `POST /v1/me`: o usuário do Cognito existe mesmo assim.
+      if (match.name === "deleteAccount") return await deleteAccount(deps, verified, user);
+      // As demais rotas exigem que a conta já tenha passado pelo `POST /v1/me`.
       if (user === null) return failure(403, "account_not_registered");
       if (match.name === "myAccount") return json(200, { id: user });
-      if (match.name === "deleteAccount") return await deleteAccount(deps, cognitoSub, user);
       if (isAccountRoute(match.name)) return await whatsAppRoute(deps, match.name, user);
       return await appRoutes(match.name, { user, params: match.params, query: request.queryParameters, body: request.body });
     } catch (error) {
@@ -100,23 +105,25 @@ async function registerAccount(
 }
 
 /**
- * `DELETE /v1/me`: tira o morador da casa (o último morador leva a casa junto), desvincula o WhatsApp e apaga a
- * conta do diretório. A confirmação é do app. Cada passo é idempotente, então repetir depois de uma falha termina o
- * serviço. O usuário do Cognito é apagado pelo app, depois deste 204.
+ * `DELETE /v1/me`: tira o morador da casa (o último morador leva a casa junto), desvincula o WhatsApp, apaga a conta
+ * do diretório e, por último, o usuário do Cognito (com o `username` do próprio token). A confirmação é do app.
+ * `user` é `null` para quem nunca registrou a conta: sobra só o usuário do Cognito. Cada passo é idempotente e o do
+ * Cognito é o último, então repetir depois de uma falha termina o serviço, mesmo com a conta do diretório já apagada.
  */
-async function deleteAccount(
-  deps: ApiDependencies, cognitoSub: Parameters<UserDirectory["userForSub"]>[0], user: UserID,
-): Promise<HttpApiResult> {
-  for (const house of await deps.houses.houses(user)) {
-    try {
-      await deps.houses.leave(user, house.id, deps.now(), true, true);
-    } catch (error) {
-      // O índice ainda mostrava uma casa de que o morador já saiu (tentativa anterior): nada a fazer.
-      if (!isDomainError(error, "entityNotFound")) throw error;
+async function deleteAccount(deps: ApiDependencies, token: VerifiedToken, user: UserID | null): Promise<HttpApiResult> {
+  if (user !== null) {
+    for (const house of await deps.houses.houses(user)) {
+      try {
+        await deps.houses.leave(user, house.id, deps.now(), true, true);
+      } catch (error) {
+        // O índice ainda mostrava uma casa de que o morador já saiu (tentativa anterior): nada a fazer.
+        if (!isDomainError(error, "entityNotFound")) throw error;
+      }
     }
+    await deps.links.remove(user);
+    await deps.users.deleteUser(token.cognitoSub);
   }
-  await deps.links.remove(user);
-  await deps.users.deleteUser(cognitoSub);
+  await deps.identities.deleteIdentity(token.username ?? token.cognitoSub);
   return { statusCode: 204, body: "" };
 }
 

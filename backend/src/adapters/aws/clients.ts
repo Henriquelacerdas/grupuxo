@@ -19,3 +19,11 @@ export interface SecretsManagerClient {
   /** `SecretString` do segredo; `undefined` se o segredo existir sem `SecretString` (por exemplo, binário). */
   getSecretString(secretID: string): Promise<string | undefined>;
 }
+
+export interface CognitoIdentityClient {
+  /**
+   * `AdminDeleteUser` no user pool configurado. Usuário inexistente (`UserNotFoundException`) não é falha: retorna
+   * normalmente. Qualquer outro erro é propagado.
+   */
+  adminDeleteUser(username: string): Promise<void>;
+}
