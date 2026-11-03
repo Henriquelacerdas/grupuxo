@@ -9,11 +9,33 @@
 /* Begin PBXBuildFile section */
 		41D0821B306BED31007F697D /* AWSCognitoAuthPlugin in Frameworks */ = {isa = PBXBuildFile; productRef = 41D0821A306BED31007F697D /* AWSCognitoAuthPlugin */; };
 		41D0821D306BED31007F697D /* Amplify in Frameworks */ = {isa = PBXBuildFile; productRef = 41D0821C306BED31007F697D /* Amplify */; };
+		A5831E21309A1B1E003B5F8E /* Reveza-clip.app in Embed App Clips */ = {isa = PBXBuildFile; fileRef = A5831E01309A1B1D003B5F8E /* Reveza-clip.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A5AC2B00305E0003006C8F79 /* GrupuxoDomain in Frameworks */ = {isa = PBXBuildFile; productRef = A5AC2B00305E0001006C8F79 /* GrupuxoDomain */; };
 		A5AC2B00305E0004006C8F79 /* GrupuxoDomain in Frameworks */ = {isa = PBXBuildFile; productRef = A5AC2B00305E0002006C8F79 /* GrupuxoDomain */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		A5831E10309A1B1E003B5F8E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A5AC27B53058135C006C8F79 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A5831E00309A1B1D003B5F8E;
+			remoteInfo = "Reveza-clip";
+		};
+		A5831E1A309A1B1E003B5F8E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A5AC27B53058135C006C8F79 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A5831E00309A1B1D003B5F8E;
+			remoteInfo = "Reveza-clip";
+		};
+		A5831E1F309A1B1E003B5F8E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A5AC27B53058135C006C8F79 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A5831E00309A1B1D003B5F8E;
+			remoteInfo = "Reveza-clip";
+		};
 		A5AC27CB3058135D006C8F79 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = A5AC27B53058135C006C8F79 /* Project object */;
@@ -30,7 +52,22 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		A5831E22309A1B1E003B5F8E /* Embed App Clips */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/AppClips";
+			dstSubfolder = Product;
+			files = (
+				A5831E21309A1B1E003B5F8E /* Reveza-clip.app in Embed App Clips */,
+			);
+			name = "Embed App Clips";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		A5831E01309A1B1D003B5F8E /* Reveza-clip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Reveza-clip.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5831E0F309A1B1E003B5F8E /* Reveza-clipTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Reveza-clipTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5831E19309A1B1E003B5F8E /* Reveza-clipUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Reveza-clipUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5AC27BD3058135C006C8F79 /* grupuxo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = grupuxo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5AC27CA3058135D006C8F79 /* grupuxoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = grupuxoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5AC27D43058135D006C8F79 /* grupuxoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = grupuxoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -38,6 +75,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A5831E2A309A1B1E003B5F8E /* Exceptions for "Reveza-clip" folder in "Reveza-clip" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A5831E00309A1B1D003B5F8E /* Reveza-clip */;
+		};
 		A5A8DA803060DCDF007AEEE2 /* Exceptions for "grupuxo" folder in "grupuxo" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -48,6 +92,24 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A5831E02309A1B1D003B5F8E /* Reveza-clip */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A5831E2A309A1B1E003B5F8E /* Exceptions for "Reveza-clip" folder in "Reveza-clip" target */,
+			);
+			path = "Reveza-clip";
+			sourceTree = "<group>";
+		};
+		A5831E12309A1B1E003B5F8E /* Reveza-clipTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Reveza-clipTests";
+			sourceTree = "<group>";
+		};
+		A5831E1C309A1B1E003B5F8E /* Reveza-clipUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Reveza-clipUITests";
+			sourceTree = "<group>";
+		};
 		A5AC27BF3058135C006C8F79 /* grupuxo */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -69,6 +131,21 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A5831DFE309A1B1D003B5F8E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		A5831E0C309A1B1E003B5F8E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		A5831E16309A1B1E003B5F8E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
 		A5AC27BA3058135C006C8F79 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
@@ -98,6 +175,9 @@
 				A5AC27BF3058135C006C8F79 /* grupuxo */,
 				A5AC27CD3058135D006C8F79 /* grupuxoTests */,
 				A5AC27D73058135D006C8F79 /* grupuxoUITests */,
+				A5831E02309A1B1D003B5F8E /* Reveza-clip */,
+				A5831E12309A1B1E003B5F8E /* Reveza-clipTests */,
+				A5831E1C309A1B1E003B5F8E /* Reveza-clipUITests */,
 				A5D1AC4F306E9DE700B49919 /* Frameworks */,
 				A5AC27BE3058135C006C8F79 /* Products */,
 			);
@@ -109,6 +189,9 @@
 				A5AC27BD3058135C006C8F79 /* grupuxo.app */,
 				A5AC27CA3058135D006C8F79 /* grupuxoTests.xctest */,
 				A5AC27D43058135D006C8F79 /* grupuxoUITests.xctest */,
+				A5831E01309A1B1D003B5F8E /* Reveza-clip.app */,
+				A5831E0F309A1B1E003B5F8E /* Reveza-clipTests.xctest */,
+				A5831E19309A1B1E003B5F8E /* Reveza-clipUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -123,6 +206,66 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A5831E00309A1B1D003B5F8E /* Reveza-clip */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A5831E29309A1B1E003B5F8E /* Build configuration list for PBXNativeTarget "Reveza-clip" */;
+			buildPhases = (
+				A5831DFD309A1B1D003B5F8E /* Sources */,
+				A5831DFE309A1B1D003B5F8E /* Frameworks */,
+				A5831DFF309A1B1D003B5F8E /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				A5831E02309A1B1D003B5F8E /* Reveza-clip */,
+			);
+			name = "Reveza-clip";
+			productName = "Reveza-clip";
+			productReference = A5831E01309A1B1D003B5F8E /* Reveza-clip.app */;
+			productType = "com.apple.product-type.application.on-demand-install-capable";
+		};
+		A5831E0E309A1B1E003B5F8E /* Reveza-clipTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A5831E2B309A1B1E003B5F8E /* Build configuration list for PBXNativeTarget "Reveza-clipTests" */;
+			buildPhases = (
+				A5831E0B309A1B1E003B5F8E /* Sources */,
+				A5831E0C309A1B1E003B5F8E /* Frameworks */,
+				A5831E0D309A1B1E003B5F8E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A5831E11309A1B1E003B5F8E /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A5831E12309A1B1E003B5F8E /* Reveza-clipTests */,
+			);
+			name = "Reveza-clipTests";
+			productName = "Reveza-clipTests";
+			productReference = A5831E0F309A1B1E003B5F8E /* Reveza-clipTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		A5831E18309A1B1E003B5F8E /* Reveza-clipUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A5831E2C309A1B1E003B5F8E /* Build configuration list for PBXNativeTarget "Reveza-clipUITests" */;
+			buildPhases = (
+				A5831E15309A1B1E003B5F8E /* Sources */,
+				A5831E16309A1B1E003B5F8E /* Frameworks */,
+				A5831E17309A1B1E003B5F8E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A5831E1B309A1B1E003B5F8E /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A5831E1C309A1B1E003B5F8E /* Reveza-clipUITests */,
+			);
+			name = "Reveza-clipUITests";
+			productName = "Reveza-clipUITests";
+			productReference = A5831E19309A1B1E003B5F8E /* Reveza-clipUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		A5AC27BC3058135C006C8F79 /* grupuxo */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A5AC27DE3058135D006C8F79 /* Build configuration list for PBXNativeTarget "grupuxo" */;
@@ -130,8 +273,12 @@
 				A5AC27B93058135C006C8F79 /* Sources */,
 				A5AC27BA3058135C006C8F79 /* Frameworks */,
 				A5AC27BB3058135C006C8F79 /* Resources */,
+				A5831E22309A1B1E003B5F8E /* Embed App Clips */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				A5831E20309A1B1E003B5F8E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A5AC27BF3058135C006C8F79 /* grupuxo */,
@@ -198,9 +345,20 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2660;
+				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
+					A5831E00309A1B1D003B5F8E = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					A5831E0E309A1B1E003B5F8E = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = A5831E00309A1B1D003B5F8E;
+					};
+					A5831E18309A1B1E003B5F8E = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = A5831E00309A1B1D003B5F8E;
+					};
 					A5AC27BC3058135C006C8F79 = {
 						CreatedOnToolsVersion = 26.6;
 					};
@@ -236,11 +394,29 @@
 				A5AC27BC3058135C006C8F79 /* grupuxo */,
 				A5AC27C93058135D006C8F79 /* grupuxoTests */,
 				A5AC27D33058135D006C8F79 /* grupuxoUITests */,
+				A5831E00309A1B1D003B5F8E /* Reveza-clip */,
+				A5831E0E309A1B1E003B5F8E /* Reveza-clipTests */,
+				A5831E18309A1B1E003B5F8E /* Reveza-clipUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A5831DFF309A1B1D003B5F8E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		A5831E0D309A1B1E003B5F8E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		A5831E17309A1B1E003B5F8E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 		A5AC27BB3058135C006C8F79 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
@@ -259,6 +435,21 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A5831DFD309A1B1D003B5F8E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		A5831E0B309A1B1E003B5F8E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		A5831E15309A1B1E003B5F8E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		A5AC27B93058135C006C8F79 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -277,6 +468,21 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		A5831E11309A1B1E003B5F8E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A5831E00309A1B1D003B5F8E /* Reveza-clip */;
+			targetProxy = A5831E10309A1B1E003B5F8E /* PBXContainerItemProxy */;
+		};
+		A5831E1B309A1B1E003B5F8E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A5831E00309A1B1D003B5F8E /* Reveza-clip */;
+			targetProxy = A5831E1A309A1B1E003B5F8E /* PBXContainerItemProxy */;
+		};
+		A5831E20309A1B1E003B5F8E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A5831E00309A1B1D003B5F8E /* Reveza-clip */;
+			targetProxy = A5831E1F309A1B1E003B5F8E /* PBXContainerItemProxy */;
+		};
 		A5AC27CC3058135D006C8F79 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = A5AC27BC3058135C006C8F79 /* grupuxo */;
@@ -290,6 +496,162 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		A5831E23309A1B1E003B5F8E /* Debug configuration for PBXNativeTarget "Reveza-clip" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Reveza-clip/Reveza_clip.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 16;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Reveza-clip/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Reveza;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = henrique.grupuxo.Clip;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A5831E24309A1B1E003B5F8E /* Release configuration for PBXNativeTarget "Reveza-clip" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Reveza-clip/Reveza_clip.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 16;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Reveza-clip/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = Reveza;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = henrique.grupuxo.Clip;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		A5831E25309A1B1E003B5F8E /* Debug configuration for PBXNativeTarget "Reveza-clipTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "henrique.grupuxo.Reveza-clipTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Reveza-clip.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Reveza-clip";
+			};
+			name = Debug;
+		};
+		A5831E26309A1B1E003B5F8E /* Release configuration for PBXNativeTarget "Reveza-clipTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "henrique.grupuxo.Reveza-clipTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Reveza-clip.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Reveza-clip";
+			};
+			name = Release;
+		};
+		A5831E27309A1B1E003B5F8E /* Debug configuration for PBXNativeTarget "Reveza-clipUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "henrique.grupuxo.Reveza-clipUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Reveza-clip";
+			};
+			name = Debug;
+		};
+		A5831E28309A1B1E003B5F8E /* Release configuration for PBXNativeTarget "Reveza-clipUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "henrique.grupuxo.Reveza-clipUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "Reveza-clip";
+			};
+			name = Release;
+		};
 		A5AC27DC3058135D006C8F79 /* Debug configuration for PBXProject "grupuxo" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -422,7 +784,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = grupuxo/grupuxo.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_LANGUAGE = en;
 				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				ENABLE_PREVIEWS = YES;
@@ -464,7 +826,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = grupuxo/grupuxo.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 14;
+				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_LANGUAGE = en;
 				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				ENABLE_PREVIEWS = YES;
@@ -585,6 +947,30 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A5831E29309A1B1E003B5F8E /* Build configuration list for PBXNativeTarget "Reveza-clip" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5831E23309A1B1E003B5F8E /* Debug configuration for PBXNativeTarget "Reveza-clip" */,
+				A5831E24309A1B1E003B5F8E /* Release configuration for PBXNativeTarget "Reveza-clip" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		A5831E2B309A1B1E003B5F8E /* Build configuration list for PBXNativeTarget "Reveza-clipTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5831E25309A1B1E003B5F8E /* Debug configuration for PBXNativeTarget "Reveza-clipTests" */,
+				A5831E26309A1B1E003B5F8E /* Release configuration for PBXNativeTarget "Reveza-clipTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		A5831E2C309A1B1E003B5F8E /* Build configuration list for PBXNativeTarget "Reveza-clipUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5831E27309A1B1E003B5F8E /* Debug configuration for PBXNativeTarget "Reveza-clipUITests" */,
+				A5831E28309A1B1E003B5F8E /* Release configuration for PBXNativeTarget "Reveza-clipUITests" */,
+			);
+			defaultConfigurationName = Release;
+		};
 		A5AC27B83058135C006C8F79 /* Build configuration list for PBXProject "grupuxo" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
