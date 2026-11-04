@@ -15,9 +15,8 @@ struct RoomCycleTaskRow: View {
     let onSelect: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            Button(action: onSelect) {
-                HStack(spacing: 8) {
+        Button(action: onSelect) {
+            HStack(spacing: 8) {
                 avatar
                     .frame(width: 40, height: 40)
                     .padding(.trailing, 8)
@@ -41,20 +40,12 @@ struct RoomCycleTaskRow: View {
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 68)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .combine)
-            .accessibilityHint("Abre os detalhes da tarefa")
-
-            Rectangle()
-                .fill(Color(uiColor: .separator).opacity(0.45))
-                .frame(height: 1)
-                .frame(height: 8)
-                .accessibilityHidden(true)
+            .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Abre os detalhes da tarefa")
     }
 
     @ViewBuilder

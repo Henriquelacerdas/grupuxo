@@ -32,7 +32,7 @@ struct RoomGeneralTaskRow: View {
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
-            .frame(height: 68)
+            .frame(minHeight: 68)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -114,7 +114,7 @@ struct RoomUniqueTaskRow: View {
                     .accessibilityHidden(true)
             }
         }
-        .frame(height: 68)
+        .frame(minHeight: 68)
     }
 
     private var responsibleLabel: String {
@@ -148,7 +148,7 @@ struct RoomCycleAllTaskRow: View {
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
-            .frame(height: 68)
+            .frame(minHeight: 68)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
