@@ -5191,6 +5191,46 @@
           }
         }
       }
+    },
+    "Sincronizar com o Lembretes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync with Reminders"
+          }
+        }
+      }
+    },
+    "Lembretes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminders"
+          }
+        }
+      }
+    },
+    "Sem acesso ao Lembretes. Permita em Ajustes > Privacidade e Segurança > Lembretes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No access to Reminders. Allow it in Settings > Privacy & Security > Reminders."
+          }
+        }
+      }
+    },
+    "Cria no app Lembretes um lembrete para cada tarefa sua e mantém os dois em sincronia. Tarefas de outros moradores não aparecem. Ao desligar, os lembretes criados pelo Reveza são apagados." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creates a reminder in the Reminders app for each of your tasks and keeps both in sync. Other housemates' tasks never appear. Turning it off deletes the reminders Reveza created."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

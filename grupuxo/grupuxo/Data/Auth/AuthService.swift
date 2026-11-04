@@ -130,6 +130,9 @@ class AuthService: ObservableObject {
     
     // Faz o logout. Mesmo se o Cognito falhar (ex.: sem rede), o estado local é limpo.
     func signOut() async {
+        // Os lembretes ficam no aparelho, não na conta: sem isto, a próxima conta veria as tarefas desta no Lembretes.
+        await ReminderLinkCleaner().removeAll()
+        ReminderSyncPreference().setEnabled(false)
         let outcome = await client.signOut()
         if outcome == .failed {
             print("Logout remoto falhou; limpando o estado local.")

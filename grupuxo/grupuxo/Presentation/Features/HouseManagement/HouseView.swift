@@ -23,6 +23,7 @@ struct HouseView: View {
                 inviteSection(house)
             }
             WhatsAppConnectionSection(viewModel: whatsApp)
+            RemindersSyncSection()
             roomsSection
             membersSection
 
