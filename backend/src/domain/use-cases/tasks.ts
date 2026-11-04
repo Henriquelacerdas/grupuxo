@@ -11,7 +11,7 @@ import { isBlank, trimmed } from "../arrays.ts";
 
 export type Clock = () => Instant;
 
-/** `week`: só a semana corrente da casa; `all`: tudo o que já está disponível para o morador. */
+/** `week`: só a semana corrente da casa; `all`: tudo o que já está disponível para o morador, mais o que fica disponível ainda nesta semana. */
 export type TaskRange = "week" | "all";
 
 /**

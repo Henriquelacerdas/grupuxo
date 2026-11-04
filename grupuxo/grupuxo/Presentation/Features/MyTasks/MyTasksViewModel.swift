@@ -384,7 +384,13 @@ final class MyTasksViewModel: ObservableObject {
                 known[key] = reminder.isCompleted
 
             case .reminderToApp:
-                guard !failedReminderKeys.contains(key), canComplete(live) else { continue }
+                guard !failedReminderKeys.contains(key) else { continue }
+                // Vez que ainda não começou não pode ser concluída antes da hora: o lembrete volta a ficar aberto.
+                guard live.occurrence.availableAt <= now() else {
+                    if await setReminderCompleted(reminder, appDone) { known[key] = appDone }
+                    continue
+                }
+                guard canComplete(live) else { continue }
                 actionError = nil // para distinguir uma falha desta chamada de um erro antigo
                 await complete(id) // alterna: conclui a aberta ou reabre a concluída
                 if currentItem(id)?.occurrence.isCompleted == reminder.isCompleted {

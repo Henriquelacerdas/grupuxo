@@ -328,7 +328,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 
 | Rota | Entrada | Resposta e erros |
 | --- | --- | --- |
-| `GET /v1/me/tasks` | query opcional `range=week\|all` (padrão `all`) | `200 { "tasks": [TaskItem] }` do morador na sua casa: pendentes por prazo, concluídas por último. Sem casa → `404 no_house`. |
+| `GET /v1/me/tasks` | query opcional `range=week\|all` (padrão `all`) | `200 { "tasks": [TaskItem] }` do morador na sua casa: as já disponíveis e as que ficam disponíveis ainda na semana corrente (segunda 00:00 do fuso da casa até a segunda seguinte), pendentes por prazo, concluídas por último. As futuras só aparecem: concluir e oferecer troca continuam exigindo `availableAt <= agora`. Sem casa → `404 no_house`. |
 | `GET /v1/rooms/{roomID}/tasks` | | `200 { "tasks": [TaskItem] }` do cômodo (recorrentes, ordenadas por prazo). |
 | `POST /v1/rooms/{roomID}/tasks` | `{ "name", "details", "effort": 1..3, "kind": "recurring" \| "sporadic", "recurrence": Recurrence, "assignmentPolicy" }` | `201 TaskDefinition`. `400 invalid_task_name`, `400 invalid_schedule`, `403 task_unavailable` (quem cria precisa participar do cômodo). |
 | `GET /v1/rooms/{roomID}/tasks/{taskID}` | | `200 TaskDefinition`. |
@@ -363,7 +363,7 @@ Todos em `src/lambdas/api-dto.ts`; exemplos em `test/fixtures/api/`. Campos inte
 
 | Tipo | Campos | Exemplo |
 | --- | --- | --- |
-| `HouseSnapshot` | `userID`, `home`, `participations`, `roomTasks` (recorrentes visíveis), `myTasks` (atribuídas ao morador, já disponíveis), `sporadicTasks` (inclui sugestão de responsável) | `house-snapshot.json` |
+| `HouseSnapshot` | `userID`, `home`, `participations`, `roomTasks` (recorrentes visíveis), `myTasks` (atribuídas ao morador, disponíveis ou que ficam disponíveis na semana corrente), `sporadicTasks` (inclui sugestão de responsável) | `house-snapshot.json` |
 | `User` | `id`, `name` | `me-house.json` |
 | `House` | `id`, `name`, `accessCode`, `timezone`, `createdAt` | `house.json` |
 | `Room` | `id`, `houseID`, `name`, `kind` (`wholeHouse`\|`standard`), `category`, `visibility`, `periodicity { executionsPerPeriod, intervalWeeks }`, `responsibleCount`, `calendarAnchor`\|null, `icon`, `color` | `room.json` |
