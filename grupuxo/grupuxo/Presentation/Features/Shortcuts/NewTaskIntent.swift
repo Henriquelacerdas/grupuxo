@@ -14,7 +14,7 @@ struct CreateTaskIntent: AppIntent {
         "Criar Tarefa"
 
     static let description = IntentDescription(
-        "Preenche o formulário para criar uma tarefa no Grupuxo."
+        "Cria uma tarefa no Reveza."
     )
 
     static let openAppWhenRun: Bool = true
@@ -25,8 +25,20 @@ struct CreateTaskIntent: AppIntent {
     @Parameter(title: "Período")
     var period: ShortcutTaskPeriod
 
+    @Parameter(
+        title: "Cômodo",
+        description: "Nome do cômodo. Se vazio, usa Casa toda."
+    )
+    var roomName: String?
+
+    @Parameter(title: "Confirmar antes de salvar", default: false)
+    var reviewBeforeSaving: Bool
+
     static var parameterSummary: some ParameterSummary {
-        Summary("Criar \(\.$taskName) \(\.$period)")
+        Summary("Criar \(\.$taskName) \(\.$period)") {
+            \.$roomName
+            \.$reviewBeforeSaving
+        }
     }
 
     @MainActor
@@ -40,7 +52,11 @@ struct CreateTaskIntent: AppIntent {
         draft.assignmentPolicy = .balancedAutomatically
 
         ShortcutNavigationManager.shared.openTaskCreation(
-            draft: draft
+            ShortcutTaskRequest(
+                draft: draft,
+                roomName: roomName,
+                saveAutomatically: !reviewBeforeSaving
+            )
         )
 
         return .result()

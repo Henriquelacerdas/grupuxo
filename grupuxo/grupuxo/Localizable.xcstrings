@@ -1690,6 +1690,9 @@
         }
       }
     },
+    "Confirmar antes de salvar" : {
+
+    },
     "Confirme seu e-mail com o código que enviamos antes de entrar." : {
       "localizations" : {
         "en" : {
@@ -1779,6 +1782,9 @@
           }
         }
       }
+    },
+    "Cria uma tarefa no Reveza." : {
+
     },
     "Criando cômodo" : {
       "localizations" : {
@@ -3280,6 +3286,9 @@
         }
       }
     },
+    "Nome do cômodo. Se vazio, usa Casa toda." : {
+
+    },
     "Notificações" : {
       "localizations" : {
         "en" : {
@@ -3672,9 +3681,6 @@
           }
         }
       }
-    },
-    "Preenche o formulário para criar uma tarefa no Grupuxo." : {
-
     },
     "Privacidade" : {
       "localizations" : {
@@ -4403,6 +4409,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Task “%@” created"
+          }
+        }
+      }
+    },
+    "Tarefa “%@” criada em %@" : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tarefa “%1$@” criada em %2$@"
           }
         }
       }

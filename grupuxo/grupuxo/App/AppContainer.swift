@@ -112,12 +112,16 @@ final class AppContainer {
         )
     }
 
+    func makeGetHouseRoomsUseCase() -> GetHouseRoomsUseCase {
+        GetHouseRoomsUseCase(repository: roomRepository)
+    }
+
     func makeRefreshTaskScheduleUseCase() -> RefreshTaskScheduleUseCase {
         RefreshTaskScheduleUseCase(
             repository: taskRepository
         )
     }
-
+    
     func makeMyTasksViewModel(
         session: AppSession
     ) -> MyTasksViewModel {

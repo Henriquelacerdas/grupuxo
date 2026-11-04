@@ -7,9 +7,7 @@ struct RootView: View {
     
     @StateObject private var model: RootModel
     
-    @StateObject private var shortcutManager = ShortcutNavigationManager.shared
-    @State private var shortcutDraft = TaskDraft()
-    @State private var isPresentingShortcutTask = false
+    @ObservedObject private var shortcutManager = ShortcutNavigationManager.shared
     
     @State private var selectedTab: AppTab = .myTasks
     @State private var tasksActivations = 0
@@ -46,35 +44,19 @@ struct RootView: View {
     
     var body: some View {
         tabs
-            .toastHost()
-            .onChange(of: shortcutManager.pendingTaskDraft, initial: true) {
-                _, draft in
-                
-                guard let draft else { return }
-                
-                shortcutDraft = draft
-                
-                // A criação acontece no contexto da casa.
-                selectedTab = .house
-                
-                isPresentingShortcutTask = true
-            }
-            .sheet(
-                isPresented: $isPresentingShortcutTask,
-                onDismiss: {
-                    taskChanges += 1
-                    shortcutManager.clearPendingTask()
-                }
-            ) {
-                TaskCreationSheetView(
-                    viewModel: container.makeTaskEditorViewModel(
-                        draft: shortcutDraft,
-                        session: session
-                    )
+            // Fica antes do `toastHost()` para enxergar `showToast`.
+            .modifier(
+                ShortcutTaskHandler(
+                    container: container,
+                    session: session,
+                    selectedTab: $selectedTab,
+                    taskChanges: $taskChanges
                 )
-            }
+            )
+            .toastHost()
             .onChange(
-                of: shortcutManager.pendingDestination, initial: true
+                of: shortcutManager.pendingDestination,
+                initial: true
             ) { _, destination in
                 
                 guard let destination else { return }
