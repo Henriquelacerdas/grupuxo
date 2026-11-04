@@ -544,15 +544,19 @@ Respostas do bot (`WhatsAppLinker`):
 | --- | --- |
 | Vinculado | Boas-vindas "Olá, eu sou o bot do Reveza…" ([texto canônico](WHATSAPP-MENSAGENS.md)); `consentedAt` = horário da mensagem do usuário, `linkedAt` = horário do processamento |
 | Token inexistente, usado ou expirado (sem distinguir, para não vazar informação) | "Link inválido ou expirado…" |
-| Número já vinculado (a qualquer morador) | "Este número já está conectado…"; **o token não é consumido**, outro número ainda pode usá-lo |
-| Morador já tem outro número | "Sua conta já tem outro número conectado…"; o vínculo original fica intacto |
+| Número já vinculado a **outra conta**, token válido | **Troca de conta:** o vínculo antigo é removido (a conta antiga passa a aparecer como desconectada no app) e o número passa à conta do token; resposta: as mesmas boas-vindas |
+| Número já vinculado à **mesma conta** do token | "Este número já está conectado…"; o vínculo fica como está (o token é consumido) |
+| Reentrega da mensagem que já vinculou o número (falha ao enviar a confirmação) | "Este número já está conectado…" (reconhecida porque o vínculo guarda o horário desta mensagem em `consentedAt`) |
+| Morador já tem outro número | "Sua conta já tem outro número conectado…"; o vínculo original fica intacto, inclusive o do número que enviou a mensagem (a troca de conta não acontece) |
 
-Limitação conhecida: consumir o token e criar o vínculo são duas chamadas aos ports. Se `create` falhar depois do `consume`, o token fica queimado e o morador gera outro pelo app. No DynamoDB, o adaptador pode fazer as duas coisas num `TransactWriteItems`, sem mudar o ponto de chamada. Gerar um novo convite não invalida os anteriores: todos valem até expirar.
+Troca de conta: quem envia um token válido provou ter acesso à conta nova, então o número muda de dono sem passo manual. Um token inválido, expirado ou usado nunca mexe no vínculo existente.
+
+Limitação conhecida: consumir o token, remover o vínculo antigo e criar o novo são chamadas separadas aos ports. Se `create` falhar depois do `consume`, o token fica queimado, o número fica sem vínculo e o morador gera outro convite pelo app. No DynamoDB, o adaptador pode fazer as duas coisas num `TransactWriteItems`, sem mudar o ponto de chamada. Gerar um novo convite não invalida os anteriores: todos valem até expirar.
 
 Cuidados:
 
 - O token só vale uma vez e expira. Sem token válido, um número desconhecido nunca é vinculado.
-- Um número pertence a um único usuário. Tentar vincular um número já usado devolve erro.
+- Um número pertence a um único usuário. Enviar um token válido de outra conta transfere o número para ela (o vínculo anterior é removido); o `create` do port continua recusando número ou morador já vinculados.
 - Consentimento: o texto da tela deve explicar o que o bot lê e envia; o envio do token pelo usuário registra o aceite.
 - Se o dono trocar de número, basta desconectar e conectar de novo.
 

@@ -137,18 +137,76 @@ test("um token desconhecido é rejeitado e nada é vinculado", async () => {
   assert.equal(await links.linkForPhone(anaPhone), null);
 });
 
-test("número vinculado a outro morador é rejeitado sem queimar o token", async () => {
+test("número vinculado a outra conta passa para a conta do token e o vínculo antigo é removido", async () => {
   const { makeLinker, makeWorker, links, sender, message } = setup();
   await links.create({ userID: bia, phoneE164: anaPhone, consentedAt: NOW, linkedAt: NOW });
   const linker = makeLinker();
   await linker.issueInvitation(ana);
-  const worker = makeWorker(linker);
+  const replies: UserID[] = [];
+  const worker = makeWorker(linker, { reply: async (_text, user) => { replies.push(user); return "ok"; } });
   await worker.process(message());
-  assert.deepEqual(sender.sent, [{ phoneE164: anaPhone, text: WhatsAppLinker.alreadyLinkedReply }]);
-  assert.equal((await links.linkForPhone(anaPhone))?.userID, bia);
-  // O token continua válido para outro número.
-  await worker.process(message("wamid.2", { from: "+5531977776666" }));
-  assert.equal((await links.linkForPhone("+5531977776666"))?.userID, ana);
+  assert.deepEqual(sender.sent, [{ phoneE164: anaPhone, text: WhatsAppLinker.linkedReply }]);
+  assert.deepEqual(await links.linkForPhone(anaPhone), { userID: ana, phoneE164: anaPhone, consentedAt: sentAt, linkedAt: NOW });
+  assert.equal(await links.linkForUser(ana).then((l) => l?.phoneE164), anaPhone);
+  assert.equal(await links.linkForUser(bia), null);
+  // A partir daí o bot atende a conta nova, não a antiga.
+  await worker.process(message("wamid.2", { text: "minhas tarefas" }));
+  assert.deepEqual(replies, [ana]);
+});
+
+test("depois da troca, a conta antiga fica sem número e pode gerar um convite novo", async () => {
+  const { makeLinker, makeWorker, links, message } = setup();
+  await links.create({ userID: bia, phoneE164: anaPhone, consentedAt: NOW, linkedAt: NOW });
+  const linker = makeLinker();
+  await linker.issueInvitation(ana);
+  await makeWorker(linker).process(message());
+  assert.equal(await links.linkForUser(bia), null);
+  await assert.doesNotReject(linker.issueInvitation(bia));
+});
+
+test("trocar o número de conta não acontece com token inválido, expirado ou usado", async () => {
+  const { makeLinker, makeWorker, links, sender, message } = setup();
+  const original = { userID: bia, phoneE164: anaPhone, consentedAt: NOW, linkedAt: NOW };
+  await links.create(original);
+  await makeLinker().issueInvitation(ana);
+  const worker = makeWorker(makeLinker(NOW + 901_000));
+  await worker.process(message("wamid.1"));
+  await worker.process(message("wamid.2", { text: `Conectar meu WhatsApp ao Reveza. Código: ${"cd".repeat(16)}` }));
+  assert.deepEqual(sender.sent.map((s) => s.text), [WhatsAppLinker.invalidTokenReply, WhatsAppLinker.invalidTokenReply]);
+  assert.deepEqual(await links.linkForPhone(anaPhone), original);
+});
+
+test("a reentrega da mensagem que já vinculou o número não vira link inválido", async () => {
+  const { makeLinker, links, message } = setup();
+  await links.create({ userID: bia, phoneE164: anaPhone, consentedAt: NOW, linkedAt: NOW });
+  const linker = makeLinker();
+  await linker.issueInvitation(ana);
+  assert.equal(await linker.handle(message()), WhatsAppLinker.linkedReply);
+  assert.equal(await linker.handle(message()), WhatsAppLinker.alreadyLinkedReply);
+  assert.equal((await links.linkForPhone(anaPhone))?.userID, ana);
+});
+
+test("a mesma conta que reenvia um token com o número já conectado mantém o vínculo", async () => {
+  const { makeLinker, links, message } = setup();
+  const linker = makeLinker();
+  await linker.issueInvitation(ana);
+  await links.create({ userID: ana, phoneE164: anaPhone, consentedAt: NOW, linkedAt: NOW });
+  assert.equal(await linker.handle(message()), WhatsAppLinker.alreadyLinkedReply);
+  assert.deepEqual(await links.linkForPhone(anaPhone), { userID: ana, phoneE164: anaPhone, consentedAt: NOW, linkedAt: NOW });
+});
+
+test("trocar de conta não tira o número de quem já tem outro número na conta nova", async () => {
+  const { makeLinker, makeWorker, links, sender, message } = setup();
+  const linker = makeLinker();
+  await linker.issueInvitation(ana);
+  const anaOriginal = { userID: ana, phoneE164: biaPhone, consentedAt: NOW, linkedAt: NOW };
+  const biaOriginal = { userID: bia, phoneE164: anaPhone, consentedAt: NOW, linkedAt: NOW };
+  await links.create(anaOriginal);
+  await links.create(biaOriginal);
+  await makeWorker(linker).process(message());
+  assert.deepEqual(sender.sent, [{ phoneE164: anaPhone, text: WhatsAppLinker.userHasOtherNumberReply }]);
+  assert.deepEqual(await links.linkForUser(ana), anaOriginal);
+  assert.deepEqual(await links.linkForUser(bia), biaOriginal);
 });
 
 test("quem já tem outro número mantém o vínculo original", async () => {
@@ -179,7 +237,8 @@ test("um número já vinculado que envia um token não chega ao responder", asyn
   const responder: MessageResponder = { reply: async () => { count += 1; return "ok"; } };
   await makeWorker(makeLinker(), responder).process(message());
   assert.equal(count, 0);
-  assert.deepEqual(sender.sent, [{ phoneE164: anaPhone, text: WhatsAppLinker.alreadyLinkedReply }]);
+  assert.deepEqual(sender.sent, [{ phoneE164: anaPhone, text: WhatsAppLinker.invalidTokenReply }]);
+  assert.equal((await links.linkForPhone(anaPhone))?.userID, ana);
 });
 
 test("a entrega duplicada da mensagem de vínculo responde uma vez", async () => {

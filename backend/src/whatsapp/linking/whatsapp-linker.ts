@@ -98,18 +98,30 @@ export class WhatsAppLinker {
   /**
    * Devolve `null` se a mensagem não traz token (o worker segue o fluxo normal); senão, a resposta ao remetente.
    *
-   * Consumir o token e criar o vínculo são duas chamadas: se `create` falhar depois do `consume`, o token fica
-   * queimado e o morador gera outro. No DynamoDB o adaptador pode juntar as duas coisas num `TransactWriteItems`.
+   * Um número que já está vinculado a **outra** conta e envia um token válido troca de dono: o vínculo anterior
+   * é removido e o número passa a ser da conta do token (quem manda um token válido provou ter acesso à conta
+   * nova, e o usuário é quem decide em qual conta o bot atende).
+   *
+   * Consumir o token, remover o vínculo antigo e criar o novo são chamadas separadas: se `create` falhar depois do
+   * `consume`, o token fica queimado, o número fica sem vínculo e o morador gera outro convite. No DynamoDB o
+   * adaptador pode juntar as duas coisas num `TransactWriteItems`.
    */
   async handle(message: IncomingMessage): Promise<string | null> {
     const token = extractToken(message.text);
     if (token === null) return null;
 
-    // Antes do consume, para um número já vinculado não queimar um token que outro número ainda pode usar.
-    if ((await this.links.linkForPhone(message.phoneE164)) !== null) return WhatsAppLinker.alreadyLinkedReply;
+    const current = await this.links.linkForPhone(message.phoneE164);
+    // Reentrega da própria mensagem que já vinculou o número (falha ao enviar a confirmação): o vínculo foi gravado
+    // com o horário desta mensagem em `consentedAt` e o token já foi usado. Não é um token inválido.
+    if (current !== null && current.consentedAt === message.receivedAt) return WhatsAppLinker.alreadyLinkedReply;
+
     const userID = await this.tokens.consume(hashToken(token), this.now());
     if (userID === null) return WhatsAppLinker.invalidTokenReply;
+    if (current?.userID === userID) return WhatsAppLinker.alreadyLinkedReply;
+    // Antes de remover o vínculo antigo, para uma conta que já tem outro número não deixar o número sem dono.
+    if ((await this.links.linkForUser(userID)) !== null) return WhatsAppLinker.userHasOtherNumberReply;
     try {
+      if (current !== null) await this.links.remove(current.userID);
       // Enviar o token é o aceite: `consentedAt` é o horário da mensagem do usuário.
       await this.links.create({ userID, phoneE164: message.phoneE164, consentedAt: message.receivedAt, linkedAt: this.now() });
     } catch (error) {
