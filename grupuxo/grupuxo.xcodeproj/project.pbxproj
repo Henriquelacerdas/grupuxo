@@ -793,6 +793,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = grupuxo/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Reveza;
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "We need to access your reminders to create and update tasks";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -835,6 +836,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = grupuxo/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Reveza;
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "We need to access your reminders to create and update tasks";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -868,7 +870,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = TUC4R5H9Y8;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 1.0;
@@ -890,7 +892,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = TUC4R5H9Y8;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
 				MARKETING_VERSION = 1.0;
@@ -911,7 +913,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = TUC4R5H9Y8;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = erika.grupuxoUITests;
@@ -931,7 +933,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = TUC4R5H9Y8;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = erika.grupuxoUITests;
