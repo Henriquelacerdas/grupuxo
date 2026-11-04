@@ -6,7 +6,8 @@ Regra geral: nova rota na `api` entra primeiro em `docs/BACKEND.md` (seção 6.1
 
 ## 1. Só configuração (sem código novo)
 
-- [ ] **Ajuda e Sobre**: preencher em `grupuxo/Config/Grupuxo.xcconfig` `GRUPUXO_HELP_URL`, `GRUPUXO_FEEDBACK_URL` (aceita `mailto:`), `GRUPUXO_PRIVACY_POLICY_URL`, `GRUPUXO_TERMS_URL`. Vazio = a linha não aparece. Em URL use `/$()/` no lugar de `//`. A Política de Privacidade também é exigência da App Store.
+- [x] **Política de Privacidade**: `GRUPUXO_PRIVACY_POLICY_URL` preenchida em `grupuxo/Config/Grupuxo.xcconfig` com a mesma URL do App Store Connect (`https://henriquelacerdas.github.io/reveza-privacy/`, conferida em 04/11/2026).
+- [ ] **Ajuda, Feedback e Termos**: ainda vazios (a linha não aparece no app): `GRUPUXO_HELP_URL`, `GRUPUXO_FEEDBACK_URL` (aceita `mailto:`), `GRUPUXO_TERMS_URL`. Em URL use `/$()/` no lugar de `//`. Hoje não existe página para nenhum; o App Store Connect usa a página da política também como URL de Suporte, o que vale trocar por uma página de suporte própria.
 - [ ] Conferir o conteúdo da página "Como o Reveza funciona" (o app só abre a URL).
 
 ## 2. Texto do design a alinhar com o produto

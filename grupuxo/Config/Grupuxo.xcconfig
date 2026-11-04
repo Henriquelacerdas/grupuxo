@@ -9,7 +9,7 @@ GRUPUXO_API_BASE_URL = https:/$()/oxq6xfm2bjp6m5tx67y3csoy3y0sjvvu.lambda-url.us
 // Preencha aqui ou em Local.xcconfig; em URLs, `/$()/` evita que `//` vire comentário.
 GRUPUXO_HELP_URL =
 GRUPUXO_FEEDBACK_URL =
-GRUPUXO_PRIVACY_POLICY_URL =
+GRUPUXO_PRIVACY_POLICY_URL = https:/$()/henriquelacerdas.github.io/reveza-privacy/
 GRUPUXO_TERMS_URL =
 
 #include? "Local.xcconfig"
