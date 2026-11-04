@@ -7,15 +7,24 @@ struct DeleteAccountButton: View {
     @EnvironmentObject private var houses: RemoteHouseSession
     @EnvironmentObject private var authService: AuthService
 
+    var title: LocalizedStringKey = "Excluir conta"
+    var systemImage: String? = "trash"
+
     @State private var confirming = false
     @State private var isDeleting = false
     @State private var errorMessage: String?
 
     var body: some View {
-        Button("Excluir conta", systemImage: "trash", role: .destructive) { confirming = true }
+        Button(role: .destructive) { confirming = true } label: {
+            if let systemImage {
+                Label(title, systemImage: systemImage)
+            } else {
+                Text(title)
+            }
+        }
             .disabled(isDeleting || houses.isLoading)
             .confirmationDialog("Excluir sua conta?", isPresented: $confirming, titleVisibility: .visible) {
-                Button("Excluir conta", role: .destructive) { Task { await delete() } }
+                Button(title, role: .destructive) { Task { await delete() } }
             } message: {
                 Text("Seu perfil e o vínculo com o WhatsApp serão apagados e você sai da casa. Se for o último morador, a casa, os cômodos e as tarefas também serão excluídos. Não dá para desfazer.")
             }

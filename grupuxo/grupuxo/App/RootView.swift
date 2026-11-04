@@ -20,6 +20,9 @@ struct RootView: View {
     /// Tarefa aberta na sheet de detalhes.
     @State private var presentedTask: PresentedTask?
 
+    /// Ajustes (o perfil), abertos em sheet a partir do avatar de Minhas tarefas.
+    @State private var isPresentingProfile = false
+
     /// Atualiza as listas quando a sheet de detalhes é fechada.
     @State private var taskChanges = 0
 
@@ -111,7 +114,7 @@ struct RootView: View {
                     },
 
                     onSelectProfile: {
-                        tasksPath.append(.settings)
+                        isPresentingProfile = true
                     },
 
                     reloadTrigger: ReloadKey(
@@ -198,6 +201,14 @@ struct RootView: View {
 
                 // A API ainda não disponibiliza PATCH para edição.
                 allowsEditing: false
+            )
+        }
+        .sheet(isPresented: $isPresentingProfile) {
+
+            ProfileView(
+                whatsAppViewModel: container.makeWhatsAppConnectionViewModel(),
+                accountViewModel: container.makeAccountViewModel(),
+                appInfo: container.appInfo
             )
         }
     }
@@ -296,14 +307,6 @@ struct RootView: View {
                 )
             )
 
-        // MARK: Settings
-
-        case .settings:
-
-            HouseView(
-                whatsAppViewModel:
-                    container.makeWhatsAppConnectionViewModel()
-            )
         }
     }
 }

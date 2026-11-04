@@ -42,7 +42,7 @@ Presentation/
                 SporadicTasks, TaskSwap   (cada uma: State + View + ViewModel)
                 TaskDetail (detalhe da tarefa: próximas vezes, vez atual, última conclusão)
                 Notifications (notificações e trocas pendentes)
-                Profile (vínculo do WhatsApp, usado pela seção do HouseView)
+                Profile (Ajustes: ProfileView em sheet com Conta, Casa, Notificações e WhatsApp empurradas; AccountViewModel)
                 Auth (LoginView, SignUpView, ConfirmSignUpView, ForgotPasswordView; sem ViewModel, usam AuthService)
                 HouseManagement também tem HouseGateView, OnboardingView e HouseView (sem ViewModel: usam RemoteHouseSession)
   Navigation/   AppRoute, AppRouter
@@ -112,8 +112,8 @@ Com uma casa ativa na sessão, o app tem duas abas (`AppTab`: `myTasks`, `house`
 - **Detalhe da tarefa** (`TaskDetail`): definição, cômodo, vez atual, próximas vezes (`GetTaskUpcomingAssignments`) e última conclusão (`GetTaskOverview`). Edição só vale no Mock, até a `api` ter `PATCH`.
 - **Avisos** (`Toast`): criar e excluir tarefa, cômodo ou avulsa mostram um aviso curto sobre as abas (`RootView` aplica `toastHost()`); não pede ação.
 - `TaskEditor` abre pela criação em Gerenciar casa ou pela manutenção dentro de um cômodo. Sem cômodo pré-selecionado, exige escolher um `roomID` antes de salvar.
-- `settings` (engrenagem/perfil) abre o `HouseView`: código de convite, cômodos e moradores, conectar o WhatsApp (`WhatsAppConnectionSection` sobre `RemoteWhatsAppConnectionRepository`), sair da casa e sair da conta.
-- Rotas (`AppRoute`) são tipadas e carregam só identificadores: `roomDetail`, `sporadicTasks`, `taskEditor(roomID:)`, `taskSwap(offeredOccurrenceID:)`, `notifications`, `settings`. Existir uma rota não autoriza qualquer tela a apresentá-la.
+- O avatar de Minhas tarefas abre os **Ajustes** (`ProfileView`) em sheet, com botão de fechar (design no Figma "Designuxo", nó 847:3410). Raiz: cartão da conta, Casa (nome, nº de moradores, código de convite com Copiar), Notificações, WhatsApp, Ajuda e Sobre. Telas empurradas dentro da sheet: **Conta** (nome, e-mail e provedor lidos do ID token pelo `AccountIdentityReading`; sair da conta; apagar conta), **Casa** (código, moradores, sair da casa com as confirmações de exclusão de cômodos/casa), **Notificações** (só o espelho no app Lembretes) e **WhatsApp** (`WhatsAppConnectionSection` sobre `RemoteWhatsAppConnectionRepository`). Nome do morador e da casa são só leitura e o avatar usa iniciais: o servidor não tem foto nem rota para renomear. Modo férias e preferências por tipo de aviso do design não existem sem rota na `api`. Versão e destinos de Ajuda e Sobre vêm do `Info.plist` (`AppInfo`; chaves `GRUPUXO_HELP_URL`, `GRUPUXO_FEEDBACK_URL`, `GRUPUXO_PRIVACY_POLICY_URL`, `GRUPUXO_TERMS_URL` em `Config/Grupuxo.xcconfig`); sem URL, a linha não aparece.
+- Rotas (`AppRoute`) são tipadas e carregam só identificadores: `roomDetail`, `sporadicTasks`, `taskEditor(roomID:)`, `taskSwap(offeredOccurrenceID:)`, `notifications`. Existir uma rota não autoriza qualquer tela a apresentá-la.
 
 ## Casa e conta no servidor
 
@@ -200,7 +200,7 @@ Conclusão e atribuição são idempotentes: repetir não duplica esforço, resp
 ## Autenticação e WhatsApp
 
 - Login (e-mail/senha e Sign in with Apple pelo Hosted UI do Cognito) vive em `Data/Auth/AuthService`, sem contrato de autenticação no Domain. A UI funciona sem imagem (iniciais/avatar).
-- A integração com WhatsApp vive no backend TypeScript (`src/whatsapp/`, ports em `ports.ts`); o app só pede o link de vínculo (`POST /v1/me/whatsapp/link`), mostra o estado (`GET /v1/me/whatsapp`) e desconecta (`DELETE /v1/me/whatsapp`), na seção de WhatsApp do `HouseView`. Pelo WhatsApp o morador vê as próprias tarefas e conclui uma depois de confirmar com "sim". Proposta e estado: [BACKEND.md](BACKEND.md).
+- A integração com WhatsApp vive no backend TypeScript (`src/whatsapp/`, ports em `ports.ts`); o app só pede o link de vínculo (`POST /v1/me/whatsapp/link`), mostra o estado (`GET /v1/me/whatsapp`) e desconecta (`DELETE /v1/me/whatsapp`), na tela de WhatsApp dos Ajustes. Pelo WhatsApp o morador vê as próprias tarefas e conclui uma depois de confirmar com "sim". Proposta e estado: [BACKEND.md](BACKEND.md).
 
 ## Convenções
 

@@ -4,4 +4,12 @@
 // copie Local.xcconfig.example para Local.xcconfig e preencha. `/$()/` evita que `//` vire comentário.
 GRUPUXO_API_BASE_URL = https:/$()/oxq6xfm2bjp6m5tx67y3csoy3y0sjvvu.lambda-url.us-east-1.on.aws
 
+// Destinos de Ajuda e Sobre nos Ajustes do app (Info.plist: GrupuxoHelpURL, GrupuxoFeedbackURL, GrupuxoPrivacyPolicyURL,
+// GrupuxoTermsURL → AppInfo). Vazio = a linha não aparece. Aceita http(s) e, na sugestão, mailto:.
+// Preencha aqui ou em Local.xcconfig; em URLs, `/$()/` evita que `//` vire comentário.
+GRUPUXO_HELP_URL =
+GRUPUXO_FEEDBACK_URL =
+GRUPUXO_PRIVACY_POLICY_URL =
+GRUPUXO_TERMS_URL =
+
 #include? "Local.xcconfig"

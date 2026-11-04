@@ -46,16 +46,6 @@
         }
       }
     },
-    "%@ (você)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ (you)"
-          }
-        }
-      }
-    },
     "%@ e mais %lld" : {
       "localizations" : {
         "en" : {
@@ -949,6 +939,26 @@
         }
       }
     },
+    "Ajuda" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Help"
+          }
+        }
+      }
+    },
+    "Ajustes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
     "Ajustes da Casa" : {
       "localizations" : {
         "en" : {
@@ -1082,12 +1092,42 @@
         }
       }
     },
+    "Ao sair, você deixa todos os cômodos da casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you leave, you're removed from all of the house's rooms."
+          }
+        }
+      }
+    },
+    "Apaga seu perfil e o vínculo com o WhatsApp e tira você da casa. Não dá para desfazer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deletes your profile and WhatsApp link and removes you from the house. This can't be undone."
+          }
+        }
+      }
+    },
     "Apagar" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete"
+          }
+        }
+      }
+    },
+    "Apagar conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete account"
           }
         }
       }
@@ -1128,6 +1168,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "After completion"
+          }
+        }
+      }
+    },
+    "Apple" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple"
           }
         }
       }
@@ -1480,7 +1530,18 @@
         }
       }
     },
+    "Código da casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "House code"
+          }
+        }
+      }
+    },
     "Código de convite" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1510,6 +1571,16 @@
         }
       }
     },
+    "Código para convidar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite code"
+          }
+        }
+      }
+    },
     "Com %@" : {
       "localizations" : {
         "en" : {
@@ -1526,6 +1597,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "With you"
+          }
+        }
+      }
+    },
+    "Como o Reveza funciona" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How Reveza works"
           }
         }
       }
@@ -1590,16 +1671,6 @@
         }
       }
     },
-    "Cômodos (%lld)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rooms (%lld)"
-          }
-        }
-      }
-    },
     "Cômodos serão excluídos" : {
       "localizations" : {
         "en" : {
@@ -1660,6 +1731,16 @@
         }
       }
     },
+    "Conectado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connected"
+          }
+        }
+      }
+    },
     "Conectar WhatsApp" : {
       "localizations" : {
         "en" : {
@@ -1716,6 +1797,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Confirm your email with the code we sent before signing in."
+          }
+        }
+      }
+    },
+    "Conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account"
           }
         }
       }
@@ -1790,6 +1881,36 @@
         }
       }
     },
+    "Convite" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invite"
+          }
+        }
+      }
+    },
+    "Copiado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied"
+          }
+        }
+      }
+    },
+    "Copiar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
     "Copiar código" : {
       "localizations" : {
         "en" : {
@@ -1806,6 +1927,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Color"
+          }
+        }
+      }
+    },
+    "Cria no app Lembretes um lembrete para cada tarefa sua e mantém os dois em sincronia. Tarefas de outros moradores não aparecem. Ao desligar, os lembretes criados pelo Reveza são apagados." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creates a reminder in the Reminders app for each of your tasks and keeps both in sync. Other housemates' tasks never appear. Turning it off deletes the reminders Reveza created."
           }
         }
       }
@@ -2084,6 +2215,16 @@
         }
       }
     },
+    "E-mail e senha" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email and password"
+          }
+        }
+      }
+    },
     "E-mail ou senha incorretos. Tente de novo ou toque em Esqueci a senha." : {
       "localizations" : {
         "en" : {
@@ -2230,6 +2371,16 @@
         }
       }
     },
+    "Entrou com" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed in with"
+          }
+        }
+      }
+    },
     "Enviamos um novo código para %@." : {
       "localizations" : {
         "en" : {
@@ -2246,6 +2397,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Send code"
+          }
+        }
+      }
+    },
+    "Enviar sugestão" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send feedback"
           }
         }
       }
@@ -2406,6 +2567,16 @@
         }
       }
     },
+    "Excluir a casa?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the house?"
+          }
+        }
+      }
+    },
     "Excluir conta" : {
       "localizations" : {
         "en" : {
@@ -2422,46 +2593,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete your account?"
-          }
-        }
-      }
-    },
-    "Seu perfil e o vínculo com o WhatsApp serão apagados e você sai da casa. Se for o último morador, a casa, os cômodos e as tarefas também serão excluídos. Não dá para desfazer." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your profile and WhatsApp link will be erased and you will leave the house. If you are the last resident, the house, rooms and tasks will be deleted too. This cannot be undone."
-          }
-        }
-      }
-    },
-    "Não foi possível excluir a conta" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't delete the account"
-          }
-        }
-      }
-    },
-    "Tente de novo em instantes." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try again in a moment."
-          }
-        }
-      }
-    },
-    "Excluir a casa?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete the house?"
           }
         }
       }
@@ -2786,6 +2917,16 @@
         }
       }
     },
+    "Lembretes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminders"
+          }
+        }
+      }
+    },
     "Lembretes na hora certa, e todo mundo vê o que já foi feito." : {
       "localizations" : {
         "en" : {
@@ -3028,12 +3169,12 @@
         }
       }
     },
-    "Moradores (%lld)" : {
+    "Moradores" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Residents (%lld)"
+            "value" : "Residents"
           }
         }
       }
@@ -3086,6 +3227,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nothing to do right now."
+          }
+        }
+      }
+    },
+    "Não conectado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not connected"
           }
         }
       }
@@ -3210,6 +3361,16 @@
         }
       }
     },
+    "Não foi possível excluir a conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't delete the account"
+          }
+        }
+      }
+    },
     "Não foi possível falar com o servidor agora. Tente de novo em instantes." : {
       "localizations" : {
         "en" : {
@@ -3266,16 +3427,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Doesn't repeat"
-          }
-        }
-      }
-    },
-    "Nenhum cômodo ainda." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No rooms yet."
           }
         }
       }
@@ -3400,6 +3551,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Name"
+          }
+        }
+      }
+    },
+    "Nome da casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "House name"
           }
         }
       }
@@ -3791,6 +3952,16 @@
         }
       }
     },
+    "Política de Privacidade" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy Policy"
+          }
+        }
+      }
+    },
     "Por que ficam separadas?" : {
 
     },
@@ -4060,16 +4231,6 @@
         }
       }
     },
-    "Sair da conta?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign out?"
-          }
-        }
-      }
-    },
     "Sair da casa?" : {
       "localizations" : {
         "en" : {
@@ -4086,6 +4247,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sign out"
+          }
+        }
+      }
+    },
+    "Sair da conta?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign out?"
           }
         }
       }
@@ -4227,6 +4398,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Select a room."
+          }
+        }
+      }
+    },
+    "Sem acesso ao Lembretes. Permita em Ajustes > Privacidade e Segurança > Lembretes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No access to Reminders. Allow it in Settings > Privacy & Security > Reminders."
           }
         }
       }
@@ -4402,6 +4583,26 @@
         }
       }
     },
+    "Seu perfil e o vínculo com o WhatsApp serão apagados e você sai da casa. Se for o último morador, a casa, os cômodos e as tarefas também serão excluídos. Não dá para desfazer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your profile and WhatsApp link will be erased and you will leave the house. If you are the last resident, the house, rooms and tasks will be deleted too. This cannot be undone."
+          }
+        }
+      }
+    },
+    "Sincronizar com o Lembretes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync with Reminders"
+          }
+        }
+      }
+    },
     "Só é possível pedir para entrar em cômodos privados de que você não participa." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4429,6 +4630,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Only you"
+          }
+        }
+      }
+    },
+    "Sobre" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
           }
         }
       }
@@ -4470,6 +4681,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your house"
+          }
+        }
+      }
+    },
+    "Sua conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your account"
           }
         }
       }
@@ -4709,6 +4930,16 @@
         }
       }
     },
+    "Tente de novo em instantes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try again in a moment."
+          }
+        }
+      }
+    },
     "Termina %@" : {
       "localizations" : {
         "en" : {
@@ -4781,6 +5012,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ends today"
+          }
+        }
+      }
+    },
+    "Termos de Uso" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terms of Use"
           }
         }
       }
@@ -5011,6 +5252,16 @@
         }
       }
     },
+    "Versão" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        }
+      }
+    },
     "Você" : {
       "localizations" : {
         "en" : {
@@ -5188,46 +5439,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "WhatsApp connected"
-          }
-        }
-      }
-    },
-    "Sincronizar com o Lembretes" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sync with Reminders"
-          }
-        }
-      }
-    },
-    "Lembretes" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reminders"
-          }
-        }
-      }
-    },
-    "Sem acesso ao Lembretes. Permita em Ajustes > Privacidade e Segurança > Lembretes." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No access to Reminders. Allow it in Settings > Privacy & Security > Reminders."
-          }
-        }
-      }
-    },
-    "Cria no app Lembretes um lembrete para cada tarefa sua e mantém os dois em sincronia. Tarefas de outros moradores não aparecem. Ao desligar, os lembretes criados pelo Reveza são apagados." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Creates a reminder in the Reminders app for each of your tasks and keeps both in sync. Other housemates' tasks never appear. Turning it off deletes the reminders Reveza created."
           }
         }
       }

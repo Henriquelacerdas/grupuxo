@@ -19,8 +19,6 @@ enum AppRoute: Hashable {
 
     case notifications
 
-    case settings
-
 }
 
 enum AppTab: Hashable {

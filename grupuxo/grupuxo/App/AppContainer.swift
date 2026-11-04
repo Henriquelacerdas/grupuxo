@@ -18,6 +18,10 @@ final class AppContainer {
     let notificationRepository: any NotificationRepository
     let whatsAppConnectionRepository: any WhatsAppConnectionRepository
 
+    /// Versão e destinos de Ajuda e Sobre (Info.plist) e a leitura do login para a tela Conta.
+    let appInfo: AppInfo
+    private let accountIdentityReader: any AccountIdentityReading
+
     private init(
         store: MockStore,
         calendar: Calendar,
@@ -28,8 +32,12 @@ final class AppContainer {
         taskSwapRepository: any TaskSwapRepository,
         notificationRepository: any NotificationRepository,
         whatsAppConnectionRepository: any WhatsAppConnectionRepository,
+        accountIdentityReader: any AccountIdentityReading,
+        appInfo: AppInfo = AppInfo(),
         invalidateReads: @escaping @Sendable () async -> Void = {}
     ) {
+        self.accountIdentityReader = accountIdentityReader
+        self.appInfo = appInfo
         self.invalidateReads = invalidateReads
         self.store = store
         self.calendar = calendar
@@ -56,6 +64,8 @@ final class AppContainer {
             taskSwapRepository: RemoteTaskSwapRepository(api: api, myHouse: myHouse),
             notificationRepository: RemoteNotificationRepository(api: api),
             whatsAppConnectionRepository: RemoteWhatsAppConnectionRepository(api: api),
+            accountIdentityReader: AmplifyAccountIdentityReader(),
+            appInfo: AppInfo(bundle: .main),
             invalidateReads: { await myHouse.invalidate() }
         )
     }
@@ -82,7 +92,8 @@ final class AppContainer {
             roomAccessRequestRepository: MockRoomAccessRequestRepository(store: store),
             taskSwapRepository: MockTaskSwapRepository(store: store),
             notificationRepository: MockNotificationRepository(store: store),
-            whatsAppConnectionRepository: MockWhatsAppConnectionRepository()
+            whatsAppConnectionRepository: MockWhatsAppConnectionRepository(),
+            accountIdentityReader: UnavailableAccountIdentityReader()
         )
     }
 
@@ -98,6 +109,10 @@ final class AppContainer {
                 repository: whatsAppConnectionRepository
             )
         )
+    }
+
+    func makeAccountViewModel() -> AccountViewModel {
+        AccountViewModel(reader: accountIdentityReader)
     }
 
     func makeAddRoomMemberUseCase() -> AddRoomMemberUseCase {

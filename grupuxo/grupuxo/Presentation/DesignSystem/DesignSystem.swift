@@ -15,6 +15,100 @@ enum DesignSystem {
     static let minimumTouchTarget: CGFloat = 44
     static let cornerRadius: CGFloat = 12
     static let cardCornerRadius: CGFloat = 24
+
+    /// Quadrado colorido com glifo branco no início de uma linha de configurações (padrão do app Ajustes do iOS).
+    static let settingsIconSize: CGFloat = 30
+    static let settingsIconCornerRadius: CGFloat = 8
+
+    /// Opacidade do fundo translúcido na cor de destaque (avatar, botão "Copiar") e na cor destrutiva
+    /// (sair da casa, apagar conta).
+    static let tintedFillOpacity: Double = 0.12
+    static let destructiveFillOpacity: Double = 0.12
+
+    /// Espaçamento entre os caracteres do código de convite, para ele ler como um código e não como uma palavra.
+    static let inviteCodeTracking: CGFloat = 3
+
+    /// Quanto tempo "Copiado" fica na tela antes de voltar a "Copiar".
+    static let copyFeedbackDuration: Duration = .seconds(1.5)
+}
+
+/// Quadrado arredondado colorido com um símbolo, como nas linhas do app Ajustes do iOS.
+/// Acompanha o Dynamic Type; é decorativo, o texto da linha já diz tudo.
+struct SettingsIcon: View {
+
+    let systemName: String
+    let tint: Color
+
+    @ScaledMetric(relativeTo: .body) private var side: CGFloat = DesignSystem.settingsIconSize
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: side, height: side)
+            .background(
+                tint,
+                in: RoundedRectangle(
+                    cornerRadius: DesignSystem.settingsIconCornerRadius,
+                    style: .continuous
+                )
+            )
+            .accessibilityHidden(true)
+    }
+}
+
+/// Conteúdo de uma linha de configurações: ícone opcional, título e valor secundário à direita.
+/// Dentro de `NavigationLink` o chevron vem do sistema; em `Link`/`Button`, use `showsDisclosure`.
+struct SettingsRowLabel: View {
+
+    let title: Text
+    var systemImage: String?
+    var tint: Color = .accentColor
+    var value: Text?
+    var showsDisclosure = false
+
+    var body: some View {
+
+        HStack(spacing: DesignSystem.Spacing.medium) {
+
+            if let systemImage {
+                SettingsIcon(systemName: systemImage, tint: tint)
+            }
+
+            title
+
+            Spacer(minLength: DesignSystem.Spacing.small)
+
+            if let value {
+                value.foregroundStyle(.secondary)
+            }
+
+            if showsDisclosure {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension Text {
+
+    /// Cabeçalho de seção da tela de Ajustes: discreto, em caixa de frase.
+    func settingsSectionHeader() -> some View {
+        font(.footnote.weight(.semibold))
+            .textCase(nil)
+    }
+
+    /// Cabeçalho de seção das telas de formulário (Conta, Casa): título do campo ou do grupo.
+    func formSectionHeader() -> some View {
+        font(.subheadline.weight(.semibold))
+            // `Color.primary`: o `.primary` hierárquico herdaria o cinza do cabeçalho da lista.
+            .foregroundStyle(Color.primary)
+            .textCase(nil)
+    }
 }
 
 /// Barra de progresso do ciclo: trilho neutro e preenchimento na cor do cômodo.
@@ -111,15 +205,20 @@ struct ResidentAvatar: View {
 
     /// `regular` acompanha o texto ao redor; `toolbar` ocupa o lugar de um botão da barra de navegação,
     /// com o mesmo tamanho dos botões vizinhos (a barra não cresce com o Dynamic Type).
+    /// `profile` e `hero` são as versões grandes dos Ajustes: o cartão do perfil e o topo da tela Conta.
     enum Size {
         case regular
         case toolbar
+        case profile
+        case hero
     }
 
     let user: User
     let size: Size
 
     @ScaledMetric(relativeTo: .caption) private var regularDiameter: CGFloat = 36
+    @ScaledMetric(relativeTo: .title3) private var profileDiameter: CGFloat = 56
+    @ScaledMetric(relativeTo: .largeTitle) private var heroDiameter: CGFloat = 96
 
     init(user: User, size: Size = .regular) {
         self.user = user
@@ -130,6 +229,8 @@ struct ResidentAvatar: View {
         switch size {
         case .regular: regularDiameter
         case .toolbar: DesignSystem.minimumTouchTarget
+        case .profile: profileDiameter
+        case .hero: heroDiameter
         }
     }
 
@@ -137,7 +238,13 @@ struct ResidentAvatar: View {
         switch size {
         case .regular: .caption.bold()
         case .toolbar: .headline
+        case .profile: .title3.bold()
+        case .hero: .largeTitle.bold()
         }
+    }
+
+    private var fillOpacity: Double {
+        size == .toolbar ? 0 : DesignSystem.tintedFillOpacity
     }
 
     var body: some View {
@@ -145,7 +252,7 @@ struct ResidentAvatar: View {
             .font(font)
             .foregroundStyle(.tint)
             .frame(width: diameter, height: diameter)
-            .background(size == .regular ? Color.accentColor.opacity(0.12) : .clear, in: Circle())
+            .background(Color.accentColor.opacity(fillOpacity), in: Circle())
             .contentShape(Circle())
             .accessibilityHidden(true)
     }
