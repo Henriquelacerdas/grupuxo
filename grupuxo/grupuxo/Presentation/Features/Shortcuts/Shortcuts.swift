@@ -30,5 +30,15 @@ struct GrupuxoShortcuts: AppShortcutsProvider {
             shortTitle: "Tarefas Avulsas",
             systemImageName: "flag"
         )
+        
+        AppShortcut(
+            intent: CreateTaskIntent(),
+            phrases: [
+                "Criar tarefa no \(.applicationName)",
+                "Adicionar tarefa no \(.applicationName)"
+            ],
+            shortTitle: "Criar Tarefa",
+            systemImageName: "plus.circle"
+        )
     }
 }

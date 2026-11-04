@@ -271,7 +271,7 @@ final class AppContainer {
         )
     }
 
-    private func makeTaskEditorViewModel(
+    func makeTaskEditorViewModel(
         draft: TaskDraft,
         session: AppSession
     ) -> TaskEditorViewModel {

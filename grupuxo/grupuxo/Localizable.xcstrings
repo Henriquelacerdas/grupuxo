@@ -1790,6 +1790,9 @@
         }
       }
     },
+    "Criar ${taskName} ${period}" : {
+
+    },
     "Criar casa" : {
       "localizations" : {
         "en" : {
@@ -3264,6 +3267,9 @@
         }
       }
     },
+    "Nome da tarefa" : {
+
+    },
     "Nome do cômodo" : {
       "localizations" : {
         "en" : {
@@ -3631,6 +3637,9 @@
         }
       }
     },
+    "Período" : {
+
+    },
     "Personalizado" : {
       "localizations" : {
         "en" : {
@@ -3663,6 +3672,9 @@
           }
         }
       }
+    },
+    "Preenche o formulário para criar uma tarefa no Grupuxo." : {
+
     },
     "Privacidade" : {
       "localizations" : {
