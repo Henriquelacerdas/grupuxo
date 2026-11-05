@@ -6,7 +6,7 @@ import {
 } from "./api-routes-helpers.ts";
 
 // Rotas de tarefa (BACKEND.md, seção 6.1): GET /v1/me/tasks, GET/POST /v1/rooms/{roomID}/tasks,
-// GET /v1/rooms/{roomID}/tasks/{taskID} e POST …/end.
+// GET/PATCH/DELETE /v1/rooms/{roomID}/tasks/{taskID} (editar e excluir só avulsa e só de quem criou) e POST …/end.
 
 const UNKNOWN = "99999999-9999-4999-8999-999999999999";
 
@@ -160,12 +160,98 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     const { house } = await twoHousesScenario(env);
     const tasks = await env.call("ana", "PUT", `/v1/rooms/${house.wholeHouseRoomID}/tasks`);
     assert.deepEqual([tasks.statusCode, tasks.headers?.["allow"]], [405, "GET, POST"]);
-    // Sem PATCH na trilha (BACKEND.md §6.1): a edição é escondida no app.
-    const patch = await env.call("ana", "PATCH", `/v1/rooms/${house.wholeHouseRoomID}/tasks/${UNKNOWN}`);
-    assert.deepEqual([patch.statusCode, patch.headers?.["allow"]], [405, "GET"]);
+    const put = await env.call("ana", "PUT", `/v1/rooms/${house.wholeHouseRoomID}/tasks/${UNKNOWN}`);
+    assert.deepEqual([put.statusCode, put.headers?.["allow"]], [405, "GET, PATCH, DELETE"]);
     const end = await env.call("ana", "GET", `/v1/rooms/${house.wholeHouseRoomID}/tasks/${UNKNOWN}/end`);
     assert.deepEqual([end.statusCode, end.headers?.["allow"]], [405, "POST"]);
     const mine = await env.call("ana", "POST", "/v1/me/tasks");
     assert.deepEqual([mine.statusCode, mine.headers?.["allow"]], [405, "GET"]);
+  });
+
+  const SPORADIC = {
+    name: "Trocar lâmpada", details: "Da sala", effort: 1, kind: "sporadic", recurrence: { kind: "none" },
+    assignmentPolicy: "selfAssigned",
+  } as const;
+
+  test(`${name}: avulsa guarda quem criou; PATCH edita nome, descrição e esforço e a ocorrência aberta herda o esforço`, async () => {
+    const env = make();
+    const { house, ids } = await twoHousesScenario(env);
+    const roomID = house.wholeHouseRoomID;
+    const created = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(SPORADIC) }), 201);
+    assert.equal(created["createdByUserID"], ids.ana);
+    const path = `/v1/rooms/${roomID}/tasks/${text(created["id"])}`;
+    const edited = expectStatus(
+      await env.call("ana", "PATCH", path, { body: JSON.stringify({ name: "  Trocar a lâmpada ", effort: 3 }) }), 200,
+    );
+    assert.deepEqual(edited, { ...created, name: "Trocar a lâmpada", effort: 3 });
+    // Só os campos enviados mudam.
+    const described = expectStatus(await env.call("ana", "PATCH", path, { body: JSON.stringify({ details: "" }) }), 200);
+    assert.deepEqual(described, { ...edited, details: "" });
+    assert.deepEqual(bodyOf(await env.call("bia", "GET", path)), described);
+    const [item] = list(bodyOf(await env.call("bia", "GET", "/v1/me/sporadic-tasks"))["tasks"]);
+    assert.equal(rec(rec(item)["occurrence"])["effort"], 3);
+  });
+
+  test(`${name}: PATCH e DELETE de avulsa só de quem criou; recorrente nunca: 403 task_unavailable`, async () => {
+    const env = make();
+    const { house } = await twoHousesScenario(env);
+    const roomID = house.wholeHouseRoomID;
+    const sporadic = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(SPORADIC) }), 201);
+    const recurring = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(WEEKLY_TASK) }), 201);
+    const sporadicPath = `/v1/rooms/${roomID}/tasks/${text(sporadic["id"])}`;
+    const recurringPath = `/v1/rooms/${roomID}/tasks/${text(recurring["id"])}`;
+    const body = JSON.stringify({ name: "Outro nome" });
+    expectError(await env.call("bia", "PATCH", sporadicPath, { body }), 403, "task_unavailable");
+    expectError(await env.call("bia", "DELETE", sporadicPath), 403, "task_unavailable");
+    expectError(await env.call("ana", "PATCH", recurringPath, { body }), 403, "task_unavailable");
+    expectError(await env.call("ana", "DELETE", recurringPath), 403, "task_unavailable");
+    assert.equal(bodyOf(await env.call("ana", "GET", sporadicPath))["name"], "Trocar lâmpada");
+    assert.equal(bodyOf(await env.call("ana", "GET", recurringPath))["endedAt"], null);
+  });
+
+  test(`${name}: PATCH com corpo inválido: 400; nome em branco: 400 invalid_task_name`, async () => {
+    const env = make();
+    const { house } = await twoHousesScenario(env);
+    const roomID = house.wholeHouseRoomID;
+    const created = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(SPORADIC) }), 201);
+    const patch = (body: unknown) =>
+      env.call("ana", "PATCH", `/v1/rooms/${roomID}/tasks/${text(created["id"])}`, { body: typeof body === "string" ? body : JSON.stringify(body) });
+    for (const body of ["", "não é json", "[]", {}, { name: 3 }, { details: null }, { effort: 0 }, { effort: 4 }, { effort: 1.5 }]) {
+      expectError(await patch(body), 400, "bad_request");
+    }
+    expectError(await patch({ name: "   " }), 400, "invalid_task_name");
+    assert.equal(bodyOf(await env.call("ana", "GET", `/v1/rooms/${roomID}/tasks/${text(created["id"])}`))["name"], "Trocar lâmpada");
+  });
+
+  test(`${name}: DELETE de avulsa: 204, some da lista e da definição; repetir: 404`, async () => {
+    const env = make();
+    const { house } = await twoHousesScenario(env);
+    const roomID = house.wholeHouseRoomID;
+    const created = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(SPORADIC) }), 201);
+    const path = `/v1/rooms/${roomID}/tasks/${text(created["id"])}`;
+    assert.equal(list(bodyOf(await env.call("ana", "GET", "/v1/me/sporadic-tasks"))["tasks"]).length, 1);
+    assert.equal((await env.call("ana", "DELETE", path)).statusCode, 204);
+    assert.deepEqual(list(bodyOf(await env.call("ana", "GET", "/v1/me/sporadic-tasks"))["tasks"]), []);
+    expectError(await env.call("ana", "GET", path), 404, "not_found");
+    expectError(await env.call("ana", "DELETE", path), 404, "not_found");
+    expectError(await env.call("ana", "PATCH", path, { body: JSON.stringify({ name: "x" }) }), 404, "not_found");
+  });
+
+  test(`${name}: PATCH e DELETE de quem não é da casa, de tarefa ou cômodo inexistente: 404`, async () => {
+    const env = make();
+    const { house, other } = await twoHousesScenario(env);
+    const created = expectStatus(await env.call("ana", "POST", `/v1/rooms/${house.wholeHouseRoomID}/tasks`, { body: JSON.stringify(SPORADIC) }), 201);
+    const taskID = text(created["id"]);
+    const body = JSON.stringify({ name: "x" });
+    for (const [who, path] of [
+      ["caio", `/v1/rooms/${house.wholeHouseRoomID}/tasks/${taskID}`],
+      ["ana", `/v1/rooms/${house.wholeHouseRoomID}/tasks/${UNKNOWN}`],
+      ["ana", `/v1/rooms/${other.wholeHouseRoomID}/tasks/${taskID}`],
+      ["ana", `/v1/rooms/${UNKNOWN}/tasks/${taskID}`],
+    ] as const) {
+      expectError(await env.call(who, "PATCH", path, { body }), 404, "not_found");
+      expectError(await env.call(who, "DELETE", path), 404, "not_found");
+    }
+    assert.equal(bodyOf(await env.call("ana", "GET", `/v1/rooms/${house.wholeHouseRoomID}/tasks/${taskID}`))["name"], "Trocar lâmpada");
   });
 }

@@ -7,6 +7,7 @@ import { DomainError } from "../errors.ts";
 import {
   notificationID, taskAssignmentID, type HouseID, type RoomID, type TaskDefinitionID, type TaskOccurrenceID, type UserID,
 } from "../ids.ts";
+import type { TaskEffort } from "../value-objects.ts";
 import { TaskEligibilityPolicy } from "../services/eligibility.ts";
 import type { StoreState } from "../store-state.ts";
 import { schedulingFor, type CommandContext } from "./context.ts";
@@ -190,6 +191,74 @@ export function endTask(
       swapRequestID: request.id, createdAt: date, readAt: null,
     });
   });
+}
+
+/** Campos já validados de `UpdateTaskDetailsUseCase`; o que não vem fica como está. */
+export interface TaskDetailsPatch {
+  readonly name?: string;
+  readonly details?: string;
+  readonly effort?: TaskEffort;
+}
+
+/** A avulsa é de quem a criou, e quem edita ou exclui ainda é da casa e participante atual do cômodo; senão `taskUnavailable`. */
+function ownSporadicDefinition(
+  state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, userID: UserID,
+): { readonly definition: TaskDefinition; readonly index: number } {
+  const index = state.definitions.findIndex((d) => d.id === taskID && d.roomID === roomID);
+  const definition = state.definitions[index];
+  const room = state.rooms.find((r) => r.id === roomID);
+  if (definition === undefined || room === undefined) throw new DomainError("entityNotFound");
+  if (
+    definition.kind !== "sporadic" || definition.createdByUserID !== userID ||
+    !state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === userID) ||
+    !state.roomMemberships.some((m) => m.roomID === roomID && m.userID === userID && isCurrentMember(m))
+  ) {
+    throw new DomainError("taskUnavailable");
+  }
+  return { definition, index };
+}
+
+/**
+ * Edita nome, descrição e esforço da avulsa. Mudar o esforço reescreve só o `effortSnapshot` das ocorrências ainda não
+ * concluídas (as concluídas já geraram seu impacto no saldo e não mudam).
+ */
+export function updateTaskDetails(
+  state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsPatch, requestedBy: UserID,
+): TaskDefinition {
+  const { definition, index } = ownSporadicDefinition(state, roomID, taskID, requestedBy);
+  const updated: TaskDefinition = {
+    ...definition,
+    ...(patch.name === undefined ? {} : { name: patch.name }),
+    ...(patch.details === undefined ? {} : { details: patch.details }),
+    ...(patch.effort === undefined ? {} : { effort: patch.effort }),
+  };
+  state.definitions[index] = updated;
+  const effort = patch.effort;
+  if (effort !== undefined && effort.points !== definition.effort.points) {
+    state.occurrences = state.occurrences.map((o) =>
+      o.taskDefinitionID === taskID && !isCompleted(o) ? { ...o, effortSnapshot: effort } : o
+    );
+  }
+  return updated;
+}
+
+/**
+ * Exclusão física da avulsa. As trocas que citam suas ocorrências, de qualquer status, somem junto com as
+ * notificações delas (notificação sempre carrega o `swapRequestID`).
+ */
+export function deleteSporadicTask(state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID): void {
+  ownSporadicDefinition(state, roomID, taskID, requestedBy);
+  const occurrences = new Set(state.occurrences.filter((o) => o.taskDefinitionID === taskID).map((o) => o.id));
+  const swaps = new Set(
+    state.taskSwapRequests
+      .filter((r) => occurrences.has(r.offeredOccurrenceID) || occurrences.has(r.requestedOccurrenceID))
+      .map((r) => r.id),
+  );
+  state.notifications = state.notifications.filter((n) => !swaps.has(n.swapRequestID));
+  state.taskSwapRequests = state.taskSwapRequests.filter((r) => !swaps.has(r.id));
+  state.assignments = state.assignments.filter((a) => !occurrences.has(a.occurrenceID));
+  state.occurrences = state.occurrences.filter((o) => o.taskDefinitionID !== taskID);
+  state.definitions = state.definitions.filter((d) => d.id !== taskID);
 }
 
 export function completeTask(ctx: CommandContext, state: StoreState, occurrenceID: TaskOccurrenceID, userID: UserID, date: Instant): void {

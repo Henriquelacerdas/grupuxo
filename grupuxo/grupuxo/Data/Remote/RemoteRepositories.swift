@@ -278,7 +278,12 @@ struct RemoteTaskRepository: TaskRepository {
     func updateTaskDetails(
         id: TaskDefinition.ID, name: String, details: String, requestedBy userID: User.ID
     ) async throws -> TaskDefinition {
-        throw APIError.unsupported
+        let roomID = try await index.room(of: id)
+        let path = "v1/rooms/\(roomID.apiString)/tasks/\(id.apiString)"
+        try await mutate("PATCH", path, body: UpdateTaskBody(name: name, details: details))
+        let updated = try await api.get(TaskDefinitionDTO.self, path).domain()
+        await index.remember(updated)
+        return updated
     }
 
     func endTask(_ taskID: TaskDefinition.ID, requestedBy userID: User.ID, at date: Date) async throws {
@@ -287,7 +292,8 @@ struct RemoteTaskRepository: TaskRepository {
     }
 
     func deleteSporadicTask(id: TaskDefinition.ID, requestedBy userID: User.ID) async throws {
-        throw APIError.unsupported
+        let roomID = try await index.room(of: id)
+        try await mutate("DELETE", "v1/rooms/\(roomID.apiString)/tasks/\(id.apiString)")
     }
 
     func create(_ definition: TaskDefinition, requestedBy userID: User.ID, at date: Date) async throws -> TaskDefinition {

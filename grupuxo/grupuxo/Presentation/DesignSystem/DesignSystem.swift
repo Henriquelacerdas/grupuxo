@@ -195,9 +195,14 @@ extension View {
 struct EmptyStateView: View {
     let title: LocalizedStringKey
     let systemImage: String
+    var description: LocalizedStringKey? = nil
 
     var body: some View {
-        ContentUnavailableView(title, systemImage: systemImage)
+        ContentUnavailableView(
+            title,
+            systemImage: systemImage,
+            description: description.map { Text($0) }
+        )
     }
 }
 
@@ -208,6 +213,8 @@ struct ResidentAvatar: View {
     /// `profile` e `hero` são as versões grandes dos Ajustes: o cartão do perfil e o topo da tela Conta.
     enum Size {
         case regular
+        /// Linhas de tarefa do cômodo (40 pt no design).
+        case row
         case toolbar
         case profile
         case hero
@@ -217,6 +224,7 @@ struct ResidentAvatar: View {
     let size: Size
 
     @ScaledMetric(relativeTo: .caption) private var regularDiameter: CGFloat = 36
+    @ScaledMetric(relativeTo: .body) private var rowDiameter: CGFloat = 40
     @ScaledMetric(relativeTo: .title3) private var profileDiameter: CGFloat = 56
     @ScaledMetric(relativeTo: .largeTitle) private var heroDiameter: CGFloat = 96
 
@@ -228,6 +236,7 @@ struct ResidentAvatar: View {
     private var diameter: CGFloat {
         switch size {
         case .regular: regularDiameter
+        case .row: rowDiameter
         case .toolbar: DesignSystem.minimumTouchTarget
         case .profile: profileDiameter
         case .hero: heroDiameter
@@ -237,6 +246,7 @@ struct ResidentAvatar: View {
     private var font: Font {
         switch size {
         case .regular: .caption.bold()
+        case .row: .subheadline.bold()
         case .toolbar: .headline
         case .profile: .title3.bold()
         case .hero: .largeTitle.bold()

@@ -10,6 +10,8 @@ struct TaskDraft: Equatable {
     var kind = TaskKind.recurring
     var recurrence = RecurrencePolicy.recurring(frequency: .weekly, interval: 1)
     var assignmentPolicy = TaskAssignmentPolicy.balancedAutomatically
+    /// "Repetir com o cômodo": a repetição acompanha a periodicidade do cômodo e a tarefa entra no ciclo dele.
+    var followsRoom = true
 }
 
 enum TaskEditorState: Equatable {

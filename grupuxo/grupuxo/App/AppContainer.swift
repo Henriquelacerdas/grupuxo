@@ -148,6 +148,12 @@ final class AppContainer {
             endTask: EndTaskUseCase(
                 repository: taskRepository
             ),
+            getOutgoingSwaps: GetOutgoingTaskSwapRequestsUseCase(
+                repository: taskSwapRepository
+            ),
+            getMembers: GetHouseMembersUseCase(
+                repository: houseRepository
+            ),
             user: session.currentUser,
             houseName: session.currentHouse.name,
             houseID: session.currentHouse.id,
@@ -389,10 +395,15 @@ final class AppContainer {
                 GetHouseMembersUseCase(
                     repository: houseRepository
                 ),
+            getOutgoingSwaps:
+                GetOutgoingTaskSwapRequestsUseCase(
+                    repository: taskSwapRepository
+                ),
             userID:
                 session.currentUser.id,
             houseID:
-                session.currentHouse.id
+                session.currentHouse.id,
+            calendar: calendar
         )
 
     }
@@ -412,9 +423,13 @@ final class AppContainer {
             createRequest: CreateTaskSwapRequestUseCase(
                 repository: taskSwapRepository
             ),
+            getRooms: GetHouseRoomsUseCase(
+                repository: roomRepository
+            ),
             userID: session.currentUser.id,
             houseID: session.currentHouse.id,
-            offeredOccurrenceID: offeredOccurrenceID
+            offeredOccurrenceID: offeredOccurrenceID,
+            calendar: calendar
         )
     }
 }

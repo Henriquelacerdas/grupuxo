@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { StoreState } from "../../src/domain/store-state.ts";
-import { absenceID, houseID as toHouseID, roomID as toRoomID, taskDefinitionID, taskOccurrenceID, taskSwapRequestID, userID, type UserID } from "../../src/domain/ids.ts";
+import { absenceID, notificationID, houseID as toHouseID, roomID as toRoomID, taskDefinitionID, taskOccurrenceID, taskSwapRequestID, userID, type UserID } from "../../src/domain/ids.ts";
 import { isActiveAssignment, isCompleted, isCurrentMember, type TaskItem, type User } from "../../src/domain/entities.ts";
 import { isDomainError } from "../../src/domain/errors.ts";
 import type {
@@ -15,7 +15,10 @@ import {
 import {
   AddHouseMemberUseCase, CreateRoomUseCase, GetHouseMembersUseCase, RemoveHouseMemberUseCase,
 } from "../../src/domain/use-cases/houses-and-rooms.ts";
-import { ClaimSporadicTaskUseCase, CompleteTaskUseCase, GetSporadicTasksUseCase, ReleaseSporadicTaskUseCase } from "../../src/domain/use-cases/tasks.ts";
+import {
+  ClaimSporadicTaskUseCase, CompleteTaskUseCase, CreateTaskUseCase, DeleteSporadicTaskUseCase, GetSporadicTasksUseCase, ReleaseSporadicTaskUseCase,
+  UpdateTaskDetailsUseCase, newTaskDefinition, type NewTaskInput,
+} from "../../src/domain/use-cases/tasks.ts";
 import { activeOwner, uuid, World } from "../support/world.ts";
 
 // Contrato dos repositórios do domínio: a mesma bateria roda contra o adaptador em memória e contra o DynamoDB
@@ -176,6 +179,89 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     await claim.execute(id, users.bia.id);
     assert.equal(activeOwner(await env.state(), id), users.bia.id);
     await assert.rejects(claim.execute(id, userID(uuid(999))), code("taskUnavailable"));
+  });
+
+  /** Avulsa nova de Leo na sala da avulsa que a demonstração já tem. */
+  async function ownSporadic(world: World, env: RepositoryEnv, creator: UserID) {
+    const state = await env.state();
+    const existing = state.definitions.find((d) => d.kind === "sporadic");
+    assert.ok(existing !== undefined);
+    const definition = await new CreateTaskUseCaseForTest(env.tasks, () => world.now).create(creator, {
+      roomID: existing.roomID, name: "  Trocar lâmpada ", details: "Da sala", effort: 1, kind: "sporadic",
+      recurrence: { kind: "none" }, assignmentPolicy: "selfAssigned",
+    }, taskDefinitionID(world.newID()));
+    return { existing, definition };
+  }
+
+  test(`${name}: editar avulsa: só quem criou; esforço novo vale para a ocorrência aberta`, async () => {
+    const { world, env, users } = await setup(make);
+    const { existing, definition } = await ownSporadic(world, env, users.leo.id);
+    assert.equal(definition.createdByUserID, users.leo.id);
+    assert.equal(definition.name, "Trocar lâmpada");
+    const update = new UpdateTaskDetailsUseCase(env.tasks);
+
+    const edited = await update.execute(definition.roomID, definition.id, { name: " Trocar a lâmpada ", effort: 3 }, users.leo.id);
+    assert.deepEqual(edited, { ...definition, name: "Trocar a lâmpada", effort: { points: 3 } });
+    assert.deepEqual(await env.tasks.definition(definition.roomID, definition.id, users.bia.id), edited);
+    const occurrences = (await env.state()).occurrences.filter((o) => o.taskDefinitionID === definition.id);
+    assert.equal(occurrences.length, 1);
+    assert.equal(occurrences[0]?.effortSnapshot.points, 3);
+
+    // Só os campos enviados mudam; esforço fora de 1..3 é limitado.
+    assert.equal((await update.execute(definition.roomID, definition.id, { details: "" }, users.leo.id)).details, "");
+    assert.equal((await update.execute(definition.roomID, definition.id, { effort: 9 }, users.leo.id)).effort.points, 3);
+
+    await assert.rejects(update.execute(definition.roomID, definition.id, { name: "   " }, users.leo.id), code("invalidTaskName"));
+    // Outra pessoa da casa, tarefa sem criador (anterior ao atributo) e recorrente: taskUnavailable.
+    await assert.rejects(update.execute(definition.roomID, definition.id, { name: "x" }, users.bia.id), code("taskUnavailable"));
+    await assert.rejects(update.execute(existing.roomID, existing.id, { name: "x" }, users.leo.id), code("taskUnavailable"));
+    const recurring = (await env.state()).definitions.find((d) => d.kind === "recurring");
+    assert.ok(recurring !== undefined);
+    await assert.rejects(update.execute(recurring.roomID, recurring.id, { name: "x" }, users.leo.id), code("taskUnavailable"));
+    // Inexistente, cômodo errado e quem não é da casa.
+    await assert.rejects(update.execute(definition.roomID, taskDefinitionID(uuid(991)), { name: "x" }, users.leo.id), code("entityNotFound"));
+    await assert.rejects(update.execute(rooms(await env.state(), definition.roomID), definition.id, { name: "x" }, users.leo.id), code("entityNotFound"));
+    await assert.rejects(update.execute(definition.roomID, definition.id, { name: "x" }, userID(uuid(990))), code("taskUnavailable"));
+    assert.equal((await env.tasks.definition(definition.roomID, definition.id, users.leo.id)).name, "Trocar a lâmpada");
+  });
+
+  test(`${name}: excluir avulsa: só quem criou; remove ocorrências, atribuições e as trocas com as notificações`, async () => {
+    const { world, env, users } = await setup(make);
+    const { existing, definition } = await ownSporadic(world, env, users.leo.id);
+    const remove = new DeleteSporadicTaskUseCase(env.tasks);
+    const before = await env.state();
+    const own = before.occurrences.find((o) => o.taskDefinitionID === definition.id);
+    const other = before.occurrences.find((o) => o.taskDefinitionID !== definition.id && !isCompleted(o));
+    assert.ok(own !== undefined && other !== undefined);
+    await new ClaimSporadicTaskUseCase(env.tasks, () => world.now).execute(own.id, users.leo.id);
+    const swap = {
+      id: taskSwapRequestID(world.newID()), requesterID: users.leo.id, receiverID: users.bia.id,
+      offeredOccurrenceID: own.id, requestedOccurrenceID: other.id, status: "pending" as const, createdAt: world.now, resolvedAt: null,
+    };
+    await env.update((s) => {
+      s.taskSwapRequests.push(swap);
+      s.notifications.push({
+        id: notificationID(world.newID()), recipientUserID: users.bia.id, kind: "taskSwapRequested", swapRequestID: swap.id,
+        createdAt: world.now, readAt: null,
+      });
+    });
+
+    await assert.rejects(remove.execute(definition.roomID, definition.id, users.bia.id), code("taskUnavailable"));
+    await assert.rejects(remove.execute(existing.roomID, existing.id, users.leo.id), code("taskUnavailable"));
+    assert.equal((await env.state()).definitions.length, before.definitions.length);
+
+    await remove.execute(definition.roomID, definition.id, users.leo.id);
+    const after = await env.state();
+    assert.ok(!after.definitions.some((d) => d.id === definition.id));
+    assert.ok(!after.occurrences.some((o) => o.taskDefinitionID === definition.id));
+    assert.ok(!after.assignments.some((a) => a.occurrenceID === own.id));
+    assert.ok(!after.taskSwapRequests.some((r) => r.id === swap.id));
+    assert.ok(!after.notifications.some((n) => n.swapRequestID === swap.id));
+    // O resto da casa fica como estava.
+    assert.equal(after.definitions.length, before.definitions.length - 1);
+    assert.equal(after.occurrences.length, before.occurrences.length - 1);
+    assert.ok(after.occurrences.some((o) => o.id === other.id));
+    await assert.rejects(remove.execute(definition.roomID, definition.id, users.leo.id), code("entityNotFound"));
   });
 
   test(`${name}: quem está de férias não pode assumir uma esporádica`, async () => {
@@ -506,4 +592,27 @@ function uuidRoom(n: number) {
 
 function houseIDFor(n: number) {
   return toHouseID(uuid(n));
+}
+
+/** Cria a definição pelo caso de uso de criação, como a `api` faz (com o criador). */
+class CreateTaskUseCaseForTest {
+  private readonly repository: TaskRepository;
+  private readonly now: () => number;
+  constructor(repository: TaskRepository, now: () => number) {
+    this.repository = repository;
+    this.now = now;
+  }
+
+  create(creator: UserID, input: Omit<NewTaskInput, "createdByUserID">, id: ReturnType<typeof taskDefinitionID>) {
+    return new CreateTaskUseCase(this.repository, this.now).execute(
+      newTaskDefinition(id, { ...input, createdByUserID: creator }), creator,
+    );
+  }
+}
+
+/** Um cômodo que não é o dado (para provar o 404 de cômodo errado). */
+function rooms(state: StoreState, not: ReturnType<typeof toRoomID>): ReturnType<typeof toRoomID> {
+  const other = state.rooms.find((r) => r.id !== not);
+  assert.ok(other !== undefined);
+  return other.id;
 }

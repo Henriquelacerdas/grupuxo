@@ -1,47 +1,44 @@
-//
-//  RoomCycleTaskRow.swift
-//  grupuxo
-//
-//  Created by Giovanna Spigariol on 25/10/26.
-//
-
-
 import SwiftUI
 import GrupuxoDomain
 
-/// Linha exclusiva da tela de cômodo. Não altera o TaskRow compartilhado.
+/// Linha da aba "Agora" do cômodo: avatar de quem está com a vez, nome da tarefa e "Para você",
+/// "Para Henrique L." ou "Feita por você"; nas de repetição própria, também o prazo.
 struct RoomCycleTaskRow: View {
+
     let item: TaskItem
+    let currentUserID: User.ID
+    /// "Termina sexta", "Começa sábado"; só nas de repetição própria.
+    var timing: String? = nil
     let onSelect: () -> Void
 
+    private var isCompleted: Bool { item.occurrence.isCompleted }
+
+    private var person: User? { item.assignee ?? item.suggestedAssignee }
+
     var body: some View {
+
         Button(action: onSelect) {
-            HStack(spacing: 8) {
+
+            HStack(spacing: DesignSystem.Spacing.medium) {
+
                 avatar
-                    .frame(width: 40, height: 40)
-                    .padding(.trailing, 8)
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
+
                     Text(item.definition.name)
-                        .font(.system(size: 17))
+                        .font(.body)
                         .foregroundStyle(.primary)
-                        .lineLimit(1)
 
-                    Text(responsibleText)
-                        .font(.system(size: 15))
+                    statusLine
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
                 }
 
-                Spacer(minLength: 4)
+                Spacer(minLength: DesignSystem.Spacing.extraSmall)
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
+                RoomRowChevron()
             }
-            .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-            .contentShape(Rectangle())
+            .roomTaskRowFrame()
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -50,37 +47,79 @@ struct RoomCycleTaskRow: View {
 
     @ViewBuilder
     private var avatar: some View {
-        if let user = item.assignee ?? item.suggestedAssignee {
-            Text(initials(user.name))
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.tint)
-                .frame(width: 40, height: 40)
-                .background(.tint.opacity(0.12), in: Circle())
-                .accessibilityHidden(true)
-        } else {
-            Image(systemName: "person.crop.circle")
-                .font(.system(size: 28))
-                .foregroundStyle(.secondary)
-                .frame(width: 40, height: 40)
-                .accessibilityHidden(true)
+
+        Group {
+            if let person {
+                ResidentAvatar(user: person, size: .row)
+            } else {
+                Image(systemName: "person.crop.circle")
+                    .font(.title)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if isCompleted {
+                Image(systemName: "checkmark.circle.fill")
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, Color(uiColor: .systemGray))
+                    .font(.caption)
+                    .background(Circle().fill(Color(uiColor: .secondarySystemGroupedBackground)))
+            }
+        }
+        .accessibilityHidden(true)
     }
 
-    private var responsibleText: String {
-        if let user = item.assignee {
-            return "Para \(user.name)"
-        }
-        if let user = item.suggestedAssignee {
-            return "Sugestão: \(user.name)"
-        }
-        return "Sem responsável"
+    private var statusLine: Text {
+
+        guard let timing else { return status }
+
+        return Text("\(status) · \(timing)")
     }
 
-    private func initials(_ name: String) -> String {
-        name.split(separator: " ")
-            .prefix(2)
-            .compactMap(\.first)
-            .map(String.init)
-            .joined()
+    private var status: Text {
+
+        let you = Text("você").bold()
+
+        if isCompleted {
+            if item.occurrence.completedByUserID == currentUserID {
+                return Text("Feita por \(you)")
+            }
+            if let person {
+                return Text("Feita por \(ResidentNameFormatting.shortName(person.name))")
+            }
+            return Text("Feita")
+        }
+
+        if let assignee = item.assignee {
+            return assignee.id == currentUserID
+                ? Text("Para \(you)")
+                : Text("Para \(ResidentNameFormatting.shortName(assignee.name))")
+        }
+
+        if let suggested = item.suggestedAssignee {
+            return Text("Sugestão: \(ResidentNameFormatting.shortName(suggested.name))")
+        }
+
+        return Text("Sem responsável")
+    }
+}
+
+/// Seta das linhas do cômodo que abrem o detalhe da tarefa.
+struct RoomRowChevron: View {
+
+    var body: some View {
+        Image(systemName: "chevron.right")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.tertiary)
+            .accessibilityHidden(true)
+    }
+}
+
+extension View {
+
+    /// Altura mínima e área de toque das linhas de tarefa do cômodo.
+    func roomTaskRowFrame() -> some View {
+        frame(maxWidth: .infinity, minHeight: DesignSystem.minimumTouchTarget, alignment: .leading)
+            .contentShape(Rectangle())
     }
 }

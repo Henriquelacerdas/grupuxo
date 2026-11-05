@@ -33,7 +33,7 @@ struct IncomingSwapTests {
     }
 
     private func pendingSwaps(_ model: NotificationsViewModel) -> [IncomingSwapRequest] {
-        guard case let .content(_, swaps) = model.state else { return [] }
+        guard case let .content(_, swaps, _) = model.state else { return [] }
         return swaps
     }
 
@@ -86,5 +86,21 @@ struct IncomingSwapTests {
         )
         await model.load()
         #expect(pendingSwaps(model).isEmpty)
+    }
+
+    @Test func requesterSeesTheirOwnRequestWaiting() async throws {
+        let setup = try await makeRequest()
+        let model = setup.container.makeNotificationsViewModel(
+            session: AppSession(currentUser: MockSeed.currentUser, currentHouse: MockSeed.house)
+        )
+        await model.load()
+        guard case let .content(_, _, outgoing) = model.state else {
+            Issue.record("Notifications did not load"); return
+        }
+        let swap = try #require(outgoing.first)
+        #expect(swap.id == setup.request.id)
+        #expect(swap.receiverName == setup.receiver.name)
+        #expect(swap.offeredTaskName == setup.offered.definition.name)
+        #expect(swap.requestedTaskName == setup.requested.definition.name)
     }
 }

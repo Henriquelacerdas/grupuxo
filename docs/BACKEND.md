@@ -156,7 +156,7 @@ Regras mantidas:
 | `HouseMembership` | `HOUSE#<houseId>` | `MEMBER#<id>` | `USER#<userId>` / `HOUSE#<houseId>` | `userID` (a entidade não tem `joinedAt` nem `leftAt`: sair da casa apaga o item) |
 | `Room` | `HOUSE#<houseId>` | `ROOM#<id>` | `ROOM#<id>` / `HOUSE#<houseId>` | `name`, `kind`, `category`, `visibility`, `executionsPerPeriod`, `intervalWeeks` (a `periodicity`), `responsibleCount`, `calendarAnchor`, `scheduleVersions`, `icon`, `color` |
 | `RoomMembership` | `HOUSE#<houseId>` | `ROOMMEMBER#<id>` | | `roomID`, `userID`, `fairnessDebt`, `leftAt`, `rotationChanges` |
-| `TaskDefinition` | `HOUSE#<houseId>` | `TASKDEF#<id>` | | `roomID`, `name`, `details`, `effort` (1–3), `kind`, `recurrence` (mapa), `assignmentPolicy`, `sourceSuggestionID`, `rotationQueue`, `currentRotationIndex`, `nextScheduledAt`, `pendingRotation`, `calendarAnchor`, `endedAt` (nulo = ativa; ver "Encerrar tarefa" em ALGORITMO.md) |
+| `TaskDefinition` | `HOUSE#<houseId>` | `TASKDEF#<id>` | | `roomID`, `name`, `details`, `effort` (1–3), `kind`, `recurrence` (mapa), `assignmentPolicy`, `sourceSuggestionID`, `rotationQueue`, `currentRotationIndex`, `nextScheduledAt`, `pendingRotation`, `calendarAnchor`, `endedAt` (nulo = ativa; ver "Encerrar tarefa" em ALGORITMO.md), `createdByUserID` (quem criou; só a avulsa usa, para editar e excluir; ausente/nulo em tarefas anteriores ao atributo, que então ninguém edita nem exclui) |
 | `TaskOccurrence` | `HOUSE#<houseId>` | `OCC#<id>` | `OCC#<id>` / `HOUSE#<houseId>` | `taskDefinitionID`, `availableAt`, `dueAt`, `status`, `completedAt`, `completedByUserID`, `completionDebtImpacts`, `didPublishSuccessor`, `effortSnapshot` |
 | `TaskAssignment` | `HOUSE#<houseId>` | `ASSIGN#<id>` | | `occurrenceID`, `userID`, `assignedAt`, `endedAt`, `supersededAt` |
 | `TaskSwapRequest` | `HOUSE#<houseId>` | `SWAP#<id>` | `SWAP#<id>` / `HOUSE#<houseId>` | `requesterID`, `receiverID`, ocorrências oferecida/pedida, `status`, `createdAt`, `resolvedAt` |
@@ -275,7 +275,7 @@ Um endpoint por ação de negócio, como os protocolos já fazem:
 | --- | --- |
 | Casa | `POST /houses`, `POST /houses/join` (código de acesso), `GET`/`DELETE /me/house` (feitas, §6.1); `GET /houses/{id}/members` |
 | Cômodos | `GET /houses/{id}/rooms`, `POST /houses/{id}/rooms`, `POST/DELETE /rooms/{id}/members` (contrato fechado na trilha rápida: seção 6.1) |
-| Tarefas | `GET /me/tasks`, `GET /rooms/{id}/tasks`, `POST /rooms/{id}/tasks`, `GET /rooms/{id}/tasks/{taskID}`, `POST /rooms/{id}/tasks/{taskID}/end` |
+| Tarefas | `GET /me/tasks`, `GET /rooms/{id}/tasks`, `POST /rooms/{id}/tasks`, `GET /rooms/{id}/tasks/{taskID}`, `POST /rooms/{id}/tasks/{taskID}/end`, `PATCH`/`DELETE /rooms/{id}/tasks/{taskID}` (só avulsa, só quem criou) |
 | Ocorrências | `POST /occurrences/{id}/complete`, `/reopen`, `/claim`, `/release` |
 | Trocas | `GET/POST /swap-requests`, `POST /swap-requests/{id}/accept`, `/reject` |
 | Notificações | `GET /notifications`, `POST /notifications/{id}/read` |
@@ -332,7 +332,9 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | `GET /v1/rooms/{roomID}/tasks` | | `200 { "tasks": [TaskItem] }` do cômodo (recorrentes, ordenadas por prazo). |
 | `POST /v1/rooms/{roomID}/tasks` | `{ "name", "details", "effort": 1..3, "kind": "recurring" \| "sporadic", "recurrence": Recurrence, "assignmentPolicy" }` | `201 TaskDefinition`. `400 invalid_task_name`, `400 invalid_schedule`, `403 task_unavailable` (quem cria precisa participar do cômodo). |
 | `GET /v1/rooms/{roomID}/tasks/{taskID}` | | `200 TaskDefinition`. |
-| `POST /v1/rooms/{roomID}/tasks/{taskID}/end` | | `204` (encerra: histórico fica, futuras somem). |
+| `POST /v1/rooms/{roomID}/tasks/{taskID}/end` | | `204` (encerra: histórico fica, futuras somem). Só recorrente; avulsa → `403 task_unavailable`. |
+| `PATCH /v1/rooms/{roomID}/tasks/{taskID}` | `{ "name"?, "details"?, "effort"?: 1..3 }` (ao menos um campo; os ausentes não mudam) | `200 TaskDefinition`. Só tarefa **avulsa** e só **quem a criou** (e ainda morador da casa e participante atual do cômodo): senão `403 task_unavailable`. `400 invalid_task_name` (nome em branco), `400 bad_request` (corpo vazio, campo de tipo errado, `effort` fora de 1..3). Mudar o `effort` atualiza também o `effortSnapshot` das ocorrências ainda **não concluídas**; as concluídas não mudam. Sem notificação de "tarefa editada" (o servidor não tem esse tipo). |
+| `DELETE /v1/rooms/{roomID}/tasks/{taskID}` | | `204`. Só tarefa **avulsa**, só **quem a criou**: senão `403 task_unavailable`. Remove a definição, as ocorrências e as atribuições; as trocas pendentes que citam a ocorrência são removidas junto com as notificações delas. Exclusão física (diferente de `/end`, que preserva o histórico). |
 | `POST /v1/occurrences/{occurrenceID}/complete` | | `204`; idempotente. |
 | `POST /v1/occurrences/{occurrenceID}/reopen` | | `204`. |
 
@@ -353,9 +355,9 @@ Uma tarefa semanal criada já tem a ocorrência da semana atual ainda aberta (co
 | `GET /v1/me/notifications` | | `200 { "notifications": [Notification] }` do morador, mais recentes primeiro. |
 | `POST /v1/notifications/{notificationID}/read` | | `204`; idempotente. |
 
-Ocorrência de outra casa, pedido de troca em que o morador não está e notificação de outro morador respondem `404 not_found`, igual aos inexistentes. Ainda sem rota: excluir avulsa e editar tarefa (o servidor TS não tem `createdByUserID` nem `updateTaskDetails`), e o texto da notificação de tarefa editada.
+Ocorrência de outra casa, pedido de troca em que o morador não está e notificação de outro morador respondem `404 not_found`, igual aos inexistentes. Ainda sem rota: editar tarefa **recorrente** e o texto da notificação de tarefa editada (o servidor não tem esse tipo de notificação; ela exige `swapRequestID`). Editar e excluir avulsa existem (`PATCH`/`DELETE` acima) e dependem de `createdByUserID`, guardado só em tarefas criadas depois do atributo.
 
-Desvios do PLANO.md seção 3, decididos em T1: as rotas de tarefa por ID (`GET/PATCH /v1/tasks/{id}`, `POST /v1/tasks/{id}/end`) viram caminhos **sob o cômodo**, porque o DynamoDB não indexa `TASKDEF#` no `GSI1` (só o `roomID` acha a partição) e o servidor TS não tem `updateTaskDetails` nem `taskDefinition(id)`. **`PATCH` fica fora da trilha**: a edição de tarefa é escondida no build de teste (PLANO.md seção 2). `DELETE /rooms/{id}/members` recebe o `userID` no caminho (DELETE sem corpo).
+Desvios do PLANO.md seção 3, decididos em T1: as rotas de tarefa por ID (`GET/PATCH /v1/tasks/{id}`, `POST /v1/tasks/{id}/end`) viram caminhos **sob o cômodo**, porque o DynamoDB não indexa `TASKDEF#` no `GSI1` (só o `roomID` acha a partição) e o servidor TS não tem `updateTaskDetails` nem `taskDefinition(id)`. `PATCH` e `DELETE` foram acrescentados depois, só para tarefa avulsa e sob o cômodo, com a mesma regra de 404 uniforme das demais rotas de tarefa. `DELETE /rooms/{id}/members` recebe o `userID` no caminho (DELETE sem corpo).
 
 #### Formatos de resposta
 
@@ -369,7 +371,7 @@ Todos em `src/lambdas/api-dto.ts`; exemplos em `test/fixtures/api/`. Campos inte
 | `Room` | `id`, `houseID`, `name`, `kind` (`wholeHouse`\|`standard`), `category`, `visibility`, `periodicity { executionsPerPeriod, intervalWeeks }`, `responsibleCount`, `calendarAnchor`\|null, `icon`, `color` | `room.json` |
 | `RoomParticipation` | `room`, `isMember`, `memberCount`, `responsibleNames`, `periodStart`, `periodEnd` | `room-participation.json` |
 | `Recurrence` | `{ kind: "none" }` \| `{ kind: "recurring", frequency, interval }` \| `{ kind: "weekly", periodicity }` | `task-definition.json` |
-| `TaskDefinition` | `id`, `roomID`, `name`, `details`, `effort` (1 a 3; carga interna, não exibir como pontuação), `kind`, `recurrence`, `assignmentPolicy`, `calendarAnchor`, `endedAt` (null = ativa) | `task-definition.json` |
+| `TaskDefinition` | `id`, `roomID`, `name`, `details`, `effort` (1 a 3; carga interna, não exibir como pontuação), `kind`, `recurrence`, `assignmentPolicy`, `calendarAnchor`, `endedAt` (null = ativa), `createdByUserID`\|null (quem criou a tarefa; null em tarefas antigas) | `task-definition.json` |
 | `TaskSwapRequest` | `id`, `requesterID`, `receiverID`, `offeredOccurrenceID`, `requestedOccurrenceID`, `status` (`pending`\|`accepted`\|`rejected`), `createdAt`, `resolvedAt`\|null | `task-swap-request.json` |
 | `Notification` | `id`, `kind` (`taskSwapRequested`\|`taskSwapAccepted`\|`taskSwapRejected`), `swapRequestID`, `createdAt`, `readAt`\|null (o destinatário é sempre quem chama) | `notification.json` |
 | `TaskItem` | `definition`, `occurrence { id, taskDefinitionID, availableAt, dueAt, status, completedAt, completedByUserID, effort }`, `assignment { id, userID, assignedAt, endedAt }`\|null, `assignee`\|null, `suggestedAssignee`\|null | `task-item.json`, `task-item-completed.json`, `task-item-sporadic.json` |

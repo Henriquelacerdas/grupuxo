@@ -193,12 +193,12 @@ struct TaskCreationSheetView: View {
 
                     VStack(spacing: DesignSystem.Spacing.large) {
                         uniqueTaskRow
+                        roomRow
 
                         if !isUniqueTask {
-                            recurrenceSection
+                            repetitionSection
                         }
 
-                        roomRow
                         effortCard
                     }
 
@@ -307,32 +307,69 @@ struct TaskCreationSheetView: View {
         .accessibilityElement(children: .contain)
     }
 
-    private var recurrenceSection: some View {
+    /// "Repetir com o cômodo" e, desligado, a repetição própria da tarefa.
+    private var repetitionSection: some View {
         VStack(
             alignment: .leading,
             spacing: DesignSystem.Spacing.small
         ) {
-            selectionRow(
-                title: "Repetição",
-                systemImage: "repeat"
-            ) {
-                Menu {
-                    recurrenceMenu
-                } label: {
-                    rowValue(recurrenceName)
-                }
-                .accessibilityLabel("Repetição")
-                .accessibilityValue(recurrenceName)
-                .foregroundStyle(.secondary)
-            }
+            Toggle(isOn: followsRoomBinding) {
+                HStack(spacing: DesignSystem.Spacing.small) {
+                    Image(systemName: "arrow.2.squarepath")
+                        .foregroundStyle(.tint)
 
-            Text(
-                "Tarefas que ocorrem na mesma frequência do cômodo entram no ciclo. As que têm frequência diferente são consideradas Tarefas Extras."
-            )
+                    Text("Repetir com o cômodo")
+                        .font(.body)
+                }
+            }
+            .padding(.horizontal, DesignSystem.Spacing.large)
+            .padding(.vertical, DesignSystem.Spacing.extraSmall)
+            .frame(minHeight: Layout.rowMinimumHeight)
+            .background(cardBackground)
+            .disabled(viewModel.selectedRoom == nil)
+            .accessibilityIdentifier("followsRoomToggle")
+
+            if let room = viewModel.selectedRoom, !followsRoom {
+                selectionRow(
+                    title: "Repetição",
+                    systemImage: "repeat"
+                ) {
+                    Menu {
+                        recurrenceMenu(excluding: room)
+                    } label: {
+                        rowValue(recurrenceName)
+                    }
+                    .accessibilityLabel("Repetição")
+                    .accessibilityValue(recurrenceName)
+                    .foregroundStyle(.secondary)
+                }
+
+                footer("A cada vez, ela passa para a próxima pessoa.")
+            } else if let room = viewModel.selectedRoom {
+                footer("\(RecurrencePresentation.name(for: room.periodicity)), junto com o cômodo. Muda de pessoa a cada rodízio.")
+            } else {
+                footer("Escolha um cômodo primeiro.")
+            }
+        }
+    }
+
+    private func footer(_ text: LocalizedStringKey) -> some View {
+        Text(text)
             .font(.footnote)
             .foregroundStyle(.secondary)
+            .padding(.horizontal, DesignSystem.Spacing.large)
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
+    }
+
+    private var followsRoom: Bool {
+        viewModel.state.draft.followsRoom
+    }
+
+    private var followsRoomBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.selectedRoom != nil && followsRoom },
+            set: { viewModel.setFollowsRoom($0) }
+        )
     }
 
     private var roomRow: some View {
@@ -345,7 +382,7 @@ struct TaskCreationSheetView: View {
                     "Cômodo",
                     selection: binding(\.roomID)
                 ) {
-                    Text("Selecionar")
+                    Text("Nenhum")
                         .tag(Optional<Room.ID>.none)
 
                     ForEach(viewModel.rooms) { room in
@@ -529,15 +566,9 @@ struct TaskCreationSheetView: View {
         .foregroundStyle(color)
     }
 
-    private var recurrenceMenu: some View {
+    /// A repetição do cômodo fica desabilitada: com ela, a tarefa entraria no ciclo do cômodo.
+    private func recurrenceMenu(excluding room: Room) -> some View {
         Group {
-            Button("Mesma do cômodo") {
-                viewModel.useRoomPeriodicity()
-            }
-            .disabled(viewModel.state.draft.roomID == nil)
-
-            Divider()
-
             recurrenceMenuButton(
                 "Diariamente",
                 recurrence: .recurring(frequency: .daily, interval: 1)
@@ -547,7 +578,7 @@ struct TaskCreationSheetView: View {
                 recurrence: .recurring(frequency: .weekly, interval: 1)
             )
             recurrenceMenuButton(
-                "Quinzenalmente",
+                "A cada 2 semanas",
                 recurrence: .recurring(frequency: .weekly, interval: 2)
             )
             recurrenceMenuButton(
@@ -584,6 +615,7 @@ struct TaskCreationSheetView: View {
         Button(title) {
             viewModel.selectRecurrence(recurrence)
         }
+        .disabled(viewModel.isRoomPeriodicity(recurrence))
     }
 
     private func adaptiveRow<Content: View>(
@@ -621,7 +653,7 @@ struct TaskCreationSheetView: View {
             let roomID = viewModel.state.draft.roomID,
             let room = viewModel.rooms.first(where: { $0.id == roomID })
         else {
-            return String(localized: "Selecionar")
+            return String(localized: "Nenhum")
         }
 
         return room.name
@@ -639,7 +671,7 @@ struct TaskCreationSheetView: View {
             String(localized: "Sem repetição")
 
         case let .weekly(value):
-            value.label
+            RecurrencePresentation.name(for: value)
 
         case let .recurring(frequency, interval):
             RecurrencePresentation.name(
@@ -829,6 +861,13 @@ private struct CustomRecurrenceSheet: View {
 
 private enum RecurrencePresentation {
 
+    /// Periodicidade de um cômodo: "Semanalmente", "A cada 2 semanas"; com mais de uma vez no período, o rótulo do domínio.
+    static func name(for periodicity: WeeklyPeriodicity) -> String {
+        periodicity.executionsPerPeriod == 1
+            ? name(for: .weekly, interval: periodicity.intervalWeeks)
+            : periodicity.label
+    }
+
     static func name(for frequency: RecurrenceFrequency, interval: Int) -> String {
 
         switch (frequency, interval) {
@@ -836,8 +875,6 @@ private enum RecurrencePresentation {
         case (.daily, 1): String(localized: "Diariamente")
 
         case (.weekly, 1): String(localized: "Semanalmente")
-
-        case (.weekly, 2): String(localized: "Quinzenalmente")
 
         case (.monthly, 1): String(localized: "Mensalmente")
 

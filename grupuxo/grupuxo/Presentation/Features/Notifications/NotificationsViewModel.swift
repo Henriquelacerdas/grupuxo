@@ -39,6 +39,11 @@ final class NotificationsViewModel: ObservableObject {
 
     private let getMembers: GetHouseMembersUseCase
 
+    /// Pedidos que eu fiz; sem ele, "Seus pedidos" não aparece.
+    private let getOutgoingSwaps: GetOutgoingTaskSwapRequestsUseCase?
+
+    private let calendar: Calendar
+
     private let userID: User.ID
 
     private let houseID: House.ID
@@ -52,9 +57,17 @@ final class NotificationsViewModel: ObservableObject {
         getMyTasks: GetMyTasksUseCase,
         getSwapCandidates: GetTaskSwapCandidatesUseCase,
         getMembers: GetHouseMembersUseCase,
+        getOutgoingSwaps: GetOutgoingTaskSwapRequestsUseCase? = nil,
         userID: User.ID,
-        houseID: House.ID
+        houseID: House.ID,
+        calendar: Calendar = .current
     ) {
+
+        self.getOutgoingSwaps =
+            getOutgoingSwaps
+
+        self.calendar =
+            calendar
 
         self.getNotifications =
             getNotifications
@@ -102,12 +115,17 @@ final class NotificationsViewModel: ObservableObject {
             let pendingSwaps =
                 try await loadPendingSwaps()
 
+            let outgoingSwaps =
+                await loadOutgoingSwaps()
+
             state = notifications.isEmpty
                 && pendingSwaps.isEmpty
+                && outgoingSwaps.isEmpty
                 ? .empty
                 : .content(
                     notifications: notifications,
-                    pendingSwaps: pendingSwaps
+                    pendingSwaps: pendingSwaps,
+                    outgoingSwaps: outgoingSwaps
                 )
 
         } catch is CancellationError {
@@ -267,6 +285,71 @@ final class NotificationsViewModel: ObservableObject {
 
         return result
 
+    }
+
+    /// "Hoje", "Ontem" e depois a data, do mais recente ao mais antigo.
+    func days(of notifications: [AppNotification], now: Date = .now) -> [NotificationDay] {
+
+        let sorted = notifications.sorted {
+            ($0.createdAt, $0.id.uuidString.lowercased()) > ($1.createdAt, $1.id.uuidString.lowercased())
+        }
+
+        var days: [NotificationDay] = []
+
+        for notification in sorted {
+            let title = dayTitle(notification.createdAt, now: now)
+            if let last = days.last, last.title == title {
+                days[days.count - 1] = NotificationDay(title: title, notifications: last.notifications + [notification])
+            } else {
+                days.append(NotificationDay(title: title, notifications: [notification]))
+            }
+        }
+
+        return days
+    }
+
+    private func dayTitle(_ date: Date, now: Date) -> String {
+        if calendar.isDate(date, inSameDayAs: now) { return String(localized: "Hoje") }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(date, inSameDayAs: yesterday) {
+            return String(localized: "Ontem")
+        }
+        return date.formatted(.dateTime.day().month(.wide).locale(HouseOverviewText.appLocale))
+    }
+
+    /// Falha aqui não esconde o resto: só some "Seus pedidos".
+    private func loadOutgoingSwaps() async -> [OutgoingSwapRequest] {
+
+        guard let getOutgoingSwaps,
+              let requests = try? await getOutgoingSwaps(userID: userID, houseID: houseID)
+                .filter(\.isPending),
+              !requests.isEmpty
+        else { return [] }
+
+        let myTasks = (try? await getMyTasks(userID: userID, houseID: houseID)) ?? []
+        let members = (try? await getMembers(houseID: houseID, userID: userID)) ?? []
+
+        var result: [OutgoingSwapRequest] = []
+
+        for request in requests {
+            // A tarefa pedida é da outra pessoa: aparece entre as candidatas para a tarefa que ofereci.
+            let candidates = (try? await getSwapCandidates(
+                requesterID: userID,
+                offeredOccurrenceID: request.offeredOccurrenceID,
+                houseID: houseID
+            )) ?? []
+
+            result.append(
+                OutgoingSwapRequest(
+                    request: request,
+                    receiverName: members.first { $0.id == request.receiverID }?.name,
+                    offeredTaskName: myTasks.first { $0.id == request.offeredOccurrenceID }?.definition.name,
+                    requestedTaskName: candidates.first { $0.id == request.requestedOccurrenceID }?.definition.name
+                )
+            )
+        }
+
+        return result
     }
 
     /// A tarefa oferecida é de quem pediu e não está em "minhas tarefas". A elegibilidade da troca

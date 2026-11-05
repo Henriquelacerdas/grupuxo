@@ -26,6 +26,13 @@ function overlapsWeek(occurrence: TaskOccurrence, weekStart: Instant, weekEnd: I
   return occurrence.completedAt !== null && occurrence.completedAt >= weekStart && occurrence.completedAt < weekEnd;
 }
 
+/** Campos editáveis de uma tarefa avulsa; `effort` fora de 1..3 é limitado (`taskEffort`). */
+export interface TaskDetailsInput {
+  readonly name?: string;
+  readonly details?: string;
+  readonly effort?: number;
+}
+
 export class GetMyTasksUseCase {
   private readonly repository: Pick<TaskRepository, "tasks">;
   private readonly houses: Pick<HouseRepository, "house">;
@@ -92,6 +99,7 @@ export interface NewTaskInput {
   readonly kind: TaskDefinition["kind"];
   readonly recurrence: TaskDefinition["recurrence"];
   readonly assignmentPolicy: TaskDefinition["assignmentPolicy"];
+  readonly createdByUserID?: UserID;
 }
 
 /** Definição nova, ainda sem escala (o plano é calculado ao criar): nome aparado e campos de rotação zerados. */
@@ -101,6 +109,7 @@ export function newTaskDefinition(id: TaskDefinitionID, input: NewTaskInput): Ta
     kind: input.kind, recurrence: input.recurrence, assignmentPolicy: input.assignmentPolicy, sourceSuggestionID: null,
     rotationQueue: [], currentRotationIndex: 0, nextScheduledAt: null, pendingRotation: null, calendarAnchor: null,
     endedAt: null,
+    ...(input.createdByUserID === undefined ? {} : { createdByUserID: input.createdByUserID }),
   };
 }
 
@@ -130,6 +139,35 @@ export class CreateTaskUseCase {
     }
     // O repositório grava o plano sobre o mesmo snapshot usado na otimização.
     return this.repository.create(definition, requestedBy, date ?? this.now());
+  }
+}
+
+/** Edita só nome, descrição e esforço de uma tarefa avulsa (só quem a criou); os campos ausentes não mudam. */
+export class UpdateTaskDetailsUseCase {
+  private readonly repository: TaskRepository;
+  constructor(repository: TaskRepository) {
+    this.repository = repository;
+  }
+
+  async execute(roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsInput, requestedBy: UserID): Promise<TaskDefinition> {
+    const name = patch.name === undefined ? undefined : trimmed(patch.name);
+    if (name !== undefined && isBlank(name)) throw new DomainError("invalidTaskName");
+    return this.repository.updateTaskDetails(roomID, taskID, {
+      ...(name === undefined ? {} : { name }),
+      ...(patch.details === undefined ? {} : { details: patch.details }),
+      ...(patch.effort === undefined ? {} : { effort: taskEffort(patch.effort) }),
+    }, requestedBy);
+  }
+}
+
+export class DeleteSporadicTaskUseCase {
+  private readonly repository: TaskRepository;
+  constructor(repository: TaskRepository) {
+    this.repository = repository;
+  }
+
+  async execute(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID): Promise<void> {
+    await this.repository.deleteSporadicTask(roomID, taskID, requestedBy);
   }
 }
 

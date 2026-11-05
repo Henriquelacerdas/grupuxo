@@ -1,13 +1,13 @@
 // Tabela de rotas da `api` (BACKEND.md, seção 6.1). Caminho com parâmetro só casa se o parâmetro for um UUID em
 // minúsculo (estreitamento escrito à mão): ID malformado é igual a rota que não existe (404), nunca chega ao domínio.
 
-export type Method = "GET" | "POST" | "DELETE";
+export type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 export type RouteName =
   | "registerAccount" | "myAccount" | "deleteAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp"
   | "houseSnapshot" | "myHouse" | "leaveHouse" | "createHouse" | "joinHouse"
   | "createRoom" | "roomParticipation" | "addRoomMember" | "removeRoomMember"
-  | "myTasks" | "roomTasks" | "createTask" | "taskDefinition" | "endTask"
+  | "myTasks" | "roomTasks" | "createTask" | "taskDefinition" | "updateTask" | "deleteTask" | "endTask"
   | "completeOccurrence" | "reopenOccurrence"
   | "mySporadicTasks" | "claimOccurrence" | "releaseOccurrence"
   | "swapCandidates" | "createSwap" | "mySwaps" | "acceptSwap" | "rejectSwap"
@@ -50,6 +50,8 @@ const ROUTES: readonly RouteDefinition[] = [
   { name: "roomTasks", method: "GET", pattern: ["rooms", param("roomID"), "tasks"] },
   { name: "createTask", method: "POST", pattern: ["rooms", param("roomID"), "tasks"] },
   { name: "taskDefinition", method: "GET", pattern: ["rooms", param("roomID"), "tasks", param("taskID")] },
+  { name: "updateTask", method: "PATCH", pattern: ["rooms", param("roomID"), "tasks", param("taskID")] },
+  { name: "deleteTask", method: "DELETE", pattern: ["rooms", param("roomID"), "tasks", param("taskID")] },
   { name: "endTask", method: "POST", pattern: ["rooms", param("roomID"), "tasks", param("taskID"), "end"] },
   { name: "completeOccurrence", method: "POST", pattern: ["occurrences", param("occurrenceID"), "complete"] },
   { name: "reopenOccurrence", method: "POST", pattern: ["occurrences", param("occurrenceID"), "reopen"] },

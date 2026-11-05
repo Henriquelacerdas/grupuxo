@@ -26,7 +26,7 @@ struct TaskDetailView: View {
 
     @State private var isShowingFullQueue = false
 
-    /// `false` esconde "Editar" (a `api` ainda não tem rota de edição de tarefa).
+    /// `false` esconde "Editar".
     private let allowsEditing: Bool
 
     /// Quantas linhas do rodízio aparecem recolhidas: a vez atual e a próxima.
@@ -107,8 +107,11 @@ struct TaskDetailView: View {
                     placement: .confirmationAction
                 ) {
 
+                    // Só a tarefa única criada por você pode ser editada (a `api` recusa as demais).
                     if allowsEditing, case let .content(definition) =
-                        viewModel.state {
+                        viewModel.state,
+                       definition.kind == .sporadic,
+                       definition.createdByUserID == viewModel.currentUserID {
 
                         Button("Editar") {
 
@@ -500,24 +503,32 @@ struct TaskDetailView: View {
 
             if viewModel.canComplete {
 
-                Button {
+                if viewModel.isCurrentCompleted {
 
-                    Task {
-
-                        await viewModel.complete()
-
+                    Button {
+                        Task { await viewModel.complete() }
+                    } label: {
+                        Text("Desmarcar como feita")
+                            .frame(
+                                maxWidth: .infinity,
+                                minHeight: DesignSystem.minimumTouchTarget
+                            )
                     }
+                    .buttonStyle(.bordered)
 
-                } label: {
+                } else {
 
-                    Text("Marcar como concluída")
-                        .frame(
-                            maxWidth: .infinity,
-                            minHeight: DesignSystem.minimumTouchTarget
-                        )
-
+                    Button {
+                        Task { await viewModel.complete() }
+                    } label: {
+                        Text("Marcar como feita")
+                            .frame(
+                                maxWidth: .infinity,
+                                minHeight: DesignSystem.minimumTouchTarget
+                            )
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.borderedProminent)
 
             }
 
@@ -1042,10 +1053,10 @@ enum TaskDetailText {
             }
 
             switch frequency {
-            case .daily: return String(localized: "Diária")
-            case .weekly: return String(localized: "Semanal")
-            case .monthly: return String(localized: "Mensal")
-            case .yearly: return String(localized: "Anual")
+            case .daily: return String(localized: "Diariamente")
+            case .weekly: return String(localized: "Semanalmente")
+            case .monthly: return String(localized: "Mensalmente")
+            case .yearly: return String(localized: "Anualmente")
             }
 
         case let .weekly(periodicity):

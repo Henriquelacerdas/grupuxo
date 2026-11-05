@@ -8,8 +8,8 @@ import {
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
 import { createRoom, roomFor, roomParticipation, roomScheduleReady, roomsFor } from "../../domain/commands/rooms.ts";
 import {
-  addRoomMember, claimTask, completeTask, createTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
-  occurrenceHouseFor, roomTasks, scheduleIsCurrent, sporadicTasks, taskDefinitionFor, userTasks,
+  addRoomMember, claimTask, completeTask, createTask, deleteSporadicTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
+  occurrenceHouseFor, roomTasks, scheduleIsCurrent, sporadicTasks, taskDefinitionFor, updateTaskDetails, userTasks, type TaskDetailsPatch,
 } from "../../domain/commands/tasks.ts";
 import { DomainError } from "../../domain/errors.ts";
 import { emptyStoreState, type StoreState } from "../../domain/store-state.ts";
@@ -192,6 +192,16 @@ export class DynamoTaskRepository implements TaskRepository, HouseSnapshotReposi
   async endTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, at: Instant): Promise<void> {
     const houseID = await this.store.houseOf("room", roomID);
     await this.store.update(houseID, (s) => endTask(this.ctx, s, roomID, taskID, requestedBy, at));
+  }
+
+  async updateTaskDetails(roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsPatch, requestedBy: UserID): Promise<TaskDefinition> {
+    const houseID = await this.store.houseOf("room", roomID);
+    return this.store.update(houseID, (s) => updateTaskDetails(s, roomID, taskID, patch, requestedBy));
+  }
+
+  async deleteSporadicTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID): Promise<void> {
+    const houseID = await this.store.houseOf("room", roomID);
+    await this.store.update(houseID, (s) => deleteSporadicTask(s, roomID, taskID, requestedBy));
   }
 
   async refreshSchedule(houseID: HouseID, at: Instant): Promise<void> {

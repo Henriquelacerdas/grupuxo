@@ -1,7 +1,7 @@
 import type { TaskOccurrenceID, UserID } from "../domain/ids.ts";
 import { taskOccurrenceID, userID } from "../domain/ids.ts";
 import type { TaskRange } from "../domain/use-cases/tasks.ts";
-import type { NewTaskInput } from "../domain/use-cases/tasks.ts";
+import type { NewTaskInput, TaskDetailsInput } from "../domain/use-cases/tasks.ts";
 import {
   ASSIGNMENT_POLICIES, RECURRENCE_FREQUENCIES, ROOM_CATEGORIES, ROOM_COLORS, ROOM_VISIBILITIES, TASK_KINDS,
   weeklyPeriodicity, weeklyRecurrence, NO_RECURRENCE, recurring,
@@ -154,6 +154,24 @@ export function parseCreateTask(body: Fields): Omit<NewTaskInput, "roomID"> | nu
     return null;
   }
   return { name, details, effort, kind, recurrence, assignmentPolicy };
+}
+
+/** Corpo de `PATCH /rooms/{roomID}/tasks/{taskID}`: ao menos um entre `name`, `details` e `effort` (1 a 3); campo desconhecido ou de tipo errado → `null`. */
+export function parseUpdateTask(body: Fields): TaskDetailsInput | null {
+  const name = field(body, "name");
+  const details = field(body, "details");
+  const effort = field(body, "effort");
+  if (
+    (name !== undefined && typeof name !== "string") || (details !== undefined && typeof details !== "string") ||
+    (effort !== undefined && (!isInteger(effort) || effort < 1 || effort > 3))
+  ) {
+    return null;
+  }
+  if (name === undefined && details === undefined && effort === undefined) return null;
+  return {
+    ...(name === undefined ? {} : { name }), ...(details === undefined ? {} : { details }),
+    ...(effort === undefined ? {} : { effort }),
+  };
 }
 
 /** Parâmetro booleano da query: ausente ou `false` → `false`; `true` → `true`; outro valor → `null`. */

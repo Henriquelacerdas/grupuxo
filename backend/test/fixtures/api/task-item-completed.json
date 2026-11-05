@@ -13,7 +13,8 @@
     },
     "assignmentPolicy": "balancedAutomatically",
     "calendarAnchor": "2026-10-12T03:00:00.000Z",
-    "endedAt": null
+    "endedAt": null,
+    "createdByUserID": null
   },
   "occurrence": {
     "id": "ffffffff-ffff-4fff-8fff-00000000002f",

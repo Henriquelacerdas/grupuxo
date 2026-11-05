@@ -55,6 +55,10 @@ final class MyTasksViewModel: ObservableObject {
 
     private let getMyTasksOverview: GetMyTasksOverviewUseCase
     private let endTask: EndTaskUseCase
+    /// Trocas que você pediu e aguardam resposta, para avisar na linha da tarefa oferecida.
+    private let getOutgoingSwaps: GetOutgoingTaskSwapRequestsUseCase?
+    private let getMembers: GetHouseMembersUseCase?
+    private var pendingSwaps: [TaskOccurrence.ID: String] = [:]
 
     private let now: () -> Date
     private let calendar: Calendar
@@ -69,6 +73,8 @@ final class MyTasksViewModel: ObservableObject {
         getMyTasksOverview: GetMyTasksOverviewUseCase,
         completeTask: CompleteTaskUseCase,
         endTask: EndTaskUseCase,
+        getOutgoingSwaps: GetOutgoingTaskSwapRequestsUseCase? = nil,
+        getMembers: GetHouseMembersUseCase? = nil,
         user: User,
         houseName: String,
         houseID: House.ID,
@@ -80,6 +86,8 @@ final class MyTasksViewModel: ObservableObject {
         self.getMyTasksOverview = getMyTasksOverview
         self.completeTask = completeTask
         self.endTask = endTask
+        self.getOutgoingSwaps = getOutgoingSwaps
+        self.getMembers = getMembers
         self.user = user
         self.houseName = houseName
         self.houseID = houseID
@@ -146,6 +154,15 @@ final class MyTasksViewModel: ObservableObject {
         }
     }
     
+    /// "Troca pedida" nas linhas: vem de `GET /v1/me/swaps`, fora do snapshot, então é buscada depois da lista para
+    /// não atrasar a abertura nem repetir requisições em `load()`.
+    func refreshPendingSwaps() async {
+        let swaps = await loadPendingSwaps()
+        guard !Task.isCancelled, swaps != pendingSwaps else { return }
+        pendingSwaps = swaps
+        presentOverview(at: now())
+    }
+
     func canComplete(
         _ item: TaskItem
     ) -> Bool {
@@ -266,7 +283,8 @@ final class MyTasksViewModel: ObservableObject {
                         MyTasksContent.Row(
                             item: $0,
                             roomName: nil,
-                            dueDay: nil,
+                            timing: nil,
+                            pendingSwap: pendingSwaps[$0.id],
                             color: group.room.color
                         )
                     }
@@ -277,7 +295,8 @@ final class MyTasksViewModel: ObservableObject {
                 MyTasksContent.Row(
                     item: $0.item,
                     roomName: $0.room.name,
-                    dueDay: nil,
+                    timing: timing(of: $0.item, at: date),
+                    pendingSwap: pendingSwaps[$0.item.id],
                     color: $0.room.color
                 )
             }
@@ -292,13 +311,54 @@ final class MyTasksViewModel: ObservableObject {
         MyTasksContent.Row(
             item: task.item,
             roomName: task.room.name,
-            dueDay: task.item.occurrence.dueAt.map {
-                text.dueDay($0, now: date)
-            },
+            timing: timing(of: task.item, at: date),
+            pendingSwap: pendingSwaps[task.item.id],
             color: task.room.color
         )
     }
     
+    /// Falha aqui não impede a lista: a linha só deixa de mostrar o aviso da troca.
+    private func loadPendingSwaps() async -> [TaskOccurrence.ID: String] {
+
+        guard let getOutgoingSwaps, let getMembers else { return [:] }
+
+        do {
+            async let requests = getOutgoingSwaps(userID: userID, houseID: houseID)
+            async let members = getMembers(houseID: houseID, userID: userID)
+
+            let names = Dictionary(
+                try await members.map { ($0.id, $0.name) },
+                uniquingKeysWith: { first, _ in first }
+            )
+
+            return Dictionary(
+                try await requests
+                    .filter(\.isPending)
+                    .map { request in
+                        (
+                            request.offeredOccurrenceID,
+                            text.pendingSwap(
+                                receiverName: names[request.receiverID].map(ResidentNameFormatting.shortName)
+                            )
+                        )
+                    },
+                uniquingKeysWith: { first, _ in first }
+            )
+        } catch {
+            return [:]
+        }
+    }
+
+    private func timing(of item: TaskItem, at date: Date) -> TaskTiming? {
+        // Feita: a linha já mostra a conclusão; prazo e início não importam mais.
+        guard !item.occurrence.isCompleted else { return nil }
+        return text.timing(
+            availableAt: item.occurrence.availableAt,
+            dueAt: item.occurrence.dueAt,
+            now: date
+        )
+    }
+
     private func reminderStoreDidChange() {
         switch state {
         case let .content(content): scheduleReminderSync(for: reminderEligibleItems(in: content))
@@ -308,7 +368,7 @@ final class MyTasksViewModel: ObservableObject {
     }
 
     /// Só vão para o Lembretes as tarefas do seu ciclo e as únicas que você assumiu.
-    /// "Tarefas gerais" (`extras`) ficam de fora.
+    /// As de "Repetição própria" (`extras`) ficam de fora.
     private func reminderEligibleItems(in content: MyTasksContent) -> [TaskItem] {
         (content.cycles.flatMap(\.rows) + content.sporadics).map(\.item)
     }

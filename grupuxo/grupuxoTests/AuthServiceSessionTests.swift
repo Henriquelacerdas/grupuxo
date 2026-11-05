@@ -40,8 +40,11 @@ struct AuthServiceSessionTests {
 
     @Test func validSessionSignsIn() async {
         let service = AuthService(client: FakeAuthSessionClient(valid))
+        #expect(!service.hasCheckedSession, "não mostra login antes de restaurar a sessão")
         await service.checkSession()
         #expect(service.isSignedIn)
+        #expect(service.hasCheckedSession)
+        #expect(!service.sessionCheckFailed)
     }
 
     @Test func expiredSessionSignsOut() async {
@@ -78,6 +81,15 @@ struct AuthServiceSessionTests {
         service.isSignedIn = true
         await service.checkSession()
         #expect(service.isSignedIn)
+        #expect(!service.sessionCheckFailed)
+    }
+
+    @Test func failedRestorationOffersRetryInsteadOfLogin() async {
+        let service = AuthService(client: FakeAuthSessionClient(fetch: .failure(FakeSessionError())))
+        await service.checkSession()
+        #expect(service.hasCheckedSession)
+        #expect(service.sessionCheckFailed, "falha de conexão na abertura não significa que saiu da conta")
+        #expect(!service.isSignedIn)
     }
 
     @Test(arguments: [AuthSessionEvent.sessionExpired, .signedOut])

@@ -129,13 +129,15 @@ struct TaskDefinitionDTO: Decodable, Sendable {
     let assignmentPolicy: TaskAssignmentPolicy
     let calendarAnchor: Date?
     let endedAt: Date?
+    /// Quem criou a tarefa avulsa; ausente nas tarefas antigas (sem Editar/Excluir) e nas recorrentes.
+    let createdByUserID: UUID?
 
     func domain() throws -> TaskDefinition {
         guard let recurrence = recurrence.domain else { throw APIError.invalidResponse }
         return TaskDefinition(
             id: id, roomID: roomID, name: name, details: details, effort: TaskEffort(points: effort),
             kind: kind, recurrence: recurrence, assignmentPolicy: assignmentPolicy,
-            calendarAnchor: calendarAnchor, endedAt: endedAt
+            createdByUserID: createdByUserID, calendarAnchor: calendarAnchor, endedAt: endedAt
         )
     }
 }
@@ -279,6 +281,11 @@ struct CreateTaskBody: Encodable, Sendable {
     let kind: TaskKind
     let recurrence: RecurrenceDTO
     let assignmentPolicy: TaskAssignmentPolicy
+}
+
+struct UpdateTaskBody: Encodable, Sendable {
+    let name: String
+    let details: String
 }
 
 struct RoomMemberBody: Encodable, Sendable { let userID: String }

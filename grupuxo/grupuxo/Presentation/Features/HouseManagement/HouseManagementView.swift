@@ -20,9 +20,11 @@ struct HouseManagementView: View {
     let onSelectSporadicTasks: () -> Void
     private let reloadTrigger: AnyHashable
 
-    /// Mantidos por compatibilidade com os destinos adicionados na branch remota.
-    let onReorderRooms: (() -> Void)?
+    /// Abre os ajustes da casa (nome, código, moradores); sem ele, a opção do menu fica desabilitada.
     let onOpenHouseSettings: (() -> Void)?
+
+    /// Texto do convite (nome da casa e código) para o compartilhar do sistema; sem ele, a opção some.
+    let inviteMessage: String?
 
     init(
         viewModel: HouseManagementViewModel,
@@ -31,8 +33,8 @@ struct HouseManagementView: View {
         makeRoomEditorViewModel: @escaping () -> RoomEditorViewModel,
         onSelectRoom: @escaping (Room.ID) -> Void,
         onSelectSporadicTasks: @escaping () -> Void,
-        onReorderRooms: (() -> Void)? = nil,
         onOpenHouseSettings: (() -> Void)? = nil,
+        inviteMessage: String? = nil,
         reloadTrigger: AnyHashable = 0
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -44,27 +46,56 @@ struct HouseManagementView: View {
 
         self.onSelectRoom = onSelectRoom
         self.onSelectSporadicTasks = onSelectSporadicTasks
-        self.onReorderRooms = onReorderRooms
         self.onOpenHouseSettings = onOpenHouseSettings
+        self.inviteMessage = inviteMessage
     }
 
-    /// Menu nativo de barra (HIG: escolha do que criar a partir de um botão da barra é um menu, não um diálogo).
-    private var addButton: some View {
-        Menu {
-            Button("Nova Tarefa", systemImage: "checklist") {
-                isPresentingTaskCreationSheet = true
-            }
-            .accessibilityIdentifier("createTask")
-
-            Button("Novo Cômodo", systemImage: "square.split.bottomrightquarter") {
-                isPresentingRoomCreationSheet = true
-            }
-            .accessibilityIdentifier("createRoom")
-        } label: {
-            Label("Adicionar", systemImage: "plus")
+    /// Itens do menu "+" (HIG: escolha do que criar a partir de um botão da barra é um menu, não um diálogo).
+    @ViewBuilder
+    private var addMenuItems: some View {
+        Button("Nova tarefa", systemImage: "checklist") {
+            isPresentingTaskCreationSheet = true
         }
-        .prominentToolbarButtonStyle()
-        .accessibilityIdentifier("addMenu")
+        .accessibilityIdentifier("createTask")
+
+        Button("Novo cômodo", systemImage: "square.split.bottomrightquarter") {
+            isPresentingRoomCreationSheet = true
+        }
+        .accessibilityIdentifier("createRoom")
+    }
+
+    /// Ação principal da barra: círculo azul de 44 pt, do mesmo tamanho do "⋯" ao lado.
+    @ToolbarContentBuilder
+    private var addToolbarItem: some ToolbarContent {
+        if #available(iOS 26, *) {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    addMenuItems
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(
+                            width: DesignSystem.minimumTouchTarget,
+                            height: DesignSystem.minimumTouchTarget
+                        )
+                        .glassEffect(.regular.tint(.accentColor).interactive(), in: .circle)
+                }
+                .accessibilityLabel("Adicionar")
+                .accessibilityIdentifier("addMenu")
+            }
+            .sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    addMenuItems
+                } label: {
+                    Label("Adicionar", systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("addMenu")
+            }
+        }
     }
 
     var body: some View {
@@ -87,8 +118,11 @@ struct HouseManagementView: View {
 
             case .empty:
                 statusRow {
-                    Text("Nenhum cômodo cadastrado.")
-                        .foregroundStyle(.secondary)
+                    EmptyStateView(
+                        title: "Nenhum cômodo ainda",
+                        systemImage: "house",
+                        description: "Crie o primeiro cômodo para começar o rodízio da casa."
+                    )
                 }
 
             case let .failure(message):
@@ -108,9 +142,7 @@ struct HouseManagementView: View {
         .navigationTitle("Casa")
         .houseSubtitle(houseName)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                addButton
-            }
+            addToolbarItem
 
             if #available(iOS 26, *) {
                 ToolbarSpacer(
@@ -122,15 +154,21 @@ struct HouseManagementView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button(
-                        "Reordenar",
+                        "Reordenar cômodos",
                         systemImage: "line.3.horizontal"
                     ) {
                         isPresentingReorderSheet = true
                     }
 
+                    if let inviteMessage {
+                        ShareLink(item: inviteMessage) {
+                            Label("Convidar pessoas", systemImage: "person.badge.plus")
+                        }
+                    }
+
                     Button(
-                        "Ajustes da Casa",
-                        systemImage: "gear"
+                        "Ajustes da casa",
+                        systemImage: "gearshape"
                     ) {
                         onOpenHouseSettings?()
                     }

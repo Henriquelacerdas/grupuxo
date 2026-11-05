@@ -15,7 +15,8 @@ enum NotificationsState: Equatable {
 
     case content(
         notifications: [AppNotification],
-        pendingSwaps: [IncomingSwapRequest]
+        pendingSwaps: [IncomingSwapRequest],
+        outgoingSwaps: [OutgoingSwapRequest] = []
     )
 
     case empty
@@ -42,4 +43,31 @@ struct IncomingSwapRequest: Identifiable, Equatable {
         request.id
     }
 
+}
+
+/// Pedido de troca que eu fiz e ainda espera resposta.
+struct OutgoingSwapRequest: Identifiable, Equatable {
+
+    let request: TaskSwapRequest
+
+    /// Quem precisa aceitar; `nil` se o morador não foi encontrado na casa.
+    let receiverName: String?
+
+    /// Minha tarefa, que passa para a outra pessoa se ela aceitar.
+    let offeredTaskName: String?
+
+    /// Tarefa da outra pessoa, que passa para mim se ela aceitar.
+    let requestedTaskName: String?
+
+    var id: TaskSwapRequest.ID {
+        request.id
+    }
+}
+
+/// Notificações de um mesmo dia, com o título "Hoje", "Ontem" ou a data.
+struct NotificationDay: Identifiable, Equatable {
+    let title: String
+    let notifications: [AppNotification]
+
+    var id: String { title }
 }

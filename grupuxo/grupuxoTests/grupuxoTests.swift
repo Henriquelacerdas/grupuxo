@@ -304,6 +304,34 @@ struct SchedulingTests {
         #expect(viewModel.state.draft.recurrence == .recurring(frequency: .weekly, interval: 1))
     }
 
+    @Test @MainActor func repeatWithRoomFollowsTheRoomPeriodicity() async throws {
+        let (store, repository, _, _) = fixture()
+        let viewModel = TaskEditorViewModel(createTask: CreateTaskUseCase(
+                                                repository: repository,
+                                                roomRepository: MockRoomRepository(store: store)
+                                            ),
+                                            getHouseRooms: GetHouseRoomsUseCase(repository: MockRoomRepository(store: store)),
+                                            houseID: MockSeed.house.id, requestingUserID: MockSeed.currentUser.id,
+                                            draft: TaskDraft())
+        await viewModel.loadRooms()
+        viewModel.updateDraft { $0.name = "Guardar a louça"; $0.roomID = MockSeed.kitchen.id }
+        let room = try #require(viewModel.selectedRoom)
+
+        // Ligado (padrão): a repetição é a do cômodo e a tarefa entra no ciclo.
+        #expect(viewModel.state.draft.followsRoom)
+        #expect(viewModel.state.draft.recurrence == .weekly(room.periodicity))
+
+        // Desligado: uma repetição própria, diferente da do cômodo.
+        viewModel.setFollowsRoom(false)
+        #expect(!viewModel.isRoomPeriodicity(viewModel.state.draft.recurrence))
+        #expect(viewModel.state.draft.kind == .recurring)
+
+        viewModel.setFollowsRoom(true)
+        await viewModel.save()
+        guard case let .saved(definition) = viewModel.state else { Issue.record("Editor failed to save"); return }
+        #expect(definition.isLinked(to: room))
+    }
+
 }
 
 @MainActor

@@ -228,8 +228,15 @@ export function encodeDefinition(houseId: HouseID, definition: TaskDefinition): 
     sourceSuggestionID: definition.sourceSuggestionID, rotationQueue: definition.rotationQueue,
     currentRotationIndex: definition.currentRotationIndex, nextScheduledAt: definition.nextScheduledAt,
     pendingRotation: encodePendingRotation(definition.pendingRotation), calendarAnchor: definition.calendarAnchor,
-    endedAt: definition.endedAt,
+    endedAt: definition.endedAt, createdByUserID: definition.createdByUserID ?? null,
   });
+}
+
+/** `createdByUserID` não existe nos itens gravados antes do atributo: ausente ou nulo → sem criador. */
+function optionalCreator(item: DynamoItem): { readonly createdByUserID?: UserID } {
+  if (!Object.hasOwn(item, "createdByUserID")) return {};
+  const creator = nullableStr(item, "createdByUserID");
+  return creator === null ? {} : { createdByUserID: userID(creator) };
 }
 
 export function decodeDefinition(item: DynamoItem): TaskDefinition {
@@ -242,6 +249,8 @@ export function decodeDefinition(item: DynamoItem): TaskDefinition {
     currentRotationIndex: integer(item, "currentRotationIndex"), nextScheduledAt: nullableNum(item, "nextScheduledAt"),
     pendingRotation: decodePendingRotation(nullableRecord(item, "pendingRotation")),
     calendarAnchor: nullableNum(item, "calendarAnchor"), endedAt: nullableNum(item, "endedAt"),
+    // Ausente ou nulo: tarefa anterior ao atributo (ninguém a edita nem exclui).
+    ...optionalCreator(item),
   }));
 }
 

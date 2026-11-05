@@ -7,6 +7,8 @@ import Combine
 @MainActor
 class AuthService: ObservableObject {
     @Published var isSignedIn = false
+    @Published private(set) var hasCheckedSession = false
+    @Published private(set) var sessionCheckFailed = false
     
     enum SignInStatus {
         case success
@@ -68,12 +70,16 @@ class AuthService: ObservableObject {
     // Verifica se o usuário já está logado ao abrir o app
     func checkSession() async {
         startObservingSession()
+        if !isSignedIn { hasCheckedSession = false }
+        sessionCheckFailed = false
+        defer { hasCheckedSession = true }
         do {
             let session = try await client.fetchSession()
             // Sessão vencida ou encerrada desloga; sem rede (.unavailable) quem já está logado continua.
             self.isSignedIn = session.isActive
         } catch {
             // Não sabemos o estado: não derruba nem promove ninguém.
+            sessionCheckFailed = !isSignedIn
             print("Erro ao verificar sessão: \(error)")
         }
     }

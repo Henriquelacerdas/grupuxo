@@ -20,10 +20,23 @@ struct DomesticApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            root
                 .environmentObject(authService)
                 .environmentObject(houses)
         }
+    }
+
+    @ViewBuilder
+    private var root: some View {
+        #if DEBUG
+        if DemoHouse.isEnabled {
+            DemoHouseRootView()
+        } else {
+            ContentView()
+        }
+        #else
+        ContentView()
+        #endif
     }
 
     /// Falha fechado: sem `GRUPUXO_API_BASE_URL` o app mostra o erro em vez de falar com um servidor qualquer.

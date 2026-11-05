@@ -293,7 +293,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000005d",
@@ -332,7 +333,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000005f",
@@ -371,7 +373,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000061",
@@ -410,7 +413,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000067",
@@ -449,7 +453,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000002f",
@@ -488,7 +493,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000033",
@@ -527,7 +533,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000035",
@@ -564,7 +571,8 @@
         },
         "assignmentPolicy": "afterCompletion",
         "calendarAnchor": null,
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000037",
@@ -603,7 +611,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000043",
@@ -642,7 +651,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000039",
@@ -681,7 +691,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000003b",
@@ -720,7 +731,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000003f",
@@ -759,7 +771,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000045",
@@ -798,7 +811,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000047",
@@ -837,7 +851,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000004b",
@@ -876,7 +891,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000057",
@@ -915,7 +931,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000005b",
@@ -954,7 +971,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000004d",
@@ -993,7 +1011,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000004f",
@@ -1032,7 +1051,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000051",
@@ -1071,7 +1091,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000053",
@@ -1108,7 +1129,8 @@
         },
         "assignmentPolicy": "afterCompletion",
         "calendarAnchor": null,
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000069",
@@ -1147,7 +1169,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000006b",
@@ -1186,7 +1209,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000078",
@@ -1227,7 +1251,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000002f",
@@ -1266,7 +1291,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000039",
@@ -1305,7 +1331,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000045",
@@ -1344,7 +1371,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000004d",
@@ -1383,7 +1411,8 @@
         },
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000005d",
@@ -1422,7 +1451,8 @@
         },
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000006b",
@@ -1461,7 +1491,8 @@
         },
         "assignmentPolicy": "selfAssigned",
         "calendarAnchor": null,
-        "endedAt": null
+        "endedAt": null,
+        "createdByUserID": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000007a",

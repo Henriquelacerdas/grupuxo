@@ -336,9 +336,9 @@ enum MockSeed {
     private nonisolated static var sporadicDefinitions: [TaskDefinition] {
 
         [
-            definition("Chamar encanador", "Vazamento embaixo da pia", room: kitchen, effort: 1, kind: .sporadic, policy: .selfAssigned),
-            definition("Trocar resistência do chuveiro", "Comprar a peça antes", room: bathroom, effort: 2, kind: .sporadic, policy: .selfAssigned),
-            definition("Consertar o portão da garagem", "Dobradiça solta", room: garage, effort: 3, kind: .sporadic, policy: .selfAssigned),
+            definition("Chamar encanador", "Vazamento embaixo da pia", room: kitchen, effort: 1, kind: .sporadic, policy: .selfAssigned, createdBy: currentUser),
+            definition("Trocar resistência do chuveiro", "Comprar a peça antes", room: bathroom, effort: 2, kind: .sporadic, policy: .selfAssigned, createdBy: leo),
+            definition("Consertar o portão da garagem", "Dobradiça solta", room: garage, effort: 3, kind: .sporadic, policy: .selfAssigned, createdBy: rafa),
             definition("Desentupir o ralo da lavanderia", "Água não escoa", room: laundry, effort: 2, kind: .sporadic, policy: .selfAssigned)
         ]
     }
@@ -383,7 +383,8 @@ enum MockSeed {
         room: Room,
         effort: Int,
         kind: TaskKind = .recurring,
-        policy: TaskAssignmentPolicy
+        policy: TaskAssignmentPolicy,
+        createdBy: User? = nil
     ) -> TaskDefinition {
 
         TaskDefinition(
@@ -401,7 +402,8 @@ enum MockSeed {
                     interval: room.periodicity.intervalWeeks
                 )
                 : .none,
-            assignmentPolicy: policy
+            assignmentPolicy: policy,
+            createdByUserID: createdBy?.id
         )
     }
 }

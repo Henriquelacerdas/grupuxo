@@ -11,7 +11,8 @@
     },
     "assignmentPolicy": "selfAssigned",
     "calendarAnchor": null,
-    "endedAt": null
+    "endedAt": null,
+    "createdByUserID": null
   },
   "occurrence": {
     "id": "ffffffff-ffff-4fff-8fff-00000000007a",

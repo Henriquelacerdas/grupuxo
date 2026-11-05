@@ -23,6 +23,12 @@ struct RootView: View {
     /// Ajustes (o perfil), abertos em sheet a partir do avatar de Minhas tarefas.
     @State private var isPresentingProfile = false
 
+    /// "Pedir troca" em sheet, a partir de uma tarefa de Minhas tarefas.
+    @State private var swapOffer: SwapOffer?
+
+    /// Ajustes da casa, abertos pelo menu "⋯" da aba Casa.
+    @State private var isPresentingHouseSettings = false
+
     /// Atualiza as listas quando a sheet de detalhes é fechada.
     @State private var taskChanges = 0
 
@@ -35,6 +41,11 @@ struct RootView: View {
                 myHouse: myHouse
             )
         )
+    }
+
+    /// Raiz sobre um modelo já montado (a casa de demonstração do Debug usa o container do `MockStore`).
+    init(model: @autoclosure @escaping () -> RootModel) {
+        _model = StateObject(wrappedValue: model())
     }
 
     private var container: AppContainer {
@@ -96,11 +107,7 @@ struct RootView: View {
                     },
 
                     onRequestSwap: { occurrenceID in
-                        tasksPath.append(
-                            .taskSwap(
-                                offeredOccurrenceID: occurrenceID
-                            )
-                        )
+                        swapOffer = SwapOffer(id: occurrenceID)
                     },
 
                     onSelectTask: { taskDefinitionID in
@@ -129,7 +136,7 @@ struct RootView: View {
             .tabItem {
                 Label(
                     "Tarefas",
-                    systemImage: "checkmark.circle"
+                    systemImage: "checkmark.circle.fill"
                 )
             }
             .tag(AppTab.myTasks)
@@ -167,6 +174,12 @@ struct RootView: View {
                     onSelectSporadicTasks: {
                         housePath.append(.sporadicTasks)
                     },
+                    onOpenHouseSettings: {
+                        isPresentingHouseSettings = true
+                    },
+                    inviteMessage: String(
+                        localized: "Entre na casa \"\(session.currentHouse.name)\" no app usando o código: \(session.currentHouse.accessCode)"
+                    ),
                     reloadTrigger: ReloadKey(activation: houseActivations, taskChanges: taskChanges)
                 )
                 .navigationDestination(for: AppRoute.self) { route in
@@ -176,7 +189,7 @@ struct RootView: View {
             .tabItem {
                 Label(
                     "Casa",
-                    systemImage: "house"
+                    systemImage: "house.fill"
                 )
             }
             .tag(AppTab.house)
@@ -197,10 +210,7 @@ struct RootView: View {
                 viewModel: container.makeTaskDetailViewModel(
                     taskDefinitionID: task.id,
                     session: session
-                ),
-
-                // A API ainda não disponibiliza PATCH para edição.
-                allowsEditing: false
+                )
             )
         }
         .sheet(isPresented: $isPresentingProfile) {
@@ -210,6 +220,22 @@ struct RootView: View {
                 accountViewModel: container.makeAccountViewModel(),
                 appInfo: container.appInfo
             )
+        }
+        .sheet(isPresented: $isPresentingHouseSettings) {
+            HouseSettingsSheet()
+        }
+        .sheet(
+            item: $swapOffer,
+            onDismiss: { taskChanges += 1 }
+        ) { offer in
+            NavigationStack {
+                TaskSwapView(
+                    viewModel: container.makeTaskSwapViewModel(
+                        offeredOccurrenceID: offer.id,
+                        session: session
+                    )
+                )
+            }
         }
     }
 
@@ -309,6 +335,33 @@ struct RootView: View {
 
         }
     }
+}
+
+// MARK: - House Settings
+
+/// Os mesmos Ajustes da casa da tela de Ajustes, em sheet própria a partir da aba Casa.
+private struct HouseSettingsSheet: View {
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            HouseSettingsView()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Fechar", systemImage: "xmark") { dismiss() }
+                            .labelStyle(.iconOnly)
+                    }
+                }
+        }
+    }
+}
+
+// MARK: - Swap Offer
+
+/// Tarefa oferecida no pedido de troca aberto em sheet.
+private struct SwapOffer: Identifiable {
+    let id: TaskOccurrence.ID
 }
 
 // MARK: - Presented Task

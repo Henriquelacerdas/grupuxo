@@ -30,6 +30,7 @@ final class RoomDetailViewModel: ObservableObject {
     private let roomID: Room.ID
     private let userID: User.ID
     private let text: HouseOverviewText
+    private let taskText: MyTasksText
 
     /// Quantas sugestões aparecem de uma vez; "Outras sugestões" avança para o próximo grupo.
     static let suggestionPageSize = 3
@@ -64,6 +65,7 @@ final class RoomDetailViewModel: ObservableObject {
         self.roomID = roomID
         self.userID = userID
         self.text = HouseOverviewText(calendar: calendar)
+        self.taskText = MyTasksText(calendar: calendar, locale: HouseOverviewText.appLocale)
     }
 
     var currentUserID: User.ID { userID }
@@ -114,6 +116,16 @@ final class RoomDetailViewModel: ObservableObject {
         return Dictionary(grouping: assignees, by: \.id)
             .compactMap { $0.value.first }
             .sorted { $0.id.uuidString.lowercased() < $1.id.uuidString.lowercased() }
+    }
+
+    /// Prazo de uma tarefa de repetição própria: "Termina sexta", "Começa sábado", "Terminou ontem".
+    func timing(of item: TaskItem, now: Date = .now) -> String? {
+        guard !item.occurrence.isCompleted else { return nil }
+        return taskText.timing(
+            availableAt: item.occurrence.availableAt,
+            dueAt: item.occurrence.dueAt,
+            now: now
+        )?.text
     }
 
     /// "Termina domingo".

@@ -72,6 +72,8 @@ export interface TaskDefinitionDTO {
   readonly calendarAnchor: IsoInstant | null;
   /** `null` = tarefa ativa. */
   readonly endedAt: IsoInstant | null;
+  /** Quem criou a tarefa; `null` em tarefas anteriores ao atributo. Só a avulsa criada por quem pede tem Editar e Excluir. */
+  readonly createdByUserID: string | null;
 }
 
 export interface TaskOccurrenceDTO {
@@ -171,7 +173,7 @@ export function taskDefinitionDTO(definition: TaskDefinition): TaskDefinitionDTO
     id: definition.id, roomID: definition.roomID, name: definition.name, details: definition.details,
     effort: definition.effort.points, kind: definition.kind, recurrence: recurrenceDTO(definition.recurrence),
     assignmentPolicy: definition.assignmentPolicy, calendarAnchor: isoOrNull(definition.calendarAnchor),
-    endedAt: isoOrNull(definition.endedAt),
+    endedAt: isoOrNull(definition.endedAt), createdByUserID: definition.createdByUserID ?? null,
   };
 }
 

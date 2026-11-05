@@ -18,9 +18,44 @@ private func decode<T: Decodable>(_ type: T.Type, _ name: String) throws -> T {
 struct FixedToken: AccessTokenProvider {
     var value: String? = "token-teste"
 
-    func accessToken() async throws -> String {
+    func accessToken(forceRefresh: Bool) async throws -> String {
         guard let value else { throw APIError.unauthorized }
         return value
+    }
+}
+
+private struct FailingToken: AccessTokenProvider {
+    let error: any Error
+
+    func accessToken(forceRefresh: Bool) async throws -> String { throw error }
+}
+
+private actor RefreshingToken: AccessTokenProvider {
+    let refreshError: (any Error)?
+    private(set) var refreshRequests: [Bool] = []
+
+    init(refreshError: (any Error)? = nil) { self.refreshError = refreshError }
+
+    func accessToken(forceRefresh: Bool) async throws -> String {
+        refreshRequests.append(forceRefresh)
+        if forceRefresh, let refreshError { throw refreshError }
+        return forceRefresh ? "token-novo" : "token-vencido"
+    }
+}
+
+/// Recusa o token antigo antes de executar a operação e aceita o renovado.
+private actor TokenCheckingServer: HTTPTransport {
+    let alwaysUnauthorized: Bool
+    private(set) var requests: [URLRequest] = []
+
+    init(alwaysUnauthorized: Bool = false) { self.alwaysUnauthorized = alwaysUnauthorized }
+
+    func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        requests.append(request)
+        let authorized = !alwaysUnauthorized && request.value(forHTTPHeaderField: "Authorization") == "Bearer token-novo"
+        let response = HTTPURLResponse(url: request.url!, statusCode: authorized ? 200 : 401,
+                                       httpVersion: nil, headerFields: nil)!
+        return (Data("{}".utf8), response)
     }
 }
 
@@ -159,6 +194,67 @@ struct RemoteDTOTests {
 }
 
 struct APIClientTests {
+    @Test(arguments: [URLError.notConnectedToInternet, .timedOut, .networkConnectionLost])
+    func tokenNetworkFailureDoesNotExpireSession(code: URLError.Code) async throws {
+        let server = FakeServer()
+        let api = APIClient(baseURL: baseURL, tokens: FailingToken(error: URLError(code)), transport: server)
+        await #expect(throws: APIError.network) { try await api.send("GET", "v1/me") }
+        #expect(await server.requests.isEmpty)
+
+        let houses = await RemoteHouseSession(api: api)
+        await houses.load()
+        #expect(await houses.loadError != .sessionExpired)
+    }
+
+    @Test func tokenCancellationDoesNotExpireSession() async throws {
+        let server = FakeServer()
+        let api = APIClient(baseURL: baseURL, tokens: FailingToken(error: URLError(.cancelled)), transport: server)
+        await #expect(throws: CancellationError.self) { try await api.send("GET", "v1/me") }
+        #expect(await server.requests.isEmpty)
+    }
+
+    @Test func unauthorizedRefreshesTokenAndRetriesTheSameRequest() async throws {
+        let tokens = RefreshingToken()
+        let server = TokenCheckingServer()
+        let api = APIClient(baseURL: baseURL, tokens: tokens, transport: server)
+        try await api.send("POST", "v1/me", query: ["test": "1"], body: RegisterAccountBody(name: "Bia"))
+
+        #expect(await tokens.refreshRequests == [false, true])
+        let requests = await server.requests
+        #expect(requests.count == 2)
+        #expect(requests.first?.value(forHTTPHeaderField: "Authorization") == "Bearer token-vencido")
+        #expect(requests.last?.value(forHTTPHeaderField: "Authorization") == "Bearer token-novo")
+        #expect(requests.first?.url == requests.last?.url)
+        #expect(requests.first?.httpMethod == requests.last?.httpMethod)
+        #expect(requests.first?.httpBody == requests.last?.httpBody)
+    }
+
+    @Test func persistentUnauthorizedStopsAfterOneRefresh() async throws {
+        let tokens = RefreshingToken()
+        let server = TokenCheckingServer(alwaysUnauthorized: true)
+        let api = APIClient(baseURL: baseURL, tokens: tokens, transport: server)
+        await #expect(throws: APIError.unauthorized) { try await api.send("GET", "v1/me") }
+        #expect(await tokens.refreshRequests == [false, true])
+        #expect(await server.requests.count == 2)
+    }
+
+    @Test func failedRefreshKeepsTheSessionAndDoesNotReplayTheRequest() async throws {
+        let tokens = RefreshingToken(refreshError: APIError.network)
+        let server = TokenCheckingServer()
+        let api = APIClient(baseURL: baseURL, tokens: tokens, transport: server)
+        await #expect(throws: APIError.network) { try await api.send("GET", "v1/me") }
+        #expect(await tokens.refreshRequests == [false, true])
+        #expect(await server.requests.count == 1)
+    }
+
+    @Test func expiredRefreshTokenStillRequiresLogin() async throws {
+        let tokens = RefreshingToken(refreshError: APIError.unauthorized)
+        let server = TokenCheckingServer()
+        let api = APIClient(baseURL: baseURL, tokens: tokens, transport: server)
+        await #expect(throws: APIError.unauthorized) { try await api.send("GET", "v1/me") }
+        #expect(await server.requests.count == 1)
+    }
+
     @Test func sendsBearerTokenAndLowercasePath() async throws {
         let server = FakeServer()
         await server.on("GET /v1/me", body: #"{"id":"ffffffff-ffff-4fff-8fff-000000000001"}"#)
@@ -388,12 +484,14 @@ struct RemoteRepositoryTests {
         #expect(await server.requests.isEmpty)
     }
 
-    @Test func routesWithoutServerSupportFailExplicitly() async throws {
-        let tasks = RemoteTaskRepository(api: client(FakeServer()))
-        await #expect(throws: APIError.unsupported) {
+    @Test func editingOrDeletingAnUnknownTaskIsNotFoundWithoutCallingTheServer() async throws {
+        let server = FakeServer()
+        let tasks = RemoteTaskRepository(api: client(server))
+        await #expect(throws: DomainError.entityNotFound) {
             try await tasks.updateTaskDetails(id: UUID(), name: "x", details: "", requestedBy: user)
         }
-        await #expect(throws: APIError.unsupported) { try await tasks.deleteSporadicTask(id: UUID(), requestedBy: user) }
+        await #expect(throws: DomainError.entityNotFound) { try await tasks.deleteSporadicTask(id: UUID(), requestedBy: user) }
+        #expect(await server.requests.isEmpty)
     }
 
     @Test func sporadicTasksClaimAndRelease() async throws {

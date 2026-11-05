@@ -19,7 +19,7 @@ import {
 } from "../domain/use-cases/swaps-and-notifications.ts";
 import {
   AddRoomMemberUseCase, ClaimSporadicTaskUseCase, CompleteTaskUseCase, CreateTaskUseCase, GetMyTasksUseCase,
-  GetRoomTasksUseCase, GetSporadicTasksUseCase, ReleaseSporadicTaskUseCase, RemoveRoomMemberUseCase, newTaskDefinition,
+  DeleteSporadicTaskUseCase, GetRoomTasksUseCase, GetSporadicTasksUseCase, ReleaseSporadicTaskUseCase, RemoveRoomMemberUseCase, UpdateTaskDetailsUseCase, newTaskDefinition,
 } from "../domain/use-cases/tasks.ts";
 import { DomainError } from "../domain/errors.ts";
 import {
@@ -28,7 +28,7 @@ import {
 import { failure, json, jsonObject, noContent } from "./api-http.ts";
 import {
   parseCreateHouse, parseCreateRoom, parseCreateSwap, parseCreateTask, parseFlag, parseJoinHouse, parseRange,
-  parseRoomMember,
+  parseRoomMember, parseUpdateTask,
 } from "./api-input.ts";
 import { requireParam, type AppRouteName, type RouteParams } from "./api-router.ts";
 import type { HttpApiResult } from "./events.ts";
@@ -67,6 +67,8 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
   const myTasks = new GetMyTasksUseCase(tasks, houses, now);
   const roomTasks = new GetRoomTasksUseCase(tasks);
   const createTask = new CreateTaskUseCase(tasks, now);
+  const updateTask = new UpdateTaskDetailsUseCase(tasks);
+  const deleteTask = new DeleteSporadicTaskUseCase(tasks);
   const completion = new CompleteTaskUseCase(tasks, now);
   const addRoomMember = new AddRoomMemberUseCase(tasks, now);
   const removeRoomMember = new RemoveRoomMemberUseCase(tasks, now);
@@ -209,7 +211,7 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
         const body = jsonObject(request.body);
         const parsed = body === null ? null : parseCreateTask(body);
         if (parsed === null) return badRequest();
-        const definition = newTaskDefinition(taskDefinitionID(newID()), { ...parsed, roomID });
+        const definition = newTaskDefinition(taskDefinitionID(newID()), { ...parsed, roomID, createdByUserID: user });
         return json(201, taskDefinitionDTO(await createTask.execute(definition, user)));
       }
       case "taskDefinition": {
@@ -217,6 +219,23 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
           toRoomID(requireParam(request.params, "roomID")), taskDefinitionID(requireParam(request.params, "taskID")), user,
         );
         return json(200, taskDefinitionDTO(definition));
+      }
+      case "updateTask": {
+        const roomID = toRoomID(requireParam(request.params, "roomID"));
+        const taskID = taskDefinitionID(requireParam(request.params, "taskID"));
+        const body = jsonObject(request.body);
+        const patch = body === null ? null : parseUpdateTask(body);
+        if (patch === null) return badRequest();
+        // Ler a definição primeiro dá 404 uniforme para quem não é da casa ou não vê a tarefa.
+        await tasks.definition(roomID, taskID, user);
+        return json(200, taskDefinitionDTO(await updateTask.execute(roomID, taskID, patch, user)));
+      }
+      case "deleteTask": {
+        const roomID = toRoomID(requireParam(request.params, "roomID"));
+        const taskID = taskDefinitionID(requireParam(request.params, "taskID"));
+        await tasks.definition(roomID, taskID, user);
+        await deleteTask.execute(roomID, taskID, user);
+        return noContent();
       }
       case "endTask": {
         const roomID = toRoomID(requireParam(request.params, "roomID"));

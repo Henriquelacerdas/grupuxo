@@ -37,8 +37,10 @@ struct HouseSettingsView: View {
             }
         }
         .refreshable { await houses.refresh() }
-        .confirmationDialog("Sair da casa?", isPresented: $confirmLeave, titleVisibility: .visible) {
+        .confirmationDialog(leaveTitle, isPresented: $confirmLeave, titleVisibility: .visible) {
             Button("Sair da casa", role: .destructive) { Task { await houses.leaveHouse() } }
+        } message: {
+            Text("Ao sair, você deixa todos os cômodos da casa.")
         }
         .confirmationDialog(
             "Cômodos serão excluídos",
@@ -51,20 +53,32 @@ struct HouseSettingsView: View {
         } message: {
             Text("Você é o último participante de algum cômodo. Se sair, o cômodo e as tarefas dele serão excluídos.")
         }
-        .confirmationDialog(
-            "Excluir a casa?",
-            isPresented: $houses.leaveNeedsHouseDeletionConfirmation,
-            titleVisibility: .visible
+        .alert(
+            "Sair e apagar a casa?",
+            isPresented: $houses.leaveNeedsHouseDeletionConfirmation
         ) {
-            Button("Sair e excluir a casa", role: .destructive) {
+            Button("Cancelar", role: .cancel) {}
+            Button("Apagar casa", role: .destructive) {
                 Task { await houses.leaveHouse(confirmRoomDeletion: true, confirmHouseDeletion: true) }
             }
         } message: {
-            Text("Você é o último morador. Se sair, a casa, os cômodos, as tarefas e o histórico serão excluídos, e o código de convite deixa de valer. Não dá para desfazer.")
+            if let name = houses.house?.name {
+                Text("Você é a única pessoa da \(name). A casa, os cômodos e as tarefas serão apagados. Não dá para desfazer.")
+            } else {
+                Text("Você é a única pessoa da casa. A casa, os cômodos e as tarefas serão apagados. Não dá para desfazer.")
+            }
         }
     }
 
     private var isLastMember: Bool { houses.members.count <= 1 }
+
+    private var leaveTitle: Text {
+        if let name = houses.house?.name {
+            Text("Sair da \(name)?")
+        } else {
+            Text("Sair da casa?")
+        }
+    }
 
     // MARK: - Seções
 
@@ -118,6 +132,10 @@ struct HouseSettingsView: View {
             }
         } header: {
             Text("Moradores").formSectionHeader()
+        } footer: {
+            if isLastMember {
+                Text("Ninguém entrou ainda. Mande o código acima para quem mora com você.")
+            }
         }
     }
 
@@ -138,7 +156,7 @@ struct HouseSettingsView: View {
             )
         } footer: {
             if isLastMember {
-                Text("Você é o único morador: se sair, a casa será excluída.")
+                Text("Você é a única pessoa da casa. Se sair, a casa é apagada.")
             } else {
                 Text("Ao sair, você deixa todos os cômodos da casa.")
             }

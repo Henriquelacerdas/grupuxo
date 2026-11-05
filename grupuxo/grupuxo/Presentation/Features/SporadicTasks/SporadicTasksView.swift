@@ -489,7 +489,7 @@ struct SporadicTasksView: View {
         Label {
 
             Text(
-                "Cada Tarefa Única realizada pula sua vez na próxima Tarefa Extra."
+                "Quem faz uma tarefa única pula a vez na próxima tarefa de repetição própria."
             )
 
         } icon: {
@@ -863,7 +863,7 @@ struct SporadicTasksView: View {
             return String(localized: "Desfazer")
         }
 
-        return String(localized: "Adicionar a \"Minhas Tarefas\"")
+        return String(localized: "Adicionar às minhas tarefas")
     }
 
     private func color(

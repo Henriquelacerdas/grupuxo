@@ -59,8 +59,9 @@ struct MyTasksView: View {
 
                 statusRow {
                     EmptyStateView(
-                        title: "Nenhuma tarefa",
-                        systemImage: "checklist"
+                        title: "Tudo em dia",
+                        systemImage: "checkmark.circle.fill",
+                        description: "Você não tem tarefas agora. Quando começar o próximo ciclo, elas aparecem aqui."
                     )
                 }
 
@@ -134,6 +135,7 @@ struct MyTasksView: View {
             } else {
                 await viewModel.load(showLoading: false)
             }
+            await viewModel.refreshPendingSwaps()
         }
 
         .alert(
@@ -175,6 +177,7 @@ struct MyTasksView: View {
 
         .refreshable {
             await viewModel.load(forceRefresh: true)
+            await viewModel.refreshPendingSwaps()
         }
     }
 
@@ -297,7 +300,7 @@ struct MyTasksView: View {
                     systemImage: "pencil"
                 )
             }
-            .tint(.gray)
+            .tint(.accentColor)
 
             if viewModel.canRequestSwap(row.item) {
 
@@ -309,7 +312,7 @@ struct MyTasksView: View {
                         systemImage: "arrow.left.arrow.right"
                     )
                 }
-                .tint(.accentColor)
+                .tint(.gray)
             }
         }
     }

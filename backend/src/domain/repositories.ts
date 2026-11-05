@@ -6,6 +6,7 @@ import type {
   HouseID, NotificationID, RoomID, TaskDefinitionID, TaskOccurrenceID, TaskSwapRequestID, UserID,
 } from "./ids.ts";
 import type { LeaveHouseOutcome } from "./commands/houses.ts";
+import type { TaskDetailsPatch } from "./commands/tasks.ts";
 
 export interface HouseRepository {
   addMember(name: string, houseID: HouseID, requestedBy: UserID, at: Instant): Promise<User>;
@@ -45,6 +46,17 @@ export interface TaskRepository {
   create(definition: TaskDefinition, requestedBy: UserID, at: Instant): Promise<TaskDefinition>;
   /** Encerra a tarefa recorrente do cômodo (o cômodo escolhe a partição no DynamoDB, que não indexa definições): o histórico fica, as ocorrências futuras somem e as trocas pendentes que as citam são recusadas. */
   endTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, at: Instant): Promise<void>;
+  /**
+   * Edita nome, descrição e esforço de uma tarefa **avulsa**; só quem a criou (e que ainda participa do cômodo).
+   * Senão `taskUnavailable`; tarefa inexistente ou de outra casa, `entityNotFound`. Mudar o esforço atualiza o
+   * `effortSnapshot` das ocorrências ainda não concluídas.
+   */
+  updateTaskDetails(roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsPatch, requestedBy: UserID): Promise<TaskDefinition>;
+  /**
+   * Exclui de vez uma tarefa **avulsa** (definição, ocorrências, atribuições e as trocas que as citam, com as notificações
+   * delas); só quem a criou. Mesmas regras de erro de `updateTaskDetails`.
+   */
+  deleteSporadicTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID): Promise<void>;
   refreshSchedule(houseID: HouseID, at: Instant): Promise<void>;
   addMember(userID: UserID, roomID: RoomID, at: Instant): Promise<void>;
   removeMember(userID: UserID, roomID: RoomID, at: Instant, confirmDeletion: boolean): Promise<void>;

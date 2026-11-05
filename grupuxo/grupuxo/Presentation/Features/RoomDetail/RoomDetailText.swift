@@ -24,7 +24,16 @@ enum RoomDetailText {
 
         case let .recurring(frequency, interval):
 
-            // Singular e plural ficam nas variações do catálogo.
+            // Vocabulário de repetição da Apple; singular e plural ficam nas variações do catálogo.
+            if interval == 1 {
+                switch frequency {
+                case .daily: return String(localized: "Diariamente")
+                case .weekly: return String(localized: "Semanalmente")
+                case .monthly: return String(localized: "Mensalmente")
+                case .yearly: return String(localized: "Anualmente")
+                }
+            }
+
             switch frequency {
             case .daily: return String(localized: "A cada \(interval) dias")
             case .weekly: return String(localized: "A cada \(interval) semanas")
@@ -34,7 +43,9 @@ enum RoomDetailText {
 
         case let .weekly(periodicity):
 
-            return String(localized: "A cada \(periodicity.intervalWeeks) semanas")
+            return periodicity.intervalWeeks == 1
+                ? String(localized: "Semanalmente")
+                : String(localized: "A cada \(periodicity.intervalWeeks) semanas")
         }
     }
 
@@ -69,16 +80,30 @@ enum RoomDetailText {
         return String(localized: "Já tem responsável")
     }
 
-    /// Duração do ciclo do cômodo, com os nomes que o formulário de criação usa:
-    /// 1 semana é "Semanal", 2 "Quinzenal", 4 "Mensal"; o resto vira "A cada N semanas".
+    /// Periodicidade do ciclo do cômodo no vocabulário da Apple: 1 semana é "Semanalmente",
+    /// 4 "Mensalmente"; o resto vira "A cada N semanas".
     static func cycleDuration(_ periodicity: WeeklyPeriodicity) -> String {
 
         switch periodicity.intervalWeeks {
-        case 1: String(localized: "Semanal")
-        case 2: String(localized: "Quinzenal")
-        case 4: String(localized: "Mensal")
+        case 1: String(localized: "Semanalmente")
+        case 4: String(localized: "Mensalmente")
         default: String(localized: "A cada \(periodicity.intervalWeeks) semanas")
         }
+    }
+
+    /// Subtítulo da tela do cômodo: "Rodízio semanal", "Rodízio mensal" ou "Rodízio a cada N semanas".
+    static func rotation(_ periodicity: WeeklyPeriodicity) -> String {
+
+        switch periodicity.intervalWeeks {
+        case 1: String(localized: "Rodízio semanal")
+        case 4: String(localized: "Rodízio mensal")
+        default: String(localized: "Rodízio a cada \(periodicity.intervalWeeks) semanas")
+        }
+    }
+
+    /// "4 pessoas": quantas participam do rodízio do cômodo (singular e plural no catálogo).
+    static func people(_ count: Int) -> String {
+        String(localized: "\(count) pessoas")
     }
 
     /// "Todos • público" ou, num cômodo privado, "2 moradores • privado".

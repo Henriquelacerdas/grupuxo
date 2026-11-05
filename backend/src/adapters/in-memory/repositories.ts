@@ -8,8 +8,8 @@ import {
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
 import { createRoom, roomFor, roomParticipation, roomsFor } from "../../domain/commands/rooms.ts";
 import {
-  addRoomMember, claimTask, completeTask, createTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
-  occurrenceHouseFor, roomTasks, sporadicTasks, taskDefinitionFor, userTasks,
+  addRoomMember, claimTask, completeTask, createTask, deleteSporadicTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
+  occurrenceHouseFor, roomTasks, sporadicTasks, taskDefinitionFor, updateTaskDetails, userTasks, type TaskDetailsPatch,
 } from "../../domain/commands/tasks.ts";
 import { DomainError } from "../../domain/errors.ts";
 import type { Instant } from "../../domain/dates.ts";
@@ -159,6 +159,14 @@ export class InMemoryTaskRepository implements TaskRepository, HouseSnapshotRepo
 
   async endTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, at: Instant): Promise<void> {
     this.store.update((s) => endTask(this.ctx, s, roomID, taskID, requestedBy, at));
+  }
+
+  async updateTaskDetails(roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsPatch, requestedBy: UserID): Promise<TaskDefinition> {
+    return this.store.update((s) => updateTaskDetails(s, roomID, taskID, patch, requestedBy));
+  }
+
+  async deleteSporadicTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID): Promise<void> {
+    this.store.update((s) => deleteSporadicTask(s, roomID, taskID, requestedBy));
   }
 
   async refreshSchedule(houseID: HouseID, at: Instant): Promise<void> {

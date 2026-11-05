@@ -131,7 +131,7 @@ struct MyTasksOverviewTests {
 
         for cycle in content.cycles {
             #expect(cycle.status.hasPrefix("Termina"))
-            #expect(cycle.rows.allSatisfy { $0.roomName == nil && $0.dueDay == nil })
+            #expect(cycle.rows.allSatisfy { $0.roomName == nil && $0.timing == nil })
         }
 
         #expect(content.extras.allSatisfy { $0.roomName != nil })
@@ -182,16 +182,26 @@ struct MyTasksOverviewTests {
         #expect(model.state == .failure(APIError.network.localizedDescription))
     }
 
-    @Test func dueDayReadsAsTodayTomorrowWeekdayOrDate() {
+    @Test func timingReadsAsStartDueOrEnded() {
 
         let text = MyTasksText(calendar: utcCalendar, locale: Locale(identifier: "pt_BR"))
         let now = date(14) // quarta-feira
 
-        #expect(text.dueDay(date(14), now: now) == "Hoje")
-        #expect(text.dueDay(date(15), now: now) == "Amanhã")
-        #expect(text.dueDay(date(16), now: now) == "Sexta-Feira")
-        #expect(text.dueDay(date(13), now: now) == "Atrasada")
-        #expect(text.dueDay(date(28), now: now).contains("28"))
+        #expect(text.timing(availableAt: date(10), dueAt: date(14), now: now) == TaskTiming(text: "Termina hoje", style: .due))
+        #expect(text.timing(availableAt: date(10), dueAt: date(15), now: now) == TaskTiming(text: "Termina amanhã", style: .due))
+        #expect(text.timing(availableAt: date(10), dueAt: date(16), now: now) == TaskTiming(text: "Termina sexta", style: .open))
+        #expect(text.timing(availableAt: date(10), dueAt: date(13), now: now) == TaskTiming(text: "Terminou ontem", style: .overdue))
+        #expect(text.timing(availableAt: date(16), dueAt: date(20), now: now) == TaskTiming(text: "Começa sexta", style: .upcoming))
+        #expect(text.timing(availableAt: date(10), dueAt: date(28), now: now)?.text.contains("28") == true)
+        #expect(text.timing(availableAt: date(10), dueAt: nil, now: now) == nil)
+    }
+
+    @Test func pendingSwapNamesTheReceiver() {
+
+        let text = MyTasksText(calendar: utcCalendar, locale: Locale(identifier: "pt_BR"))
+
+        #expect(text.pendingSwap(receiverName: "Henrique L.") == "Troca pedida · aguardando Henrique L.")
+        #expect(text.pendingSwap(receiverName: nil) == "Troca pedida")
     }
 
     @Test func cycleStatusJoinsDeadlineAndProgress() {

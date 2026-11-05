@@ -7,8 +7,10 @@ struct ContentView: View {
     @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
 
     var body: some View {
-        Group {
-            if authService.isSignedIn {
+        ZStack {
+            if !authService.hasCheckedSession {
+                ProgressView("Carregando…")
+            } else if authService.isSignedIn {
                 // Logado: sem casa → Onboarding; com casa → app principal (abas)
                 HouseGateView {
                     if let api = houses.api, let me = houses.me, let house = houses.house {
@@ -16,6 +18,15 @@ struct ContentView: View {
                         RootView(api: api, user: me, house: house, myHouse: houses.dataCache)
                             .id("\(me.id)-\(house.id)")
                     }
+                }
+            } else if authService.sessionCheckFailed {
+                ContentUnavailableView {
+                    Label("Não foi possível verificar sua sessão", systemImage: "wifi.exclamationmark")
+                } description: {
+                    Text("Confira sua conexão e tente novamente.")
+                } actions: {
+                    Button("Tentar novamente") { Task { await authService.checkSession() } }
+                        .buttonStyle(.borderedProminent)
                 }
             } else if hasSeenWelcome {
                 // Se não estiver logado, mostra a interface de autenticação
