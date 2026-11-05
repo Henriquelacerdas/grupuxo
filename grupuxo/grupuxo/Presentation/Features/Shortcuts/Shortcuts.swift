@@ -24,10 +24,10 @@ struct GrupuxoShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: OpenSporadicTasksIntent(),
             phrases: [
-                "Abrir tarefas avulsas no \(.applicationName)",
-                "Minhas tarefas avulsas no \(.applicationName)"
+                "Abrir tarefas únicas no \(.applicationName)",
+                "Minhas tarefas únicas no \(.applicationName)"
             ],
-            shortTitle: "Tarefas Avulsas",
+            shortTitle: "Tarefas Únicas",
             systemImageName: "flag"
         )
         

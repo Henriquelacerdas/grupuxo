@@ -44,15 +44,6 @@ struct RootView: View {
     
     var body: some View {
         tabs
-            // Fica antes do `toastHost()` para enxergar `showToast`.
-            .modifier(
-                ShortcutTaskHandler(
-                    container: container,
-                    session: session,
-                    selectedTab: $selectedTab,
-                    taskChanges: $taskChanges
-                )
-            )
             .toastHost()
             .onChange(
                 of: shortcutManager.pendingDestination,

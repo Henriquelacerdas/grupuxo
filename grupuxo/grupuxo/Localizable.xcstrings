@@ -14,6 +14,9 @@
         }
       }
     },
+    "%@" : {
+
+    },
     "%@ · %@" : {
       "localizations" : {
         "en" : {
@@ -839,6 +842,9 @@
           }
         }
       }
+    },
+    "Abra o app e entre na sua conta." : {
+
     },
     "Abre a tela de Minhas Tarefas do Grupuxo." : {
 
@@ -1690,9 +1696,6 @@
         }
       }
     },
-    "Confirmar antes de salvar" : {
-
-    },
     "Confirme seu e-mail com o código que enviamos antes de entrar." : {
       "localizations" : {
         "en" : {
@@ -1783,7 +1786,7 @@
         }
       }
     },
-    "Cria uma tarefa no Reveza." : {
+    "Cria uma tarefa no cômodo escolhido, com a periodicidade do cômodo." : {
 
     },
     "Criando cômodo" : {
@@ -1796,7 +1799,7 @@
         }
       }
     },
-    "Criar ${taskName} ${period}" : {
+    "Criar ${taskName} em ${room}" : {
 
     },
     "Criar casa" : {
@@ -2885,7 +2888,14 @@
       }
     },
     "Minhas Tarefas" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My Tasks"
+          }
+        }
+      }
     },
     "Mínimo de 8 caracteres, com letra maiúscula, minúscula, número e símbolo." : {
       "localizations" : {
@@ -2989,6 +2999,16 @@
         }
       }
     },
+    "Não encontrei esse cômodo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t find this room"
+          }
+        }
+      }
+    },
     "Não foi possível abrir o login com a Apple." : {
       "localizations" : {
         "en" : {
@@ -3075,6 +3095,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn't confirm the account. Try again."
+          }
+        }
+      }
+    },
+    "Não foi possível criar a tarefa. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t create the task. %@"
           }
         }
       }
@@ -3285,9 +3315,6 @@
           }
         }
       }
-    },
-    "Nome do cômodo. Se vazio, usa Casa toda." : {
-
     },
     "Notificações" : {
       "localizations" : {
@@ -3645,9 +3672,6 @@
           }
         }
       }
-    },
-    "Período" : {
-
     },
     "Personalizado" : {
       "localizations" : {
@@ -4413,12 +4437,12 @@
         }
       }
     },
-    "Tarefa “%@” criada em %@" : {
+    "Tarefa %@ criada em %@." : {
       "localizations" : {
         "pt-BR" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Tarefa “%1$@” criada em %2$@"
+            "value" : "Tarefa %1$@ criada em %2$@."
           }
         }
       }
@@ -4502,9 +4526,6 @@
           }
         }
       }
-    },
-    "Tarefas Avulsas" : {
-
     },
     "Tarefas do ciclo" : {
       "extractionState" : "stale",
@@ -4888,6 +4909,9 @@
           }
         }
       }
+    },
+    "Você ainda não participa de uma casa." : {
+
     },
     "Você é o último morador: se sair, a casa, os cômodos e as tarefas serão excluídos." : {
       "localizations" : {
