@@ -14,6 +14,9 @@
         }
       }
     },
+    "%@" : {
+
+    },
     "%@ · %@" : {
       "localizations" : {
         "en" : {
@@ -840,6 +843,16 @@
         }
       }
     },
+    "Abra o app e entre na sua conta para usar a Siri." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the app and sign in to use Siri."
+          }
+        }
+      }
+    },
     "Abre as tarefas únicas da casa" : {
       "localizations" : {
         "en" : {
@@ -1631,12 +1644,42 @@
         }
       }
     },
+    "Concluir %@?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete %@?"
+          }
+        }
+      }
+    },
+    "Concluir ${task}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete ${task}"
+          }
+        }
+      }
+    },
     "Concluir recorrência personalizada" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finish custom repeat"
+          }
+        }
+      }
+    },
+    "Concluir tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete task"
           }
         }
       }
@@ -2743,6 +2786,16 @@
         }
       }
     },
+    "Lista as suas tarefas pendentes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lists your pending tasks."
+          }
+        }
+      }
+    },
     "Login" : {
       "localizations" : {
         "en" : {
@@ -2765,6 +2818,16 @@
     },
     "Mais opções do cômodo" : {
 
+    },
+    "Marca uma das suas tarefas como concluída." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marks one of your tasks as completed."
+          }
+        }
+      }
     },
     "Marcar como concluída" : {
       "localizations" : {
@@ -2964,6 +3027,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "We couldn't find an account with this email. Sign up again."
+          }
+        }
+      }
+    },
+    "Não encontrei essa tarefa entre as suas pendentes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I couldn't find that task among your pending ones."
           }
         }
       }
@@ -3362,16 +3435,6 @@
         }
       }
     },
-    "O Reveza deixa de responder a este número. Você pode conectar de novo depois." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reveza will stop replying to this number. You can connect again later."
-          }
-        }
-      }
-    },
     "O login com a Apple não foi concluído." : {
       "localizations" : {
         "en" : {
@@ -3409,6 +3472,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The period entered is invalid."
+          }
+        }
+      }
+    },
+    "O Reveza deixa de responder a este número. Você pode conectar de novo depois." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveza will stop replying to this number. You can connect again later."
+          }
+        }
+      }
+    },
+    "O servidor do app não está configurado neste build." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app's server is not configured in this build."
           }
         }
       }
@@ -3675,12 +3758,32 @@
         }
       }
     },
+    "Pronto, %@ está concluída." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done, %@ is completed."
+          }
+        }
+      }
+    },
     "Próximo" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Next"
+          }
+        }
+      }
+    },
+    "Qual tarefa você concluiu?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which task did you complete?"
           }
         }
       }
@@ -4796,6 +4899,16 @@
         }
       }
     },
+    "Ver minhas tarefas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View my tasks"
+          }
+        }
+      }
+    },
     "Verde" : {
       "localizations" : {
         "en" : {
@@ -4937,6 +5050,16 @@
         }
       }
     },
+    "Você não tem tarefas pendentes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have no pending tasks."
+          }
+        }
+      }
+    },
     "Você participa automaticamente. Os outros moradores podem pedir para entrar depois." : {
       "localizations" : {
         "en" : {
@@ -4983,6 +5106,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You'll be the admin and get a code to invite the residents."
+          }
+        }
+      }
+    },
+    "Você tem %lld tarefas pendentes: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have %lld pending tasks: %@."
+          }
+        }
+      }
+    },
+    "Você tem uma tarefa pendente: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have one pending task: %@."
           }
         }
       }

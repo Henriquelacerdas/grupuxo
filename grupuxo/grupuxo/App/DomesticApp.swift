@@ -1,4 +1,5 @@
 import SwiftUI
+import AppIntents
 import Amplify
 import AWSCognitoAuthPlugin
 
@@ -16,6 +17,8 @@ struct DomesticApp: App {
         } catch {
             print("Erro ao configurar Amplify: \(error)")
         }
+        // Siri, Atalhos e Spotlight: os intents recebem o serviço por `@Dependency` (depois do Amplify, que dá o token).
+        AppDependencyManager.shared.add(dependency: SiriTaskService.make())
     }
 
     var body: some Scene {
