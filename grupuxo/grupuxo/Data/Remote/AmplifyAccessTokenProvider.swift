@@ -9,6 +9,10 @@ struct AmplifyAccessTokenProvider: AccessTokenProvider {
         guard session.isSignedIn, let provider = session as? AuthCognitoTokensProvider else {
             throw APIError.unauthorized
         }
-        return try provider.getCognitoTokens().get().accessToken
+        let token = try provider.getCognitoTokens().get().accessToken
+        if let configuration = try? APIConfiguration() {
+            WidgetTaskStore.shared.saveCredentials(baseURL: configuration.baseURL, accessToken: token)
+        }
+        return token
     }
 }

@@ -43,6 +43,15 @@ struct RootView: View {
     var body: some View {
         tabs
             .toastHost()
+            .onOpenURL { url in
+                guard url.scheme == "grupuxo", url.host == "tasks" else { return }
+                selectedTab = .myTasks
+                tasksPath = []
+                if let idString = url.pathComponents.dropFirst().first,
+                   let taskID = UUID(uuidString: idString) {
+                    presentedTask = PresentedTask(id: taskID)
+                }
+            }
     }
 
     private var tabs: some View {

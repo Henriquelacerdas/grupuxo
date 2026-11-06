@@ -64,6 +64,7 @@ actor MyHouseCache {
                 if let value {
                     cachedSnapshot = (value, now())
                     cached = (value.home, now())
+                    WidgetSync.update(from: value)
                 } else {
                     prefersSnapshot = false
                 }
@@ -232,7 +233,11 @@ struct RemoteTaskRepository: TaskRepository {
             await index.remember(snapshot.myTasks)
             return snapshot.myTasks
         }
-        return try await items(from: "v1/me/tasks")
+        let fetched = try await items(from: "v1/me/tasks")
+        if let home = try? await myHouse.myHouse() {
+            WidgetSync.update(houseName: home.house.name, rooms: home.rooms, items: fetched)
+        }
+        return fetched
     }
 
     func tasks(in roomID: Room.ID, requesting userID: User.ID) async throws -> [TaskItem] {
@@ -320,6 +325,7 @@ struct RemoteTaskRepository: TaskRepository {
 
     func complete(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date) async throws {
         try await mutate("POST", "v1/occurrences/\(occurrenceID.apiString)/complete")
+        WidgetTaskStore.shared.removeTaskOptimistically(occurrenceID: occurrenceID)
     }
 
     func reopen(occurrenceID: TaskOccurrence.ID, by userID: User.ID) async throws {

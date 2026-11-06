@@ -100,6 +100,7 @@ final class RemoteHouseSession: ObservableObject {
             guard current == generation else { return }
             home = nil
             me = nil
+            WidgetTaskStore.shared.saveNoHouse()
         } catch is CancellationError {
             cancelled = true
         } catch {
@@ -168,6 +169,7 @@ final class RemoteHouseSession: ObservableObject {
                 return
             }
             self.home = nil
+            WidgetTaskStore.shared.saveNoHouse()
         }
     }
 
@@ -183,6 +185,7 @@ final class RemoteHouseSession: ObservableObject {
         leaveNeedsHouseDeletionConfirmation = false
         hasLoaded = false
         dataCache = api.map { MyHouseCache(api: $0, prefersSnapshot: prefersSnapshot) }
+        WidgetTaskStore.shared.clear()
     }
 
     // MARK: - Privado

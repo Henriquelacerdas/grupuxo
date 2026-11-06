@@ -11,6 +11,12 @@
 		41D0821D306BED31007F697D /* Amplify in Frameworks */ = {isa = PBXBuildFile; productRef = 41D0821C306BED31007F697D /* Amplify */; };
 		A5AC2B00305E0003006C8F79 /* GrupuxoDomain in Frameworks */ = {isa = PBXBuildFile; productRef = A5AC2B00305E0001006C8F79 /* GrupuxoDomain */; };
 		A5AC2B00305E0004006C8F79 /* GrupuxoDomain in Frameworks */ = {isa = PBXBuildFile; productRef = A5AC2B00305E0002006C8F79 /* GrupuxoDomain */; };
+		A5W000013070000000C0FFEE /* GrupuxoWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A5W000023070000000C0FFEE /* GrupuxoWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A5W000033070000000C0FFEE /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5W000043070000000C0FFEE /* WidgetKit.framework */; };
+		A5W000053070000000C0FFEE /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5W000063070000000C0FFEE /* SwiftUI.framework */; };
+		A5W000073070000000C0FFEE /* WidgetTaskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5W000083070000000C0FFEE /* WidgetTaskStore.swift */; };
+		A5W000093070000000C0FFEE /* CompleteTaskFromWidgetIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5W0000A3070000000C0FFEE /* CompleteTaskFromWidgetIntent.swift */; };
+		A5W0001B3070000000C0FFEE /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A5W0001C3070000000C0FFEE /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -28,13 +34,40 @@
 			remoteGlobalIDString = A5AC27BC3058135C006C8F79;
 			remoteInfo = grupuxo;
 		};
+		A5W0000C3070000000C0FFEE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A5AC27B53058135C006C8F79 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A5W0000B3070000000C0FFEE;
+			remoteInfo = GrupuxoWidgets;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A5W000103070000000C0FFEE /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A5W000013070000000C0FFEE /* GrupuxoWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A5AC27BD3058135C006C8F79 /* grupuxo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = grupuxo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5AC27CA3058135D006C8F79 /* grupuxoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = grupuxoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5AC27D43058135D006C8F79 /* grupuxoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = grupuxoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5C0FF013070000000C0FFEE /* Grupuxo.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Grupuxo.xcconfig; path = Config/Grupuxo.xcconfig; sourceTree = "<group>"; };
+		A5W000023070000000C0FFEE /* GrupuxoWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GrupuxoWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A5W000043070000000C0FFEE /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		A5W000063070000000C0FFEE /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		A5W000083070000000C0FFEE /* WidgetTaskStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = grupuxo/Widgets/WidgetTaskStore.swift; sourceTree = "<group>"; };
+		A5W0000A3070000000C0FFEE /* CompleteTaskFromWidgetIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = grupuxo/Widgets/CompleteTaskFromWidgetIntent.swift; sourceTree = "<group>"; };
+		A5W0001C3070000000C0FFEE /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = grupuxo/Localizable.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -44,6 +77,14 @@
 				Info.plist,
 			);
 			target = A5AC27BC3058135C006C8F79 /* grupuxo */;
+		};
+		A5W0000F3070000000C0FFEE /* Exceptions for "GrupuxoWidgets" folder in "GrupuxoWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				GrupuxoWidgets.entitlements,
+				Info.plist,
+			);
+			target = A5W0000B3070000000C0FFEE /* GrupuxoWidgets */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -64,6 +105,14 @@
 		A5AC27D73058135D006C8F79 /* grupuxoUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = grupuxoUITests;
+			sourceTree = "<group>";
+		};
+		A5W0000E3070000000C0FFEE /* GrupuxoWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A5W0000F3070000000C0FFEE /* Exceptions for "GrupuxoWidgets" folder in "GrupuxoWidgets" target */,
+			);
+			path = GrupuxoWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -88,6 +137,13 @@
 			files = (
 			);
 		};
+		A5W000113070000000C0FFEE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				A5W000033070000000C0FFEE /* WidgetKit.framework in Frameworks */,
+				A5W000053070000000C0FFEE /* SwiftUI.framework in Frameworks */,
+			);
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -96,6 +152,7 @@
 			children = (
 				A5C0FF013070000000C0FFEE /* Grupuxo.xcconfig */,
 				A5AC27BF3058135C006C8F79 /* grupuxo */,
+				A5W0000E3070000000C0FFEE /* GrupuxoWidgets */,
 				A5AC27CD3058135D006C8F79 /* grupuxoTests */,
 				A5AC27D73058135D006C8F79 /* grupuxoUITests */,
 				A5D1AC4F306E9DE700B49919 /* Frameworks */,
@@ -109,6 +166,7 @@
 				A5AC27BD3058135C006C8F79 /* grupuxo.app */,
 				A5AC27CA3058135D006C8F79 /* grupuxoTests.xctest */,
 				A5AC27D43058135D006C8F79 /* grupuxoUITests.xctest */,
+				A5W000023070000000C0FFEE /* GrupuxoWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -116,6 +174,8 @@
 		A5D1AC4F306E9DE700B49919 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A5W000043070000000C0FFEE /* WidgetKit.framework */,
+				A5W000063070000000C0FFEE /* SwiftUI.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -130,8 +190,12 @@
 				A5AC27B93058135C006C8F79 /* Sources */,
 				A5AC27BA3058135C006C8F79 /* Frameworks */,
 				A5AC27BB3058135C006C8F79 /* Resources */,
+				A5W000103070000000C0FFEE /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				A5W0000D3070000000C0FFEE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A5AC27BF3058135C006C8F79 /* grupuxo */,
@@ -145,6 +209,26 @@
 			productName = grupuxo;
 			productReference = A5AC27BD3058135C006C8F79 /* grupuxo.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A5W0000B3070000000C0FFEE /* GrupuxoWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A5W000143070000000C0FFEE /* Build configuration list for PBXNativeTarget "GrupuxoWidgets" */;
+			buildPhases = (
+				A5W000123070000000C0FFEE /* Sources */,
+				A5W000113070000000C0FFEE /* Frameworks */,
+				A5W000133070000000C0FFEE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A5W0000E3070000000C0FFEE /* GrupuxoWidgets */,
+			);
+			name = GrupuxoWidgets;
+			productName = GrupuxoWidgets;
+			productReference = A5W000023070000000C0FFEE /* GrupuxoWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		A5AC27C93058135D006C8F79 /* grupuxoTests */ = {
 			isa = PBXNativeTarget;
@@ -212,6 +296,9 @@
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = A5AC27BC3058135C006C8F79;
 					};
+					A5W0000B3070000000C0FFEE = {
+						CreatedOnToolsVersion = 26.6;
+					};
 				};
 			};
 			buildConfigurationList = A5AC27B83058135C006C8F79 /* Build configuration list for PBXProject "grupuxo" */;
@@ -234,6 +321,7 @@
 			projectRoot = "";
 			targets = (
 				A5AC27BC3058135C006C8F79 /* grupuxo */,
+				A5W0000B3070000000C0FFEE /* GrupuxoWidgets */,
 				A5AC27C93058135D006C8F79 /* grupuxoTests */,
 				A5AC27D33058135D006C8F79 /* grupuxoUITests */,
 			);
@@ -256,6 +344,12 @@
 			files = (
 			);
 		};
+		A5W000133070000000C0FFEE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+				A5W0001B3070000000C0FFEE /* Localizable.xcstrings in Resources */,
+			);
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -274,6 +368,13 @@
 			files = (
 			);
 		};
+		A5W000123070000000C0FFEE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+				A5W000073070000000C0FFEE /* WidgetTaskStore.swift in Sources */,
+				A5W000093070000000C0FFEE /* CompleteTaskFromWidgetIntent.swift in Sources */,
+			);
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -286,6 +387,11 @@
 			isa = PBXTargetDependency;
 			target = A5AC27BC3058135C006C8F79 /* grupuxo */;
 			targetProxy = A5AC27D53058135D006C8F79 /* PBXContainerItemProxy */;
+		};
+		A5W0000D3070000000C0FFEE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A5W0000B3070000000C0FFEE /* GrupuxoWidgets */;
+			targetProxy = A5W0000C3070000000C0FFEE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -582,6 +688,76 @@
 			};
 			name = Release;
 		};
+		A5W000153070000000C0FFEE /* Debug configuration for PBXNativeTarget "GrupuxoWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = GrupuxoWidgets/GrupuxoWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_LANGUAGE = en;
+				DEVELOPMENT_TEAM = ZTK9F54WV3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GrupuxoWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Reveza;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vidal.grupuxo.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG WIDGET_EXTENSION $(inherited)";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A5W000163070000000C0FFEE /* Release configuration for PBXNativeTarget "GrupuxoWidgets" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = GrupuxoWidgets/GrupuxoWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 12;
+				DEVELOPMENT_LANGUAGE = en;
+				DEVELOPMENT_TEAM = ZTK9F54WV3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GrupuxoWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Reveza;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = vidal.grupuxo.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "WIDGET_EXTENSION $(inherited)";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -614,6 +790,14 @@
 			buildConfigurations = (
 				A5AC27E53058135D006C8F79 /* Debug configuration for PBXNativeTarget "grupuxoUITests" */,
 				A5AC27E63058135D006C8F79 /* Release configuration for PBXNativeTarget "grupuxoUITests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		A5W000143070000000C0FFEE /* Build configuration list for PBXNativeTarget "GrupuxoWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A5W000153070000000C0FFEE /* Debug configuration for PBXNativeTarget "GrupuxoWidgets" */,
+				A5W000163070000000C0FFEE /* Release configuration for PBXNativeTarget "GrupuxoWidgets" */,
 			);
 			defaultConfigurationName = Release;
 		};

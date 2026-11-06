@@ -203,6 +203,9 @@
         }
       }
     },
+    "%lld" : {
+
+    },
     "%lld %@" : {
       "localizations" : {
         "en" : {
@@ -327,6 +330,16 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld pendentes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld pending"
           }
         }
       }
@@ -486,6 +499,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "+%lld"
+          }
+        }
+      }
+    },
+    "+%lld pendentes no app" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld pending in the app"
           }
         }
       }
@@ -843,12 +866,32 @@
         }
       }
     },
+    "Abra o app e entre na sua conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the app and sign in"
+          }
+        }
+      }
+    },
     "Abra o app e entre na sua conta para usar a Siri." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Open the app and sign in to use Siri."
+          }
+        }
+      }
+    },
+    "Abra o Reveza para ver suas tarefas." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Reveza to view your tasks."
           }
         }
       }
@@ -1112,6 +1155,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "After completion"
+          }
+        }
+      }
+    },
+    "Área de serviço" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laundry room"
           }
         }
       }
@@ -1684,6 +1737,16 @@
         }
       }
     },
+    "Concluir tarefa pelo widget" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete task from widget"
+          }
+        }
+      }
+    },
     "Conectar WhatsApp" : {
       "localizations" : {
         "en" : {
@@ -1814,6 +1877,16 @@
         }
       }
     },
+    "Cozinha" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kitchen"
+          }
+        }
+      }
+    },
     "Criando cômodo" : {
       "localizations" : {
         "en" : {
@@ -1870,6 +1943,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Create the house and invite the residents, or join an existing house with an invite code."
+          }
+        }
+      }
+    },
+    "Crie ou entre em uma casa no Reveza." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create or join a house in Reveza."
           }
         }
       }
@@ -2168,6 +2251,16 @@
         }
       }
     },
+    "Entre em uma casa no app" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Join a house in the app"
+          }
+        }
+      }
+    },
     "Entre na casa \"%@\" no app usando o código: %@" : {
       "localizations" : {
         "en" : {
@@ -2180,6 +2273,36 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Entre na casa \"%1$@\" no app usando o código: %2$@"
+          }
+        }
+      }
+    },
+    "Entre na conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in"
+          }
+        }
+      }
+    },
+    "Entre na sua conta no app" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to your account in the app"
+          }
+        }
+      }
+    },
+    "Entre ou crie uma casa no Reveza." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Join or create a house in Reveza."
           }
         }
       }
@@ -2527,6 +2650,16 @@
         }
       }
     },
+    "ID da ocorrência" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Occurrence ID"
+          }
+        }
+      }
+    },
     "Índigo" : {
       "localizations" : {
         "en" : {
@@ -2688,6 +2821,16 @@
         }
       }
     },
+    "Lavar a louça" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wash the dishes"
+          }
+        }
+      }
+    },
     "Lavar o box" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2825,6 +2968,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Marks one of your tasks as completed."
+          }
+        }
+      }
+    },
+    "Marca uma tarefa pendente como concluída diretamente pelo widget." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marks a pending task as completed directly from the widget."
           }
         }
       }
@@ -3331,6 +3484,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Room name"
+          }
+        }
+      }
+    },
+    "Nossa Casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Our House"
           }
         }
       }
@@ -3931,6 +4094,16 @@
         }
       }
     },
+    "Regar as plantas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Water the plants"
+          }
+        }
+      }
+    },
     "Reordenar" : {
       "localizations" : {
         "en" : {
@@ -4101,6 +4274,16 @@
         }
       }
     },
+    "Sala" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Living room"
+          }
+        }
+      }
+    },
     "Salvando tarefa" : {
       "localizations" : {
         "en" : {
@@ -4178,6 +4361,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Select a room."
+          }
+        }
+      }
+    },
+    "Sem casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No house"
           }
         }
       }
@@ -4456,6 +4649,16 @@
         }
       }
     },
+    "Suas tarefas aparecerão aqui automaticamente." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your tasks will appear here automatically."
+          }
+        }
+      }
+    },
     "Sugestões de tarefas" : {
       "localizations" : {
         "en" : {
@@ -4552,6 +4755,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "One-off task deleted"
+          }
+        }
+      }
+    },
+    "tarefas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tasks"
           }
         }
       }
@@ -4713,6 +4926,16 @@
         }
       }
     },
+    "Tirar o lixo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take out the trash"
+          }
+        }
+      }
+    },
     "Tirar o pó" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4808,6 +5031,16 @@
         }
       }
     },
+    "Tudo em dia!" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All caught up!"
+          }
+        }
+      }
+    },
     "Última vez" : {
       "localizations" : {
         "en" : {
@@ -4875,6 +5108,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sweep the area"
+          }
+        }
+      }
+    },
+    "Veja e conclua suas tarefas pendentes da casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View and complete your pending household tasks."
           }
         }
       }
@@ -4948,6 +5191,9 @@
           }
         }
       }
+    },
+    "Você ainda não faz parte de uma casa" : {
+
     },
     "Você ainda não faz parte de uma casa." : {
       "localizations" : {
@@ -5046,6 +5292,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You can't remove your own profile from the house."
+          }
+        }
+      }
+    },
+    "Você não tem tarefas pendentes agora." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have no pending tasks right now."
           }
         }
       }
