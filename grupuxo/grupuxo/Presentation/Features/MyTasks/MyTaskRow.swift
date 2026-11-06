@@ -36,6 +36,8 @@ struct MyTaskRow: View {
     let row: MyTasksContent.Row
     let canComplete: Bool
     let onComplete: () -> Void
+    /// Tocar no texto da linha abre o detalhe da tarefa.
+    let onSelect: () -> Void
 
     private var item: TaskItem { row.item }
 
@@ -69,6 +71,18 @@ struct MyTaskRow: View {
             )
             .accessibilityValue(isCompleted ? "Concluída" : "Pendente")
 
+            Button(action: onSelect) {
+                taskText
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Abre os detalhes da tarefa")
+        }
+    }
+
+    private var taskText: some View {
+
+        HStack(spacing: DesignSystem.Spacing.small) {
+
             VStack(
                 alignment: .leading,
                 spacing: DesignSystem.Spacing.extraSmall
@@ -91,7 +105,10 @@ struct MyTaskRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            RoomRowChevron()
         }
+        .contentShape(Rectangle())
     }
 
     @ViewBuilder

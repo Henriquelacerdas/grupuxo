@@ -271,12 +271,16 @@ struct MyTasksView: View {
 
         MyTaskRow(
             row: row,
-            canComplete: viewModel.canComplete(row.item)
-        ) {
-            Task {
-                await viewModel.complete(row.id)
+            canComplete: viewModel.canComplete(row.item),
+            onComplete: {
+                Task {
+                    await viewModel.complete(row.id)
+                }
+            },
+            onSelect: {
+                onSelectTask(row.item.definition.id)
             }
-        }
+        )
         .plainCardRow()
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
 
