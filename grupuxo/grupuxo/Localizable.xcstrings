@@ -747,6 +747,16 @@
         }
       }
     },
+    "A localização está imprecisa. Tente de novo, de preferência ao ar livre." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The location is not accurate enough. Try again, preferably outdoors."
+          }
+        }
+      }
+    },
     "A periodicidade e a política da tarefa são incompatíveis." : {
       "localizations" : {
         "en" : {
@@ -875,6 +885,16 @@
     },
     "Abre os detalhes da tarefa" : {
 
+    },
+    "Abrir Ajustes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
+          }
+        }
+      }
     },
     "Abrir Minhas Tarefas" : {
 
@@ -1028,6 +1048,16 @@
         }
       }
     },
+    "Ao chegar em casa, o Reveza envia uma notificação com suas tarefas pendentes. A localização da casa fica só neste aparelho e não é enviada ao servidor. Vale uma distância de cerca de 150 m, e o aviso pode levar alguns minutos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you arrive home, Reveza sends a notification with your pending tasks. The home location stays only on this device and is not sent to the server. It works within roughly 150 m, and the alert may take a few minutes."
+          }
+        }
+      }
+    },
     "Ao conectar, você envia uma mensagem pelo WhatsApp e autoriza o Reveza a consultar suas tarefas e a marcar como feitas as que você confirmar por lá. Você pode desconectar quando quiser." : {
       "localizations" : {
         "en" : {
@@ -1175,6 +1205,16 @@
         }
       }
     },
+    "Ative as notificações do Reveza em Ajustes para receber os avisos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Reveza notifications in Settings to receive alerts."
+          }
+        }
+      }
+    },
     "Atrasada" : {
       "localizations" : {
         "en" : {
@@ -1191,6 +1231,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Current"
+          }
+        }
+      }
+    },
+    "Atualizar localização da casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update home location"
           }
         }
       }
@@ -1852,6 +1902,16 @@
         }
       }
     },
+    "Defina primeiro a localização da casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set your home location first."
+          }
+        }
+      }
+    },
     "Descartar" : {
       "localizations" : {
         "en" : {
@@ -2032,6 +2092,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cycle length"
+          }
+        }
+      }
+    },
+    "e mais %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "and %lld more"
           }
         }
       }
@@ -2764,6 +2834,16 @@
         }
       }
     },
+    "Localização da casa definida neste aparelho" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home location set on this device"
+          }
+        }
+      }
+    },
     "Login" : {
       "localizations" : {
         "en" : {
@@ -2958,6 +3038,16 @@
         }
       }
     },
+    "Mostrar minhas tarefas ao chegar em casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show my tasks when I arrive at home"
+          }
+        }
+      }
+    },
     "Muitas tentativas seguidas. Espere alguns minutos e tente de novo." : {
       "localizations" : {
         "en" : {
@@ -3099,7 +3189,11 @@
         }
       }
     },
+    "Não foi possível criar a tarefa: %@" : {
+
+    },
     "Não foi possível criar a tarefa. %@" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3322,6 +3416,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notifications"
+          }
+        }
+      }
+    },
+    "Notificações em casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications at home"
           }
         }
       }
@@ -3592,6 +3696,16 @@
         }
       }
     },
+    "Para avisos com o app fechado, permita a localização “Sempre”." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To be notified while the app is closed, allow “Always” location access."
+          }
+        }
+      }
+    },
     "Participantes" : {
       "localizations" : {
         "en" : {
@@ -3669,6 +3783,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Profile"
+          }
+        }
+      }
+    },
+    "Permita o acesso à localização em Ajustes para definir a casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow location access in Settings to set your home."
           }
         }
       }
@@ -4748,6 +4872,16 @@
         }
       }
     },
+    "Toque para ver suas tarefas." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to see your tasks."
+          }
+        }
+      }
+    },
     "Trocar roupa de cama" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4825,6 +4959,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A task was edited."
+          }
+        }
+      }
+    },
+    "Usar minha localização atual como casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use my current location as home"
           }
         }
       }
@@ -4912,6 +5056,16 @@
     },
     "Você ainda não participa de uma casa." : {
 
+    },
+    "Você chegou em casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're home"
+          }
+        }
+      }
     },
     "Você é o último morador: se sair, a casa, os cômodos e as tarefas serão excluídos." : {
       "localizations" : {
@@ -5050,6 +5204,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You'll be the admin and get a code to invite the residents."
+          }
+        }
+      }
+    },
+    "Você tem %lld tarefas pendentes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have %lld pending tasks"
+          }
+        }
+      }
+    },
+    "Você tem 1 tarefa pendente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have 1 pending task"
           }
         }
       }

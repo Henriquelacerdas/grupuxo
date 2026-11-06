@@ -18,8 +18,9 @@ enum ShortcutBackend {
 
     private static var cached: Context?
 
-    static func context() async throws -> Context {
-        if let cached { return cached }
+    /// `refresh: true` ignora o contexto em memória e confirma quem está logado agora.
+    static func context(refresh: Bool = false) async throws -> Context {
+        if !refresh, let cached { return cached }
 
         do {
             let configuration = try APIConfiguration()
@@ -82,7 +83,7 @@ enum ShortcutError: Error, CustomLocalizedStringResourceConvertible {
         case .roomNotFound:
             "Não encontrei esse cômodo."
         case let .saveFailed(message):
-            "Não foi possível criar a tarefa. \(message)"
+            "Não foi possível criar a tarefa: \(message)"
         }
     }
 }
