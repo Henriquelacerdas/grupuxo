@@ -3,6 +3,7 @@ import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { S3PhotoStore } from "../photos/photo-store.ts";
 import { CognitoIdentityRemover } from "../adapters/aws/cognito-identity-remover.ts";
 import { SecretStringReader } from "../adapters/aws/secrets-manager-reader.ts";
 import type { DynamoRuntime } from "../adapters/dynamodb/house-state-store.ts";
@@ -52,6 +53,26 @@ export function dynamoClient(tableName: string): SdkDynamoClient {
 /** Apaga usuários do user pool `userPoolID` (a região vem do ambiente da Lambda). */
 export function identityRemover(userPoolID: string): CognitoIdentityRemover {
   return new CognitoIdentityRemover(new SdkCognitoIdentityClient(new CognitoIdentityProviderClient({}), userPoolID));
+}
+
+/**
+ * Armazenamento das fotos de perfil, se `PHOTOS_BUCKET` estiver no ambiente. As credenciais temporárias da Lambda vêm de
+ * `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_SESSION_TOKEN`, lidas a cada uso.
+ */
+export function photoStore(env: Environment): S3PhotoStore | undefined {
+  const bucket = env["PHOTOS_BUCKET"];
+  if (bucket === undefined || bucket === "") return undefined;
+  const region = env["AWS_REGION"] ?? "us-east-1";
+  return new S3PhotoStore({
+    bucket, region, http: (url, init) => fetch(url, init),
+    credentials: () => {
+      const accessKeyId = process.env["AWS_ACCESS_KEY_ID"];
+      const secretAccessKey = process.env["AWS_SECRET_ACCESS_KEY"];
+      const sessionToken = process.env["AWS_SESSION_TOKEN"];
+      if (accessKeyId === undefined || secretAccessKey === undefined) throw new Error("awsCredentialsMissing");
+      return { accessKeyId, secretAccessKey, ...(sessionToken === undefined ? {} : { sessionToken }) };
+    },
+  });
 }
 
 /** Leitor do segredo `SECRET_ID` (cache por instância). */

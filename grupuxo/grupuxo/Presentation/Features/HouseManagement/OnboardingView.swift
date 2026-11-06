@@ -11,7 +11,9 @@ struct OnboardingView: View {
         case house
         case join
         case houseName
+        case rooms
         case invite
+        case notifications
     }
 
     /// O código de convite tem 6 letras ou números (BACKEND.md §6.1).
@@ -21,12 +23,15 @@ struct OnboardingView: View {
 
     @EnvironmentObject private var houses: RemoteHouseSession
     @EnvironmentObject private var authService: AuthService
+    @EnvironmentObject private var push: PushRegistration
 
     @State private var path: [Step] = []
     @State private var myName = ""
     @State private var houseName = ""
     @State private var inviteCode = ""
     @State private var confirmSignOut = false
+    @State private var selectedStarters: Set<StarterRoom.ID> = []
+    @State private var isCreatingRooms = false
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -36,7 +41,9 @@ struct OnboardingView: View {
                     case .house: houseStep
                     case .join: joinStep
                     case .houseName: houseNameStep
+                    case .rooms: roomsStep
                     case .invite: inviteStep
+                    case .notifications: notificationsStep
                     }
                 }
         }
@@ -215,10 +222,82 @@ struct OnboardingView: View {
         Task {
             await houses.createHouse(name: houseName, myName: myName)
             if houses.house != nil {
-                path.append(.invite)
+                path.append(.rooms)
             } else {
                 isFinishing = false
             }
+        }
+    }
+
+    // MARK: - Primeiros cômodos
+
+    private var roomsStep: some View {
+        OnboardingStepScreen {
+            Section {
+                OnboardingHeader(
+                    title: "Quais cômodos a casa tem?",
+                    subtitle: "Marque os que você quer já. Cada um vem com tarefas sugeridas, que você muda depois."
+                )
+            }
+            .onboardingHeaderRow()
+
+            Section {
+                ForEach(StarterRoom.all) { starter in
+                    Button {
+                        if selectedStarters.contains(starter.id) {
+                            selectedStarters.remove(starter.id)
+                        } else {
+                            selectedStarters.insert(starter.id)
+                        }
+                    } label: {
+                        HStack(spacing: DesignSystem.Spacing.medium) {
+                            Image(systemName: starter.icon)
+                                .foregroundStyle(.white)
+                                .frame(width: 32, height: 32)
+                                .background(starter.color.tint, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .accessibilityHidden(true)
+                            Text(starter.name)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: selectedStarters.contains(starter.id) ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(selectedStarters.contains(starter.id) ? Color.accentColor : .secondary)
+                                .accessibilityHidden(true)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedStarters.contains(starter.id) ? .isSelected : [])
+                    .accessibilityIdentifier("starterRoom.\(starter.id)")
+                }
+            } footer: {
+                if let message = houses.errorMessage {
+                    Text(message).foregroundStyle(.red)
+                } else {
+                    Text("Os outros cômodos você cria na aba Casa, no \"+\".")
+                }
+            }
+        } footer: {
+            Button(action: createRooms) {
+                AuthButtonLabel(
+                    title: selectedStarters.isEmpty ? "Continuar sem cômodos" : "Criar cômodos",
+                    isWorking: isCreatingRooms
+                )
+            }
+            .buttonStyle(.authPrimary)
+            .disabled(isCreatingRooms)
+        }
+        .navigationBarBackButtonHidden()
+    }
+
+    private func createRooms() {
+        guard !isCreatingRooms else { return }
+        let chosen = StarterRoom.all.filter { selectedStarters.contains($0.id) }
+        isCreatingRooms = true
+        Task {
+            if !chosen.isEmpty { _ = await houses.createStarterRooms(chosen) }
+            isCreatingRooms = false
+            // Falha parcial: segue para o convite; o erro já ficou em `houses.errorMessage` e some no próximo passo.
+            path.append(.invite)
         }
     }
 
@@ -267,7 +346,35 @@ struct OnboardingView: View {
                 ))
             }
 
-            Button("Fazer isso depois", action: finish)
+            Button("Fazer isso depois") { path.append(.notifications) }
+                .frame(minHeight: DesignSystem.minimumTouchTarget)
+        }
+        .navigationBarBackButtonHidden()
+    }
+
+    // MARK: - Ativar notificações
+
+    private var notificationsStep: some View {
+        OnboardingStepScreen {
+            Section {
+                OnboardingHeader(
+                    title: "Quer saber quando algo mudar?",
+                    subtitle: "O Reveza avisa de pedidos de troca, tarefas editadas e quando alguém entra na casa. Você escolhe os avisos em Ajustes."
+                )
+            }
+            .onboardingHeaderRow()
+        } footer: {
+            Button {
+                Task {
+                    if await push.requestAuthorization() { await push.resendToken() }
+                    finish()
+                }
+            } label: {
+                Text("Ativar notificações")
+            }
+            .buttonStyle(.authPrimary)
+
+            Button("Agora não", action: finish)
                 .frame(minHeight: DesignSystem.minimumTouchTarget)
         }
         .navigationBarBackButtonHidden()

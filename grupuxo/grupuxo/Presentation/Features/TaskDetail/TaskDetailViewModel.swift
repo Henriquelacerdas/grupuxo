@@ -60,6 +60,9 @@ final class TaskDetailViewModel: ObservableObject {
 
     var room: Room? { participation?.room }
 
+    /// O morador participa do cômodo da tarefa (quem pode editar e encerrar a tarefa recorrente).
+    var isRoomMember: Bool { participation?.isMember == true }
+
     /// "Repetição do cômodo" segue a escala do cômodo; as demais recorrentes têm "Repetição própria".
     func kindSummary(of definition: TaskDefinition) -> String {
 

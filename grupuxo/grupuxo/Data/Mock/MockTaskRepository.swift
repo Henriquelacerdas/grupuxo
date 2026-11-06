@@ -161,6 +161,8 @@ struct MockTaskRepository: TaskRepository {
         id: TaskDefinition.ID,
         name: String,
         details: String,
+        effort: TaskEffort?,
+        recurrence: RecurrencePolicy?,
         requestedBy userID: User.ID
     ) async throws -> TaskDefinition {
 
@@ -230,6 +232,14 @@ struct MockTaskRepository: TaskRepository {
 
             state.definitions[definitionIndex].details =
                 details
+
+            if let effort {
+                state.definitions[definitionIndex].effort = effort
+            }
+
+            if let recurrence, previousDefinition.assignmentPolicy == .afterCompletion {
+                state.definitions[definitionIndex].recurrence = recurrence
+            }
 
             let updatedDefinition =
                 state.definitions[definitionIndex]

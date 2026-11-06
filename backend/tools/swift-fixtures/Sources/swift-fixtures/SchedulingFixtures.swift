@@ -36,11 +36,12 @@ func enc(_ room: Room) -> [String: Any] {
 
 func enc(_ m: RoomMembership) -> [String: Any] {
     ["id": id(m.id), "roomID": id(m.roomID), "userID": id(m.userID), "fairnessDebt": num(m.fairnessDebt), "leftAt": d(m.leftAt),
-     "rotationChanges": opt(m.rotationChanges) { $0.map { ["effectiveAt": d($0.effectiveAt), "participates": $0.participates] as [String: Any] } }]
+     "rotationChanges": opt(m.rotationChanges) { $0.map { ["effectiveAt": d($0.effectiveAt), "participates": $0.participates] as [String: Any] } },
+     "skipsNextOwnTurn": m.skipsNextOwnTurn]
 }
 
 func enc(_ t: TaskDefinition) -> [String: Any] {
-    [
+    var result: [String: Any] = [
         "id": id(t.id), "roomID": id(t.roomID), "name": t.name, "details": t.details, "effort": ["points": t.effort.points],
         "kind": t.kind.rawValue, "recurrence": enc(t.recurrence), "assignmentPolicy": t.assignmentPolicy.rawValue,
         "sourceSuggestionID": opt(t.sourceSuggestionID) { $0 }, "rotationQueue": ids(t.rotationQueue),
@@ -48,6 +49,9 @@ func enc(_ t: TaskDefinition) -> [String: Any] {
         "pendingRotation": opt(t.pendingRotation) { ["effectiveAt": d($0.effectiveAt), "queue": ids($0.queue)] as [String: Any] },
         "calendarAnchor": d(t.calendarAnchor), "endedAt": d(t.endedAt),
     ]
+    // Ausente = definição antiga (vale a periodicidade); `null` no JSON seria outro valor.
+    if let followsRoom = t.followsRoom { result["followsRoom"] = followsRoom }
+    return result
 }
 
 func enc(_ o: TaskOccurrence) -> [String: Any] {
@@ -194,9 +198,9 @@ func world(users userCount: Int = 4, kitchen: WeeklyPeriodicity = WeeklyPeriodic
 
 func task(_ n: Int, room: UUID, effort: Int = 2, kind: TaskKind = .recurring,
           recurrence: RecurrencePolicy = .recurring(frequency: .weekly, interval: 1),
-          policy: TaskAssignmentPolicy = .calendarRotation, name: String? = nil) -> TaskDefinition {
+          policy: TaskAssignmentPolicy = .calendarRotation, name: String? = nil, followsRoom: Bool? = nil) -> TaskDefinition {
     TaskDefinition(id: W.def(n), roomID: room, name: name ?? "Tarefa \(n)", details: "", effort: TaskEffort(points: effort),
-                   kind: kind, recurrence: recurrence, assignmentPolicy: policy)
+                   kind: kind, recurrence: recurrence, assignmentPolicy: policy, followsRoom: followsRoom)
 }
 
 let wed = parse("2026-09-16T15:00:00Z")   // quarta-feira

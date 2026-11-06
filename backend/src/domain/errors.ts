@@ -1,6 +1,8 @@
 const MESSAGES = {
   deletionConfirmationRequired:
     "Atenção: Você é o último participante desse cômodo. Se sair, o cômodo e suas tarefas serão excluídos.",
+  invalidRating: "Nível ou tag de avaliação inválidos.",
+  roomAccessNotRequestable: "Só dá para pedir entrada em cômodo privado de que você ainda não participa.",
   wholeHouseProtected: "Casa toda sempre inclui todos os moradores e não permite saída individual nem exclusão.",
   invalidDistribution: "A distribuição de tarefas é inválida.",
   noEligibleMembers: "O cômodo não possui participantes elegíveis.",

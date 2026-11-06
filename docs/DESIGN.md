@@ -55,13 +55,19 @@ Escopo: o programa termina em **04/12/2026** com um pitch de 10 minutos em ingl�
 
 ## WhatsApp
 
-O bot **só responde, nunca manda mensagem primeiro**. Conectar abre o WhatsApp com mensagem pronta. Ajustes › WhatsApp: número, "Abrir conversa", "O que mandar", "Desconectar". Textos canônicos em [WHATSAPP-MENSAGENS.md](WHATSAPP-MENSAGENS.md). O bot ainda escreve "(atrasada)", contra a regra de nunca usar essa palavra.
+O bot **só responde, nunca manda mensagem primeiro**. Conectar abre o WhatsApp com mensagem pronta. Ajustes › WhatsApp: número, "Abrir conversa", "O que mandar", "Desconectar". Textos canônicos em [WHATSAPP-MENSAGENS.md](WHATSAPP-MENSAGENS.md). O bot nunca escreve "atrasada": tarefa vencida leva "terminou seg 14/09" no lugar de "até seg 14/09".
+
+## Decididas pelo dono (06/11, a confirmar com a designer)
+
+- **Verbo padrão:** "Apagar" para tarefa (detalhe, swipe, Tarefa Única, Cômodo), casa e conta; "Excluir" só em "Excluir cômodo" (texto do Figma). "Encerrar" deixou de aparecer: o histórico continua separado da definição, mas o morador vê "Apagar".
+- **Periodicidade do cômodo** não aparece como opção de Repetição em Criar Tarefa (nem desabilitada).
+- **Filtro Agora** do Cômodo inclui o que abre ainda na semana ("Começa sábado").
+- **Padrões simples** para o que o guia deixa em aberto: ver a seção de cada recurso (pedido de entrada em cômodo privado, excluir cômodo, cancelar troca, avaliação, modo férias).
 
 ## Decisões em aberto (com a designer)
 
 - Língua do app no vídeo do pitch (até 11/11): app em português com legendas em inglês, ou app traduzido (String Catalog em inglês pronto antes da gravação).
-- "A cada 2 meses" está no guia, mas o menu de Criar Tarefa oferece 3 e 6 meses; "Rodízio mensal" é zona cinza; o picker de Criar Cômodo ainda usa "Semanal/Quinzenal/Mensal".
-- "Excluir" ou "Apagar" como verbo padrão (o iOS em português usa "Apagar").
+- "A cada 2 meses" está no guia, mas o menu de Criar Tarefa oferece 3 e 6 meses; "Rodízio mensal" é zona cinza. O picker de Criar Cômodo já usa o vocabulário da Apple (Semanalmente, A cada 2 semanas, Mensalmente).
 - Ícone do "Resumo da semana pronto" (`list.bullet.clipboard.fill` ou `calendar.badge.checkmark`).
 - Tag marcada por uma só pessoa aparece para quem cuidou? Dia em que a avaliação abre. Tarefa única pega por outra pessoa: some ou mostra "Para <nome>"?
 - Quem aceita o pedido de entrada em cômodo privado; pedido pendente pode ser cancelado/refeito?

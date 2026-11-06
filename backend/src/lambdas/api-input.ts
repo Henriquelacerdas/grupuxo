@@ -1,5 +1,8 @@
 import type { TaskOccurrenceID, UserID } from "../domain/ids.ts";
 import { taskOccurrenceID, userID } from "../domain/ids.ts";
+import type { RatingInput } from "../domain/commands/ratings.ts";
+import type { RoomPatch } from "../domain/commands/rooms.ts";
+import { RATING_LEVELS, RATING_TAGS, type RoomRatingTag } from "../domain/entities.ts";
 import type { TaskRange } from "../domain/use-cases/tasks.ts";
 import type { NewTaskInput, TaskDetailsInput } from "../domain/use-cases/tasks.ts";
 import {
@@ -25,6 +28,12 @@ export function parseCreateHouse(body: Fields): { readonly name: string; readonl
   const name = field(body, "name");
   const timezone = field(body, "timezone");
   return typeof name === "string" && typeof timezone === "string" ? { name, timezone } : null;
+}
+
+/** `{ "name" }` de `PATCH /me` e de `PATCH /houses/{houseID}`; a regra do nome é do domínio / do diretório. */
+export function parseRename(body: Fields): { readonly name: string } | null {
+  const name = field(body, "name");
+  return typeof name === "string" ? { name } : null;
 }
 
 export function parseJoinHouse(body: Fields): { readonly code: string } | null {
@@ -120,6 +129,69 @@ export function parseCreateRoom(body: Fields): ParsedRoom | null {
   return parsed;
 }
 
+/**
+ * Corpo de `PATCH /rooms/{id}`: ao menos um campo; os ausentes não mudam. Campo de tipo errado ou corpo vazio → `null`.
+ * Nome em branco e periodicidade inválida são do domínio.
+ */
+export function parseUpdateRoom(body: Fields): RoomPatch | null {
+  const patch: { -readonly [K in keyof RoomPatch]: RoomPatch[K] } = {};
+  const name = field(body, "name");
+  if (name !== undefined) {
+    if (typeof name !== "string") return null;
+    patch.name = name;
+  }
+  const category = field(body, "category");
+  if (category !== undefined) {
+    const value = oneOf(ROOM_CATEGORIES, category);
+    if (value === null) return null;
+    patch.category = value;
+  }
+  const icon = field(body, "icon");
+  if (icon !== undefined) {
+    if (typeof icon !== "string") return null;
+    patch.icon = icon;
+  }
+  const color = field(body, "color");
+  if (color !== undefined) {
+    const value = oneOf(ROOM_COLORS, color);
+    if (value === null) return null;
+    patch.color = value;
+  }
+  const periodicity = field(body, "periodicity");
+  if (periodicity !== undefined) {
+    const value = parsePeriodicity(periodicity);
+    if (value === null) return null;
+    patch.periodicity = value;
+  }
+  const responsibleCount = field(body, "responsibleCount");
+  if (responsibleCount !== undefined) {
+    if (!isInteger(responsibleCount)) return null;
+    patch.responsibleCount = responsibleCount;
+  }
+  return Object.keys(patch).length === 0 ? null : patch;
+}
+
+/** Corpo de `POST /rooms/{roomID}/ratings`: `{ periodStart: ISO, level, tags?: [tag] }`; fora do catálogo → `null`. */
+export function parseRating(body: Fields): RatingInput | null {
+  const periodStart = field(body, "periodStart");
+  const level = oneOf(RATING_LEVELS, field(body, "level"));
+  const tagsBody = field(body, "tags");
+  if (typeof periodStart !== "string" || level === null) return null;
+  const instant = Date.parse(periodStart);
+  if (!Number.isFinite(instant)) return null;
+  const tags: RoomRatingTag[] = [];
+  if (tagsBody !== undefined) {
+    if (!Array.isArray(tagsBody)) return null;
+    const entries: readonly unknown[] = tagsBody;
+    for (const entry of entries) {
+      const tag = oneOf(RATING_TAGS, entry);
+      if (tag === null) return null;
+      tags.push(tag);
+    }
+  }
+  return { periodStart: instant, level, tags };
+}
+
 function parseRecurrence(value: unknown): RecurrencePolicy | null {
   if (!isRecord(value)) return null;
   switch (field(value, "kind")) {
@@ -153,24 +225,31 @@ export function parseCreateTask(body: Fields): Omit<NewTaskInput, "roomID"> | nu
   ) {
     return null;
   }
-  return { name, details, effort, kind, recurrence, assignmentPolicy };
+  // Opcional: o app antigo não manda "Repetir com o cômodo"; de tipo errado → corpo inválido.
+  const followsRoom = field(body, "followsRoom");
+  if (followsRoom !== undefined && followsRoom !== null && typeof followsRoom !== "boolean") return null;
+  return typeof followsRoom === "boolean"
+    ? { name, details, effort, kind, recurrence, assignmentPolicy, followsRoom }
+    : { name, details, effort, kind, recurrence, assignmentPolicy };
 }
 
-/** Corpo de `PATCH /rooms/{roomID}/tasks/{taskID}`: ao menos um entre `name`, `details` e `effort` (1 a 3); campo desconhecido ou de tipo errado → `null`. */
+/** Corpo de `PATCH /rooms/{roomID}/tasks/{taskID}`: ao menos um entre `name`, `details`, `effort` (1 a 3) e `recurrence`; campo de tipo errado → `null`. */
 export function parseUpdateTask(body: Fields): TaskDetailsInput | null {
   const name = field(body, "name");
   const details = field(body, "details");
   const effort = field(body, "effort");
+  const recurrenceBody = field(body, "recurrence");
+  const recurrence = recurrenceBody === undefined ? undefined : parseRecurrence(recurrenceBody);
   if (
     (name !== undefined && typeof name !== "string") || (details !== undefined && typeof details !== "string") ||
-    (effort !== undefined && (!isInteger(effort) || effort < 1 || effort > 3))
+    (effort !== undefined && (!isInteger(effort) || effort < 1 || effort > 3)) || recurrence === null
   ) {
     return null;
   }
-  if (name === undefined && details === undefined && effort === undefined) return null;
+  if (name === undefined && details === undefined && effort === undefined && recurrence === undefined) return null;
   return {
     ...(name === undefined ? {} : { name }), ...(details === undefined ? {} : { details }),
-    ...(effort === undefined ? {} : { effort }),
+    ...(effort === undefined ? {} : { effort }), ...(recurrence === undefined ? {} : { recurrence }),
   };
 }
 

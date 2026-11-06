@@ -28,10 +28,14 @@ public protocol TaskRepository: Sendable {
         requesting userID: User.ID
     ) async throws -> TaskDefinition
 
+    /// Edita a tarefa: nome e descrição sempre; `effort` e `recurrence` quando mudam. Só a tarefa de repetição própria
+    /// muda o intervalo (`recurrence`); a avulsa é de quem criou e a recorrente, de quem participa do cômodo.
     func updateTaskDetails(
         id: TaskDefinition.ID,
         name: String,
         details: String,
+        effort: TaskEffort?,
+        recurrence: RecurrencePolicy?,
         requestedBy userID: User.ID
     ) async throws -> TaskDefinition
 
@@ -93,4 +97,19 @@ public protocol TaskRepository: Sendable {
         occurrenceID: TaskOccurrence.ID,
         by userID: User.ID
     ) async throws
+}
+
+extension TaskRepository {
+
+    /// Só nome e descrição (o esforço e a repetição não mudam).
+    public func updateTaskDetails(
+        id: TaskDefinition.ID,
+        name: String,
+        details: String,
+        requestedBy userID: User.ID
+    ) async throws -> TaskDefinition {
+        try await updateTaskDetails(
+            id: id, name: name, details: details, effort: nil, recurrence: nil, requestedBy: userID
+        )
+    }
 }

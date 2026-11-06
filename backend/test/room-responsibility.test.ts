@@ -170,7 +170,7 @@ test("criação comum rejeita participação incompleta e a casa toda não pode 
   };
   const membership: RoomMembership = {
     id: roomMembershipID(world.newID()), roomID: room.id, userID: world.seed.currentUser.id, fairnessDebt: 0, leftAt: null,
-    rotationChanges: null,
+    rotationChanges: null, skipsNextOwnTurn: false,
   };
   await assert.rejects(env.rooms.create(room, [membership]), code("invalidRoomParticipants"));
   await assert.rejects(
@@ -265,7 +265,7 @@ test("saída da casa confirma a cascata de privados e mantém os cômodos comuns
   full.roomMemberships = full.roomMemberships.filter((m) => m.roomID !== rooms.privateOffice.id);
   full.roomMemberships.push({
     id: roomMembershipID(world.newID()), roomID: rooms.privateOffice.id, userID: users.rafa.id, fairnessDebt: 0, leftAt: null,
-    rotationChanges: null,
+    rotationChanges: null, skipsNextOwnTurn: false,
   });
   const env = world.env(full);
   const before = env.store.read((s) => s);

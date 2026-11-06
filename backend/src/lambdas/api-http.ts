@@ -32,6 +32,8 @@ function domainFailure(code: DomainErrorCode): HttpApiResult {
     case "taskAlreadyCompleted": return failure(409, "task_already_completed");
     case "deletionConfirmationRequired": return failure(409, "room_deletion_confirmation_required");
     case "wholeHouseProtected": return failure(409, "whole_house_protected");
+    case "invalidRating": return failure(400, "invalid_rating");
+    case "roomAccessNotRequestable": return failure(409, "room_access_not_requestable");
     case "noEligibleMembers": return failure(409, "no_eligible_members");
     case "invalidDistribution": return failure(409, "invalid_distribution");
     case "invalidTaskName": return failure(400, "invalid_task_name");

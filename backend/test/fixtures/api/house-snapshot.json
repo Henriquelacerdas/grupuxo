@@ -11,19 +11,23 @@
     "members": [
       {
         "id": "ffffffff-ffff-4fff-8fff-000000000003",
-        "name": "Bia"
+        "name": "Bia",
+        "photoURL": null
       },
       {
         "id": "ffffffff-ffff-4fff-8fff-000000000002",
-        "name": "Leo"
+        "name": "Leo",
+        "photoURL": null
       },
       {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       {
         "id": "ffffffff-ffff-4fff-8fff-000000000004",
-        "name": "Rafa"
+        "name": "Rafa",
+        "photoURL": null
       }
     ],
     "rooms": [
@@ -294,7 +298,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000005d",
@@ -314,7 +319,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -334,7 +340,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000005f",
@@ -354,7 +361,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000003",
-        "name": "Bia"
+        "name": "Bia",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -374,7 +382,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000061",
@@ -394,7 +403,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000002",
-        "name": "Leo"
+        "name": "Leo",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -414,7 +424,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000067",
@@ -434,7 +445,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000004",
-        "name": "Rafa"
+        "name": "Rafa",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -454,7 +466,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000002f",
@@ -474,7 +487,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -494,7 +508,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000033",
@@ -514,7 +529,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000004",
-        "name": "Rafa"
+        "name": "Rafa",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -534,7 +550,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000035",
@@ -554,7 +571,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000002",
-        "name": "Leo"
+        "name": "Leo",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -567,18 +585,21 @@
         "effort": 1,
         "kind": "recurring",
         "recurrence": {
-          "kind": "none"
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
         },
         "assignmentPolicy": "afterCompletion",
         "calendarAnchor": null,
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000037",
         "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000023",
         "availableAt": "2026-10-12T03:00:00.000Z",
-        "dueAt": null,
+        "dueAt": "2026-10-14T03:00:00.000Z",
         "status": "assigned",
         "completedAt": null,
         "completedByUserID": null,
@@ -592,7 +613,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000004",
-        "name": "Rafa"
+        "name": "Rafa",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -612,7 +634,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000043",
@@ -632,7 +655,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000003",
-        "name": "Bia"
+        "name": "Bia",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -652,7 +676,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000039",
@@ -672,7 +697,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -692,7 +718,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000003b",
@@ -712,7 +739,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000004",
-        "name": "Rafa"
+        "name": "Rafa",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -732,7 +760,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000003f",
@@ -752,7 +781,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000003",
-        "name": "Bia"
+        "name": "Bia",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -772,7 +802,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000045",
@@ -792,7 +823,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -812,7 +844,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000047",
@@ -832,7 +865,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000004",
-        "name": "Rafa"
+        "name": "Rafa",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -852,7 +886,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000004b",
@@ -872,7 +907,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000003",
-        "name": "Bia"
+        "name": "Bia",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -892,7 +928,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000057",
@@ -912,7 +949,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000002",
-        "name": "Leo"
+        "name": "Leo",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -932,7 +970,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000005b",
@@ -952,7 +991,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000002",
-        "name": "Leo"
+        "name": "Leo",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -972,7 +1012,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000004d",
@@ -992,7 +1033,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1012,7 +1054,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000004f",
@@ -1032,7 +1075,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000002",
-        "name": "Leo"
+        "name": "Leo",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1052,7 +1096,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000051",
@@ -1072,7 +1117,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000003",
-        "name": "Bia"
+        "name": "Bia",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1092,7 +1138,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000053",
@@ -1112,7 +1159,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000004",
-        "name": "Rafa"
+        "name": "Rafa",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1125,18 +1173,21 @@
         "effort": 2,
         "kind": "recurring",
         "recurrence": {
-          "kind": "none"
+          "kind": "recurring",
+          "frequency": "weekly",
+          "interval": 1
         },
         "assignmentPolicy": "afterCompletion",
         "calendarAnchor": null,
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000069",
         "taskDefinitionID": "ffffffff-ffff-4fff-8fff-000000000028",
         "availableAt": "2026-10-12T03:00:00.000Z",
-        "dueAt": null,
+        "dueAt": "2026-10-14T03:00:00.000Z",
         "status": "assigned",
         "completedAt": null,
         "completedByUserID": null,
@@ -1150,7 +1201,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000002",
-        "name": "Leo"
+        "name": "Leo",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1170,7 +1222,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000006b",
@@ -1190,7 +1243,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1210,7 +1264,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000078",
@@ -1230,7 +1285,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000003",
-        "name": "Bia"
+        "name": "Bia",
+        "photoURL": null
       },
       "suggestedAssignee": null
     }
@@ -1252,7 +1308,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000002f",
@@ -1272,7 +1329,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1292,7 +1350,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000039",
@@ -1312,7 +1371,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1332,7 +1392,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-000000000045",
@@ -1352,7 +1413,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1372,7 +1434,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000004d",
@@ -1392,7 +1455,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1412,7 +1476,8 @@
         "assignmentPolicy": "balancedAutomatically",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000005d",
@@ -1432,7 +1497,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     },
@@ -1452,7 +1518,8 @@
         "assignmentPolicy": "calendarRotation",
         "calendarAnchor": "2026-10-12T03:00:00.000Z",
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000006b",
@@ -1472,7 +1539,8 @@
       },
       "assignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000001",
-        "name": "Marina"
+        "name": "Marina",
+        "photoURL": null
       },
       "suggestedAssignee": null
     }
@@ -1492,7 +1560,8 @@
         "assignmentPolicy": "selfAssigned",
         "calendarAnchor": null,
         "endedAt": null,
-        "createdByUserID": null
+        "createdByUserID": null,
+        "followsRoom": null
       },
       "occurrence": {
         "id": "ffffffff-ffff-4fff-8fff-00000000007a",
@@ -1508,8 +1577,10 @@
       "assignee": null,
       "suggestedAssignee": {
         "id": "ffffffff-ffff-4fff-8fff-000000000003",
-        "name": "Bia"
+        "name": "Bia",
+        "photoURL": null
       }
     }
-  ]
+  ],
+  "pendingRoomAccessIDs": []
 }

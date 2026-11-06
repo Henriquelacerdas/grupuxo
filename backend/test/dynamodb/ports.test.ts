@@ -147,3 +147,16 @@ test("DynamoDB: ensureUser grava a unicidade do Cognito e o perfil juntos", asyn
   await directory.ensureUser(sub, { name: "Ana" });
   assert.equal(client.writes, writes);
 });
+
+test("DynamoDB: updateName regrava só o nome do perfil e não cria perfil que não existe", async () => {
+  const client = new FakeDynamoClient();
+  const directory = new DynamoUserDirectory({ client, newID: sequentialIDs(), now: () => NOW });
+  const id = await directory.ensureUser(cognitoSub("conta-1"), { name: "Ana" });
+  const key = { PK: `USER#${id}`, SK: "PROFILE" };
+  const before = client.peek(key);
+  await directory.updateName(id, "Ana Maria");
+  assert.deepEqual(client.peek(key), { ...before, name: "Ana Maria" });
+  const stranger = userID(uuid(9));
+  await directory.updateName(stranger, "Ninguém");
+  assert.equal(client.peek({ PK: `USER#${stranger}`, SK: "PROFILE" }), undefined);
+});

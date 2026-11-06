@@ -13,5 +13,6 @@
   "assignmentPolicy": "balancedAutomatically",
   "calendarAnchor": "2026-10-12T03:00:00.000Z",
   "endedAt": null,
-  "createdByUserID": null
+  "createdByUserID": null,
+  "followsRoom": null
 }

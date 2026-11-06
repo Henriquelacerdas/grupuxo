@@ -104,9 +104,23 @@ O horizonte continua sendo 12 semanas. A busca compara esforço, dificuldade, sa
 
 - `.calendarRotation` e `.balancedAutomatically` exigem recorrência com intervalo positivo (diária, semanal, mensal ou anual); usam o mesmo planejador de fases.
 - `.calendarRotation`/`.balancedAutomatically` publicam uma vez por morador (seção seguinte).
-- `.afterCompletion` normaliza recorrência para `.none`. Gera somente uma ocorrência. A escolha inicial usa uma contribuição na semana atual, e as demais posições têm empate estável. Cada conclusão publica exatamente uma sucessora e consome o próximo slot estático. Não se inventa uma frequência semanal para tarefas sem prazo.
+- `.afterCompletion` é a **repetição própria** (docs/DESIGN.md). Gera somente uma ocorrência por vez. A escolha inicial usa uma contribuição na semana atual, e as demais posições têm empate estável. Cada conclusão publica exatamente uma sucessora e consome o próximo slot estático. **Com recorrência de intervalo** (diária, semanal, mensal ou anual, ou periodicidade semanal), vale a regra da janela, abaixo. **Sem intervalo** (`.none`, a antiga "após conclusão"), a recorrência fica `.none`, a ocorrência não tem prazo e a sucessora abre na hora da conclusão. Não se inventa uma frequência semanal para tarefas sem prazo.
 - `.sporadic` exige `.none` e `.selfAssigned`; nasce sem responsável, fora do Húngaro. Assumir/devolver não altera saldo. Concluir altera saldo e não cria sucessora. Como não possui fila, sua elegibilidade usa a participação atual no cômodo, inclusive antes da vigência da próxima rotação.
 - `.recurring + .selfAssigned` não é uma combinação aceita na criação nova.
+
+### Repetição própria: janela de 2 dias contada da conclusão
+
+Só `.afterCompletion` com recorrência de intervalo (o app envia essa política para toda tarefa recorrente com "Repetir com o cômodo" desligado):
+
+- **Janela:** cada ocorrência abre em `availableAt` e vai até `dueAt` = meia-noite do **segundo dia** depois do começo do dia de abertura (2 dias de calendário no fuso da casa). A primeira abre na criação.
+- **Não dá para fazer antes de abrir** (conclusão exige `availableAt <= agora`, como em toda tarefa) e **a tarefa fica com a pessoa até ser feita**, mesmo depois do prazo: nada é reatribuído.
+- **A próxima janela conta a partir da conclusão:** concluída em `T`, a sucessora abre no **começo do dia** de `T` + um intervalo (`ownNextOpening`: +N dias, semanas, meses ou anos de calendário; periodicidade semanal usa `intervalWeeks`) e vai para o próximo da fila. Quem faz com atraso empurra a próxima; quem adianta (dentro da janela) também.
+- **Pular a vez:** quem conclui uma tarefa única (`sporadic`) do cômodo ganha `RoomMembership.skipsNextOwnTurn` (reabrir a tarefa única desfaz a marca). Na próxima vez que uma tarefa de repetição própria **do mesmo cômodo** for publicada, quem está marcado e seria o próximo é pulado: a marca é consumida e a pessoa continua na fila, só perde essa vez. Ocorrências já publicadas nunca são reatribuídas, e se a fila inteira estiver marcada ninguém é pulado.
+- Implementação: `TaskSchedulingService.ownWindowEnd`, `ownNextOpening` e `skipPendingOwnTurns` (Swift e TypeScript); cenários dourados "repetição própria…" e "tarefa única faz pular a vez…" em `backend/tools/swift-fixtures`.
+
+### "Repetir com o cômodo" é um campo da tarefa
+
+`TaskDefinition.followsRoom` (opcional): `true` = a tarefa segue a escala e a periodicidade do cômodo (na criação a recorrência vira a do cômodo, `weekly(room.periodicity)`); `false` = repetição própria. **Ausente** (definição gravada antes do campo) = o comportamento antigo: vale a periodicidade igual à do cômodo. `isRoomLinked`/`TaskDefinition.isLinked(to:)` leem o campo; política `afterCompletion` ou `selfAssigned` nunca é vinculada. Quando o cômodo muda de periodicidade (`PATCH /rooms/{id}`), as tarefas vinculadas passam para a nova.
 
 `RefreshTaskScheduleUseCase` publica a próxima vez de quem está sem pendente, dentro de 12 semanas a partir da semana atual. Na escala do cômodo, pular semanas sem abrir o app publica também as vezes intermediárias (atrasadas), preservando fase e histórico. Repetir o refresh não duplica dados.
 

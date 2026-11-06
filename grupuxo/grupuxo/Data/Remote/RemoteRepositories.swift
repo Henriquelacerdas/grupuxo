@@ -153,6 +153,17 @@ struct RemoteHouseRepository: HouseRepository {
     func memberIDs(in houseID: House.ID) async throws -> [User.ID] {
         try await members(in: houseID).map(\.id)
     }
+
+    func vacation(for userID: User.ID, in houseID: House.ID) async throws -> VacationStatus {
+        try await api.get(VacationDTO.self, "v1/me/vacation").domain
+    }
+
+    func setVacation(_ isOn: Bool, for userID: User.ID, in houseID: House.ID, at date: Date) async throws -> VacationStatus {
+        let result = try await api.send(isOn ? "PUT" : "DELETE", "v1/me/vacation")
+        // A escala muda para a próxima segunda: as telas leem de novo.
+        await myHouse.invalidate()
+        return try APIClient.makeDecoder().decode(VacationDTO.self, from: result).domain
+    }
 }
 
 struct RemoteRoomRepository: RoomRepository {
@@ -194,6 +205,20 @@ struct RemoteRoomRepository: RoomRepository {
         let created = try await api.post(RoomDTO.self, "v1/houses/\(room.houseID.apiString)/rooms", body: body).domain
         await myHouse.invalidate()
         return created
+    }
+
+    func update(roomID: Room.ID, patch: RoomPatch, requestedBy userID: User.ID, at date: Date) async throws -> Room {
+        defer { Task { await myHouse.invalidate() } }
+        return try await api.patch(RoomDTO.self, "v1/rooms/\(roomID.apiString)", body: UpdateRoomBody(patch)).domain
+    }
+
+    func delete(roomID: Room.ID, requestedBy userID: User.ID, at date: Date, confirmDeletion: Bool) async throws {
+        defer { Task { await myHouse.invalidate() } }
+        do {
+            try await api.send("DELETE", "v1/rooms/\(roomID.apiString)", query: confirmDeletion ? ["confirmDeletion": "true"] : [:])
+        } catch let error as APIError where error.code == "room_deletion_confirmation_required" {
+            throw DomainError.deletionConfirmationRequired
+        }
     }
 }
 
@@ -276,11 +301,15 @@ struct RemoteTaskRepository: TaskRepository {
     }
 
     func updateTaskDetails(
-        id: TaskDefinition.ID, name: String, details: String, requestedBy userID: User.ID
+        id: TaskDefinition.ID, name: String, details: String, effort: TaskEffort?, recurrence: RecurrencePolicy?,
+        requestedBy userID: User.ID
     ) async throws -> TaskDefinition {
         let roomID = try await index.room(of: id)
         let path = "v1/rooms/\(roomID.apiString)/tasks/\(id.apiString)"
-        try await mutate("PATCH", path, body: UpdateTaskBody(name: name, details: details))
+        let body = UpdateTaskBody(
+            name: name, details: details, effort: effort?.points, recurrence: recurrence.map(RecurrenceDTO.init)
+        )
+        try await mutate("PATCH", path, body: body)
         let updated = try await api.get(TaskDefinitionDTO.self, path).domain()
         await index.remember(updated)
         return updated
@@ -300,7 +329,7 @@ struct RemoteTaskRepository: TaskRepository {
         let body = CreateTaskBody(
             name: definition.name, details: definition.details, effort: definition.effort.points,
             kind: definition.kind, recurrence: RecurrenceDTO(definition.recurrence),
-            assignmentPolicy: definition.assignmentPolicy
+            assignmentPolicy: definition.assignmentPolicy, followsRoom: definition.followsRoom
         )
         let created = try await api.post(
             TaskDefinitionDTO.self, "v1/rooms/\(definition.roomID.apiString)/tasks", body: body
@@ -399,6 +428,12 @@ struct RemoteTaskSwapRepository: TaskSwapRepository {
         await myHouse?.invalidate()
         return result
     }
+
+    func cancel(requestID: TaskSwapRequest.ID, by userID: User.ID, at date: Date) async throws -> TaskSwapRequest {
+        let result = try await api.post(TaskSwapRequestDTO.self, "v1/swaps/\(requestID.apiString)/cancel").domain
+        await myHouse?.invalidate()
+        return result
+    }
 }
 
 struct RemoteNotificationRepository: NotificationRepository {
@@ -414,19 +449,36 @@ struct RemoteNotificationRepository: NotificationRepository {
     }
 }
 
-/// Pedido de entrada em cômodo privado ainda sem rota na `api`: nenhum pedido aberto, e pedir ou cancelar falha.
+/// Pedido de entrada em cômodo privado (BACKEND.md §6.1): pedir, cancelar e, para quem participa, aprovar ou recusar.
 struct RemoteRoomAccessRequestRepository: RoomAccessRequestRepository {
+    let api: APIClient
+    var myHouse: MyHouseCache? = nil
 
     func pendingRoomIDs(in houseID: House.ID, requesting userID: User.ID) async throws -> Set<Room.ID> {
-        []
+        // O snapshot já traz os pedidos abertos: a tela da Casa não faz outra requisição.
+        if let snapshot = try await myHouse?.snapshot() { return snapshot.pendingRoomAccessIDs }
+        do {
+            return Set(try await api.get(PendingRoomAccessDTO.self, "v1/me/room-access-requests").roomIDs)
+        } catch let error as APIError where error == .http(status: 404, code: "not_found") {
+            // Servidor anterior ao pedido de entrada: nenhum pedido aberto.
+            return []
+        }
     }
 
     func request(roomID: Room.ID, requesting userID: User.ID, at date: Date) async throws {
-        throw APIError.unsupported
+        try await api.send("POST", "v1/rooms/\(roomID.apiString)/access-requests")
+        await myHouse?.invalidate()
     }
 
     func cancel(roomID: Room.ID, requesting userID: User.ID) async throws {
-        throw APIError.unsupported
+        try await api.send("DELETE", "v1/rooms/\(roomID.apiString)/access-requests")
+        await myHouse?.invalidate()
+    }
+
+    func answer(roomID: Room.ID, requesterID: User.ID, answeredBy userID: User.ID, approve: Bool, at date: Date) async throws {
+        let action = approve ? "approve" : "deny"
+        try await api.send("POST", "v1/rooms/\(roomID.apiString)/access-requests/\(requesterID.apiString)/\(action)")
+        await myHouse?.invalidate()
     }
 }
 
@@ -450,5 +502,26 @@ struct RemoteWhatsAppConnectionRepository: WhatsAppConnectionRepository {
 
     func disconnect() async throws {
         try await api.send("DELETE", "v1/me/whatsapp")
+    }
+}
+
+/// Avaliar a semana e Resumo da semana sobre a `api` (BACKEND.md §6.1).
+struct RemoteRatingRepository: RatingRepository {
+    let api: APIClient
+
+    func pending(in houseID: House.ID, for userID: User.ID) async throws -> [PendingRating] {
+        try await api.get(PendingRatingsDTO.self, "v1/me/ratings/pending").pending.map(\.domain)
+    }
+
+    func rate(_ choice: RoomRatingChoice, by userID: User.ID) async throws {
+        let body = RateRoomBody(
+            periodStart: choice.periodStart.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)),
+            level: choice.level, tags: choice.tags
+        )
+        try await api.send("POST", "v1/rooms/\(choice.roomID.apiString)/ratings", body: body)
+    }
+
+    func summary(in houseID: House.ID, for userID: User.ID) async throws -> [RatingResult] {
+        try await api.get(RatingSummaryDTO.self, "v1/me/ratings/summary").summary.map(\.domain)
     }
 }

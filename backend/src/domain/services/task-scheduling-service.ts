@@ -11,7 +11,7 @@ import {
   type HouseID, type IDGenerator, type Mutable, type RoomID, type TaskDefinitionID, type TaskOccurrenceID, type UserID,
 } from "../ids.ts";
 import {
-  hasValidInterval, isRepeating, isValidPeriodicity, samePeriodicity, sameRecurrence, weeklyPeriodicityOf,
+  assertNever, hasValidInterval, isRepeating, isValidPeriodicity, samePeriodicity, sameRecurrence, weeklyPeriodicityOf,
 } from "../value-objects.ts";
 import { DISTANT_PAST } from "../dates.ts";
 import { FairnessCalculator } from "./fairness.ts";
@@ -86,6 +86,10 @@ export class TaskSchedulingService {
     this.initializeRooms(target.houseID, date, state);
     const definition: DefinitionDraft = { ...input, endedAt: null }; // uma definição nova nunca nasce encerrada
     const linked = this.isRoomLinked(definition, state);
+    // "Repetir com o cômodo" explícito: a recorrência é sempre a periodicidade do cômodo.
+    if (linked && definition.followsRoom === true) {
+      definition.recurrence = { kind: "weekly", periodicity: this.room(definition, state).periodicity };
+    }
     if (linked) definition.calendarAnchor = this.room(definition, state).calendarAnchor;
     else if (definition.recurrence.kind === "weekly") definition.calendarAnchor = this.weekStart(date);
     definition.rotationQueue = [];
@@ -100,7 +104,11 @@ export class TaskSchedulingService {
     } else {
       if (definition.assignmentPolicy === "selfAssigned") throw new DomainError("invalidSchedule");
       if (definition.assignmentPolicy === "afterCompletion") {
-        definition.recurrence = { kind: "none" };
+        // Repetição própria: o intervalo vale (janela de 2 dias contada da conclusão). Sem intervalo válido, é a
+        // antiga "após conclusão", sem prazo.
+        if (!isRepeating(definition.recurrence) || !hasValidInterval(definition.recurrence)) {
+          definition.recurrence = { kind: "none" };
+        }
       } else if (!isRepeating(definition.recurrence) || !hasValidInterval(definition.recurrence)) {
         throw new DomainError("invalidSchedule");
       }
@@ -118,7 +126,7 @@ export class TaskSchedulingService {
         this.debts(definition.roomID, state),
       );
       if (definition.assignmentPolicy === "afterCompletion") {
-        this.publish(definition, date, null, state);
+        this.publish(definition, date, this.ownWindowEnd(date, definition), state);
       } else {
         definition.nextScheduledAt = firstDate;
         if (linked) {
@@ -224,6 +232,13 @@ export class TaskSchedulingService {
         state.assignments[i] = { ...assignment, endedAt: date };
       }
     }
+    if (definition.kind === "sporadic") {
+      // Quem faz uma tarefa única pula a vez na próxima de repetição própria do cômodo.
+      const membership = state.roomMemberships.findIndex((m) =>
+        m.roomID === definition.roomID && m.userID === userID && isCurrentMember(m)
+      );
+      if (membership >= 0) state.roomMemberships[membership] = { ...at(state.roomMemberships, membership), skipsNextOwnTurn: true };
+    }
     if (definition.kind === "recurring" && definition.assignmentPolicy === "afterCompletion" &&
       definition.endedAt === null && occurrence.didPublishSuccessor !== true) {
       this.activatePending(definition, date);
@@ -233,7 +248,9 @@ export class TaskSchedulingService {
         const current = definition.rotationQueue.indexOf(userID);
         definition.currentRotationIndex = current >= 0 ? this.rotation.advance(current, definition.rotationQueue) : 0;
       }
-      this.publish(definition, date, null, state);
+      // Repetição própria: a próxima janela abre um intervalo depois da conclusão e dura 2 dias.
+      const opening = this.ownNextOpening(date, definition);
+      this.publish(definition, opening, this.ownWindowEnd(opening, definition), state);
       state.occurrences[index] = { ...at(state.occurrences, index), didPublishSuccessor: true };
       state.definitions[definitionIndex] = { ...definition };
     } else if (this.isCalendarScheduled(definition)) {
@@ -272,6 +289,10 @@ export class TaskSchedulingService {
       ...occurrence, status: "assigned", completedAt: null, completedByUserID: null, completionDebtImpacts: null,
     };
     state.assignments[assignmentIndex] = { ...at(state.assignments, assignmentIndex), endedAt: null };
+    if (definition.kind === "sporadic") {
+      const membership = state.roomMemberships.findIndex((m) => m.roomID === definition.roomID && m.userID === userID);
+      if (membership >= 0) state.roomMemberships[membership] = { ...at(state.roomMemberships, membership), skipsNextOwnTurn: false };
+    }
     // Os turnos já publicados permanecem; concluir de novo não publica outra sucessora.
   }
 
@@ -399,7 +420,7 @@ export class TaskSchedulingService {
       index = state.roomMemberships.length;
       state.roomMemberships.push({
         id: roomMembershipID(this.newID()), roomID, userID, fairnessDebt: 0, leftAt: null,
-        rotationChanges: [{ effectiveAt: DISTANT_PAST, participates: false }],
+        rotationChanges: [{ effectiveAt: DISTANT_PAST, participates: false }], skipsNextOwnTurn: false,
       });
     }
     const membership = at(state.roomMemberships, index);
@@ -829,12 +850,71 @@ export class TaskSchedulingService {
       this.appendOccurrence(definition, date, dueAt, null, state);
       return;
     }
+    if (definition.rotationQueue[definition.currentRotationIndex] === undefined) throw new DomainError("invalidDistribution");
+    if (definition.assignmentPolicy === "afterCompletion") this.skipPendingOwnTurns(definition, state);
     const user = definition.rotationQueue[definition.currentRotationIndex];
     if (user === undefined) throw new DomainError("invalidDistribution");
     const eligible = this.members(definition, date, state);
     // Férias não alteram silenciosamente uma fila estática publicada: o turno fica sem responsável.
     this.appendOccurrence(definition, date, dueAt, eligible.includes(user) ? user : null, state);
     definition.currentRotationIndex = this.rotation.advance(definition.currentRotationIndex, definition.rotationQueue);
+  }
+
+  // MARK: Repetição própria (janela de 2 dias contada da conclusão)
+
+  /**
+   * Fim da janela de uma tarefa de repetição própria que abre em `opening`: 2 dias de calendário, até a meia-noite.
+   * Sem intervalo (antiga "após conclusão"), não há prazo.
+   */
+  ownWindowEnd(opening: Instant, definition: TaskDefinition): Instant | null {
+    if (definition.assignmentPolicy !== "afterCompletion" || !isRepeating(definition.recurrence)) return null;
+    return this.adding("day", 2, this.calendar.startOfDay(opening));
+  }
+
+  /**
+   * Quando abre a próxima janela depois de uma conclusão em `date`: um intervalo depois, no começo do dia. Sem
+   * intervalo, abre na hora da conclusão (como sempre foi).
+   */
+  ownNextOpening(date: Instant, definition: TaskDefinition): Instant {
+    const policy = definition.recurrence;
+    switch (policy.kind) {
+      case "none": return date;
+      case "recurring":
+        switch (policy.frequency) {
+          case "daily": return this.calendar.startOfDay(this.adding("day", policy.interval, date));
+          case "weekly": return this.calendar.startOfDay(this.addingWeeks(policy.interval, date));
+          case "monthly": return this.calendar.startOfDay(this.adding("month", policy.interval, date));
+          case "yearly": return this.calendar.startOfDay(this.adding("year", policy.interval, date));
+          default: return assertNever(policy.frequency);
+        }
+      case "weekly": return this.calendar.startOfDay(this.addingWeeks(policy.periodicity.intervalWeeks, date));
+      default: return assertNever(policy);
+    }
+  }
+
+  /**
+   * Quem concluiu uma tarefa única pula a vez uma vez só: a próxima janela de repetição própria vai para o seguinte da
+   * fila, e quem pulou volta a participar normalmente. Se todos pularam, ninguém é pulado.
+   */
+  private skipPendingOwnTurns(definition: DefinitionDraft, state: SchedulingState): void {
+    let index = definition.currentRotationIndex;
+    const consumed: number[] = [];
+    for (let i = 0; i < definition.rotationQueue.length; i++) {
+      const user = definition.rotationQueue[index];
+      if (user === undefined) throw new DomainError("invalidDistribution");
+      const membership = state.roomMemberships.findIndex((m) =>
+        m.roomID === definition.roomID && m.userID === user && m.skipsNextOwnTurn
+      );
+      if (membership < 0) break;
+      consumed.push(membership);
+      index = this.rotation.advance(index, definition.rotationQueue);
+    }
+    if (consumed.length === 0) return;
+    for (const membership of consumed) {
+      state.roomMemberships[membership] = { ...at(state.roomMemberships, membership), skipsNextOwnTurn: false };
+    }
+    // Se a fila inteira estava marcada, volta ao começo: ninguém perde a vez de verdade.
+    if (consumed.length !== definition.rotationQueue.length) definition.currentRotationIndex = index;
   }
 
   appendOccurrence(
@@ -1017,8 +1097,12 @@ export class TaskSchedulingService {
   isRoomLinked(definition: TaskDefinition, state: SchedulingState): boolean {
     if (definition.endedAt !== null || definition.kind !== "recurring" || definition.assignmentPolicy === "afterCompletion" ||
       definition.assignmentPolicy === "selfAssigned") return false;
+    const room = state.rooms.find((r) => r.id === definition.roomID);
+    if (room === undefined) return false;
+    // Campo explícito ("Repetir com o cômodo"); sem ele (definição antiga), vale a periodicidade igual à do cômodo.
+    if (definition.followsRoom !== undefined) return definition.followsRoom;
     const period = weeklyPeriodicityOf(definition.recurrence);
-    return state.rooms.some((r) => r.id === definition.roomID && period !== null && samePeriodicity(period, r.periodicity));
+    return period !== null && samePeriodicity(period, room.periodicity);
   }
 
   initializeRooms(houseID: HouseID, date: Instant, state: SchedulingState): void {

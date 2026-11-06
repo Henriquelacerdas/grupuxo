@@ -17,6 +17,10 @@ final class NotificationsViewModel: ObservableObject {
 
     @Published var actionError: String?
 
+    /// Nomes dos moradores, para dizer quem fez cada coisa ("Henrique L. editou a tarefa…").
+    @Published private(set)
+    var memberNames: [User.ID: String] = [:]
+
     /// Pedido de troca sendo respondido agora (desabilita os botões dele).
     @Published private(set)
     var respondingSwapID: TaskSwapRequest.ID?
@@ -42,6 +46,20 @@ final class NotificationsViewModel: ObservableObject {
     /// Pedidos que eu fiz; sem ele, "Seus pedidos" não aparece.
     private let getOutgoingSwaps: GetOutgoingTaskSwapRequestsUseCase?
 
+    /// Desistir de um pedido de troca pendente; sem ele, "Cancelar pedido" não aparece.
+    private let cancelSwap: CancelTaskSwapRequestUseCase?
+
+    /// Aprovar ou recusar pedido de entrada em cômodo privado; sem ele, os botões não aparecem.
+    private let answerRoomAccess: AnswerRoomAccessRequestUseCase?
+
+    /// Pedido de troca sendo cancelado agora.
+    @Published private(set)
+    var cancellingSwapID: TaskSwapRequest.ID?
+
+    /// Aviso de pedido de entrada sendo respondido agora.
+    @Published private(set)
+    var answeringNotificationID: AppNotification.ID?
+
     private let calendar: Calendar
 
     private let userID: User.ID
@@ -58,6 +76,8 @@ final class NotificationsViewModel: ObservableObject {
         getSwapCandidates: GetTaskSwapCandidatesUseCase,
         getMembers: GetHouseMembersUseCase,
         getOutgoingSwaps: GetOutgoingTaskSwapRequestsUseCase? = nil,
+        cancelSwap: CancelTaskSwapRequestUseCase? = nil,
+        answerRoomAccess: AnswerRoomAccessRequestUseCase? = nil,
         userID: User.ID,
         houseID: House.ID,
         calendar: Calendar = .current
@@ -65,6 +85,12 @@ final class NotificationsViewModel: ObservableObject {
 
         self.getOutgoingSwaps =
             getOutgoingSwaps
+
+        self.cancelSwap =
+            cancelSwap
+
+        self.answerRoomAccess =
+            answerRoomAccess
 
         self.calendar =
             calendar
@@ -111,6 +137,11 @@ final class NotificationsViewModel: ObservableObject {
                 try await getNotifications(
                     userID: userID
                 )
+
+            memberNames = Dictionary(
+                ((try? await getMembers(houseID: houseID, userID: userID)) ?? []).map { ($0.id, $0.name) },
+                uniquingKeysWith: { first, _ in first }
+            )
 
             let pendingSwaps =
                 try await loadPendingSwaps()
@@ -197,6 +228,49 @@ final class NotificationsViewModel: ObservableObject {
 
         }
 
+    }
+
+    var canCancelSwaps: Bool { cancelSwap != nil }
+
+    var canAnswerRoomAccess: Bool { answerRoomAccess != nil }
+
+    /// Quem pediu desiste do pedido pendente; a outra pessoa deixa de vê-lo.
+    func cancel(_ swap: OutgoingSwapRequest) async {
+
+        guard let cancelSwap, cancellingSwapID == nil else { return }
+
+        cancellingSwapID = swap.id
+        defer { cancellingSwapID = nil }
+
+        do {
+            _ = try await cancelSwap(requestID: swap.id, userID: userID)
+        } catch {
+            actionError = error.localizedDescription
+        }
+
+        // Recarrega também na falha: o pedido pode já ter sido respondido.
+        await load()
+    }
+
+    /// Um participante do cômodo aprova ou recusa o pedido de entrada de quem aparece no aviso.
+    func answerAccess(_ notification: AppNotification, approve: Bool) async {
+
+        guard let answerRoomAccess, answeringNotificationID == nil,
+              let roomID = notification.roomID, let requesterID = notification.actorUserID
+        else { return }
+
+        answeringNotificationID = notification.id
+        defer { answeringNotificationID = nil }
+
+        do {
+            try await answerRoomAccess(
+                roomID: roomID, requesterID: requesterID, answeredBy: userID, approve: approve
+            )
+        } catch {
+            actionError = error.localizedDescription
+        }
+
+        await load()
     }
 
     private func respond(

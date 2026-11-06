@@ -42,6 +42,15 @@ class AuthService: ObservableObject {
         case failed(String)
     }
 
+    /// Resultado de trocar a senha de quem já está logado (Ajustes › Conta).
+    enum PasswordChangeOutcome: Equatable {
+        case done
+        case offline
+        /// A senha atual não confere.
+        case wrongPassword
+        case failed(String)
+    }
+
     enum ConfirmSignUpOutcome: Equatable {
         case confirmed
         case failed(String)
@@ -255,6 +264,31 @@ class AuthService: ObservableObject {
             }
         } catch {
             print("Erro ao confirmar redefinição: \(error)")
+            return .failed(Self.message(for: error))
+        }
+    }
+
+    /// Troca a senha de quem entrou com e-mail e senha. A senha atual é conferida pelo Cognito.
+    func changePassword(oldPassword: String, newPassword: String) async -> PasswordChangeOutcome {
+        guard !oldPassword.isEmpty else { return .failed(String(localized: "Informe a senha atual.")) }
+        guard !newPassword.isEmpty else { return .failed(String(localized: "Informe a senha nova.")) }
+        guard newPassword != oldPassword else {
+            return .failed(String(localized: "A senha nova precisa ser diferente da atual."))
+        }
+        do {
+            try await client.updatePassword(oldPassword: oldPassword, newPassword: newPassword)
+            return .done
+        } catch let error as AuthError {
+            print("Erro ao trocar a senha: \(error)")
+            if case .notAuthorized = error { return .wrongPassword }
+            switch Self.cognitoError(error) {
+            case .network: return .offline
+            case .invalidPassword: return .failed(String(localized: "Senha fraca. \(Self.passwordRules)"))
+            case .invalidParameter: return .failed(String(localized: "Senha fraca. \(Self.passwordRules)"))
+            default: return .failed(Self.message(for: error))
+            }
+        } catch {
+            print("Erro ao trocar a senha: \(error)")
             return .failed(Self.message(for: error))
         }
     }

@@ -171,6 +171,109 @@ final class RemoteHouseSession: ObservableObject {
         }
     }
 
+    /// Muda o nome da casa (`PATCH /v1/houses/{id}`). Qualquer morador pode. `true` = salvou; senão `errorMessage` traz o motivo.
+    func renameHouse(to name: String) async -> Bool {
+        let newName = name.trimmed
+        guard let house else { return false }
+        guard !newName.isEmpty else {
+            errorMessage = String(localized: "A casa precisa de um nome.")
+            return false
+        }
+        guard newName != house.name else { return true }
+        var saved = false
+        await perform { api in
+            self.apply(try await api.patch(MyHouseDTO.self, "v1/houses/\(house.id.apiString)", body: RenameBody(name: newName)))
+            saved = true
+        }
+        return saved
+    }
+
+    /// Troca (`jpeg`) ou tira (`nil`) a foto do perfil. A foto vai direto ao S3 por URL pré-assinada e o servidor só
+    /// confirma a chave. `true` = salvou; senão `errorMessage` traz o motivo.
+    func updatePhoto(jpeg: Data?) async -> Bool {
+        var saved = false
+        await perform { api in
+            guard let jpeg else {
+                try await api.send("DELETE", "v1/me/photo")
+                saved = true
+                return
+            }
+            let target = try await api.post(PhotoUploadTargetDTO.self, "v1/me/photo")
+            var request = URLRequest(url: target.uploadURL)
+            request.httpMethod = "PUT"
+            request.httpBody = jpeg
+            request.timeoutInterval = 60
+            for (name, value) in target.headers { request.setValue(value, forHTTPHeaderField: name) }
+            let (_, response) = try await api.transport.data(for: request)
+            guard (200..<300).contains(response.statusCode) else { throw APIError.http(status: response.statusCode, code: "photo_upload_failed") }
+            try await api.send("PUT", "v1/me/photo", body: ConfirmPhotoBody(key: target.key))
+            saved = true
+        }
+        if saved { await refresh() }
+        return saved
+    }
+
+    /// Muda o nome do morador logado (`PATCH /v1/me`). `true` = salvou; senão `errorMessage` traz o motivo.
+    func updateMyName(to name: String) async -> Bool {
+        let newName = name.trimmed
+        guard let me else { return false }
+        guard !newName.isEmpty else {
+            errorMessage = String(localized: "Informe um nome válido.")
+            return false
+        }
+        guard newName != me.name else { return true }
+        var saved = false
+        await perform { api in
+            _ = try await api.patch(RegisteredAccountDTO.self, "v1/me", body: RenameBody(name: newName))
+            self.me = User(id: me.id, name: newName, email: me.email, photoURL: me.photoURL)
+            if let home = self.home {
+                let members = home.members.map {
+                    $0.id == me.id ? User(id: $0.id, name: newName, email: $0.email, photoURL: $0.photoURL) : $0
+                }
+                self.home = Home(house: home.house, members: members, rooms: home.rooms)
+            }
+            saved = true
+        }
+        return saved
+    }
+
+    /// Cria os primeiros cômodos da casa e as tarefas sugeridas de cada um (passo do onboarding). Usa as mesmas rotas
+    /// de Criar Cômodo e Criar Tarefa; se alguma falhar, para e devolve quantos cômodos já nasceram (o app segue para a
+    /// casa, onde o "+" cria o resto). Tarefa sugerida entra como "Repetir com o cômodo".
+    func createStarterRooms(_ starters: [StarterRoom]) async -> Int {
+        guard let api, let house else { return 0 }
+        var created = 0
+        do {
+            for starter in starters {
+                let periodicity = WeeklyPeriodicity()
+                let room = try await api.post(
+                    RoomDTO.self, "v1/houses/\(house.id.apiString)/rooms",
+                    body: CreateRoomBody(
+                        name: starter.name, visibility: .common, category: starter.category,
+                        periodicity: PeriodicityDTO(periodicity), responsibleCount: 1,
+                        icon: starter.icon, color: starter.color, participantIDs: nil
+                    )
+                )
+                created += 1
+                for suggestion in starter.suggestedTasks() {
+                    _ = try await api.post(
+                        TaskDefinitionDTO.self, "v1/rooms/\(room.id.apiString)/tasks",
+                        body: CreateTaskBody(
+                            name: suggestion.name, details: suggestion.details, effort: suggestion.effort.points,
+                            kind: .recurring, recurrence: RecurrenceDTO(.weekly(periodicity)),
+                            assignmentPolicy: .balancedAutomatically, followsRoom: true
+                        )
+                    )
+                }
+            }
+        } catch {
+            errorMessage = Self.message(for: error)
+        }
+        await dataCache?.invalidate()
+        await refresh()
+        return created
+    }
+
     /// Apaga a conta no servidor: sai da casa (o último morador leva a casa junto), desvincula o WhatsApp, remove o
     /// perfil e o usuário no Cognito. Repetir é seguro. `true` = a conta acabou; o app só encerra a sessão local.
     func deleteAccountOnServer() async -> Bool {
@@ -202,7 +305,7 @@ final class RemoteHouseSession: ObservableObject {
         home = Home(house: dto.house.domain, members: dto.members.map(\.domain), rooms: dto.rooms.map(\.domain))
         // `GET /v1/me` só devolve o id: o nome vem da lista de moradores.
         if let me, let mine = dto.members.first(where: { $0.id == me.id }) {
-            self.me = User(id: me.id, name: mine.name, email: nil)
+            self.me = User(id: me.id, name: mine.name, email: nil, photoURL: mine.photoURL)
         }
     }
 

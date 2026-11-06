@@ -1,3 +1,4 @@
+import Amplify
 import Foundation
 import Testing
 @testable import grupuxo
@@ -7,15 +8,18 @@ private struct FakeSessionError: Error {}
 private final class FakeAuthSessionClient: AuthSessionClient {
     let fetchResult: Result<AuthSessionSnapshot, FakeSessionError>
     let signOutOutcome: AuthSignOutOutcome
+    let updatePasswordError: (any Error)?
     private let stream: AsyncStream<AuthSessionEvent>
     private let continuation: AsyncStream<AuthSessionEvent>.Continuation
 
     init(
         fetch: Result<AuthSessionSnapshot, FakeSessionError>,
-        signOut: AuthSignOutOutcome = .complete
+        signOut: AuthSignOutOutcome = .complete,
+        updatePasswordError: (any Error)? = nil
     ) {
         self.fetchResult = fetch
         self.signOutOutcome = signOut
+        self.updatePasswordError = updatePasswordError
         (stream, continuation) = AsyncStream.makeStream()
     }
 
@@ -26,6 +30,9 @@ private final class FakeAuthSessionClient: AuthSessionClient {
     func fetchSession() async throws -> AuthSessionSnapshot { try fetchResult.get() }
     func signOut() async -> AuthSignOutOutcome { signOutOutcome }
     func clearStaleSession() async {}
+    func updatePassword(oldPassword: String, newPassword: String) async throws {
+        if let updatePasswordError { throw updatePasswordError }
+    }
     func events() -> AsyncStream<AuthSessionEvent> { stream }
     func send(_ event: AuthSessionEvent) { continuation.yield(event) }
 }
@@ -111,6 +118,67 @@ struct AuthServiceSessionTests {
         #expect(service.isSignedIn)
         await service.signOut()
         #expect(!service.isSignedIn)
+    }
+}
+
+@MainActor
+struct ChangePasswordTests {
+    private let valid = AuthSessionSnapshot(isSignedIn: true, tokens: .valid)
+
+    private func service(failing error: (any Error)? = nil) -> AuthService {
+        AuthService(client: FakeAuthSessionClient(fetch: .success(valid), updatePasswordError: error))
+    }
+
+    @Test func changingThePasswordSucceeds() async {
+        let outcome = await service().changePassword(oldPassword: "Velha#123", newPassword: "Nova#12345")
+        #expect(outcome == .done)
+    }
+
+    @Test func emptyOrRepeatedPasswordsNeverReachCognito() async {
+        let service = service(failing: FakeSessionError())
+        #expect(await service.changePassword(oldPassword: "", newPassword: "Nova#12345") != .done)
+        #expect(await service.changePassword(oldPassword: "Velha#123", newPassword: "") != .done)
+        let same = await service.changePassword(oldPassword: "Mesma#123", newPassword: "Mesma#123")
+        #expect(same == .failed(String(localized: "A senha nova precisa ser diferente da atual.")))
+    }
+
+    @Test func aWrongCurrentPasswordIsReportedAsSuch() async {
+        let notAuthorized = AuthError.notAuthorized("x", "y", nil)
+        let outcome = await service(failing: notAuthorized).changePassword(oldPassword: "Errada#1", newPassword: "Nova#12345")
+        #expect(outcome == .wrongPassword)
+    }
+
+    @Test func anyOtherFailureKeepsAFriendlyMessage() async {
+        let outcome = await service(failing: FakeSessionError()).changePassword(oldPassword: "Velha#123", newPassword: "Nova#12345")
+        guard case .failed(let text) = outcome else { Issue.record("esperava falha"); return }
+        #expect(!text.isEmpty)
+    }
+
+    @Test func viewModelRequiresMatchingNewPasswords() async {
+        var calls = 0
+        let viewModel = ChangePasswordViewModel { _, _ in calls += 1; return .done }
+        viewModel.oldPassword = "Velha#123"
+        viewModel.newPassword = "Nova#12345"
+        viewModel.confirmation = "Outra#12345"
+        await viewModel.save()
+        #expect(calls == 0)
+        #expect(viewModel.message == String(localized: "As senhas novas não são iguais."))
+        #expect(!viewModel.didChange)
+
+        viewModel.confirmation = "Nova#12345"
+        await viewModel.save()
+        #expect(calls == 1)
+        #expect(viewModel.didChange)
+    }
+
+    @Test func viewModelShowsTheWrongPasswordMessage() async {
+        let viewModel = ChangePasswordViewModel { _, _ in .wrongPassword }
+        viewModel.oldPassword = "Errada#1"
+        viewModel.newPassword = "Nova#12345"
+        viewModel.confirmation = "Nova#12345"
+        await viewModel.save()
+        #expect(viewModel.message == String(localized: "A senha atual não confere."))
+        #expect(!viewModel.didChange)
     }
 }
 

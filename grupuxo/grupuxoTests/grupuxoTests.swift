@@ -145,6 +145,7 @@ struct SchedulingTests {
         let (store, repository, original, _) = fixture()
         var definition = original
         definition.assignmentPolicy = .afterCompletion
+        definition.recurrence = .none   // "Após conclusão" antiga: sem intervalo, sem prazo.
         let saved = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
         let initial = await store.read { $0.schedule }
         #expect(initial.occurrences.count == 1)
@@ -158,6 +159,92 @@ struct SchedulingTests {
         #expect(final.occurrences.filter { !$0.isCompleted }.count == 1)
         #expect(final.assignments.last?.userID == saved.rotationQueue[1])
         #expect(final.definitions[0].currentRotationIndex == 2)
+    }
+
+    /// Repetição própria (docs/DESIGN.md): cada janela dura 2 dias, não dá para fazer antes de abrir e a próxima abre
+    /// um intervalo depois da conclusão.
+    @Test func ownRepetitionOpensATwoDayWindowCountedFromCompletion() async throws {
+        let (store, repository, original, calendar) = fixture()
+        var definition = original
+        definition.assignmentPolicy = .afterCompletion
+        definition.recurrence = .recurring(frequency: .weekly, interval: 1)
+        let saved = try await repository.create(definition, requestedBy: MockSeed.currentUser.id, at: date)
+        #expect(saved.recurrence == .recurring(frequency: .weekly, interval: 1), "o intervalo da repetição própria é mantido")
+        let first = await store.read { $0.schedule }
+        let opening = try #require(first.occurrences.first)
+        #expect(opening.availableAt == date)
+        #expect(opening.dueAt == calendar.date(byAdding: .day, value: 2, to: calendar.startOfDay(for: date)))
+
+        // Fez com um dia de atraso: a próxima janela abre uma semana depois da conclusão, não do calendário.
+        let completedAt = calendar.date(byAdding: .day, value: 1, to: date)!
+        let assignment = try #require(first.assignments.first)
+        try await repository.complete(occurrenceID: opening.id, by: assignment.userID, at: completedAt)
+        let next = try #require(await store.read { $0.occurrences.last })
+        let expectedOpening = calendar.startOfDay(for: calendar.date(byAdding: .weekOfYear, value: 1, to: completedAt)!)
+        #expect(next.availableAt == expectedOpening)
+        #expect(next.dueAt == calendar.date(byAdding: .day, value: 2, to: expectedOpening))
+        let successor = try #require(await store.read { $0.assignments.last })
+        #expect(successor.userID == saved.rotationQueue[1], "a janela passa para a próxima pessoa da fila")
+
+        // Não dá para fazer antes de abrir; depois de aberta, sim (e abre a seguinte).
+        await #expect(throws: DomainError.taskUnavailable) {
+            try await repository.complete(occurrenceID: next.id, by: successor.userID, at: completedAt)
+        }
+        try await repository.complete(occurrenceID: next.id, by: successor.userID, at: expectedOpening)
+        let after = await store.read { $0.occurrences }
+        #expect(after.count == 3)
+        #expect(after.last?.availableAt == calendar.startOfDay(for: calendar.date(byAdding: .weekOfYear, value: 1, to: expectedOpening)!))
+    }
+
+    /// "Quem faz uma tarefa única pula a vez na próxima tarefa de repetição própria" (uma vez só).
+    @Test func completingASporadicTaskSkipsTheNextOwnRepetitionTurn() async throws {
+        let (store, repository, original, _) = fixture()
+        var own = original
+        own.assignmentPolicy = .afterCompletion
+        own.recurrence = .recurring(frequency: .weekly, interval: 1)
+        let saved = try await repository.create(own, requestedBy: MockSeed.currentUser.id, at: date)
+        let queue = saved.rotationQueue
+        let first = try #require(await store.read { $0.assignments.first })
+        #expect(first.userID == queue[0])
+
+        // Quem seria o próximo da fila faz uma tarefa única do cômodo.
+        let skipped = queue[1]
+        let sporadic = TaskDefinition(
+            id: UUID(), roomID: original.roomID, name: "Trocar lâmpada", details: "", effort: TaskEffort(points: 1),
+            kind: .sporadic, recurrence: .none, assignmentPolicy: .selfAssigned
+        )
+        _ = try await repository.create(sporadic, requestedBy: MockSeed.currentUser.id, at: date)
+        let sporadicID = sporadic.id
+        let sporadicOccurrence = try #require(await store.read { $0.occurrences.first { $0.taskDefinitionID == sporadicID } })
+        try await repository.claim(occurrenceID: sporadicOccurrence.id, by: skipped, at: date)
+        try await repository.complete(occurrenceID: sporadicOccurrence.id, by: skipped, at: date)
+        #expect(await store.read { $0.roomMemberships.first { $0.roomID == sporadic.roomID && $0.userID == skipped }?.skipsNextOwnTurn } == true)
+
+        // A janela seguinte pula essa pessoa; a marca é consumida e ela volta à fila normalmente.
+        try await repository.complete(occurrenceID: first.occurrenceID, by: first.userID, at: date)
+        let next = try #require(await store.read { $0.assignments.last })
+        #expect(next.userID == queue[2])
+        #expect(await store.read { $0.roomMemberships.first { $0.roomID == sporadic.roomID && $0.userID == skipped }?.skipsNextOwnTurn } == false)
+        let definitionAfter = try #require(await store.read { $0.definitions.first { $0.id == saved.id } })
+        #expect(definitionAfter.currentRotationIndex == 3)
+    }
+
+    @Test func followsRoomIsExplicitAndFallsBackToThePeriodicityForOldDefinitions() async throws {
+        let room = Room(id: UUID(), houseID: UUID(), name: "Cozinha", kind: .standard, visibility: .common)
+        let periodicity = room.periodicity
+        var task = TaskDefinition(
+            id: UUID(), roomID: room.id, name: "Louça", details: "", effort: TaskEffort(points: 1), kind: .recurring,
+            recurrence: .weekly(periodicity), assignmentPolicy: .balancedAutomatically
+        )
+        #expect(task.followsRoom == nil)
+        #expect(task.isLinked(to: room), "definição antiga: a periodicidade igual à do cômodo liga a tarefa")
+        task.followsRoom = false
+        #expect(!task.isLinked(to: room), "o campo explícito vale mais que a periodicidade")
+        task.followsRoom = true
+        task.recurrence = .recurring(frequency: .daily, interval: 1)
+        #expect(task.isLinked(to: room), "acompanha o cômodo mesmo que a recorrência guardada seja outra")
+        task.assignmentPolicy = .afterCompletion
+        #expect(!task.isLinked(to: room), "repetição própria nunca acompanha o cômodo")
     }
 
     @Test func sporadicCompletionUsesFairnessWithoutRecurrence() async throws {

@@ -68,6 +68,32 @@ struct RemoteTaskEditTests {
         #expect(await server.string("details", inBody: patchIndex) == "Chuveiro")
     }
 
+    @Test func sendsTheEffortAndTheRecurrenceOnlyWhenTheyChange() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me/sporadic-tasks", body: listing())
+        let tasks = repository(server)
+        _ = try await tasks.sporadicTasks(in: UUID(), requesting: user)
+        await server.on("PATCH \(path)", status: 204, body: "")
+        await server.on("GET \(path)", body: definitionJSON(name: "Louça", details: ""))
+        let id = UUID(uuidString: taskID)!
+
+        _ = try await tasks.updateTaskDetails(
+            id: id, name: "Louça", details: "", effort: TaskEffort(points: 3),
+            recurrence: .recurring(frequency: .monthly, interval: 1), requestedBy: user
+        )
+        let first = try #require(await server.keys().firstIndex(of: "PATCH \(path)"))
+        #expect(await server.bodyHas("effort", at: first))
+        #expect(await server.bodyHas("recurrence", at: first))
+
+        // A sobrecarga antiga (só nome e descrição) não manda esforço nem repetição.
+        await server.on("PATCH \(path)", status: 204, body: "")
+        _ = try await tasks.updateTaskDetails(id: id, name: "Louça", details: "", requestedBy: user)
+        let second = try #require(await server.keys().lastIndex(of: "PATCH \(path)"))
+        #expect(second != first)
+        #expect(await !server.bodyHas("effort", at: second))
+        #expect(await !server.bodyHas("recurrence", at: second))
+    }
+
     @Test func deletesASporadicTaskWithDelete() async throws {
         let server = FakeServer()
         await server.on("GET /v1/me/sporadic-tasks", body: listing())

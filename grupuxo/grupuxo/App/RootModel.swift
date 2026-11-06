@@ -12,9 +12,13 @@ final class RootModel: ObservableObject {
     let container: AppContainer
     let session: AppSession
 
+    /// Avaliar a semana e Resumo da semana (Minhas tarefas); vive com a casa, não com a tela.
+    let weekRating: WeekRatingViewModel
+
     init(container: AppContainer, session: AppSession) {
         self.container = container
         self.session = session
+        self.weekRating = container.makeWeekRatingViewModel(session: session)
     }
 
     convenience init(api: APIClient, user: User, house: House, myHouse: MyHouseCache? = nil) {

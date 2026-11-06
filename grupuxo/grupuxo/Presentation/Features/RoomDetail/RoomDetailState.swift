@@ -15,7 +15,8 @@ enum RoomDetailState: Equatable {
 }
 
 /// Filtro do seletor "Agora / Todas" da tela do cômodo: "Agora" traz o que já está valendo no ciclo
-/// (inclusive o já concluído); "Todas" traz também o agendado para datas futuras.
+/// (inclusive o já concluído) e o que ainda abre nesta semana ("Começa sábado"); "Todas" traz também
+/// o agendado para datas posteriores.
 enum RoomTaskFilter: Hashable, CaseIterable {
     case now
     case all
@@ -24,6 +25,20 @@ enum RoomTaskFilter: Hashable, CaseIterable {
         switch self {
         case .now: String(localized: "Agora")
         case .all: String(localized: "Todas")
+        }
+    }
+
+    /// Se uma ocorrência que abre em `availableAt` aparece neste filtro. A semana começa na segunda.
+    func includes(availableAt: Date, now: Date) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .now:
+            if availableAt <= now { return true }
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.firstWeekday = 2
+            guard let weekEnd = calendar.dateInterval(of: .weekOfYear, for: now)?.end else { return false }
+            return availableAt < weekEnd
         }
     }
 }
@@ -43,10 +58,7 @@ struct RoomDetailSections: Equatable {
     init(content: RoomDetailContent, filter: RoomTaskFilter, now: Date) {
 
         let visible = content.tasks.filter { item in
-            switch filter {
-            case .all: true
-            case .now: item.occurrence.availableAt <= now
-            }
+            filter.includes(availableAt: item.occurrence.availableAt, now: now)
         }
 
         cycle = visible.filter {

@@ -1,15 +1,16 @@
 import { at, uniqueMap } from "../arrays.ts";
 import type { Instant } from "../dates.ts";
 import {
-  isActiveAssignment, sortedByDeadline, taskItem, type AppNotification, type Room, type TaskItem, type TaskSwapRequest,
+  isActiveAssignment, sortedByDeadline, taskItem, type Room, type TaskItem, type TaskSwapRequest,
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
 import {
-  notificationID, taskAssignmentID, taskSwapRequestID, type HouseID, type TaskOccurrenceID, type TaskSwapRequestID, type UserID,
+  taskAssignmentID, taskSwapRequestID, type HouseID, type TaskOccurrenceID, type TaskSwapRequestID, type UserID,
 } from "../ids.ts";
 import { TaskSwapEligibilityPolicy } from "../services/eligibility.ts";
 import type { StoreState } from "../store-state.ts";
 import type { CommandContext } from "./context.ts";
+import { buildNotification } from "./notifications.ts";
 
 const policy = new TaskSwapEligibilityPolicy();
 
@@ -101,14 +102,21 @@ export function createSwapRequest(
     status: "pending", createdAt: date, resolvedAt: null,
   };
   state.taskSwapRequests.push(request);
-  state.notifications.push(notification(ctx, receiverID, "taskSwapRequested", request.id, date));
+  state.notifications.push(buildNotification(ctx, receiverID, offeredRoom.houseID, "taskSwapRequested", date, {
+    swapRequestID: request.id, actorUserID: requesterID,
+  }));
   return request;
 }
 
-function notification(
-  ctx: CommandContext, recipientUserID: UserID, kind: AppNotification["kind"], swapRequestID: TaskSwapRequestID, date: Instant,
-): AppNotification {
-  return { id: notificationID(ctx.newID()), recipientUserID, kind, swapRequestID, createdAt: date, readAt: null };
+/** Casa de um pedido de troca (a do cômodo da ocorrência oferecida). */
+function houseOfSwap(state: StoreState, request: TaskSwapRequest): HouseID {
+  const offered = itemFor(state, request.offeredOccurrenceID);
+  const requested = itemFor(state, request.requestedOccurrenceID);
+  const room = offered === undefined ? undefined : roomOf(state, offered);
+  const other = requested === undefined ? undefined : roomOf(state, requested);
+  const houseID = room?.houseID ?? other?.houseID;
+  if (houseID === undefined) throw new DomainError("entityNotFound");
+  return houseID;
 }
 
 /** Mais recentes primeiro; empates mantêm a ordem de inserção. */
@@ -168,7 +176,26 @@ export function acceptSwapRequest(
   });
   const updated: TaskSwapRequest = { ...request, status: "accepted", resolvedAt: date };
   state.taskSwapRequests[index] = updated;
-  state.notifications.push(notification(ctx, request.requesterID, "taskSwapAccepted", request.id, date));
+  state.notifications.push(buildNotification(ctx, request.requesterID, offeredRoom.houseID, "taskSwapAccepted", date, {
+    swapRequestID: request.id, actorUserID: userID,
+  }));
+  return updated;
+}
+
+/**
+ * Quem pediu desiste enquanto o pedido está pendente: o pedido vira `cancelled` e o aviso que a outra pessoa recebeu
+ * ("quer trocar") sai, para ninguém ver um pedido que não existe mais. Só o solicitante, só pendente (`taskUnavailable`).
+ */
+export function cancelSwapRequest(
+  state: StoreState, requestID: TaskSwapRequestID, userID: UserID, date: Instant,
+): TaskSwapRequest {
+  const index = state.taskSwapRequests.findIndex((r) => r.id === requestID);
+  const request = state.taskSwapRequests[index];
+  if (request === undefined) throw new DomainError("entityNotFound");
+  if (request.status !== "pending" || request.requesterID !== userID) throw new DomainError("taskUnavailable");
+  const updated: TaskSwapRequest = { ...request, status: "cancelled", resolvedAt: date };
+  state.taskSwapRequests[index] = updated;
+  state.notifications = state.notifications.filter((n) => n.swapRequestID !== requestID);
   return updated;
 }
 
@@ -178,7 +205,9 @@ export function rejectSwapRequest(
   const { index, request } = pendingRequest(state, requestID, userID);
   const updated: TaskSwapRequest = { ...request, status: "rejected", resolvedAt: date };
   state.taskSwapRequests[index] = updated;
-  state.notifications.push(notification(ctx, request.requesterID, "taskSwapRejected", request.id, date));
+  state.notifications.push(buildNotification(ctx, request.requesterID, houseOfSwap(state, request), "taskSwapRejected", date, {
+    swapRequestID: request.id, actorUserID: userID,
+  }));
   return updated;
 }
 

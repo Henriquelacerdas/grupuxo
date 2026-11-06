@@ -61,6 +61,68 @@ struct MockRoomRepository: RoomRepository {
         return result
     }
 
+    func update(roomID: Room.ID, patch: RoomPatch, requestedBy userID: User.ID, at date: Date) async throws -> Room {
+        try await store.update { state in
+            let index = try editableRoomIndex(roomID, userID: userID, state: state)
+            if let name = patch.name { state.rooms[index].name = name }
+            if let category = patch.category { state.rooms[index].category = category }
+            if let icon = patch.icon { state.rooms[index].icon = icon }
+            if let color = patch.color { state.rooms[index].color = color }
+            if let periodicity = patch.periodicity { state.rooms[index].periodicity = periodicity }
+            if let count = patch.responsibleCount { state.rooms[index].responsibleCount = count }
+            guard state.rooms[index].periodicity.isValid, state.rooms[index].responsibleCount > 0 else {
+                throw DomainError.invalidSchedule
+            }
+            if patch.periodicity != nil || patch.responsibleCount != nil {
+                var schedule = state.schedule
+                let houseID = state.rooms[index].houseID
+                try scheduling.rebalance(
+                    houseID: houseID, boundary: try scheduling.addingWeeks(1, to: try scheduling.weekStart(date)),
+                    at: date, state: &schedule
+                )
+                state.schedule = schedule
+            }
+            return state.rooms.first { $0.id == roomID }!
+        }
+    }
+
+    func delete(roomID: Room.ID, requestedBy userID: User.ID, at date: Date, confirmDeletion: Bool) async throws {
+        try await store.update { state in
+            _ = try editableRoomIndex(roomID, userID: userID, state: state)
+            guard confirmDeletion else { throw DomainError.deletionConfirmationRequired }
+            let definitionIDs = Set(state.definitions.filter { $0.roomID == roomID }.map(\.id))
+            let occurrenceIDs = Set(state.occurrences.filter { definitionIDs.contains($0.taskDefinitionID) }.map(\.id))
+            let swapIDs = Set(state.taskSwapRequests.filter {
+                occurrenceIDs.contains($0.offeredOccurrenceID) || occurrenceIDs.contains($0.requestedOccurrenceID)
+            }.map(\.id))
+            state.assignments.removeAll { occurrenceIDs.contains($0.occurrenceID) }
+            state.occurrences.removeAll { definitionIDs.contains($0.taskDefinitionID) }
+            state.definitions.removeAll { definitionIDs.contains($0.id) }
+            state.roomMemberships.removeAll { $0.roomID == roomID }
+            state.roomAccessRequests.removeAll { $0.roomID == roomID }
+            state.taskSwapRequests.removeAll { swapIDs.contains($0.id) }
+            state.notifications.removeAll { notice in
+                notice.swapRequestID.map(swapIDs.contains) == true
+                    || notice.taskDefinitionID.map(definitionIDs.contains) == true
+                    || notice.roomID == roomID
+            }
+            state.rooms.removeAll { $0.id == roomID }
+        }
+    }
+
+    /// O cômodo que o morador pode alterar: da casa dele, privado só se participa; "Casa toda" não se altera.
+    private func editableRoomIndex(_ roomID: Room.ID, userID: User.ID, state: MockStore.State) throws -> Int {
+        guard let index = state.rooms.firstIndex(where: { $0.id == roomID }) else { throw DomainError.entityNotFound }
+        let room = state.rooms[index]
+        guard state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }) else {
+            throw DomainError.entityNotFound
+        }
+        let participates = state.roomMemberships.contains { $0.roomID == roomID && $0.userID == userID && $0.isCurrent }
+        if room.visibility == .privateRoom && !participates { throw DomainError.entityNotFound }
+        if room.representsWholeHouse { throw DomainError.wholeHouseProtected }
+        return index
+    }
+
     func create(_ room: Room, memberships: [RoomMembership]) async throws -> Room {
         try await store.update { state in
             let users = Set(state.houseMemberships.filter { $0.houseID == room.houseID }.map(\.userID))

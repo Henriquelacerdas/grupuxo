@@ -10,18 +10,48 @@ final class TaskEditorViewModel: ObservableObject {
     private let getHouseRooms: GetHouseRoomsUseCase
     private let houseID: House.ID
     private let requestingUserID: User.ID
+    /// Tarefa sendo editada; `nil` = criando uma nova. O cômodo, o tipo (única ou recorrente) e "Repetir com o
+    /// cômodo" não mudam na edição; só nome, descrição, esforço e, na repetição própria, o intervalo.
+    private let editing: TaskDefinition?
+    private let updateTask: UpdateTaskDetailsUseCase?
+
+    var isEditing: Bool { editing != nil }
+
+    /// O formulário como abriu: a edição só salva se algo mudou.
+    let initialDraft: TaskDraft
+
+    /// Só a repetição própria (política por conclusão) muda o intervalo.
+    var canEditRecurrence: Bool {
+        guard let editing else { return true }
+        return editing.kind == .recurring && editing.assignmentPolicy == .afterCompletion
+    }
 
     init(
         createTask: CreateTaskUseCase,
         getHouseRooms: GetHouseRoomsUseCase,
         houseID: House.ID,
         requestingUserID: User.ID,
-        draft: TaskDraft
+        draft: TaskDraft,
+        editing: TaskDefinition? = nil,
+        updateTask: UpdateTaskDetailsUseCase? = nil
     ) {
         self.createTask = createTask
         self.getHouseRooms = getHouseRooms
         self.houseID = houseID
         self.requestingUserID = requestingUserID
+        self.editing = editing
+        self.updateTask = updateTask
+        var draft = draft
+        if let editing {
+            draft = TaskDraft(
+                name: editing.name, details: editing.details, roomID: editing.roomID,
+                effortPoints: editing.effort.points, sourceSuggestionID: editing.sourceSuggestionID,
+                kind: editing.kind, recurrence: editing.recurrence, assignmentPolicy: editing.assignmentPolicy,
+                // Definição antiga (sem o campo): decidida quando os cômodos carregam (`loadRooms`).
+                followsRoom: editing.followsRoom ?? (editing.kind == .recurring && editing.assignmentPolicy != .afterCompletion)
+            )
+        }
+        initialDraft = draft
         state = .editing(draft)
     }
 
@@ -31,7 +61,11 @@ final class TaskEditorViewModel: ObservableObject {
                 houseID: houseID, userID: requestingUserID, participatingOnly: true
             )
             var draft = state.draft
-            syncWithRoom(&draft)
+            if let editing, editing.followsRoom == nil, let room = rooms.first(where: { $0.id == editing.roomID }) {
+                draft.followsRoom = editing.isLinked(to: room)
+            }
+            // Ao editar, a recorrência guardada é a verdade (a da repetição própria não deriva do cômodo).
+            if !isEditing || draft.followsRoom { syncWithRoom(&draft) }
             if draft != state.draft { state = .editing(draft) }
         } catch is CancellationError {
             // A tela saiu antes da resposta.
@@ -116,23 +150,51 @@ final class TaskEditorViewModel: ObservableObject {
         draft.recurrence = .weekly(room.periodicity)
     }
 
+    /// Grava a edição: só o que mudou vai ao servidor (esforço e intervalo só quando mudam).
+    private func saveEdit(_ definition: TaskDefinition, draft: TaskDraft) async {
+        state = .saving(draft)
+        let effort = draft.effortPoints == definition.effort.points ? nil : TaskEffort(points: draft.effortPoints)
+        let recurrence = canEditRecurrence && draft.recurrence != definition.recurrence ? draft.recurrence : nil
+        do {
+            guard let updateTask else { throw APIError.unsupported }
+            let updated = try await updateTask(
+                id: definition.id, name: draft.name, details: draft.details, effort: effort,
+                recurrence: recurrence, requestedBy: requestingUserID
+            )
+            state = .saved(updated)
+        } catch {
+            state = .failure(draft, error.localizedDescription)
+        }
+    }
+
     func save() async {
         switch state {
         case .saving, .saved: return
         case .editing, .failure: break
         }
         let draft = state.draft
+        if let editing {
+            await saveEdit(editing, draft: draft)
+            return
+        }
         guard let roomID = draft.roomID else {
             state = .failure(draft, String(localized: "Selecione um cômodo."))
             return
         }
         state = .saving(draft)
+        let isOwnRepetition = draft.kind == .recurring && !draft.followsRoom
+        // Repetição própria (docs/DESIGN.md): cada vez a pessoa tem 2 dias e a próxima abre um intervalo depois de
+        // feita. É a política "por conclusão" com o intervalo escolhido.
+        let policy: TaskAssignmentPolicy = isOwnRepetition
+            && [.balancedAutomatically, .calendarRotation].contains(draft.assignmentPolicy)
+            ? .afterCompletion : draft.assignmentPolicy
         let definition = TaskDefinition(
             id: UUID(), roomID: roomID, name: draft.name, details: draft.details,
             effort: TaskEffort(points: draft.effortPoints), kind: draft.kind,
-            recurrence: draft.recurrence, assignmentPolicy: draft.assignmentPolicy,
+            recurrence: draft.recurrence, assignmentPolicy: policy,
             sourceSuggestionID: draft.sourceSuggestionID,
-            createdByUserID: requestingUserID
+            createdByUserID: requestingUserID,
+            followsRoom: draft.kind == .recurring ? draft.followsRoom : nil
         )
         do {
             state = .saved(try await createTask(definition: definition, requestedBy: requestingUserID))

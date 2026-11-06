@@ -1,8 +1,8 @@
 import GrupuxoDomain
 import SwiftUI
 
-/// Casa: nome, código de convite, moradores e sair da casa. Nome e moradores são só leitura; entrar na casa
-/// é pelo código e criar cômodo fica na aba Casa.
+/// Casa: nome (editável por qualquer morador), código de convite, moradores e sair da casa. Entrar na casa é pelo
+/// código e criar cômodo fica na aba Casa.
 struct HouseSettingsView: View {
 
     @EnvironmentObject private var houses: RemoteHouseSession
@@ -84,10 +84,13 @@ struct HouseSettingsView: View {
 
     private func nameSection(_ house: House) -> some View {
 
-        Section {
-            Text(house.name)
-        } header: {
-            Text("Nome da casa").formSectionHeader()
+        EditableNameSection(
+            header: "Nome da casa",
+            placeholder: "Nome da casa",
+            currentName: house.name,
+            emptyMessage: String(localized: "A casa precisa de um nome.")
+        ) { name in
+            await houses.renameHouse(to: name)
         }
     }
 

@@ -75,9 +75,10 @@ struct RoomCreationSheetView: View {
             == .privateRoom
     }
 
-    /// O alerta de descartar só existe se há algo preenchido.
+    /// O alerta de descartar só existe se há algo preenchido (ou, ao editar, se algo mudou).
     private var isDirty: Bool {
-        !trimmedName.isEmpty
+        if viewModel.isEditing { return viewModel.state.draft != viewModel.initialDraft }
+        return !trimmedName.isEmpty
             || appearanceEdited
             || cycleKind != .weekly
             || viewModel.state.draft.responsibleCount != 1
@@ -130,7 +131,7 @@ struct RoomCreationSheetView: View {
             Form {
                 nameSection
                 rotationSection
-                privacySection
+                if !viewModel.isEditing { privacySection }
 
                 if case let .failure(_, message) =
                     viewModel.state {
@@ -145,7 +146,7 @@ struct RoomCreationSheetView: View {
                 }
             }
             .disabled(isSaving)
-            .navigationTitle("Novo Cômodo")
+            .navigationTitle(viewModel.isEditing ? "Editar Cômodo" : "Novo Cômodo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 toolbarContent
@@ -208,7 +209,8 @@ struct RoomCreationSheetView: View {
                 }
             }
             .onAppear {
-                nameFocused = true
+                // Ao editar, o ícone e a cor são os do cômodo: o nome não sugere outros.
+                if viewModel.isEditing { appearanceEdited = true } else { nameFocused = true }
             }
         }
         .task {
@@ -217,7 +219,11 @@ struct RoomCreationSheetView: View {
         }
         .onChange(of: viewModel.state) { _, state in
             if case let .saved(room) = state {
-                showToast(.created(String(localized: "Cômodo “\(room.name)” criado")))
+                showToast(.created(
+                    viewModel.isEditing
+                        ? String(localized: "Cômodo “\(room.name)” atualizado")
+                        : String(localized: "Cômodo “\(room.name)” criado")
+                ))
                 dismiss()
             }
         }
@@ -443,7 +449,9 @@ struct RoomCreationSheetView: View {
                 }
             } message: {
                 Text(
-                    "Ao descartar, nenhum cômodo será criado."
+                    viewModel.isEditing
+                        ? "Ao descartar, as alterações não serão salvas."
+                        : "Ao descartar, nenhum cômodo será criado."
                 )
             }
         }
@@ -452,7 +460,7 @@ struct RoomCreationSheetView: View {
             placement: .confirmationAction
         ) {
             if isSaving {
-                ProgressView("Criando cômodo")
+                ProgressView(viewModel.isEditing ? "Salvando cômodo" : "Criando cômodo")
             } else {
                 saveButton
                     .disabled(!canSave)
@@ -461,7 +469,7 @@ struct RoomCreationSheetView: View {
     }
 
     private var saveButton: some View {
-        Button("Criar cômodo", systemImage: "checkmark") {
+        Button(viewModel.isEditing ? "Salvar cômodo" : "Criar cômodo", systemImage: "checkmark") {
             nameFocused = false
 
             viewModel.updateDraft {
@@ -473,7 +481,7 @@ struct RoomCreationSheetView: View {
             }
         }
         .labelStyle(.iconOnly)
-        .accessibilityLabel("Criar cômodo")
+        .accessibilityLabel(viewModel.isEditing ? "Salvar cômodo" : "Criar cômodo")
         .accessibilityIdentifier("saveRoom")
     }
 
@@ -602,8 +610,7 @@ struct RoomCreationSheetView: View {
 
         case .monthly:
             // O domínio atual representa a periodicidade
-            // em semanas. A interface continua exibindo
-            // exatamente "Mensal", como no design.
+            // em semanas. A interface exibe "Mensalmente".
             intervalWeeks = 4
 
         case .custom:
@@ -710,20 +717,21 @@ private enum RoomCreationCycleKind:
     String,
     CaseIterable,
     Identifiable {
-    case weekly = "Semanal"
-    case biweekly = "Quinzenal"
-    case monthly = "Mensal"
-    case custom = "Personalizado"
+    case weekly
+    case biweekly
+    case monthly
+    case custom
 
     var id: String {
         rawValue
     }
 
+    /// Vocabulário de repetição da Apple (docs/DESIGN.md): nunca "Quinzenal".
     var title: String {
         switch self {
-        case .weekly: String(localized: "Semanal")
-        case .biweekly: String(localized: "Quinzenal")
-        case .monthly: String(localized: "Mensal")
+        case .weekly: String(localized: "Semanalmente")
+        case .biweekly: String(localized: "A cada 2 semanas")
+        case .monthly: String(localized: "Mensalmente")
         case .custom: String(localized: "Personalizado")
         }
     }

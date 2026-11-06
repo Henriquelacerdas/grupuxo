@@ -403,6 +403,34 @@ struct MockTaskSwapRepository: TaskSwapRepository {
         }
     }
 
+    func cancel(
+        requestID: TaskSwapRequest.ID,
+        by userID: User.ID,
+        at date: Date
+    ) async throws -> TaskSwapRequest {
+
+        try await store.update { state in
+
+            guard let requestIndex = state.taskSwapRequests.firstIndex(where: { $0.id == requestID }) else {
+                throw DomainError.entityNotFound
+            }
+
+            let request = state.taskSwapRequests[requestIndex]
+
+            guard request.status == .pending, request.requesterID == userID else {
+                throw DomainError.taskUnavailable
+            }
+
+            state.taskSwapRequests[requestIndex].status = .cancelled
+            state.taskSwapRequests[requestIndex].resolvedAt = date
+
+            // A outra pessoa não vê mais um pedido que não existe.
+            state.notifications.removeAll { $0.swapRequestID == requestID }
+
+            return state.taskSwapRequests[requestIndex]
+        }
+    }
+
     private nonisolated func items(
         from state: MockStore.State
     ) -> [TaskItem] {

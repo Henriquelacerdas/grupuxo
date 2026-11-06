@@ -15,12 +15,20 @@ struct NotificationsView: View {
     @StateObject
     private var viewModel: NotificationsViewModel
 
+    /// Tocar num aviso que aponta para uma tarefa ou um cômodo abre o destino.
+    private let onOpenTask: (TaskDefinition.ID) -> Void
+    private let onOpenRoom: (Room.ID) -> Void
+
     init(
-        viewModel: NotificationsViewModel
+        viewModel: NotificationsViewModel,
+        onOpenTask: @escaping (TaskDefinition.ID) -> Void = { _ in },
+        onOpenRoom: @escaping (Room.ID) -> Void = { _ in }
     ) {
         _viewModel = StateObject(
             wrappedValue: viewModel
         )
+        self.onOpenTask = onOpenTask
+        self.onOpenRoom = onOpenRoom
     }
 
     var body: some View {
@@ -190,6 +198,19 @@ struct NotificationsView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
+
+            if viewModel.canCancelSwaps {
+                Button(role: .destructive) {
+                    Task { await viewModel.cancel(swap) }
+                } label: {
+                    Text("Cancelar pedido")
+                }
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .controlSize(.small)
+                .disabled(viewModel.cancellingSwapID != nil)
+                .padding(.top, DesignSystem.Spacing.extraSmall)
+            }
         }
         .padding(.vertical, DesignSystem.Spacing.extraSmall)
     }
@@ -224,6 +245,11 @@ struct NotificationsView: View {
 
         Button {
             Task { await viewModel.markAsRead(notification) }
+            switch NotificationText.target(for: notification) {
+            case let .task(id): onOpenTask(id)
+            case let .room(id): onOpenRoom(id)
+            case nil: break
+            }
         } label: {
             HStack(alignment: .center, spacing: DesignSystem.Spacing.medium) {
 
@@ -242,6 +268,10 @@ struct NotificationsView: View {
                     Text(notification.createdAt, format: .dateTime.hour().minute())
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+
+                    if notification.kind == .roomAccessRequested, viewModel.canAnswerRoomAccess {
+                        accessButtons(for: notification)
+                    }
                 }
 
                 Spacer(minLength: 0)
@@ -259,47 +289,46 @@ struct NotificationsView: View {
         .buttonStyle(.plain)
     }
 
-    private func message(
-        for notification: AppNotification
-    ) -> String {
+    /// Pedido de entrada em cômodo privado: qualquer participante recusa ou aceita.
+    private func accessButtons(for notification: AppNotification) -> some View {
 
-        if let message = notification.message {
-            return message
-        }
+        HStack(spacing: DesignSystem.Spacing.small) {
+            Button {
+                Task { await viewModel.answerAccess(notification, approve: false) }
+            } label: {
+                Text("Recusar")
+            }
+            .buttonStyle(.bordered)
 
-        switch notification.kind {
-        case .taskEdited:
-            return String(localized: "Uma tarefa foi editada.")
-        case .taskSwapRequested:
-            return String(localized: "Você recebeu uma solicitação de troca de tarefa.")
-        case .taskSwapAccepted:
-            return String(localized: "Sua solicitação de troca de tarefa foi aceita.")
-        case .taskSwapRejected:
-            return String(localized: "Sua solicitação de troca de tarefa foi recusada.")
+            Button {
+                Task { await viewModel.answerAccess(notification, approve: true) }
+            } label: {
+                Text("Aceitar")
+            }
+            .buttonStyle(.borderedProminent)
         }
+        .buttonBorderShape(.capsule)
+        .controlSize(.small)
+        .disabled(viewModel.answeringNotificationID != nil)
+        .padding(.top, DesignSystem.Spacing.extraSmall)
     }
 
-    private func iconName(
-        for notification: AppNotification
-    ) -> String {
-
-        switch notification.kind {
-        case .taskEdited: "pencil"
-        case .taskSwapRequested: "arrow.left.arrow.right"
-        case .taskSwapAccepted: "checkmark"
-        case .taskSwapRejected: "xmark"
-        }
+    private func message(for notification: AppNotification) -> String {
+        NotificationText.message(for: notification, memberNames: viewModel.memberNames)
     }
 
-    private func iconColor(
-        for notification: AppNotification
-    ) -> Color {
+    private func iconName(for notification: AppNotification) -> String {
+        NotificationText.iconName(for: notification.kind)
+    }
 
-        switch notification.kind {
-        case .taskEdited: .orange
-        case .taskSwapRequested: .accentColor
-        case .taskSwapAccepted: .green
-        case .taskSwapRejected: .gray
+    private func iconColor(for notification: AppNotification) -> Color {
+        switch NotificationText.tint(for: notification.kind) {
+        case .accent: .accentColor
+        case .orange: .orange
+        case .green: .green
+        case .gray: .gray
+        case .red: .red
+        case .blue: .blue
         }
     }
 }

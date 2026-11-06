@@ -198,7 +198,7 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     const { existing, definition } = await ownSporadic(world, env, users.leo.id);
     assert.equal(definition.createdByUserID, users.leo.id);
     assert.equal(definition.name, "Trocar lâmpada");
-    const update = new UpdateTaskDetailsUseCase(env.tasks);
+    const update = new UpdateTaskDetailsUseCase(env.tasks, () => world.now);
 
     const edited = await update.execute(definition.roomID, definition.id, { name: " Trocar a lâmpada ", effort: 3 }, users.leo.id);
     assert.deepEqual(edited, { ...definition, name: "Trocar a lâmpada", effort: { points: 3 } });
@@ -207,17 +207,28 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     assert.equal(occurrences.length, 1);
     assert.equal(occurrences[0]?.effortSnapshot.points, 3);
 
+    // A casa toda acompanha o cômodo comum: todos, menos quem editou, recebem "editada" e "esforço mudou".
+    const notices = (await env.state()).notifications.filter((n) => n.taskDefinitionID === definition.id);
+    const recipients = (await env.state()).houseMemberships.map((m) => m.userID).filter((id) => id !== users.leo.id).sort();
+    assert.deepEqual(notices.filter((n) => n.kind === "taskEdited").map((n) => n.recipientUserID).sort(), recipients);
+    assert.deepEqual(notices.filter((n) => n.kind === "effortChanged").map((n) => n.recipientUserID).sort(), recipients);
+    assert.ok(notices.every((n) => n.actorUserID === users.leo.id && n.subjectName === "Trocar a lâmpada" && n.swapRequestID === null));
+
     // Só os campos enviados mudam; esforço fora de 1..3 é limitado.
     assert.equal((await update.execute(definition.roomID, definition.id, { details: "" }, users.leo.id)).details, "");
     assert.equal((await update.execute(definition.roomID, definition.id, { effort: 9 }, users.leo.id)).effort.points, 3);
 
     await assert.rejects(update.execute(definition.roomID, definition.id, { name: "   " }, users.leo.id), code("invalidTaskName"));
-    // Outra pessoa da casa, tarefa sem criador (anterior ao atributo) e recorrente: taskUnavailable.
+    // Outra pessoa da casa e tarefa sem criador (anterior ao atributo): taskUnavailable (a avulsa é de quem criou).
     await assert.rejects(update.execute(definition.roomID, definition.id, { name: "x" }, users.bia.id), code("taskUnavailable"));
     await assert.rejects(update.execute(existing.roomID, existing.id, { name: "x" }, users.leo.id), code("taskUnavailable"));
+    // A recorrente é de quem participa do cômodo; quem não é da casa não edita.
     const recurring = (await env.state()).definitions.find((d) => d.kind === "recurring");
     assert.ok(recurring !== undefined);
-    await assert.rejects(update.execute(recurring.roomID, recurring.id, { name: "x" }, users.leo.id), code("taskUnavailable"));
+    const renamed = await update.execute(recurring.roomID, recurring.id, { name: "  Renomeada " }, users.leo.id);
+    assert.equal(renamed.name, "Renomeada");
+    assert.equal((await env.tasks.definition(recurring.roomID, recurring.id, users.bia.id)).name, "Renomeada");
+    await assert.rejects(update.execute(recurring.roomID, recurring.id, { name: "x" }, userID(uuid(990))), code("taskUnavailable"));
     // Inexistente, cômodo errado e quem não é da casa.
     await assert.rejects(update.execute(definition.roomID, taskDefinitionID(uuid(991)), { name: "x" }, users.leo.id), code("entityNotFound"));
     await assert.rejects(update.execute(rooms(await env.state(), definition.roomID), definition.id, { name: "x" }, users.leo.id), code("entityNotFound"));
@@ -228,8 +239,10 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
   test(`${name}: excluir avulsa: só quem criou; remove ocorrências, atribuições e as trocas com as notificações`, async () => {
     const { world, env, users } = await setup(make);
     const { existing, definition } = await ownSporadic(world, env, users.leo.id);
-    const remove = new DeleteSporadicTaskUseCase(env.tasks);
+    const remove = new DeleteSporadicTaskUseCase(env.tasks, () => world.now);
     const before = await env.state();
+    const house = before.houses[0];
+    assert.ok(house !== undefined);
     const own = before.occurrences.find((o) => o.taskDefinitionID === definition.id);
     const other = before.occurrences.find((o) => o.taskDefinitionID !== definition.id && !isCompleted(o));
     assert.ok(own !== undefined && other !== undefined);
@@ -241,8 +254,9 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     await env.update((s) => {
       s.taskSwapRequests.push(swap);
       s.notifications.push({
-        id: notificationID(world.newID()), recipientUserID: users.bia.id, kind: "taskSwapRequested", swapRequestID: swap.id,
-        createdAt: world.now, readAt: null,
+        id: notificationID(world.newID()), recipientUserID: users.bia.id, houseID: house.id,
+        kind: "taskSwapRequested", swapRequestID: swap.id, taskDefinitionID: null, roomID: null, actorUserID: users.leo.id,
+        subjectName: null, createdAt: world.now, readAt: null,
       });
     });
 
@@ -257,6 +271,10 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     assert.ok(!after.assignments.some((a) => a.occurrenceID === own.id));
     assert.ok(!after.taskSwapRequests.some((r) => r.id === swap.id));
     assert.ok(!after.notifications.some((n) => n.swapRequestID === swap.id));
+    // Quem acompanha o cômodo sabe que a tarefa foi apagada (só o nome fica, a tarefa não existe mais).
+    const deletedNotices = after.notifications.filter((n) => n.kind === "taskDeleted");
+    assert.ok(deletedNotices.length > 0 && deletedNotices.every((n) => n.subjectName === "Trocar lâmpada" && n.taskDefinitionID === null));
+    assert.ok(deletedNotices.every((n) => n.recipientUserID !== users.leo.id && n.actorUserID === users.leo.id));
     // O resto da casa fica como estava.
     assert.equal(after.definitions.length, before.definitions.length - 1);
     assert.equal(after.occurrences.length, before.occurrences.length - 1);

@@ -53,7 +53,7 @@ Organização coletiva:
 
 - Configurações: moradores da casa (adicionar/remover). Modo férias e saída da casa pela interface ainda dependem de definição.
 - Notificações: hoje cobrem o ciclo de troca de tarefas (solicitada, aceita, rejeitada). Tarefas atrasadas, alterações de cômodos e entradas/saídas são evoluções previstas.
-- A foto de perfil não é escolhida pelo usuário; usar iniciais/avatar padrão.
+- A foto de perfil é escolhida pelo morador (Ajustes › Conta; sem foto, o avatar mostra as iniciais).
 
 ## Tarefas
 
@@ -71,7 +71,7 @@ O responsável muda conforme o calendário, mesmo que o anterior não tenha conc
 
 ### Rotação após conclusão
 
-Tarefa sem calendário só troca de responsável quando o atual conclui. A fila inicial considera carga semanal e saldo dos elegíveis; cada conclusão passa ao próximo slot da fila estática. Há uma única ocorrência ativa e nenhuma data futura inventada.
+Tarefa de repetição própria só troca de responsável quando o atual conclui, e a próxima janela (2 dias) abre um intervalo depois da conclusão ([ALGORITMO.md](ALGORITMO.md)). A fila inicial considera carga semanal e saldo dos elegíveis; cada conclusão passa ao próximo slot da fila estática. Há uma única ocorrência ativa e nenhuma data futura inventada.
 
 ### Distribuição automática e justiça
 
@@ -89,7 +89,7 @@ Sem recorrência previsível (ex.: trocar uma resistência); fora do fluxo algor
 
 - Concluir aplica o ajuste de justiça pelo esforço, no cômodo da tarefa.
 - Assumir ou devolver sem concluir não altera o saldo.
-- Não há "pulo" automático da próxima tarefa de mesmo esforço: isso conflitaria com atribuições publicadas e compensaria o mesmo trabalho duas vezes. A designer descreve o contrário no app ("Quem faz uma tarefa única pula a vez na próxima tarefa de repetição própria"); a divergência está em [PENDENCIAS.md](../PENDENCIAS.md) e em [DESIGN.md](DESIGN.md).
+- **Pular a vez (decidido em 06/11, o guia da designer vence):** quem conclui uma tarefa única pula a vez na próxima tarefa de **repetição própria** do mesmo cômodo, uma vez só. Não há "pulo" entre tarefas da escala do cômodo (isso compensaria o mesmo trabalho duas vezes), e atribuições já publicadas não mudam. Regra completa em [ALGORITMO.md](ALGORITMO.md).
 
 ## Troca de tarefas
 
@@ -97,11 +97,14 @@ Um morador oferece uma ocorrência sua e escolhe entre candidatas elegíveis de 
 
 ## Modo férias
 
-Ausências registradas impedem novas atribuições ao morador no período `[startsAt, endsAt)`. A vez dele nesse período é pulada (não aparece para ninguém) e a próxima dele é a seguinte fora da ausência; filas e atribuições já publicadas não são recalculadas. Pendências por conclusão são preservadas e sua fila sucessora muda na próxima segunda-feira. Interface, redistribuição e retorno de férias ainda não existem.
+Ausências registradas impedem novas atribuições ao morador no período `[startsAt, endsAt)`. A vez dele nesse período é pulada (não aparece para ninguém) e a próxima dele é a seguinte fora da ausência. Pendências por conclusão são preservadas e sua fila sucessora muda na próxima segunda-feira. **Modo férias (Ajustes › Você):** liga uma ausência sem data de volta (`GET/PUT/DELETE /v1/me/vacation`) **a partir da próxima segunda** ("do próximo ciclo": as atribuições desta semana não mudam) e a escala é replanejada dali em diante; desligar antes de começar apaga a ausência, e depois de começar fecha em "agora" e a escala volta a incluir a pessoa a partir da próxima segunda.
 
-## Avaliação da casa (planejado)
+## Avaliação da casa: Avaliar a semana e Resumo da semana (decidido em 06/11: o guia da designer vence)
 
-Moradores avaliam cômodos comuns; privados não participam. Resumo a cada 3 semanas para casas de 2–3 moradores e semanal para 4 ou mais. Sem promessa de anonimato absoluto.
+- **A cada ciclo de cada cômodo** (não mais "a cada 3 semanas"): quando o ciclo acaba, cada morador avalia, **uma vez**, os cômodos que enxerga (comuns e os privados de que participa) **menos os de que cuidou** naquele ciclo. A janela é de **2 dias** depois do fim do ciclo ("Avaliar a semana / Termina terça" no topo de Minhas tarefas). Refazer dentro da janela substitui.
+- **Três níveis** (Precisa melhorar, Bom, Ótimo), sem estrelas, e **tags opcionais e genéricas** de um catálogo fixo (Bem feito, No prazo, Organizado, Foi além, Meio às pressas, Atrasou, Faltaram detalhes); **sem texto livre**. Fechar a folha sem enviar não grava nada.
+- **Resultado (Resumo da semana):** só para quem cuidou do cômodo no ciclo, e só quando liberado: **2 ou mais avaliações** ou a **janela fechada** com ao menos uma. É só o agregado: o nível é a média arredondada e uma tag só aparece se **2 ou mais pessoas** a marcaram (sem nomes, sem contagem, sem a distribuição). O servidor guarda quem avaliou (para impedir voto duplo) e **nunca** o devolve; sem promessa de anonimato absoluto contra quem tem acesso ao banco.
+- Rotas e modelo: [BACKEND.md](BACKEND.md) §4 (`RATING#`) e §6.1 (`/me/ratings/pending`, `POST /rooms/{id}/ratings`, `/me/ratings/summary`). O aviso "resumo da semana pronto" (`weeklySummaryReady`) depende do agendador (Fase de push, `docs/BACKEND.md`).
 
 ## Roadmap e decisões abertas
 

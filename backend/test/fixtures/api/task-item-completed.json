@@ -14,7 +14,8 @@
     "assignmentPolicy": "balancedAutomatically",
     "calendarAnchor": "2026-10-12T03:00:00.000Z",
     "endedAt": null,
-    "createdByUserID": null
+    "createdByUserID": null,
+    "followsRoom": null
   },
   "occurrence": {
     "id": "ffffffff-ffff-4fff-8fff-00000000002f",
@@ -34,7 +35,8 @@
   },
   "assignee": {
     "id": "ffffffff-ffff-4fff-8fff-000000000001",
-    "name": "Marina"
+    "name": "Marina",
+    "photoURL": null
   },
   "suggestedAssignee": null
 }

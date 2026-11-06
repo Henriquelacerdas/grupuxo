@@ -76,13 +76,47 @@ data "aws_iam_policy_document" "api" {
     actions   = ["cognito-idp:AdminDeleteUser"]
     resources = ["arn:aws:cognito-idp:${var.region}:${var.account_id}:userpool/${var.cognito_user_pool_id}"]
   }
+  # Fotos de perfil: as URLs pré-assinadas herdam estas permissões; só o prefixo `photos/` do bucket de fotos.
+  statement {
+    actions   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.photos.arn}/photos/*"]
+  }
+}
+
+data "aws_iam_policy_document" "scheduled" {
+  statement {
+    actions   = local.table_actions
+    resources = local.table_resources
+  }
+  # Enumerar as casas (itens META) por varredura filtrada; só esta Lambda faz isso.
+  statement {
+    actions   = ["dynamodb:Scan"]
+    resources = [aws_dynamodb_table.main.arn]
+  }
+}
+
+data "aws_iam_policy_document" "push" {
+  statement {
+    actions   = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:DeleteItem"]
+    resources = [aws_dynamodb_table.main.arn]
+  }
+  statement {
+    actions   = ["dynamodb:DescribeStream", "dynamodb:GetRecords", "dynamodb:GetShardIterator", "dynamodb:ListStreams"]
+    resources = ["${aws_dynamodb_table.main.arn}/stream/*"]
+  }
+  statement {
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.apns.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "app" {
   for_each = {
-    webhook = data.aws_iam_policy_document.webhook.json
-    worker  = data.aws_iam_policy_document.worker.json
-    api     = data.aws_iam_policy_document.api.json
+    push      = data.aws_iam_policy_document.push.json
+    scheduled = data.aws_iam_policy_document.scheduled.json
+    webhook   = data.aws_iam_policy_document.webhook.json
+    worker    = data.aws_iam_policy_document.worker.json
+    api       = data.aws_iam_policy_document.api.json
   }
   name   = "app"
   role   = aws_iam_role.lambda[each.key].id

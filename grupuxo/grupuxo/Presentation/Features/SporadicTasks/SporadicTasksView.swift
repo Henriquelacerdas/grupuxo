@@ -177,7 +177,7 @@ struct SporadicTasksView: View {
             )
         }
         .alert(
-            "Excluir Tarefa Única?",
+            "Apagar Tarefa Única?",
             isPresented: Binding(
                 get: {
                     itemPendingDeletion != nil
@@ -201,7 +201,7 @@ struct SporadicTasksView: View {
             }
 
             Button(
-                "Excluir",
+                "Apagar",
                 role: .destructive
             ) {
 
@@ -215,7 +215,7 @@ struct SporadicTasksView: View {
                     if await viewModel.delete(
                         taskDefinitionID
                     ) {
-                        showToast(.deleted(String(localized: "Tarefa Única excluída")))
+                        showToast(.deleted(String(localized: "Tarefa Única apagada")))
                     }
                 }
             }
@@ -223,7 +223,7 @@ struct SporadicTasksView: View {
         } message: { item in
 
             Text(
-                "A tarefa \"\(item.task.definition.name)\" será excluída para todos os moradores."
+                "A tarefa \"\(item.task.definition.name)\" será apagada para todos os moradores."
             )
         }
         .alert(
@@ -824,7 +824,7 @@ struct SporadicTasksView: View {
 
         } label: {
 
-            Text("Excluir")
+            Text("Apagar")
                 .font(
                     .callout.weight(
                         .semibold
@@ -838,7 +838,7 @@ struct SporadicTasksView: View {
         .controlSize(.regular)
         .tint(.red)
         .accessibilityLabel(
-            "Excluir \(item.task.definition.name)"
+            "Apagar \(item.task.definition.name)"
         )
     }
 

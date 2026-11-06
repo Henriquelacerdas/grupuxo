@@ -3,7 +3,7 @@
 // uma função falsa, sem rede.
 
 export interface HttpRequestInit {
-  readonly method: "GET" | "POST";
+  readonly method: "GET" | "POST" | "PUT" | "DELETE";
   readonly headers?: Readonly<Record<string, string>>;
   readonly body?: string;
   readonly signal?: AbortSignal;

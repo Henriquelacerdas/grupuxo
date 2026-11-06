@@ -29,19 +29,32 @@ struct TaskDetailView: View {
     /// `false` esconde "Editar".
     private let allowsEditing: Bool
 
+    /// Editor completo ("Editar Tarefa"); sem ele, a edição cai na folha simples de nome e descrição.
+    private let makeEditorViewModel: ((TaskDefinition) -> TaskEditorViewModel)?
+
     /// Quantas linhas do rodízio aparecem recolhidas: a vez atual e a próxima.
     private static let collapsedQueueCount = 2
 
     init(
         viewModel: TaskDetailViewModel,
-        allowsEditing: Bool = true
+        allowsEditing: Bool = true,
+        makeEditorViewModel: ((TaskDefinition) -> TaskEditorViewModel)? = nil
     ) {
 
         _viewModel = StateObject(
             wrappedValue: viewModel
         )
         self.allowsEditing = allowsEditing
+        self.makeEditorViewModel = makeEditorViewModel
 
+    }
+
+    /// A única é de quem criou; a recorrente ativa, de quem participa do cômodo (o servidor confere o resto).
+    private func canEdit(_ definition: TaskDefinition) -> Bool {
+        switch definition.kind {
+        case .sporadic: definition.createdByUserID == viewModel.currentUserID
+        case .recurring: definition.endedAt == nil && viewModel.isRoomMember
+        }
     }
 
     var body: some View {
@@ -107,11 +120,10 @@ struct TaskDetailView: View {
                     placement: .confirmationAction
                 ) {
 
-                    // Só a tarefa única criada por você pode ser editada (a `api` recusa as demais).
+                    // A única é de quem criou; a recorrente ativa é de quem participa do cômodo (a `api` confere).
                     if allowsEditing, case let .content(definition) =
                         viewModel.state,
-                       definition.kind == .sporadic,
-                       definition.createdByUserID == viewModel.currentUserID {
+                       canEdit(definition) {
 
                         Button("Editar") {
 
@@ -128,13 +140,19 @@ struct TaskDetailView: View {
 
         }
         .sheet(
-            item: $editingDefinition
+            item: $editingDefinition,
+            onDismiss: { Task { await viewModel.load() } }
         ) { definition in
 
-            TaskDetailsEditSheet(
-                viewModel: viewModel,
-                definition: definition
-            )
+            if let makeEditorViewModel {
+                TaskCreationSheetView(viewModel: makeEditorViewModel(definition))
+                    .presentationDragIndicator(.visible)
+            } else {
+                TaskDetailsEditSheet(
+                    viewModel: viewModel,
+                    definition: definition
+                )
+            }
 
         }
         .alert(
@@ -200,7 +218,7 @@ struct TaskDetailView: View {
         ) { _, wasEnded in
 
             if wasEnded {
-                showToast(.deleted(String(localized: "Tarefa encerrada")))
+                showToast(.deleted(String(localized: "Tarefa apagada")))
                 dismiss()
             }
 

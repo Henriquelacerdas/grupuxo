@@ -19,6 +19,8 @@ public struct UpdateTaskDetailsUseCase: Sendable {
         id: TaskDefinition.ID,
         name: String,
         details: String,
+        effort: TaskEffort? = nil,
+        recurrence: RecurrencePolicy? = nil,
         requestedBy userID: User.ID
     ) async throws -> TaskDefinition {
 
@@ -30,10 +32,16 @@ public struct UpdateTaskDetailsUseCase: Sendable {
             throw DomainError.invalidTaskName
         }
 
+        if let recurrence, !(recurrence.isRepeating && recurrence.hasValidInterval) {
+            throw DomainError.invalidSchedule
+        }
+
         return try await repository.updateTaskDetails(
             id: id,
             name: trimmedName,
             details: details,
+            effort: effort,
+            recurrence: recurrence,
             requestedBy: userID
         )
     }

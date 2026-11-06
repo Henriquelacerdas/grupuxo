@@ -2,7 +2,7 @@
 import { build } from "esbuild";
 import { rm } from "node:fs/promises";
 
-const lambdas = ["api", "webhook", "worker"];
+const lambdas = ["api", "webhook", "worker", "push", "scheduled"];
 await rm(new URL("../dist/", import.meta.url), { recursive: true, force: true });
 for (const name of lambdas) {
   await build({

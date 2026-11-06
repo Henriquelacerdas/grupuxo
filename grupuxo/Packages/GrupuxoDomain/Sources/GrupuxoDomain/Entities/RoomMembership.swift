@@ -11,6 +11,8 @@ public struct RoomMembership: Identifiable, Hashable, Codable, Sendable {
     // Access changes immediately; rotation changes at the next Monday.
     public var leftAt: Date? = nil
     public var rotationChanges: [RotationParticipationChange]? = nil
+    /// Quem concluiu uma tarefa única pula a vez na próxima tarefa de repetição própria do cômodo (uma vez só).
+    public var skipsNextOwnTurn: Bool = false
 
     public init(
         id: UUID,
@@ -18,7 +20,8 @@ public struct RoomMembership: Identifiable, Hashable, Codable, Sendable {
         userID: User.ID,
         fairnessDebt: Double = 0.0,
         leftAt: Date? = nil,
-        rotationChanges: [RotationParticipationChange]? = nil
+        rotationChanges: [RotationParticipationChange]? = nil,
+        skipsNextOwnTurn: Bool = false
     ) {
         self.id = id
         self.roomID = roomID
@@ -26,6 +29,7 @@ public struct RoomMembership: Identifiable, Hashable, Codable, Sendable {
         self.fairnessDebt = fairnessDebt
         self.leftAt = leftAt
         self.rotationChanges = rotationChanges
+        self.skipsNextOwnTurn = skipsNextOwnTurn
     }
 
     public nonisolated var isCurrent: Bool { leftAt == nil }

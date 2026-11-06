@@ -6,6 +6,8 @@ import AWSCognitoAuthPlugin
 struct DomesticApp: App {
     @StateObject private var authService = AuthService()
     @StateObject private var houses = DomesticApp.makeHouseSession()
+    @StateObject private var push = PushRegistration()
+    @UIApplicationDelegateAdaptor(PushAppDelegate.self) private var appDelegate
 
     init() {
         do {
@@ -23,6 +25,16 @@ struct DomesticApp: App {
             root
                 .environmentObject(authService)
                 .environmentObject(houses)
+                .environmentObject(push)
+                .task {
+                    appDelegate.registration = push
+                    // O token vai ao servidor assim que houver conta; quem já autorizou renova o registro a cada abertura.
+                    push.sendToken = { [houses] token, environment in
+                        guard let api = houses.api else { return false }
+                        return (try? await api.send("PUT", "v1/me/devices", body: DeviceBody(token: token, environment: environment))) != nil
+                    }
+                    await push.resumeIfAuthorized()
+                }
         }
     }
 

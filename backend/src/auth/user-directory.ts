@@ -46,6 +46,16 @@ export interface UserDirectory {
   ensureUser(cognitoSub: CognitoSub, profile: UserProfile): Promise<UserID>;
 
   /**
+   * Troca o nome do perfil do morador (`PATCH /v1/me`). O `name` precisa passar em `parseProfileName`, senão
+   * `UserDirectoryError("invalidProfile")`. Idempotente; morador sem perfil não faz nada. No DynamoDB: `UpdateItem`
+   * condicional (`attribute_exists(PK)`) em `USER#<id>`/`PROFILE`, fora do `HouseStateStore`.
+   */
+  updateName(userID: UserID, name: string): Promise<void>;
+
+  /** Guarda (ou, com `null`, tira) a chave da foto do perfil. Idempotente; morador sem perfil não faz nada. */
+  updatePhoto(userID: UserID, key: string | null): Promise<void>;
+
+  /**
    * Apaga a ligação `COGNITO#<sub>` e o perfil do morador. Idempotente: conta sem morador não faz nada. Quem chama
    * já tirou o morador da casa e do WhatsApp. No DynamoDB: `TransactWriteItems` com os dois `Delete`.
    */

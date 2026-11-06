@@ -258,4 +258,12 @@ private final class FailingRoomRepository: RoomRepository {
     func create(_ room: Room, memberships: [RoomMembership]) async throws -> Room {
         try await base.create(room, memberships: memberships)
     }
+
+    func update(roomID: Room.ID, patch: RoomPatch, requestedBy userID: User.ID, at date: Date) async throws -> Room {
+        try await base.update(roomID: roomID, patch: patch, requestedBy: userID, at: date)
+    }
+
+    func delete(roomID: Room.ID, requestedBy userID: User.ID, at date: Date, confirmDeletion: Bool) async throws {
+        try await base.delete(roomID: roomID, requestedBy: userID, at: date, confirmDeletion: confirmDeletion)
+    }
 }

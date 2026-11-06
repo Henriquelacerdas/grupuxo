@@ -14,6 +14,8 @@ export interface User {
   readonly id: UserID;
   readonly name: string;
   readonly email: string | null;
+  /** Chave da foto de perfil no armazenamento de objetos; ausente = sem foto (o avatar mostra as iniciais). */
+  readonly photoKey?: string;
 }
 
 export interface House {
@@ -83,6 +85,8 @@ export interface RoomMembership {
   readonly leftAt: Instant | null;
   /** `null` = registro legado: participa desde sempre. */
   readonly rotationChanges: readonly RotationParticipationChange[] | null;
+  /** Quem concluiu uma tarefa única pula a vez na próxima tarefa de repetição própria do cômodo (uma vez só). */
+  readonly skipsNextOwnTurn: boolean;
 }
 
 export function isCurrentMember(membership: RoomMembership): boolean {
@@ -124,6 +128,11 @@ export interface TaskDefinition {
   readonly endedAt: Instant | null;
   /** Quem criou a tarefa. Só a avulsa o usa (editar e excluir são de quem criou); ausente em tarefas anteriores ao atributo. */
   readonly createdByUserID?: UserID;
+  /**
+   * "Repetir com o cômodo": a tarefa segue a escala e a periodicidade do cômodo. Ausente = definição antiga: vale a
+   * periodicidade igual à do cômodo. Quando o cômodo muda de periodicidade, as tarefas que o acompanham mudam junto.
+   */
+  readonly followsRoom?: boolean;
 }
 
 export interface TaskOccurrence {
@@ -189,7 +198,8 @@ export function sortedByDeadline(items: readonly TaskItem[]): TaskItem[] {
   });
 }
 
-export type TaskSwapRequestStatus = "pending" | "accepted" | "rejected";
+/** `cancelled`: quem pediu desistiu enquanto estava pendente. */
+export type TaskSwapRequestStatus = "pending" | "accepted" | "rejected" | "cancelled";
 
 export interface TaskSwapRequest {
   readonly id: TaskSwapRequestID;
@@ -202,15 +212,64 @@ export interface TaskSwapRequest {
   readonly resolvedAt: Instant | null;
 }
 
-export type AppNotificationKind = "taskSwapRequested" | "taskSwapAccepted" | "taskSwapRejected";
+export type AppNotificationKind =
+  | "taskSwapRequested" | "taskSwapAccepted" | "taskSwapRejected"
+  | "taskEdited" | "taskDeleted" | "effortChanged"
+  | "memberJoined" | "memberLeft"
+  | "roomDeleted" | "roomAccessRequested" | "roomAccessApproved" | "roomAccessDenied"
+  | "cycleTurned" | "weeklySummaryReady";
 
+/**
+ * Aviso para um morador. O texto é montado pelo app a partir destes dados (idioma do aparelho), nunca gravado aqui:
+ * `subjectName` guarda o nome (da tarefa, do cômodo ou do morador) como era na hora, porque o objeto pode ter sido
+ * apagado ou ter saído da casa.
+ */
 export interface AppNotification {
   readonly id: NotificationID;
   readonly recipientUserID: UserID;
+  /** Casa a que o aviso pertence (a partição, no DynamoDB). */
+  readonly houseID: HouseID;
   readonly kind: AppNotificationKind;
-  readonly swapRequestID: TaskSwapRequestID;
+  readonly swapRequestID: TaskSwapRequestID | null;
+  readonly taskDefinitionID: TaskDefinitionID | null;
+  readonly roomID: RoomID | null;
+  /** Quem fez a ação (nunca o destinatário). */
+  readonly actorUserID: UserID | null;
+  readonly subjectName: string | null;
   readonly createdAt: Instant;
   readonly readAt: Instant | null;
+}
+
+/**
+ * Pedido de um morador para entrar num cômodo privado. A chave natural é (cômodo, morador): só existe um pedido
+ * aberto por par; aprovar, recusar ou cancelar o apaga.
+ */
+export interface RoomAccessRequest {
+  readonly roomID: RoomID;
+  readonly userID: UserID;
+  readonly requestedAt: Instant;
+}
+
+/** Como o cômodo foi cuidado no ciclo: três níveis, sem estrelas nem texto livre (docs/DESIGN.md). */
+export const RATING_LEVELS = ["needsWork", "good", "great"] as const;
+export type RoomRatingLevel = (typeof RATING_LEVELS)[number];
+
+/** Tags opcionais e genéricas da avaliação (catálogo fixo; sem texto livre). */
+export const RATING_TAGS = ["wellDone", "onTime", "tidy", "wentTheExtraMile", "rushed", "late", "missedSpots"] as const;
+export type RoomRatingTag = (typeof RATING_TAGS)[number];
+
+/**
+ * Avaliação anônima de um cômodo num ciclo. A chave natural é (cômodo, início do ciclo, quem avaliou): refazer dentro
+ * da janela substitui. Quem avaliou nunca sai do servidor; só o resultado agregado é mostrado a quem cuidou do cômodo.
+ */
+export interface RoomRating {
+  readonly roomID: RoomID;
+  /** Início do ciclo avaliado (o `periodStart` do cômodo). */
+  readonly periodStart: Instant;
+  readonly raterID: UserID;
+  readonly level: RoomRatingLevel;
+  readonly tags: readonly RoomRatingTag[];
+  readonly ratedAt: Instant;
 }
 
 export interface Absence {

@@ -1,12 +1,19 @@
 import { houseSnapshot, type HouseSnapshot, type HouseSnapshotRepository } from "../../domain/commands/house-snapshot.ts";
-import { acceptSwapRequest, createSwapRequest, incomingRequests, outgoingRequests, rejectSwapRequest, swapCandidates } from "../../domain/commands/swaps.ts";
+import {
+  acceptSwapRequest, cancelSwapRequest, createSwapRequest, incomingRequests, outgoingRequests, rejectSwapRequest, swapCandidates,
+} from "../../domain/commands/swaps.ts";
 import type { CommandContext } from "../../domain/commands/context.ts";
 import {
   ACCESS_CODE_ATTEMPTS, addHouseMember, createHouse, houseMemberIDs, houseMembers, joinHouseByCode, leaveHouse,
-  normalizeAccessCode, removeHouseMember, type LeaveHouseOutcome,
+  normalizeAccessCode, removeHouseMember, renameHouse, setVacation, vacationStatus, type LeaveHouseOutcome, type VacationStatus,
 } from "../../domain/commands/houses.ts";
+import { emitCycleNotifications, emitWeeklySummary } from "../../domain/commands/cycles.ts";
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
-import { createRoom, roomFor, roomParticipation, roomScheduleReady, roomsFor } from "../../domain/commands/rooms.ts";
+import { pendingRatings, ratingSummary, rateRoom, type PendingRating, type RatingInput, type RatingResult } from "../../domain/commands/ratings.ts";
+import {
+  answerRoomAccess, cancelRoomAccess, createRoom, deleteRoom, pendingRoomAccessIDs, requestRoomAccess, roomAccessRequestsFor, roomFor,
+  roomParticipation, roomScheduleReady, roomsFor, updateRoom, type RoomPatch,
+} from "../../domain/commands/rooms.ts";
 import {
   addRoomMember, claimTask, completeTask, createTask, deleteSporadicTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
   occurrenceHouseFor, roomTasks, scheduleIsCurrent, sporadicTasks, taskDefinitionFor, updateTaskDetails, userTasks, type TaskDetailsPatch,
@@ -19,7 +26,7 @@ import type {
 } from "../../domain/entities.ts";
 import type { HouseID, NotificationID, RoomID, TaskDefinitionID, TaskOccurrenceID, TaskSwapRequestID, UserID } from "../../domain/ids.ts";
 import type {
-  HouseRepository, NotificationRepository, RoomRepository, TaskRepository, TaskSwapRepository,
+  HouseRepository, NotificationRepository, RoomAccessRequestSummary, RoomRepository, TaskRepository, TaskSwapRepository,
 } from "../../domain/repositories.ts";
 import { MAX_BATCH_GET_KEYS, queryAll, type DynamoClient, type DynamoKey } from "./client.ts";
 import { decodeAccessCode, decodeHouse, decodeNotification, houseOfNotificationItem, houseIDFromGSISK } from "./codec.ts";
@@ -85,6 +92,25 @@ export class DynamoHouseRepository implements HouseRepository {
     await this.store.update(houseID, (s) => removeHouseMember(this.ctx, s, userID, houseID, requestedBy, at, confirmRoomDeletion));
   }
 
+  async emitScheduledNotifications(houseID: HouseID, at: Instant): Promise<number> {
+    return this.store.update(houseID, (s) => {
+      refreshSchedule(this.ctx, s, houseID, at);
+      return emitCycleNotifications(this.ctx, s, houseID, at) + emitWeeklySummary(this.ctx, s, houseID, at);
+    });
+  }
+
+  async vacation(userID: UserID, houseID: HouseID): Promise<VacationStatus> {
+    return this.store.read(houseID, (s) => vacationStatus(s, houseID, userID));
+  }
+
+  async setVacation(userID: UserID, houseID: HouseID, on: boolean, at: Instant): Promise<VacationStatus> {
+    return this.store.update(houseID, (s) => setVacation(this.ctx, s, houseID, userID, on, at));
+  }
+
+  async rename(houseID: HouseID, requestedBy: UserID, name: string): Promise<House> {
+    return this.store.update(houseID, (s) => renameHouse(s, houseID, requestedBy, name));
+  }
+
   async house(id: HouseID): Promise<House> {
     const item = await this.client.get({ key: { PK: housePK(id), SK: META_SK }, consistentRead: true });
     if (item === undefined) throw new DomainError("entityNotFound");
@@ -145,6 +171,59 @@ export class DynamoRoomRepository implements RoomRepository {
   async create(room: Room, memberships: readonly RoomMembership[]): Promise<Room> {
     return this.store.update(room.houseID, (s) => createRoom(this.ctx, s, room, memberships, this.ctx.now()));
   }
+
+  async update(roomID: RoomID, patch: RoomPatch, requestedBy: UserID, at: Instant): Promise<Room> {
+    const houseID = await this.store.houseOf("room", roomID);
+    return this.store.update(houseID, (s) => updateRoom(this.ctx, s, roomID, patch, requestedBy, at));
+  }
+
+  async delete(roomID: RoomID, requestedBy: UserID, at: Instant, confirmDeletion: boolean): Promise<void> {
+    const houseID = await this.store.houseOf("room", roomID);
+    await this.store.update(houseID, (s) => deleteRoom(this.ctx, s, roomID, requestedBy, at, confirmDeletion));
+  }
+
+  async pendingAccessRoomIDs(houseID: HouseID, userID: UserID): Promise<RoomID[]> {
+    return this.store.read(houseID, (s) => pendingRoomAccessIDs(s, houseID, userID));
+  }
+
+  async accessRequests(roomID: RoomID, requesting: UserID): Promise<readonly RoomAccessRequestSummary[]> {
+    const houseID = await this.store.houseOf("room", roomID);
+    return this.store.read(houseID, (s) => roomAccessRequestsFor(s, roomID, requesting));
+  }
+
+  async requestAccess(roomID: RoomID, userID: UserID, at: Instant): Promise<void> {
+    const houseID = await this.store.houseOf("room", roomID);
+    await this.store.update(houseID, (s) => requestRoomAccess(this.ctx, s, roomID, userID, at));
+  }
+
+  async cancelAccess(roomID: RoomID, userID: UserID): Promise<void> {
+    const houseID = await this.store.houseOf("room", roomID);
+    await this.store.update(houseID, (s) => cancelRoomAccess(s, roomID, userID));
+  }
+
+  async answerAccess(roomID: RoomID, requesterID: UserID, answeredBy: UserID, approve: boolean, at: Instant): Promise<void> {
+    const houseID = await this.store.houseOf("room", roomID);
+    await this.store.update(houseID, (s) => answerRoomAccess(this.ctx, s, roomID, requesterID, answeredBy, approve, at));
+  }
+
+  async pendingRatings(houseID: HouseID, userID: UserID, at: Instant): Promise<PendingRating[]> {
+    return this.store.update(houseID, (s) => {
+      refreshSchedule(this.ctx, s, houseID, at);
+      return pendingRatings(this.ctx, s, houseID, userID, at);
+    });
+  }
+
+  async rateRoom(roomID: RoomID, userID: UserID, input: RatingInput, at: Instant): Promise<void> {
+    const houseID = await this.store.houseOf("room", roomID);
+    await this.store.update(houseID, (s) => rateRoom(this.ctx, s, roomID, userID, input, at));
+  }
+
+  async ratingSummary(houseID: HouseID, userID: UserID, at: Instant): Promise<RatingResult[]> {
+    return this.store.update(houseID, (s) => {
+      refreshSchedule(this.ctx, s, houseID, at);
+      return ratingSummary(this.ctx, s, houseID, userID, at);
+    });
+  }
 }
 
 export class DynamoTaskRepository implements TaskRepository, HouseSnapshotRepository {
@@ -194,14 +273,16 @@ export class DynamoTaskRepository implements TaskRepository, HouseSnapshotReposi
     await this.store.update(houseID, (s) => endTask(this.ctx, s, roomID, taskID, requestedBy, at));
   }
 
-  async updateTaskDetails(roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsPatch, requestedBy: UserID): Promise<TaskDefinition> {
+  async updateTaskDetails(
+    roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsPatch, requestedBy: UserID, at: Instant,
+  ): Promise<TaskDefinition> {
     const houseID = await this.store.houseOf("room", roomID);
-    return this.store.update(houseID, (s) => updateTaskDetails(s, roomID, taskID, patch, requestedBy));
+    return this.store.update(houseID, (s) => updateTaskDetails(this.ctx, s, roomID, taskID, patch, requestedBy, at));
   }
 
-  async deleteSporadicTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID): Promise<void> {
+  async deleteSporadicTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, at: Instant): Promise<void> {
     const houseID = await this.store.houseOf("room", roomID);
-    await this.store.update(houseID, (s) => deleteSporadicTask(s, roomID, taskID, requestedBy));
+    await this.store.update(houseID, (s) => deleteSporadicTask(this.ctx, s, roomID, taskID, requestedBy, at));
   }
 
   async refreshSchedule(houseID: HouseID, at: Instant): Promise<void> {
@@ -286,6 +367,11 @@ export class DynamoTaskSwapRepository implements TaskSwapRepository {
     const houseID = await this.store.houseOf("swap", requestID);
     return this.store.update(houseID, (s) => rejectSwapRequest(this.ctx, s, requestID, by, at));
   }
+
+  async cancel(requestID: TaskSwapRequestID, by: UserID, at: Instant): Promise<TaskSwapRequest> {
+    const houseID = await this.store.houseOf("swap", requestID);
+    return this.store.update(houseID, (s) => cancelSwapRequest(s, requestID, by, at));
+  }
 }
 
 export class DynamoNotificationRepository implements NotificationRepository {
@@ -312,7 +398,7 @@ export class DynamoNotificationRepository implements NotificationRepository {
     return notificationsFor(
       {
         users: [], houses: [], houseMemberships: [], rooms: [], roomMemberships: [], definitions: [], occurrences: [],
-        assignments: [], absences: [], taskSwapRequests: [], notifications: found,
+        assignments: [], absences: [], taskSwapRequests: [], notifications: found, roomAccessRequests: [], roomRatings: [],
       },
       userID,
     );

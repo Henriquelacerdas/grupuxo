@@ -44,4 +44,11 @@ public protocol TaskSwapRepository: Sendable {
         by userID: User.ID,
         at date: Date
     ) async throws -> TaskSwapRequest
+
+    /// Só quem pediu e só enquanto pendente; a outra pessoa deixa de ver o pedido.
+    func cancel(
+        requestID: TaskSwapRequest.ID,
+        by userID: User.ID,
+        at date: Date
+    ) async throws -> TaskSwapRequest
 }

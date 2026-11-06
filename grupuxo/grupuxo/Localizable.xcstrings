@@ -62,6 +62,16 @@
         }
       }
     },
+    "%@ apagou a tarefa %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ deleted the task %@."
+          }
+        }
+      }
+    },
     "%@ e mais %lld" : {
       "localizations" : {
         "en" : {
@@ -78,12 +88,72 @@
         }
       }
     },
+    "%@ editou a tarefa %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ edited the task %@."
+          }
+        }
+      }
+    },
+    "%@ entrou na casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ joined the house."
+          }
+        }
+      }
+    },
+    "%@ excluiu o cômodo %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ deleted the room %@."
+          }
+        }
+      }
+    },
+    "%@ mudou o esforço de %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ changed the effort of %@."
+          }
+        }
+      }
+    },
     "%@ não será mais repetida. O histórico fica, e a vez atual continua até ser concluída." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ will no longer repeat. The history stays, and the current turn continues until it is done."
+          }
+        }
+      }
+    },
+    "%@ pediu para entrar em %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ asked to join %@."
+          }
+        }
+      }
+    },
+    "%@ pediu para entrar em um cômodo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ asked to join a room."
           }
         }
       }
@@ -105,6 +175,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ wants to swap tasks with you."
+          }
+        }
+      }
+    },
+    "%@ saiu da casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ left the house."
           }
         }
       }
@@ -780,6 +860,16 @@
         }
       }
     },
+    "A casa precisa de um nome." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The home needs a name."
+          }
+        }
+      }
+    },
     "A distribuição de tarefas é inválida." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -787,6 +877,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The task distribution is invalid."
+          }
+        }
+      }
+    },
+    "A partir do próximo ciclo, você sai dos rodízios e volta quando desligar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From the next cycle, you leave the rotations and come back when you turn it off."
           }
         }
       }
@@ -821,7 +921,27 @@
         }
       }
     },
-    "A tarefa \"%@\" será excluída para todos os moradores." : {
+    "A senha atual não confere." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The current password is incorrect."
+          }
+        }
+      }
+    },
+    "A senha nova precisa ser diferente da atual." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The new password must be different from the current one."
+          }
+        }
+      }
+    },
+    "A tarefa \"%@\" será apagada para todos os moradores." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -937,6 +1057,16 @@
     "Abre os detalhes da tarefa" : {
 
     },
+    "Abrir Ajustes do iPhone" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open iPhone Settings"
+          }
+        }
+      }
+    },
     "Abrir Minhas Tarefas" : {
 
     },
@@ -994,6 +1124,16 @@
         }
       }
     },
+    "Adicionar foto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add photo"
+          }
+        }
+      }
+    },
     "Adicionar tarefa" : {
       "localizations" : {
         "en" : {
@@ -1020,6 +1160,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Now"
+          }
+        }
+      }
+    },
+    "Agora não" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not now"
           }
         }
       }
@@ -1075,6 +1225,16 @@
         }
       }
     },
+    "Alguém" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Someone"
+          }
+        }
+      }
+    },
     "Alguém da casa já te mandou o código." : {
       "localizations" : {
         "en" : {
@@ -1085,12 +1245,42 @@
         }
       }
     },
+    "Alguém entrou na casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Someone joined the house."
+          }
+        }
+      }
+    },
     "Alguém mexeu na casa ao mesmo tempo. Tente de novo." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Someone changed the house at the same time. Try again."
+          }
+        }
+      }
+    },
+    "Alguém saiu da casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Someone left the house."
+          }
+        }
+      }
+    },
+    "Alterar senha" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change password"
           }
         }
       }
@@ -1207,6 +1397,16 @@
         }
       }
     },
+    "Ao descartar, as alterações não serão salvas." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If you discard, your changes won't be saved."
+          }
+        }
+      }
+    },
     "Ao descartar, nenhum cômodo será criado." : {
       "localizations" : {
         "en" : {
@@ -1247,6 +1447,16 @@
         }
       }
     },
+    "Apagar %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete %@"
+          }
+        }
+      }
+    },
     "Apagar casa" : {
       "localizations" : {
         "en" : {
@@ -1267,12 +1477,32 @@
         }
       }
     },
+    "Apagar sua conta?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete your account?"
+          }
+        }
+      }
+    },
     "Apagar tarefa" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete task"
+          }
+        }
+      }
+    },
+    "Apagar Tarefa Única?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete One-off Task?"
           }
         }
       }
@@ -1317,6 +1547,16 @@
         }
       }
     },
+    "Área externa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outdoor area"
+          }
+        }
+      }
+    },
     "Arraste para mudar a ordem em que os cômodos aparecem na aba Casa." : {
       "localizations" : {
         "en" : {
@@ -1338,6 +1578,16 @@
         }
       }
     },
+    "As notificações do Reveza estão desligadas no iPhone." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveza notifications are turned off on this iPhone."
+          }
+        }
+      }
+    },
     "As novidades da casa aparecerão aqui." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1345,6 +1595,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "House updates will appear here."
+          }
+        }
+      }
+    },
+    "As senhas novas não são iguais." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The new passwords don't match."
           }
         }
       }
@@ -1400,6 +1660,26 @@
         }
       }
     },
+    "Ativar notificações" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on notifications"
+          }
+        }
+      }
+    },
+    "Atividade da casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "House activity"
+          }
+        }
+      }
+    },
     "Atrasada" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1411,12 +1691,52 @@
         }
       }
     },
+    "Atrasou" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ran late"
+          }
+        }
+      }
+    },
     "Atual" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Current"
+          }
+        }
+      }
+    },
+    "Avaliação enviada" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rating sent"
+          }
+        }
+      }
+    },
+    "Avaliar a semana" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rate the week"
+          }
+        }
+      }
+    },
+    "Avisos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alerts"
           }
         }
       }
@@ -1441,6 +1761,26 @@
         }
       }
     },
+    "Banheiro" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bathroom"
+          }
+        }
+      }
+    },
+    "Bem feito" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Well done"
+          }
+        }
+      }
+    },
     "Bem-vindo!" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1458,6 +1798,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Welcome to Reveza"
+          }
+        }
+      }
+    },
+    "Bom" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Good"
           }
         }
       }
@@ -1489,6 +1839,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cancel"
+          }
+        }
+      }
+    },
+    "Cancelar pedido" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel request"
           }
         }
       }
@@ -1727,16 +2087,6 @@
         }
       }
     },
-    "Código de convite inválido." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Invalid invite code."
-          }
-        }
-      }
-    },
     "Código incorreto. Confira o último e-mail recebido." : {
       "localizations" : {
         "en" : {
@@ -1823,6 +2173,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Room"
+          }
+        }
+      }
+    },
+    "Cômodo “%@” atualizado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Room “%@” updated"
           }
         }
       }
@@ -2100,6 +2460,16 @@
         }
       }
     },
+    "Continuar sem cômodos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue without rooms"
+          }
+        }
+      }
+    },
     "Convidar pessoas" : {
       "localizations" : {
         "en" : {
@@ -2160,6 +2530,16 @@
         }
       }
     },
+    "Cozinha" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kitchen"
+          }
+        }
+      }
+    },
     "Cria no app Lembretes um lembrete para cada tarefa sua e mantém os dois em sincronia. Tarefas de outros moradores não aparecem. Ao desligar, os lembretes criados pelo Reveza são apagados." : {
       "localizations" : {
         "en" : {
@@ -2197,6 +2577,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Create room"
+          }
+        }
+      }
+    },
+    "Criar cômodos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create rooms"
           }
         }
       }
@@ -2505,6 +2895,26 @@
         }
       }
     },
+    "Editar cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit room"
+          }
+        }
+      }
+    },
+    "Editar Cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Room"
+          }
+        }
+      }
+    },
     "Editar tarefa" : {
       "localizations" : {
         "en" : {
@@ -2515,32 +2925,22 @@
         }
       }
     },
+    "Editar Tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit Task"
+          }
+        }
+      }
+    },
     "em " : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "in "
-          }
-        }
-      }
-    },
-    "Encerrar" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "End"
-          }
-        }
-      }
-    },
-    "Encerrar tarefa?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "End task?"
           }
         }
       }
@@ -2667,6 +3067,16 @@
         }
       }
     },
+    "Enviar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send"
+          }
+        }
+      }
+    },
     "Enviar código" : {
       "localizations" : {
         "en" : {
@@ -2714,6 +3124,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choose a task to receive"
+          }
+        }
+      }
+    },
+    "Escritório" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Office"
           }
         }
       }
@@ -2834,6 +3254,16 @@
         }
       }
     },
+    "este cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "this room"
+          }
+        }
+      }
+    },
     "Ex.: Rep da Unicamp, Apê da Augusta." : {
       "localizations" : {
         "en" : {
@@ -2844,22 +3274,12 @@
         }
       }
     },
-    "Excluir" : {
+    "Excluir %@?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Delete"
-          }
-        }
-      }
-    },
-    "Excluir %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete %@"
+            "value" : "Delete %@?"
           }
         }
       }
@@ -2875,42 +3295,12 @@
         }
       }
     },
-    "Excluir conta" : {
+    "Excluir cômodo" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Delete account"
-          }
-        }
-      }
-    },
-    "Excluir sua conta?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete your account?"
-          }
-        }
-      }
-    },
-    "Excluir Tarefa Única?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete One-off Task?"
-          }
-        }
-      }
-    },
-    "Excluir tarefa?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete task?"
+            "value" : "Delete room"
           }
         }
       }
@@ -2954,6 +3344,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Expanded"
+          }
+        }
+      }
+    },
+    "Faltaram detalhes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missed some spots"
           }
         }
       }
@@ -3005,6 +3405,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Filter tasks"
+          }
+        }
+      }
+    },
+    "Foi além" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Went the extra mile"
           }
         }
       }
@@ -3065,6 +3475,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Indigo"
+          }
+        }
+      }
+    },
+    "Informe a senha atual." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter your current password."
+          }
+        }
+      }
+    },
+    "Informe a senha nova." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a new password."
           }
         }
       }
@@ -3216,6 +3646,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Orange"
+          }
+        }
+      }
+    },
+    "Lavanderia" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laundry"
           }
         }
       }
@@ -3382,6 +3822,16 @@
         }
       }
     },
+    "Marque os que você quer já. Cada um vem com tarefas sugeridas, que você muda depois." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick the ones you want now. Each comes with suggested tasks you can change later."
+          }
+        }
+      }
+    },
     "Marrom" : {
       "localizations" : {
         "en" : {
@@ -3402,12 +3852,12 @@
         }
       }
     },
-    "Mensal" : {
+    "Meio às pressas" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Monthly"
+            "value" : "A bit rushed"
           }
         }
       }
@@ -3492,6 +3942,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol."
+          }
+        }
+      }
+    },
+    "Modo férias" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vacation mode"
           }
         }
       }
@@ -3608,6 +4068,16 @@
         }
       }
     },
+    "Não achamos uma casa com esse código. Confira com quem te mandou." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We couldn't find a home with that code. Check with whoever sent it to you."
+          }
+        }
+      }
+    },
     "Não conectado" : {
       "localizations" : {
         "en" : {
@@ -3654,6 +4124,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn't open Sign in with Apple."
+          }
+        }
+      }
+    },
+    "Não foi possível apagar o cômodo." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The room couldn't be deleted."
           }
         }
       }
@@ -3738,6 +4219,16 @@
         }
       }
     },
+    "Não foi possível enviar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't send"
+          }
+        }
+      }
+    },
     "Não foi possível excluir a conta" : {
       "localizations" : {
         "en" : {
@@ -3795,6 +4286,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Couldn't save"
+          }
+        }
+      }
+    },
+    "Não foi possível usar essa foto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't use that photo."
           }
         }
       }
@@ -3996,6 +4497,16 @@
         }
       }
     },
+    "No prazo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On time"
+          }
+        }
+      }
+    },
     "Nome" : {
       "localizations" : {
         "en" : {
@@ -4099,6 +4610,16 @@
         }
       }
     },
+    "O ciclo de %@ virou." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The %@ cycle turned over."
+          }
+        }
+      }
+    },
     "O código expirou. Toque em \"Reenviar código\"." : {
       "localizations" : {
         "en" : {
@@ -4129,12 +4650,32 @@
         }
       }
     },
+    "O cômodo, as tarefas e o histórico dele serão excluídos para todos. Não dá para desfazer." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The room, its tasks and its history will be deleted for everyone. This can't be undone."
+          }
+        }
+      }
+    },
     "O endereço do servidor do Reveza não está configurado neste build." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The Reveza server address is not configured in this build."
+          }
+        }
+      }
+    },
+    "O esforço de uma tarefa mudou." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A task's effort changed."
           }
         }
       }
@@ -4177,6 +4718,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The period entered is invalid."
+          }
+        }
+      }
+    },
+    "O resumo da semana está pronto." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The weekly summary is ready."
+          }
+        }
+      }
+    },
+    "O Reveza avisa de pedidos de troca, tarefas editadas e quando alguém entra na casa. Você escolhe os avisos em Ajustes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveza tells you about swap requests, edited tasks and when someone joins the house. You choose the alerts in Settings."
+          }
+        }
+      }
+    },
+    "O Reveza avisa quando algo muda na casa. Você escolhe quais avisos abaixo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reveza lets you know when something changes in the house. You choose which alerts below."
           }
         }
       }
@@ -4252,6 +4823,16 @@
         }
       }
     },
+    "Organizado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidy"
+          }
+        }
+      }
+    },
     "Organizar a área" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4307,6 +4888,26 @@
         }
       }
     },
+    "Os outros cômodos você cria na aba Casa, no \"+\"." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You create the other rooms in the House tab, with \"+\"."
+          }
+        }
+      }
+    },
+    "Ótimo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Great"
+          }
+        }
+      }
+    },
     "ou" : {
       "localizations" : {
         "en" : {
@@ -4333,6 +4934,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Other suggestions"
+          }
+        }
+      }
+    },
+    "Outro" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
           }
         }
       }
@@ -4404,6 +5015,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Requests"
+          }
+        }
+      }
+    },
+    "Pedidos de troca e de entrada em cômodo sempre chegam." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swap and room-join requests always arrive."
           }
         }
       }
@@ -4519,6 +5140,16 @@
         }
       }
     },
+    "Precisa melhorar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs work"
+          }
+        }
+      }
+    },
     "Privacidade" : {
       "localizations" : {
         "en" : {
@@ -4549,6 +5180,339 @@
         }
       }
     },
+    "push.cycleTurned" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The %@ cycle turned over."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O ciclo de %@ virou."
+          }
+        }
+      }
+    },
+    "push.effortChanged" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ changed the effort of %2$@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ mudou o esforço de %2$@."
+          }
+        }
+      }
+    },
+    "push.effortChanged.anon" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The effort of %@ changed."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O esforço de %@ mudou."
+          }
+        }
+      }
+    },
+    "push.memberJoined" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ joined the house."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ entrou na casa."
+          }
+        }
+      }
+    },
+    "push.memberLeft" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ left the house."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ saiu da casa."
+          }
+        }
+      }
+    },
+    "push.roomAccessApproved" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You joined %@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Você entrou em %@."
+          }
+        }
+      }
+    },
+    "push.roomAccessDenied" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your request to join %@ was declined."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seu pedido para entrar em %@ foi recusado."
+          }
+        }
+      }
+    },
+    "push.roomAccessRequested" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ asked to join %2$@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ pediu para entrar em %2$@."
+          }
+        }
+      }
+    },
+    "push.roomAccessRequested.anon" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Someone asked to join %@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pediram para entrar em %@."
+          }
+        }
+      }
+    },
+    "push.roomDeleted" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ deleted the room %2$@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ excluiu o cômodo %2$@."
+          }
+        }
+      }
+    },
+    "push.roomDeleted.anon" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The room %@ was deleted."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O cômodo %@ foi excluído."
+          }
+        }
+      }
+    },
+    "push.taskDeleted" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ deleted the task %2$@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ apagou a tarefa %2$@."
+          }
+        }
+      }
+    },
+    "push.taskDeleted.anon" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The task %@ was deleted."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A tarefa %@ foi apagada."
+          }
+        }
+      }
+    },
+    "push.taskEdited" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ edited the task %2$@."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ editou a tarefa %2$@."
+          }
+        }
+      }
+    },
+    "push.taskEdited.anon" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The task %@ was edited."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A tarefa %@ foi editada."
+          }
+        }
+      }
+    },
+    "push.taskSwapAccepted" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your task swap request was accepted."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sua solicitação de troca de tarefa foi aceita."
+          }
+        }
+      }
+    },
+    "push.taskSwapRejected" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your task swap request was declined."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sua solicitação de troca de tarefa foi recusada."
+          }
+        }
+      }
+    },
+    "push.taskSwapRequested" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You received a task swap request."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Você recebeu uma solicitação de troca de tarefa."
+          }
+        }
+      }
+    },
+    "push.weeklySummaryReady" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The weekly summary is ready."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O resumo da semana está pronto."
+          }
+        }
+      }
+    },
+    "Quais cômodos a casa tem?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which rooms does the house have?"
+          }
+        }
+      }
+    },
     "Qual é o código da casa?" : {
       "localizations" : {
         "en" : {
@@ -4559,12 +5523,32 @@
         }
       }
     },
+    "Quando o ciclo virar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When the cycle turns over"
+          }
+        }
+      }
+    },
     "Quando uma Tarefa Única for criada, ela aparecerá aqui." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "When a One-off Task is created, it will appear here."
+          }
+        }
+      }
+    },
+    "Quarto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bedroom"
           }
         }
       }
@@ -4609,12 +5593,12 @@
         }
       }
     },
-    "Quinzenal" : {
+    "Quer saber quando algo mudar?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Every 2 weeks"
+            "value" : "Want to know when something changes?"
           }
         }
       }
@@ -4703,6 +5687,16 @@
         }
       }
     },
+    "Remover foto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove photo"
+          }
+        }
+      }
+    },
     "Reordenar" : {
       "localizations" : {
         "en" : {
@@ -4763,6 +5757,16 @@
         }
       }
     },
+    "Repita a senha nova" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat the new password"
+          }
+        }
+      }
+    },
     "Responsáveis: %@" : {
       "localizations" : {
         "en" : {
@@ -4789,6 +5793,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "a reply"
+          }
+        }
+      }
+    },
+    "Resumo da semana" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Week summary"
           }
         }
       }
@@ -5066,6 +6080,26 @@
         }
       }
     },
+    "Sala" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Living room"
+          }
+        }
+      }
+    },
+    "Salvando cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving room"
+          }
+        }
+      }
+    },
     "Salvando tarefa" : {
       "localizations" : {
         "en" : {
@@ -5082,6 +6116,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Save"
+          }
+        }
+      }
+    },
+    "Salvar cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save room"
           }
         }
       }
@@ -5259,16 +6303,6 @@
         }
       }
     },
-    "Semanal" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Weekly"
-          }
-        }
-      }
-    },
     "Semanalmente" : {
       "localizations" : {
         "en" : {
@@ -5315,6 +6349,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Password changed. Go back and sign in with your new password."
+          }
+        }
+      }
+    },
+    "Senha atual" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current password"
           }
         }
       }
@@ -5366,6 +6410,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your name appears on tasks and in the rotation."
+          }
+        }
+      }
+    },
+    "Seu nome e sua foto aparecem nas tarefas e no rodízio." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your name and photo appear on tasks and in the rotation."
+          }
+        }
+      }
+    },
+    "Seu pedido para entrar em %@ foi recusado." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your request to join %@ was declined."
+          }
+        }
+      }
+    },
+    "Seu pedido para entrar em um cômodo foi recusado." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your request to join a room was declined."
           }
         }
       }
@@ -5470,6 +6544,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Request swap"
+          }
+        }
+      }
+    },
+    "Sua avaliação é anônima: ninguém vê quem avaliou. O resultado aparece para quem cuidou do cômodo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your rating is anonymous: nobody sees who rated. The result is shown to whoever took care of the room."
           }
         }
       }
@@ -5586,12 +6670,32 @@
         }
       }
     },
+    "Tarefa “%@” atualizada" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task “%@” updated"
+          }
+        }
+      }
+    },
     "Tarefa “%@” criada" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Task “%@” created"
+          }
+        }
+      }
+    },
+    "Tarefa apagada" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task deleted"
           }
         }
       }
@@ -5614,26 +6718,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cycle task"
-          }
-        }
-      }
-    },
-    "Tarefa encerrada" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Task ended"
-          }
-        }
-      }
-    },
-    "Tarefa excluída" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Task deleted"
           }
         }
       }
@@ -5669,7 +6753,7 @@
         }
       }
     },
-    "Tarefa Única excluída" : {
+    "Tarefa Única apagada" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5982,6 +7066,16 @@
         }
       }
     },
+    "Trocar foto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change photo"
+          }
+        }
+      }
+    },
     "Trocar por uma tarefa de mesmo esforço é o mais justo." : {
       "localizations" : {
         "en" : {
@@ -6044,6 +7138,26 @@
         }
       }
     },
+    "Um ciclo virou." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A cycle turned over."
+          }
+        }
+      }
+    },
+    "Um cômodo foi excluído." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A room was deleted."
+          }
+        }
+      }
+    },
     "Um morador" : {
       "localizations" : {
         "en" : {
@@ -6082,6 +7196,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "a task from the requester"
+          }
+        }
+      }
+    },
+    "Uma tarefa foi apagada." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A task was deleted."
           }
         }
       }
@@ -6299,6 +7423,36 @@
         }
       }
     },
+    "Você entrou em %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You joined %@."
+          }
+        }
+      }
+    },
+    "Você entrou em um cômodo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You joined a room."
+          }
+        }
+      }
+    },
+    "Você está fora dos rodízios. Desligue para voltar a partir do próximo ciclo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're out of the rotations. Turn it off to come back from the next cycle."
+          }
+        }
+      }
+    },
     "Você já faz parte de uma casa." : {
       "localizations" : {
         "en" : {
@@ -6398,6 +7552,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You received a task swap request."
+          }
+        }
+      }
+    },
+    "Você sai dos rodízios em %@. Desligue para ficar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You leave the rotations on %@. Turn it off to stay."
           }
         }
       }

@@ -158,4 +158,33 @@ export function swapAndSporadicRoutes(name: string, make: ApiEnvFactory): void {
       expectError(await env.call("ana", "POST", "/v1/swaps", { body }), 400, "bad_request");
     }
   });
+
+  test(`${name}: cancelar pedido: só quem pediu, só pendente; o aviso da outra pessoa some`, async () => {
+    const env = make();
+    const { house, ids } = await twoHousesScenario(env);
+    const mine = await oneTaskEach(env, house.wholeHouseRoomID);
+    const swapID = text(expectStatus(await env.call("ana", "POST", "/v1/swaps", {
+      body: JSON.stringify({ offeredOccurrenceID: mine.ana, requestedOccurrenceID: mine.bia }),
+    }), 201)["id"]);
+    const biaKinds = async () => list(bodyOf(await env.call("bia", "GET", "/v1/me/notifications"))["notifications"]).map(rec).map((n) => n["kind"]);
+    assert.ok((await biaKinds()).includes("taskSwapRequested"));
+
+    expectError(await env.call("bia", "POST", `/v1/swaps/${swapID}/cancel`), 403, "task_unavailable");
+    expectError(await env.call("caio", "POST", `/v1/swaps/${swapID}/cancel`), 404, "not_found");
+    expectError(await env.call("ana", "POST", `/v1/swaps/${UNKNOWN}/cancel`), 404, "not_found");
+
+    const cancelled = expectStatus(await env.call("ana", "POST", `/v1/swaps/${swapID}/cancel`), 200);
+    assert.deepEqual([cancelled["status"], cancelled["id"], cancelled["requesterID"]], ["cancelled", swapID, ids.ana]);
+    assert.equal(typeof cancelled["resolvedAt"], "string");
+    assert.ok(!(await biaKinds()).includes("taskSwapRequested"), "a outra pessoa não vê mais um pedido que não existe");
+    // Já cancelado: nem quem pediu cancela de novo, nem a outra pessoa aceita ou recusa.
+    expectError(await env.call("ana", "POST", `/v1/swaps/${swapID}/cancel`), 403, "task_unavailable");
+    expectError(await env.call("bia", "POST", `/v1/swaps/${swapID}/accept`), 403, "task_unavailable");
+    expectError(await env.call("bia", "POST", `/v1/swaps/${swapID}/reject`), 403, "task_unavailable");
+    assert.ok((await myOccurrenceIDs(env, "ana")).includes(mine.ana), "as tarefas ficam com quem estavam");
+    // E dá para pedir de novo.
+    expectStatus(await env.call("ana", "POST", "/v1/swaps", {
+      body: JSON.stringify({ offeredOccurrenceID: mine.ana, requestedOccurrenceID: mine.bia }),
+    }), 201);
+  });
 }

@@ -15,6 +15,8 @@ struct RoomDetailView: View {
 
     @State private var isPresentingTaskCreationSheet = false
     @State private var confirmsLeave = false
+    @State private var editingRoom: Room?
+    @State private var confirmsRoomDeletion = false
 
     @State private var showsCycleDetails = false
 
@@ -24,6 +26,9 @@ struct RoomDetailView: View {
 
     private let makeSuggestionEditorViewModel: (TaskSuggestion) -> TaskEditorViewModel
 
+    /// Editor do próprio cômodo (nome, aparência, ciclo); sem ele, "Editar cômodo" não aparece.
+    private let makeRoomEditorViewModel: ((Room) -> RoomEditorViewModel)?
+
     private let onSelectTask: (TaskDefinition.ID) -> Void
     private let reloadTrigger: AnyHashable
 
@@ -31,12 +36,14 @@ struct RoomDetailView: View {
         viewModel: RoomDetailViewModel,
         makeTaskEditorViewModel: @escaping () -> TaskEditorViewModel,
         makeSuggestionEditorViewModel: @escaping (TaskSuggestion) -> TaskEditorViewModel,
+        makeRoomEditorViewModel: ((Room) -> RoomEditorViewModel)? = nil,
         onSelectTask: @escaping (TaskDefinition.ID) -> Void,
         reloadTrigger: AnyHashable = 0
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.makeTaskEditorViewModel = makeTaskEditorViewModel
         self.makeSuggestionEditorViewModel = makeSuggestionEditorViewModel
+        self.makeRoomEditorViewModel = makeRoomEditorViewModel
         self.onSelectTask = onSelectTask
         self.reloadTrigger = reloadTrigger
     }
@@ -99,6 +106,29 @@ struct RoomDetailView: View {
                 .presentationDragIndicator(.visible)
         }
         .sheet(
+            item: $editingRoom,
+            onDismiss: { Task { await viewModel.load(forceRefresh: true) } }
+        ) { room in
+            if let makeRoomEditorViewModel {
+                RoomCreationSheetView(
+                    viewModel: makeRoomEditorViewModel(room),
+                    existingRoomNames: []
+                )
+                .presentationDragIndicator(.visible)
+            }
+        }
+        .alert(
+            "Excluir \(room?.name ?? String(localized: "este cômodo"))?",
+            isPresented: $confirmsRoomDeletion
+        ) {
+            Button("Cancelar", role: .cancel) {}
+            Button("Excluir cômodo", role: .destructive) {
+                Task { await viewModel.deleteWholeRoom() }
+            }
+        } message: {
+            Text("O cômodo, as tarefas e o histórico dele serão excluídos para todos. Não dá para desfazer.")
+        }
+        .sheet(
             item: $selectedSuggestion,
             onDismiss: { Task { await viewModel.load() } }
         ) { suggestion in
@@ -115,12 +145,12 @@ struct RoomDetailView: View {
             if deleted { dismiss() }
         }
         .alert(
-            "Encerrar tarefa?",
+            "Apagar tarefa?",
             isPresented: Binding(get: { taskToEnd != nil }, set: { if !$0 { taskToEnd = nil } }),
             presenting: taskToEnd
         ) { task in
             Button("Cancelar", role: .cancel) {}
-            Button("Encerrar", role: .destructive) {
+            Button("Apagar", role: .destructive) {
                 Task { await viewModel.end(taskID: task.id) }
             }
         } message: { task in
@@ -289,7 +319,7 @@ struct RoomDetailView: View {
         let cycle = sections?.cycle ?? []
         let general = sections?.general ?? []
         let single = viewModel.sporadicTasks.filter {
-            taskFilter == .all || $0.occurrence.availableAt <= .now
+            taskFilter.includes(availableAt: $0.occurrence.availableAt, now: .now)
         }
 
         if cycle.isEmpty, general.isEmpty, single.isEmpty {
@@ -345,7 +375,7 @@ struct RoomDetailView: View {
                             Button(role: .destructive) {
                                 taskToEnd = item.definition
                             } label: {
-                                Label("Encerrar", systemImage: "stop.circle")
+                                Label("Apagar", systemImage: "trash")
                             }
                         }
                     }
@@ -374,7 +404,12 @@ struct RoomDetailView: View {
             )
 
         case (.cycle, .now):
-            RoomCycleTaskRow(item: item, currentUserID: viewModel.currentUserID, onSelect: select)
+            RoomCycleTaskRow(
+                item: item,
+                currentUserID: viewModel.currentUserID,
+                timing: viewModel.startTiming(of: item),
+                onSelect: select
+            )
 
         case (.general, .now):
             RoomCycleTaskRow(
@@ -454,10 +489,22 @@ struct RoomDetailView: View {
         if let room, isMember, !room.representsWholeHouse {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    if makeRoomEditorViewModel != nil {
+                        Button("Editar cômodo", systemImage: "pencil") {
+                            editingRoom = room
+                        }
+                    }
                     Button("Sair do rodízio", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
                         confirmsLeave = true
                     }
                     .disabled(viewModel.isChangingMembership)
+                    if viewModel.canDeleteRoom {
+                        Divider()
+                        Button("Excluir cômodo", systemImage: "trash", role: .destructive) {
+                            confirmsRoomDeletion = true
+                        }
+                        .disabled(viewModel.isChangingMembership)
+                    }
                 } label: {
                     Label("Mais opções do cômodo", systemImage: "ellipsis")
                 }

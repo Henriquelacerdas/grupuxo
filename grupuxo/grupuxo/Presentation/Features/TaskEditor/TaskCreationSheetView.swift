@@ -192,8 +192,10 @@ struct TaskCreationSheetView: View {
                     titleCard
 
                     VStack(spacing: DesignSystem.Spacing.large) {
-                        uniqueTaskRow
+                        // Ao editar, o tipo e o cômodo não mudam: quem quer outro, apaga e cria de novo.
+                        if !viewModel.isEditing { uniqueTaskRow }
                         roomRow
+                            .disabled(viewModel.isEditing)
 
                         if !isUniqueTask {
                             repetitionSection
@@ -214,7 +216,7 @@ struct TaskCreationSheetView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("Criar Tarefa")
+            .navigationTitle(viewModel.isEditing ? "Editar Tarefa" : "Criar Tarefa")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -253,7 +255,11 @@ struct TaskCreationSheetView: View {
         }
         .onChange(of: viewModel.state) { _, state in
             if case let .saved(definition) = state {
-                showToast(.created(String(localized: "Tarefa “\(definition.name)” criada")))
+                showToast(.created(
+                    viewModel.isEditing
+                        ? String(localized: "Tarefa “\(definition.name)” atualizada")
+                        : String(localized: "Tarefa “\(definition.name)” criada")
+                ))
                 dismiss()
             }
         }
@@ -326,7 +332,7 @@ struct TaskCreationSheetView: View {
             .padding(.vertical, DesignSystem.Spacing.extraSmall)
             .frame(minHeight: Layout.rowMinimumHeight)
             .background(cardBackground)
-            .disabled(viewModel.selectedRoom == nil)
+            .disabled(viewModel.selectedRoom == nil || viewModel.isEditing)
             .accessibilityIdentifier("followsRoomToggle")
 
             if let room = viewModel.selectedRoom, !followsRoom {
@@ -339,6 +345,7 @@ struct TaskCreationSheetView: View {
                     } label: {
                         rowValue(recurrenceName)
                     }
+                    .disabled(!viewModel.canEditRecurrence)
                     .accessibilityLabel("Repetição")
                     .accessibilityValue(recurrenceName)
                     .foregroundStyle(.secondary)
@@ -480,7 +487,13 @@ struct TaskCreationSheetView: View {
 
         let hasRoom = viewModel.state.draft.roomID != nil
 
-        return hasTitle && hasRoom
+        guard viewModel.isEditing else { return hasTitle && hasRoom }
+
+        // Ao editar, só salva se algo mudou.
+        var current = viewModel.state.draft
+        current.name = titleText
+        current.details = detailsText
+        return hasTitle && current != viewModel.initialDraft
     }
 
     private func selectionRow<Control: View>(
@@ -566,7 +579,7 @@ struct TaskCreationSheetView: View {
         .foregroundStyle(color)
     }
 
-    /// A repetição do cômodo fica desabilitada: com ela, a tarefa entraria no ciclo do cômodo.
+    /// A repetição do cômodo fica oculta: com ela, a tarefa entraria no ciclo do cômodo.
     private func recurrenceMenu(excluding room: Room) -> some View {
         Group {
             recurrenceMenuButton(
@@ -608,14 +621,17 @@ struct TaskCreationSheetView: View {
         }
     }
 
+    /// A periodicidade do cômodo não aparece: escolhê-la seria "Repetir com o cômodo" (docs/DESIGN.md).
+    @ViewBuilder
     private func recurrenceMenuButton(
         _ title: LocalizedStringKey,
         recurrence: RecurrencePolicy
     ) -> some View {
-        Button(title) {
-            viewModel.selectRecurrence(recurrence)
+        if !viewModel.isRoomPeriodicity(recurrence) {
+            Button(title) {
+                viewModel.selectRecurrence(recurrence)
+            }
         }
-        .disabled(viewModel.isRoomPeriodicity(recurrence))
     }
 
     private func adaptiveRow<Content: View>(

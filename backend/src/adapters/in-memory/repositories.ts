@@ -1,12 +1,19 @@
 import { houseSnapshot, type HouseSnapshot, type HouseSnapshotRepository } from "../../domain/commands/house-snapshot.ts";
-import { acceptSwapRequest, createSwapRequest, incomingRequests, outgoingRequests, rejectSwapRequest, swapCandidates } from "../../domain/commands/swaps.ts";
+import {
+  acceptSwapRequest, cancelSwapRequest, createSwapRequest, incomingRequests, outgoingRequests, rejectSwapRequest, swapCandidates,
+} from "../../domain/commands/swaps.ts";
 import type { CommandContext } from "../../domain/commands/context.ts";
 import {
   ACCESS_CODE_ATTEMPTS, addHouseMember, createHouse, houseMemberIDs, houseMembers, joinHouseByCode, leaveHouse,
-  normalizeAccessCode, removeHouseMember, type LeaveHouseOutcome,
+  normalizeAccessCode, removeHouseMember, renameHouse, setVacation, vacationStatus, type LeaveHouseOutcome, type VacationStatus,
 } from "../../domain/commands/houses.ts";
+import { emitCycleNotifications, emitWeeklySummary } from "../../domain/commands/cycles.ts";
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
-import { createRoom, roomFor, roomParticipation, roomsFor } from "../../domain/commands/rooms.ts";
+import { pendingRatings, ratingSummary, rateRoom, type PendingRating, type RatingInput, type RatingResult } from "../../domain/commands/ratings.ts";
+import {
+  answerRoomAccess, cancelRoomAccess, createRoom, deleteRoom, pendingRoomAccessIDs, requestRoomAccess, roomAccessRequestsFor, roomFor,
+  roomParticipation, roomsFor, updateRoom, type RoomPatch,
+} from "../../domain/commands/rooms.ts";
 import {
   addRoomMember, claimTask, completeTask, createTask, deleteSporadicTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
   occurrenceHouseFor, roomTasks, sporadicTasks, taskDefinitionFor, updateTaskDetails, userTasks, type TaskDetailsPatch,
@@ -16,7 +23,7 @@ import type { Instant } from "../../domain/dates.ts";
 import type { House, Room, RoomMembership, RoomParticipation, TaskDefinition, TaskItem, TaskSwapRequest, User, AppNotification } from "../../domain/entities.ts";
 import type { HouseID, NotificationID, RoomID, TaskDefinitionID, TaskOccurrenceID, TaskSwapRequestID, UserID } from "../../domain/ids.ts";
 import type {
-  HouseRepository, NotificationRepository, RoomRepository, TaskRepository, TaskSwapRepository,
+  HouseRepository, NotificationRepository, RoomAccessRequestSummary, RoomRepository, TaskRepository, TaskSwapRepository,
 } from "../../domain/repositories.ts";
 import type { InMemoryStore } from "./store.ts";
 
@@ -65,6 +72,25 @@ export class InMemoryHouseRepository implements HouseRepository {
     this.store.update((s) => removeHouseMember(this.ctx, s, userID, houseID, requestedBy, at, confirmRoomDeletion));
   }
 
+  async emitScheduledNotifications(houseID: HouseID, at: Instant): Promise<number> {
+    return this.store.update((s) => {
+      refreshSchedule(this.ctx, s, houseID, at);
+      return emitCycleNotifications(this.ctx, s, houseID, at) + emitWeeklySummary(this.ctx, s, houseID, at);
+    });
+  }
+
+  async vacation(userID: UserID, houseID: HouseID): Promise<VacationStatus> {
+    return this.store.read((s) => vacationStatus(s, houseID, userID));
+  }
+
+  async setVacation(userID: UserID, houseID: HouseID, on: boolean, at: Instant): Promise<VacationStatus> {
+    return this.store.update((s) => setVacation(this.ctx, s, houseID, userID, on, at));
+  }
+
+  async rename(houseID: HouseID, requestedBy: UserID, name: string): Promise<House> {
+    return this.store.update((s) => renameHouse(s, houseID, requestedBy, name));
+  }
+
   async house(id: HouseID): Promise<House> {
     return this.store.read((s) => {
       const house = s.houses.find((h) => h.id === id);
@@ -111,6 +137,52 @@ export class InMemoryRoomRepository implements RoomRepository {
 
   async create(room: Room, memberships: readonly RoomMembership[]): Promise<Room> {
     return this.store.update((s) => createRoom(this.ctx, s, room, memberships, this.ctx.now()));
+  }
+
+  async update(roomID: RoomID, patch: RoomPatch, requestedBy: UserID, at: Instant): Promise<Room> {
+    return this.store.update((s) => updateRoom(this.ctx, s, roomID, patch, requestedBy, at));
+  }
+
+  async delete(roomID: RoomID, requestedBy: UserID, at: Instant, confirmDeletion: boolean): Promise<void> {
+    this.store.update((s) => deleteRoom(this.ctx, s, roomID, requestedBy, at, confirmDeletion));
+  }
+
+  async pendingAccessRoomIDs(houseID: HouseID, userID: UserID): Promise<RoomID[]> {
+    return this.store.read((s) => pendingRoomAccessIDs(s, houseID, userID));
+  }
+
+  async accessRequests(roomID: RoomID, requesting: UserID): Promise<readonly RoomAccessRequestSummary[]> {
+    return this.store.read((s) => roomAccessRequestsFor(s, roomID, requesting));
+  }
+
+  async requestAccess(roomID: RoomID, userID: UserID, at: Instant): Promise<void> {
+    this.store.update((s) => requestRoomAccess(this.ctx, s, roomID, userID, at));
+  }
+
+  async cancelAccess(roomID: RoomID, userID: UserID): Promise<void> {
+    this.store.update((s) => cancelRoomAccess(s, roomID, userID));
+  }
+
+  async answerAccess(roomID: RoomID, requesterID: UserID, answeredBy: UserID, approve: boolean, at: Instant): Promise<void> {
+    this.store.update((s) => answerRoomAccess(this.ctx, s, roomID, requesterID, answeredBy, approve, at));
+  }
+
+  async pendingRatings(houseID: HouseID, userID: UserID, at: Instant): Promise<PendingRating[]> {
+    return this.store.update((s) => {
+      refreshSchedule(this.ctx, s, houseID, at);
+      return pendingRatings(this.ctx, s, houseID, userID, at);
+    });
+  }
+
+  async rateRoom(roomID: RoomID, userID: UserID, input: RatingInput, at: Instant): Promise<void> {
+    this.store.update((s) => rateRoom(this.ctx, s, roomID, userID, input, at));
+  }
+
+  async ratingSummary(houseID: HouseID, userID: UserID, at: Instant): Promise<RatingResult[]> {
+    return this.store.update((s) => {
+      refreshSchedule(this.ctx, s, houseID, at);
+      return ratingSummary(this.ctx, s, houseID, userID, at);
+    });
   }
 }
 
@@ -161,12 +233,14 @@ export class InMemoryTaskRepository implements TaskRepository, HouseSnapshotRepo
     this.store.update((s) => endTask(this.ctx, s, roomID, taskID, requestedBy, at));
   }
 
-  async updateTaskDetails(roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsPatch, requestedBy: UserID): Promise<TaskDefinition> {
-    return this.store.update((s) => updateTaskDetails(s, roomID, taskID, patch, requestedBy));
+  async updateTaskDetails(
+    roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsPatch, requestedBy: UserID, at: Instant,
+  ): Promise<TaskDefinition> {
+    return this.store.update((s) => updateTaskDetails(this.ctx, s, roomID, taskID, patch, requestedBy, at));
   }
 
-  async deleteSporadicTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID): Promise<void> {
-    this.store.update((s) => deleteSporadicTask(s, roomID, taskID, requestedBy));
+  async deleteSporadicTask(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, at: Instant): Promise<void> {
+    this.store.update((s) => deleteSporadicTask(this.ctx, s, roomID, taskID, requestedBy, at));
   }
 
   async refreshSchedule(houseID: HouseID, at: Instant): Promise<void> {
@@ -228,6 +302,10 @@ export class InMemoryTaskSwapRepository implements TaskSwapRepository {
 
   async reject(requestID: TaskSwapRequestID, by: UserID, at: Instant): Promise<TaskSwapRequest> {
     return this.store.update((s) => rejectSwapRequest(this.ctx, s, requestID, by, at));
+  }
+
+  async cancel(requestID: TaskSwapRequestID, by: UserID, at: Instant): Promise<TaskSwapRequest> {
+    return this.store.update((s) => cancelSwapRequest(s, requestID, by, at));
   }
 }
 

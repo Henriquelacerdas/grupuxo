@@ -7,8 +7,34 @@ import GrupuxoDomain
 struct UserDTO: Decodable, Sendable {
     let id: UUID
     let name: String
+    /// Servidor anterior não manda o campo: sem foto.
+    let photoURL: URL?
 
-    var domain: User { User(id: id, name: name, email: nil) }
+    var domain: User { User(id: id, name: name, email: nil, photoURL: photoURL) }
+}
+
+/// Resposta de `POST /v1/me/photo`: onde o app envia o JPEG (PUT pré-assinado, 5 minutos).
+struct PhotoUploadTargetDTO: Decodable, Sendable {
+    let key: String
+    let uploadURL: URL
+    let headers: [String: String]
+}
+
+struct ConfirmPhotoBody: Encodable, Sendable { let key: String }
+
+/// Corpo de `PUT /v1/me/devices`.
+struct DeviceBody: Encodable, Sendable {
+    let token: String
+    let environment: String
+}
+
+/// Preferências de push (`GET`/`PUT /v1/me/notification-preferences`).
+struct NotificationPreferencesDTO: Codable, Equatable, Sendable {
+    var remindTasks: Bool
+    var reminderHour: Int
+    var cycleTurned: Bool
+    var houseActivity: Bool
+    var weeklySummary: Bool
 }
 
 struct HouseDTO: Decodable, Sendable {
@@ -131,13 +157,16 @@ struct TaskDefinitionDTO: Decodable, Sendable {
     let endedAt: Date?
     /// Quem criou a tarefa avulsa; ausente nas tarefas antigas (sem Editar/Excluir) e nas recorrentes.
     let createdByUserID: UUID?
+    /// "Repetir com o cômodo"; `null` ou ausente = definição antiga (vale a periodicidade).
+    let followsRoom: Bool?
 
     func domain() throws -> TaskDefinition {
         guard let recurrence = recurrence.domain else { throw APIError.invalidResponse }
         return TaskDefinition(
             id: id, roomID: roomID, name: name, details: details, effort: TaskEffort(points: effort),
             kind: kind, recurrence: recurrence, assignmentPolicy: assignmentPolicy,
-            createdByUserID: createdByUserID, calendarAnchor: calendarAnchor, endedAt: endedAt
+            createdByUserID: createdByUserID, calendarAnchor: calendarAnchor, endedAt: endedAt,
+            followsRoom: followsRoom
         )
     }
 }
@@ -219,7 +248,11 @@ struct MySwapsDTO: Decodable, Sendable {
 struct NotificationDTO: Decodable, Sendable {
     let id: UUID
     let kind: AppNotificationKind
-    let swapRequestID: UUID
+    let swapRequestID: UUID?
+    let taskDefinitionID: UUID?
+    let roomID: UUID?
+    let actorUserID: UUID?
+    let subjectName: String?
     let createdAt: Date
     let readAt: Date?
 
@@ -227,13 +260,44 @@ struct NotificationDTO: Decodable, Sendable {
     func domain(recipientUserID: User.ID) -> AppNotification {
         AppNotification(
             id: id, recipientUserID: recipientUserID, kind: kind, swapRequestID: swapRequestID,
-            createdAt: createdAt, readAt: readAt
+            taskDefinitionID: taskDefinitionID, roomID: roomID, actorUserID: actorUserID,
+            subjectName: subjectName, createdAt: createdAt, readAt: readAt
         )
     }
 }
 
+/// Lista de avisos. Um tipo que este app ainda não conhece (servidor mais novo) é ignorado, não derruba a lista.
 struct NotificationListDTO: Decodable, Sendable {
     let notifications: [NotificationDTO]
+
+    private enum CodingKeys: String, CodingKey { case notifications }
+
+    private struct Skipped: Decodable {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        var items = try container.nestedUnkeyedContainer(forKey: .notifications)
+        var result: [NotificationDTO] = []
+        while !items.isAtEnd {
+            if let item = try? items.decode(NotificationDTO.self) {
+                result.append(item)
+            } else {
+                _ = try? items.decode(Skipped.self)
+            }
+        }
+        notifications = result
+    }
+}
+
+struct VacationDTO: Decodable, Sendable {
+    let onVacation: Bool
+    let startsAt: Date?
+
+    var domain: VacationStatus { VacationStatus(isOn: onVacation, startsAt: startsAt) }
+}
+
+struct PendingRoomAccessDTO: Decodable, Sendable {
+    let roomIDs: [UUID]
 }
 
 struct RegisteredAccountDTO: Decodable, Sendable {
@@ -255,6 +319,9 @@ struct WhatsAppInvitationDTO: Decodable, Sendable {
 
 struct RegisterAccountBody: Encodable, Sendable { let name: String }
 
+/// Corpo de `PATCH /v1/me` e de `PATCH /v1/houses/{id}`.
+struct RenameBody: Encodable, Sendable { let name: String }
+
 struct CreateHouseBody: Encodable, Sendable {
     let name: String
     let timezone: String
@@ -274,6 +341,25 @@ struct CreateRoomBody: Encodable, Sendable {
     let participantIDs: [String]?
 }
 
+/// Corpo de `PATCH /v1/rooms/{id}`: o que é `nil` não vai no JSON e não muda.
+struct UpdateRoomBody: Encodable, Sendable {
+    let name: String?
+    let category: RoomCategory?
+    let icon: String?
+    let color: RoomColor?
+    let periodicity: PeriodicityDTO?
+    let responsibleCount: Int?
+
+    init(_ patch: RoomPatch) {
+        name = patch.name
+        category = patch.category
+        icon = patch.icon
+        color = patch.color
+        periodicity = patch.periodicity.map(PeriodicityDTO.init)
+        responsibleCount = patch.responsibleCount
+    }
+}
+
 struct CreateTaskBody: Encodable, Sendable {
     let name: String
     let details: String
@@ -281,11 +367,24 @@ struct CreateTaskBody: Encodable, Sendable {
     let kind: TaskKind
     let recurrence: RecurrenceDTO
     let assignmentPolicy: TaskAssignmentPolicy
+    /// "Repetir com o cômodo" (só tarefa recorrente); `nil` não vai no JSON.
+    let followsRoom: Bool?
 }
 
 struct UpdateTaskBody: Encodable, Sendable {
     let name: String
     let details: String
+    /// 1 a 3; `nil` não vai no JSON e não muda.
+    let effort: Int?
+    /// Só a repetição própria muda o intervalo; `nil` não vai no JSON.
+    let recurrence: RecurrenceDTO?
+
+    init(name: String, details: String, effort: Int? = nil, recurrence: RecurrenceDTO? = nil) {
+        self.name = name
+        self.details = details
+        self.effort = effort
+        self.recurrence = recurrence
+    }
 }
 
 struct RoomMemberBody: Encodable, Sendable { let userID: String }
@@ -303,13 +402,16 @@ struct HouseSnapshotDTO: Decodable, Sendable {
     let roomTasks: [TaskItemDTO]
     let myTasks: [TaskItemDTO]
     let sporadicTasks: [TaskItemDTO]
+    /// Servidor anterior não manda o campo: nenhum pedido.
+    let pendingRoomAccessIDs: [UUID]?
 
     func domain() throws -> RemoteHouseSnapshot {
         RemoteHouseSnapshot(
             userID: userID, home: home, participations: participations.map(\.domain),
             roomTasks: try roomTasks.map { try $0.domain() },
             myTasks: try myTasks.map { try $0.domain() },
-            sporadicTasks: try sporadicTasks.map { try $0.domain() }
+            sporadicTasks: try sporadicTasks.map { try $0.domain() },
+            pendingRoomAccessIDs: Set(pendingRoomAccessIDs ?? [])
         )
     }
 }
@@ -321,4 +423,47 @@ struct RemoteHouseSnapshot: Sendable {
     let roomTasks: [TaskItem]
     let myTasks: [TaskItem]
     let sporadicTasks: [TaskItem]
+    let pendingRoomAccessIDs: Set<Room.ID>
+}
+
+// MARK: - Avaliar a semana
+
+struct PendingRatingDTO: Decodable, Sendable {
+    let roomID: UUID
+    let roomName: String
+    let periodStart: Date
+    let periodEnd: Date
+    let windowEnd: Date
+
+    var domain: PendingRating {
+        PendingRating(roomID: roomID, roomName: roomName, periodStart: periodStart, periodEnd: periodEnd, windowEnd: windowEnd)
+    }
+}
+
+struct PendingRatingsDTO: Decodable, Sendable {
+    let pending: [PendingRatingDTO]
+}
+
+struct RatingResultDTO: Decodable, Sendable {
+    let roomID: UUID
+    let roomName: String
+    let periodStart: Date
+    let periodEnd: Date
+    let level: RatingLevel
+    let tags: [RatingTag]
+
+    var domain: RatingResult {
+        RatingResult(roomID: roomID, roomName: roomName, periodStart: periodStart, periodEnd: periodEnd, level: level, tags: tags)
+    }
+}
+
+struct RatingSummaryDTO: Decodable, Sendable {
+    let summary: [RatingResultDTO]
+}
+
+/// Corpo de `POST /v1/rooms/{id}/ratings`; `periodStart` é o instante exato que o servidor mandou, em ISO com milissegundos.
+struct RateRoomBody: Encodable, Sendable {
+    let periodStart: String
+    let level: RatingLevel
+    let tags: [RatingTag]
 }

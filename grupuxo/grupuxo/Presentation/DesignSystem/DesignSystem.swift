@@ -257,14 +257,33 @@ struct ResidentAvatar: View {
         size == .toolbar ? 0 : DesignSystem.tintedFillOpacity
     }
 
-    var body: some View {
+    private var initials: some View {
         Text(user.name.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init).joined())
             .font(font)
             .foregroundStyle(.tint)
             .frame(width: diameter, height: diameter)
             .background(Color.accentColor.opacity(fillOpacity), in: Circle())
-            .contentShape(Circle())
-            .accessibilityHidden(true)
+    }
+
+    var body: some View {
+        Group {
+            if let url = user.photoURL {
+                // Enquanto carrega (ou se falhar), as iniciais ocupam o lugar.
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    } else {
+                        initials
+                    }
+                }
+                .frame(width: diameter, height: diameter)
+                .clipShape(Circle())
+            } else {
+                initials
+            }
+        }
+        .contentShape(Circle())
+        .accessibilityHidden(true)
     }
 }
 

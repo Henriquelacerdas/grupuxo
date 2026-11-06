@@ -12,7 +12,8 @@
     "assignmentPolicy": "selfAssigned",
     "calendarAnchor": null,
     "endedAt": null,
-    "createdByUserID": null
+    "createdByUserID": null,
+    "followsRoom": null
   },
   "occurrence": {
     "id": "ffffffff-ffff-4fff-8fff-00000000007a",
@@ -28,6 +29,7 @@
   "assignee": null,
   "suggestedAssignee": {
     "id": "ffffffff-ffff-4fff-8fff-000000000003",
-    "name": "Bia"
+    "name": "Bia",
+    "photoURL": null
   }
 }

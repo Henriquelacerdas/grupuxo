@@ -379,8 +379,120 @@ struct RemoteHouseSessionTests {
         await houses.load()
         await houses.joinHouse(code: "abc234", myName: "Ana")
         #expect(await server.string("code", inBody: 2) == "ABC234")
-        #expect(houses.errorMessage == "Código de convite inválido.")
+        #expect(houses.errorMessage == "Não achamos uma casa com esse código. Confira com quem te mandou.")
         #expect(houses.house == nil)
+    }
+
+    @Test func renamingTheHouseUsesPatchAndShowsTheNewName() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me", body: meJSON)
+        let houseJSON = String(decoding: try fixture("me-house"), as: UTF8.self)
+        await server.on("GET /v1/me/house", body: houseJSON)
+        let houses = session(server)
+        await houses.load()
+        let houseID = try #require(houses.house?.id)
+        let renamed = houseJSON.replacingOccurrences(of: "\"name\": \"Nossa casa\"", with: "\"name\": \"Casa Nova\"")
+            .replacingOccurrences(of: "\"name\":\"Nossa casa\"", with: "\"name\":\"Casa Nova\"")
+        await server.on("PATCH /v1/houses/\(houseID.uuidString.lowercased())", body: renamed)
+        #expect(await houses.renameHouse(to: "  Casa Nova "))
+        #expect(await server.string("name", inBody: 2) == "Casa Nova")
+        #expect(houses.house?.name == "Casa Nova")
+        #expect(houses.errorMessage == nil)
+    }
+
+    @Test func aBlankHouseNameNeverReachesTheServer() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me", body: meJSON)
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        let houses = session(server)
+        await houses.load()
+        #expect(await houses.renameHouse(to: "   ") == false)
+        #expect(houses.errorMessage == "A casa precisa de um nome.")
+        #expect(await server.keys() == ["GET /v1/me", "GET /v1/me/house"])
+        #expect(houses.house?.name == "Nossa casa")
+    }
+
+    @Test func renamingMyselfUpdatesMeAndTheMemberList() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me", body: meJSON)
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        await server.on("PATCH /v1/me", body: meJSON)
+        let houses = session(server)
+        await houses.load()
+        let myID = try #require(houses.me?.id)
+        #expect(await houses.updateMyName(to: " Marina Souza "))
+        #expect(await server.string("name", inBody: 2) == "Marina Souza")
+        #expect(houses.me?.name == "Marina Souza")
+        #expect(houses.members.first { $0.id == myID }?.name == "Marina Souza")
+    }
+
+    @Test func aRejectedNameKeepsTheOldOneAndShowsTheError() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me", body: meJSON)
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        await server.on("PATCH /v1/me", status: 400, body: #"{"error":"invalid_name"}"#)
+        let houses = session(server)
+        await houses.load()
+        #expect(await houses.updateMyName(to: "Nome") == false)
+        #expect(houses.me?.name == "Marina")
+        #expect(houses.errorMessage == "Informe um nome válido.")
+    }
+
+    @Test func starterRoomsCreateTheRoomsAndTheirSuggestedTasksAndStopOnFailure() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me", body: meJSON)
+        let houseJSON = String(decoding: try fixture("me-house"), as: UTF8.self)
+        await server.on("GET /v1/me/house", body: houseJSON)
+        let houses = session(server)
+        await houses.load()
+        let houseID = try #require(houses.house?.id)
+        let room = String(decoding: try fixture("room"), as: UTF8.self)
+        let task = String(decoding: try fixture("task-definition"), as: UTF8.self)
+        await server.on("POST /v1/houses/\(houseID.apiString)/rooms", status: 201, body: room)
+        let fixtureRoomID = (try? JSONSerialization.jsonObject(with: Data(room.utf8)) as? [String: Any])?["id"] as? String
+        await server.on("POST /v1/rooms/\(try #require(fixtureRoomID))/tasks", status: 201, body: task)
+
+        let starters = Array(StarterRoom.all.prefix(2))
+        let created = await houses.createStarterRooms(starters)
+        #expect(created == 2)
+        let keys = await server.keys()
+        #expect(keys.filter { $0.hasSuffix("/rooms") }.count == 2)
+        #expect(keys.filter { $0.hasSuffix("/tasks") }.count == 2 * StarterRoom.suggestedTasksPerRoom)
+        let firstRoom = try #require(keys.firstIndex { $0.hasSuffix("/rooms") })
+        #expect(await server.string("visibility", inBody: firstRoom) == "common")
+        #expect(await !server.bodyHas("participantIDs", at: firstRoom), "cômodo comum não manda participantes")
+        let firstTask = try #require(keys.firstIndex { $0.hasSuffix("/tasks") })
+        #expect(await server.bodyHas("followsRoom", at: firstTask))
+        #expect(await server.string("assignmentPolicy", inBody: firstTask) == "balancedAutomatically")
+
+        // Falha no meio: para, devolve quantos cômodos já nasceram e mostra o erro.
+        await server.on("POST /v1/houses/\(houseID.apiString)/rooms", status: 500, body: #"{"error":"internal"}"#)
+        #expect(await houses.createStarterRooms(starters) == 0)
+        #expect(houses.errorMessage != nil)
+    }
+
+    @Test func profilePhotoUploadsStraightToTheSignedURLAndConfirmsTheKey() async throws {
+        let server = FakeServer()
+        await server.on("GET /v1/me", body: meJSON)
+        await server.on("GET /v1/me/house", body: String(decoding: try fixture("me-house"), as: UTF8.self))
+        await server.on("POST /v1/me/photo", body: #"{"key":"photos/abc","uploadURL":"http://localhost:8787/s3/photos/abc?sig=1","headers":{"Content-Type":"image/jpeg"},"expiresAt":"2026-10-14T12:05:00.000Z"}"#)
+        await server.on("PUT /s3/photos/abc", body: "")
+        await server.on("PUT /v1/me/photo", body: #"{"photoURL":"https://example.test/p.jpg"}"#)
+        await server.on("DELETE /v1/me/photo", status: 204, body: "")
+        let houses = session(server)
+        await houses.load()
+
+        #expect(await houses.updatePhoto(jpeg: Data([0xFF, 0xD8, 0xFF])))
+        let keys = await server.keys()
+        #expect(keys.contains("PUT /s3/photos/abc"), "o JPEG vai direto ao URL pré-assinado")
+        let upload = try #require(await server.requests.first { $0.httpMethod == "PUT" && $0.url?.path == "/s3/photos/abc" })
+        #expect(upload.value(forHTTPHeaderField: "Content-Type") == "image/jpeg")
+        #expect(upload.value(forHTTPHeaderField: "Authorization") == nil, "a URL assinada não leva o token do app")
+        let confirm = try #require(keys.firstIndex(of: "PUT /v1/me/photo"))
+        #expect(await server.string("key", inBody: confirm) == "photos/abc")
+
+        #expect(await houses.updatePhoto(jpeg: nil))
+        #expect(await server.keys().contains("DELETE /v1/me/photo"))
     }
 
     @Test func leaveAsksForConfirmationWhenRoomsWouldBeDeleted() async throws {
@@ -565,6 +677,147 @@ struct RemoteRepositoryTests {
         let result = try await rooms.create(commonRoom, memberships: [RoomMembership(id: UUID(), roomID: commonRoom.id, userID: other)])
         #expect(await !server.bodyHas("participantIDs", at: 1))
         #expect(result.name == "Cozinha", "devolve o cômodo criado pelo servidor, com o id dele")
+    }
+
+    @Test func updatingARoomSendsOnlyTheChangedFields() async throws {
+        let server = FakeServer()
+        let roomID = UUID()
+        await server.on("PATCH /v1/rooms/\(roomID.apiString)", body: String(decoding: try fixture("room"), as: UTF8.self))
+        let rooms = RemoteRoomRepository(api: client(server))
+        let patch = RoomPatch(name: "Cozinha grande", periodicity: WeeklyPeriodicity(executionsPerPeriod: 1, intervalWeeks: 2))
+        let updated = try await rooms.update(roomID: roomID, patch: patch, requestedBy: user, at: .now)
+        #expect(updated.name == "Cozinha", "devolve o cômodo que o servidor respondeu")
+        #expect(await server.string("name", inBody: 0) == "Cozinha grande")
+        #expect(await server.bodyHas("periodicity", at: 0))
+        #expect(await !server.bodyHas("icon", at: 0))
+        #expect(await !server.bodyHas("color", at: 0))
+        #expect(await !server.bodyHas("responsibleCount", at: 0))
+    }
+
+    @Test func deletingARoomConfirmsAndMapsTheServerError() async throws {
+        let server = FakeServer()
+        let roomID = UUID()
+        let rooms = RemoteRoomRepository(api: client(server))
+        await server.on("DELETE /v1/rooms/\(roomID.apiString)", status: 409, body: #"{"error":"room_deletion_confirmation_required"}"#)
+        await #expect(throws: DomainError.deletionConfirmationRequired) {
+            try await rooms.delete(roomID: roomID, requestedBy: user, at: .now, confirmDeletion: false)
+        }
+        await server.on("DELETE /v1/rooms/\(roomID.apiString)", status: 204, body: "")
+        try await rooms.delete(roomID: roomID, requestedBy: user, at: .now, confirmDeletion: true)
+        #expect(await server.requests.last?.url?.query == "confirmDeletion=true")
+        await server.on("DELETE /v1/rooms/\(roomID.apiString)", status: 409, body: #"{"error":"whole_house_protected"}"#)
+        await #expect(throws: APIError.http(status: 409, code: "whole_house_protected")) {
+            try await rooms.delete(roomID: roomID, requestedBy: user, at: .now, confirmDeletion: true)
+        }
+    }
+
+    @Test func cancellingASwapUsesTheCancelRouteAndReadsTheNewStatus() async throws {
+        let server = FakeServer()
+        let swap = String(decoding: try fixture("task-swap-request"), as: UTF8.self)
+        let swapID = UUID(uuidString: "FFFFFFFF-FFFF-4FFF-8FFF-00000000007B")!
+        let cancelled = swap.replacingOccurrences(of: "\"pending\"", with: "\"cancelled\"")
+        await server.on("POST /v1/swaps/\(swapID.apiString)/cancel", body: cancelled)
+        let swaps = RemoteTaskSwapRepository(api: client(server))
+        let result = try await swaps.cancel(requestID: swapID, by: user, at: .now)
+        #expect(result.status == .cancelled)
+        #expect(!result.isPending)
+        await server.on("POST /v1/swaps/\(swapID.apiString)/cancel", status: 403, body: #"{"error":"task_unavailable"}"#)
+        await #expect(throws: APIError.http(status: 403, code: "task_unavailable")) {
+            try await swaps.cancel(requestID: swapID, by: user, at: .now)
+        }
+    }
+
+    @Test func roomAccessRequestsUseTheServerRoutes() async throws {
+        let server = FakeServer()
+        let roomID = UUID(), other = UUID()
+        await server.on("GET /v1/me/room-access-requests", body: #"{"roomIDs":["\#(roomID.apiString)"]}"#)
+        await server.on("POST /v1/rooms/\(roomID.apiString)/access-requests", status: 204, body: "")
+        await server.on("DELETE /v1/rooms/\(roomID.apiString)/access-requests", status: 204, body: "")
+        await server.on("POST /v1/rooms/\(roomID.apiString)/access-requests/\(other.apiString)/approve", status: 204, body: "")
+        await server.on("POST /v1/rooms/\(roomID.apiString)/access-requests/\(other.apiString)/deny", status: 204, body: "")
+        let repository = RemoteRoomAccessRequestRepository(api: client(server))
+        #expect(try await repository.pendingRoomIDs(in: UUID(), requesting: user) == [roomID])
+        try await repository.request(roomID: roomID, requesting: user, at: .now)
+        try await repository.cancel(roomID: roomID, requesting: user)
+        try await repository.answer(roomID: roomID, requesterID: other, answeredBy: user, approve: true, at: .now)
+        try await repository.answer(roomID: roomID, requesterID: other, answeredBy: user, approve: false, at: .now)
+        #expect(await server.keys() == [
+            "GET /v1/me/room-access-requests",
+            "POST /v1/rooms/\(roomID.apiString)/access-requests",
+            "DELETE /v1/rooms/\(roomID.apiString)/access-requests",
+            "POST /v1/rooms/\(roomID.apiString)/access-requests/\(other.apiString)/approve",
+            "POST /v1/rooms/\(roomID.apiString)/access-requests/\(other.apiString)/deny",
+        ])
+        await server.on("POST /v1/rooms/\(roomID.apiString)/access-requests", status: 409, body: #"{"error":"room_access_not_requestable"}"#)
+        await #expect(throws: APIError.http(status: 409, code: "room_access_not_requestable")) {
+            try await repository.request(roomID: roomID, requesting: user, at: .now)
+        }
+    }
+
+    @Test func vacationModeUsesTheServerRoutesAndTheViewModelFollowsIt() async throws {
+        let server = FakeServer()
+        let houseID = UUID()
+        await server.on("GET /v1/me/vacation", body: #"{"onVacation":false,"startsAt":null}"#)
+        await server.on("PUT /v1/me/vacation", body: #"{"onVacation":true,"startsAt":"2999-01-04T03:00:00.000Z"}"#)
+        await server.on("DELETE /v1/me/vacation", body: #"{"onVacation":false,"startsAt":null}"#)
+        let houses = RemoteHouseRepository(api: client(server))
+        let model = await VacationViewModel(
+            getVacation: GetVacationUseCase(repository: houses), setVacation: SetVacationUseCase(repository: houses),
+            userID: user, houseID: houseID
+        )
+        await model.load()
+        #expect(await !model.status.isOn)
+
+        await model.set(true)
+        #expect(await model.status.isOn)
+        #expect(await model.status.hasNotStarted(at: .now), "liga a partir do próximo ciclo")
+        #expect(await model.footer().contains("Desligue para ficar"))
+
+        await model.set(false)
+        #expect(await !model.status.isOn)
+        #expect(await server.keys() == ["GET /v1/me/vacation", "PUT /v1/me/vacation", "DELETE /v1/me/vacation"])
+
+        // Em falha, o interruptor volta ao que o servidor tem.
+        await server.on("PUT /v1/me/vacation", status: 404, body: #"{"error":"no_house"}"#)
+        await model.set(true)
+        #expect(await !model.status.isOn)
+        #expect(await model.errorMessage != nil)
+    }
+
+    @Test func weekRatingUsesTheServerRoutesAndOnlySendsChosenRooms() async throws {
+        let server = FakeServer()
+        let kitchen = UUID(), bathroom = UUID(), houseID = UUID()
+        let pending = """
+        {"pending":[
+          {"roomID":"\(kitchen.apiString)","roomName":"Cozinha","periodStart":"2026-10-12T03:00:00.000Z","periodEnd":"2026-10-19T03:00:00.000Z","windowEnd":"2026-10-21T03:00:00.000Z"},
+          {"roomID":"\(bathroom.apiString)","roomName":"Banheiro","periodStart":"2026-10-12T03:00:00.000Z","periodEnd":"2026-10-19T03:00:00.000Z","windowEnd":"2026-10-21T03:00:00.000Z"}
+        ]}
+        """
+        await server.on("GET /v1/me/ratings/pending", body: pending)
+        await server.on("GET /v1/me/ratings/summary", body: #"{"summary":[{"roomID":"\#(kitchen.apiString)","roomName":"Cozinha","periodStart":"2026-10-12T03:00:00.000Z","periodEnd":"2026-10-19T03:00:00.000Z","level":"great","tags":["wellDone"]}]}"#)
+        await server.on("POST /v1/rooms/\(kitchen.apiString)/ratings", status: 204, body: "")
+        let repository = RemoteRatingRepository(api: client(server))
+        let model = await WeekRatingViewModel(
+            getPending: GetPendingRatingsUseCase(repository: repository), rate: RateRoomsUseCase(repository: repository),
+            getSummary: GetRatingSummaryUseCase(repository: repository), userID: user, houseID: houseID
+        )
+        await model.load()
+        #expect(await model.pending.map(\.roomName) == ["Cozinha", "Banheiro"])
+        #expect(await model.summary.first?.level == .great)
+        #expect(await model.summary.first?.tags == [.wellDone])
+        #expect(await !model.canSubmit, "sem nenhum nível escolhido, nada a enviar")
+
+        await model.select(.great, for: kitchen)
+        await model.toggle(.onTime, for: kitchen)
+        await model.toggle(.wellDone, for: kitchen)
+        await model.toggle(.onTime, for: kitchen) // desmarca
+        #expect(await model.canSubmit)
+        #expect(await model.submit())
+        let post = try #require(await server.keys().firstIndex(of: "POST /v1/rooms/\(kitchen.apiString)/ratings"))
+        #expect(await server.string("level", inBody: post) == "great")
+        #expect(await server.string("periodStart", inBody: post) == "2026-10-12T03:00:00.000Z")
+        #expect(await server.strings("tags", inBody: post) == ["wellDone"])
+        #expect(await server.keys().filter { $0.hasPrefix("POST") }.count == 1, "o Banheiro não foi avaliado, então não vai ao servidor")
     }
 
     @Test func whatsAppInvitationAndConnection() async throws {

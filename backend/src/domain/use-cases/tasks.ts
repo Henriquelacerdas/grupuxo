@@ -31,6 +31,7 @@ export interface TaskDetailsInput {
   readonly name?: string;
   readonly details?: string;
   readonly effort?: number;
+  readonly recurrence?: TaskDefinition["recurrence"];
 }
 
 export class GetMyTasksUseCase {
@@ -100,6 +101,8 @@ export interface NewTaskInput {
   readonly recurrence: TaskDefinition["recurrence"];
   readonly assignmentPolicy: TaskDefinition["assignmentPolicy"];
   readonly createdByUserID?: UserID;
+  /** "Repetir com o cômodo" (só tarefa recorrente); ausente = definição antiga, vale a periodicidade. */
+  readonly followsRoom?: boolean;
 }
 
 /** Definição nova, ainda sem escala (o plano é calculado ao criar): nome aparado e campos de rotação zerados. */
@@ -110,6 +113,7 @@ export function newTaskDefinition(id: TaskDefinitionID, input: NewTaskInput): Ta
     rotationQueue: [], currentRotationIndex: 0, nextScheduledAt: null, pendingRotation: null, calendarAnchor: null,
     endedAt: null,
     ...(input.createdByUserID === undefined ? {} : { createdByUserID: input.createdByUserID }),
+    ...(input.followsRoom === undefined ? {} : { followsRoom: input.followsRoom }),
   };
 }
 
@@ -145,8 +149,10 @@ export class CreateTaskUseCase {
 /** Edita só nome, descrição e esforço de uma tarefa avulsa (só quem a criou); os campos ausentes não mudam. */
 export class UpdateTaskDetailsUseCase {
   private readonly repository: TaskRepository;
-  constructor(repository: TaskRepository) {
+  private readonly now: Clock;
+  constructor(repository: TaskRepository, now: Clock) {
     this.repository = repository;
+    this.now = now;
   }
 
   async execute(roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsInput, requestedBy: UserID): Promise<TaskDefinition> {
@@ -156,18 +162,21 @@ export class UpdateTaskDetailsUseCase {
       ...(name === undefined ? {} : { name }),
       ...(patch.details === undefined ? {} : { details: patch.details }),
       ...(patch.effort === undefined ? {} : { effort: taskEffort(patch.effort) }),
-    }, requestedBy);
+      ...(patch.recurrence === undefined ? {} : { recurrence: patch.recurrence }),
+    }, requestedBy, this.now());
   }
 }
 
 export class DeleteSporadicTaskUseCase {
   private readonly repository: TaskRepository;
-  constructor(repository: TaskRepository) {
+  private readonly now: Clock;
+  constructor(repository: TaskRepository, now: Clock) {
     this.repository = repository;
+    this.now = now;
   }
 
   async execute(roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID): Promise<void> {
-    await this.repository.deleteSporadicTask(roomID, taskID, requestedBy);
+    await this.repository.deleteSporadicTask(roomID, taskID, requestedBy, this.now());
   }
 }
 

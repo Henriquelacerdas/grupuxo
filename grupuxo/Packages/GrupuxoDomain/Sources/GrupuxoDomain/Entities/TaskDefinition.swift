@@ -18,6 +18,10 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
     public var calendarAnchor: Date? = nil
     /// Quando a tarefa foi encerrada (`endTask`). A definição e o histórico continuam; nada novo é publicado.
     public var endedAt: Date? = nil
+    /// "Repetir com o cômodo": a tarefa segue a escala e a periodicidade do cômodo. `nil` = definição antiga, sem o
+    /// campo: vale o que a periodicidade dela diz (igual à do cômodo). Quando o cômodo muda de periodicidade, as
+    /// tarefas que o acompanham mudam junto.
+    public var followsRoom: Bool? = nil
 
     public init(
         id: UUID,
@@ -35,7 +39,8 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
         nextScheduledAt: Date? = nil,
         pendingRotation: PendingRotation? = nil,
         calendarAnchor: Date? = nil,
-        endedAt: Date? = nil
+        endedAt: Date? = nil,
+        followsRoom: Bool? = nil
     ) {
         self.id = id
         self.roomID = roomID
@@ -53,19 +58,23 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
         self.pendingRotation = pendingRotation
         self.calendarAnchor = calendarAnchor
         self.endedAt = endedAt
+        self.followsRoom = followsRoom
     }
 }
 
 extension TaskDefinition {
 
-    /// Uma tarefa está ligada ao cômodo quando segue a escala dele: recorrente, distribuída
-    /// pelo algoritmo e com a mesma periodicidade do cômodo. As demais são tarefas extras.
+    /// Uma tarefa está ligada ao cômodo quando segue a escala dele: recorrente, distribuída pelo algoritmo, do
+    /// mesmo cômodo e com `followsRoom` (campo explícito). Sem o campo (definição antiga), vale a periodicidade
+    /// igual à do cômodo. As demais são tarefas de repetição própria.
     public func isLinked(to room: Room) -> Bool {
-        kind == .recurring
-            && assignmentPolicy != .afterCompletion
-            && assignmentPolicy != .selfAssigned
-            && roomID == room.id
-            && recurrence.weeklyPeriodicity == room.periodicity
+        guard kind == .recurring,
+              assignmentPolicy != .afterCompletion,
+              assignmentPolicy != .selfAssigned,
+              roomID == room.id
+        else { return false }
+        if let followsRoom { return followsRoom }
+        return recurrence.weeklyPeriodicity == room.periodicity
     }
 }
 

@@ -18,16 +18,19 @@ struct ProfileView: View {
 
     @StateObject private var whatsApp: WhatsAppConnectionViewModel
     @StateObject private var account: AccountViewModel
+    @StateObject private var vacation: VacationViewModel
 
     private let appInfo: AppInfo
 
     init(
         whatsAppViewModel: WhatsAppConnectionViewModel,
         accountViewModel: AccountViewModel,
+        vacationViewModel: VacationViewModel,
         appInfo: AppInfo
     ) {
         _whatsApp = StateObject(wrappedValue: whatsAppViewModel)
         _account = StateObject(wrappedValue: accountViewModel)
+        _vacation = StateObject(wrappedValue: vacationViewModel)
         self.appInfo = appInfo
     }
 
@@ -46,6 +49,8 @@ struct ProfileView: View {
                 }
 
                 youSection
+
+                vacationSection
 
                 if appInfo.hasHelpLinks {
                     helpSection
@@ -66,12 +71,38 @@ struct ProfileView: View {
                 switch destination {
                 case .account: AccountView(viewModel: account)
                 case .house: HouseSettingsView()
-                case .notifications: NotificationSettingsView()
+                case .notifications: NotificationSettingsView(api: houses.api)
                 case .whatsApp: WhatsAppSettingsView(viewModel: whatsApp)
                 }
             }
             .refreshable { await houses.refresh() }
             .task { await whatsApp.load() }
+            .task { await vacation.load() }
+            .alert(
+                "Não foi possível atualizar",
+                isPresented: Binding(get: { vacation.errorMessage != nil }, set: { if !$0 { vacation.errorMessage = nil } })
+            ) {
+                Button("OK") { vacation.errorMessage = nil }
+            } message: {
+                Text(vacation.errorMessage ?? "")
+            }
+        }
+    }
+
+    /// Modo férias: sai dos rodízios a partir do próximo ciclo e volta quando desliga.
+    private var vacationSection: some View {
+
+        Section {
+            Toggle(isOn: Binding(
+                get: { vacation.status.isOn },
+                set: { isOn in Task { await vacation.set(isOn) } }
+            )) {
+                SettingsRowLabel(title: Text("Modo férias"), systemImage: "airplane", tint: .teal)
+            }
+            .disabled(vacation.isSaving)
+            .accessibilityIdentifier("vacationToggle")
+        } footer: {
+            Text(vacation.footer())
         }
     }
 

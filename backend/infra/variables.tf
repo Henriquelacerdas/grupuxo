@@ -58,8 +58,8 @@ variable "cognito_client_id" {
 
 variable "reserved_concurrency" {
   description = "Concorrência reservada por Lambda (-1 = sem reserva). Conta nova costuma ter limite total 10, e a AWS recusa reservar abaixo do mínimo não reservado."
-  type        = object({ api = number, webhook = number, worker = number })
-  default     = { api = -1, webhook = -1, worker = -1 }
+  type        = object({ api = number, webhook = number, worker = number, push = number, scheduled = number })
+  default     = { api = -1, webhook = -1, worker = -1, push = -1, scheduled = -1 }
 }
 
 variable "log_retention_days" {

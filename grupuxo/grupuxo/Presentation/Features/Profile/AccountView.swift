@@ -1,8 +1,7 @@
 import GrupuxoDomain
 import SwiftUI
 
-/// Conta: nome, e-mail e provedor de login (somente leitura: o servidor ainda não tem rota para editar o nome nem
-/// guardar foto), sair da conta e apagar a conta.
+/// Conta: nome (editável), e-mail e provedor de login (somente leitura), alterar senha, sair da conta e apagar a conta.
 struct AccountView: View {
 
     @EnvironmentObject private var houses: RemoteHouseSession
@@ -11,6 +10,7 @@ struct AccountView: View {
     @ObservedObject var viewModel: AccountViewModel
 
     @State private var confirmSignOut = false
+    @State private var changesPassword = false
 
     var body: some View {
 
@@ -18,10 +18,16 @@ struct AccountView: View {
 
             if let me = houses.me {
                 header(me)
+                ProfilePhotoSection()
                 nameSection(me)
+            }
+            if let message = houses.errorMessage {
+                Section { Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red) }
             }
 
             identitySection
+
+            passwordSection
 
             Section {
                 Button("Sair da conta") { confirmSignOut = true }
@@ -44,6 +50,22 @@ struct AccountView: View {
         .confirmationDialog("Sair da conta?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
         }
+        .sheet(isPresented: $changesPassword) {
+            ChangePasswordView { old, new in
+                await authService.changePassword(oldPassword: old, newPassword: new)
+            }
+        }
+    }
+
+    /// Conta de e-mail e senha troca a senha aqui; quem entrou com a Apple não tem senha no Reveza.
+    @ViewBuilder
+    private var passwordSection: some View {
+
+        if viewModel.identity?.provider == .password {
+            Section {
+                Button("Alterar senha") { changesPassword = true }
+            }
+        }
     }
 
     // MARK: - Seções
@@ -60,10 +82,13 @@ struct AccountView: View {
 
     private func nameSection(_ me: User) -> some View {
 
-        Section {
-            Text(me.name)
-        } header: {
-            Text("Nome").formSectionHeader()
+        EditableNameSection(
+            header: "Nome",
+            placeholder: "Seu nome",
+            currentName: me.name,
+            emptyMessage: String(localized: "Informe um nome válido.")
+        ) { name in
+            await houses.updateMyName(to: name)
         }
     }
 

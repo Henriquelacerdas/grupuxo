@@ -23,12 +23,13 @@ import {
 } from "../domain/use-cases/tasks.ts";
 import { DomainError } from "../domain/errors.ts";
 import {
-  houseSnapshotDTO, myHouseDTO, notificationDTO, roomDTO, roomParticipationDTO, taskDefinitionDTO, taskItemDTO, taskSwapRequestDTO,
+  houseSnapshotDTO, myHouseDTO, noPhotos, notificationDTO, roomDTO, roomParticipationDTO, taskDefinitionDTO, taskItemDTO, taskSwapRequestDTO,
+  type PhotoURL,
 } from "./api-dto.ts";
 import { failure, json, jsonObject, noContent } from "./api-http.ts";
 import {
   parseCreateHouse, parseCreateRoom, parseCreateSwap, parseCreateTask, parseFlag, parseJoinHouse, parseRange,
-  parseRoomMember, parseUpdateTask,
+  parseRating, parseRename, parseRoomMember, parseUpdateRoom, parseUpdateTask,
 } from "./api-input.ts";
 import { requireParam, type AppRouteName, type RouteParams } from "./api-router.ts";
 import type { HttpApiResult } from "./events.ts";
@@ -46,6 +47,8 @@ export interface RouteDependencies {
   readonly notifications: NotificationRepository;
   readonly now: () => Instant;
   readonly newID: IDGenerator;
+  /** URL das fotos dos moradores nas respostas; sem armazenamento de fotos, ausente. */
+  readonly photoURL?: PhotoURL;
 }
 
 export interface RouteRequest {
@@ -62,13 +65,14 @@ const alreadyInHouse = (): HttpApiResult => failure(409, "already_in_house");
 
 export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteName, request: RouteRequest) => Promise<HttpApiResult> {
   const { houses, rooms, tasks, swaps, notifications, now, newID } = deps;
+  const photoURL = deps.photoURL ?? noPhotos;
   const createRoom = new CreateRoomUseCase(rooms, houses, now, newID);
   const participation = new GetRoomParticipationUseCase(rooms, now);
   const myTasks = new GetMyTasksUseCase(tasks, houses, now);
   const roomTasks = new GetRoomTasksUseCase(tasks);
   const createTask = new CreateTaskUseCase(tasks, now);
-  const updateTask = new UpdateTaskDetailsUseCase(tasks);
-  const deleteTask = new DeleteSporadicTaskUseCase(tasks);
+  const updateTask = new UpdateTaskDetailsUseCase(tasks, now);
+  const deleteTask = new DeleteSporadicTaskUseCase(tasks, now);
   const completion = new CompleteTaskUseCase(tasks, now);
   const addRoomMember = new AddRoomMemberUseCase(tasks, now);
   const removeRoomMember = new RemoveRoomMemberUseCase(tasks, now);
@@ -92,7 +96,7 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
 
   async function houseResponse(status: number, house: House, user: UserID): Promise<HttpApiResult> {
     const members = await houses.members(house.id);
-    return json(status, myHouseDTO(house, members, await rooms.rooms(house.id, user)));
+    return json(status, myHouseDTO(house, members, await rooms.rooms(house.id, user), photoURL));
   }
 
   /** O cômodo existe e é de uma casa do morador; senão `entityNotFound` (404), igual a um cômodo que não existe. */
@@ -117,7 +121,7 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
         const house = await currentHouse(user);
         if (house === null) return noHouse();
         try {
-          return json(200, houseSnapshotDTO(await deps.snapshots.snapshot(house.id, user, now())));
+          return json(200, houseSnapshotDTO(await deps.snapshots.snapshot(house.id, user, now()), photoURL));
         } catch (error) {
           if (isDomainError(error, "entityNotFound")) return noHouse();
           throw error;
@@ -147,6 +151,47 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
         if (input === null) return badRequest();
         if (await currentHouse(user) !== null) return alreadyInHouse();
         return houseResponse(200, await houses.joinByCode(user, input.code, now()), user);
+      }
+      case "renameHouse": {
+        const body = jsonObject(request.body);
+        const input = body === null ? null : parseRename(body);
+        if (input === null) return badRequest();
+        return houseResponse(200, await houses.rename(toHouseID(requireParam(request.params, "houseID")), user, input.name), user);
+      }
+      case "myVacation":
+      case "startVacation":
+      case "endVacation": {
+        const house = await currentHouse(user);
+        if (house === null) return noHouse();
+        const status = name === "myVacation" ? await houses.vacation(user, house.id)
+          : await houses.setVacation(user, house.id, name === "startVacation", now());
+        return json(200, { onVacation: status.onVacation, startsAt: status.startsAt === null ? null : new Date(status.startsAt).toISOString() });
+      }
+      case "myPendingRatings": {
+        const house = await currentHouse(user);
+        if (house === null) return noHouse();
+        const pending = await rooms.pendingRatings(house.id, user, now());
+        return json(200, { pending: pending.map((p) => ({
+          roomID: p.roomID, roomName: p.roomName, periodStart: new Date(p.periodStart).toISOString(),
+          periodEnd: new Date(p.periodEnd).toISOString(), windowEnd: new Date(p.windowEnd).toISOString(),
+        })) });
+      }
+      case "myRatingSummary": {
+        const house = await currentHouse(user);
+        if (house === null) return noHouse();
+        const summary = await rooms.ratingSummary(house.id, user, now());
+        return json(200, { summary: summary.map((r) => ({
+          roomID: r.roomID, roomName: r.roomName, periodStart: new Date(r.periodStart).toISOString(),
+          periodEnd: new Date(r.periodEnd).toISOString(), level: r.level, tags: [...r.tags],
+        })) });
+      }
+      case "rateRoom": {
+        const roomID = await requireRoom(request);
+        const body = jsonObject(request.body);
+        const input = body === null ? null : parseRating(body);
+        if (input === null) return badRequest();
+        await rooms.rateRoom(roomID, user, input, now());
+        return noContent();
       }
       case "leaveHouse": {
         const confirmRooms = parseFlag(query, "confirmRoomDeletion");
@@ -179,6 +224,44 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
       }
       case "roomParticipation":
         return json(200, roomParticipationDTO(await participation.execute(toRoomID(requireParam(request.params, "roomID")), user)));
+      case "updateRoom": {
+        const roomID = toRoomID(requireParam(request.params, "roomID"));
+        const body = jsonObject(request.body);
+        const patch = body === null ? null : parseUpdateRoom(body);
+        if (patch === null) return badRequest();
+        return json(200, roomDTO(await rooms.update(roomID, patch, user, now())));
+      }
+      case "deleteRoom": {
+        const roomID = toRoomID(requireParam(request.params, "roomID"));
+        const confirmDeletion = parseFlag(query, "confirmDeletion");
+        if (confirmDeletion === null) return badRequest();
+        await rooms.delete(roomID, user, now(), confirmDeletion);
+        return noContent();
+      }
+      case "myRoomAccessRequests": {
+        const house = await currentHouse(user);
+        if (house === null) return noHouse();
+        return json(200, { roomIDs: await rooms.pendingAccessRoomIDs(house.id, user) });
+      }
+      case "roomAccessRequests": {
+        const roomID = await requireRoom(request);
+        const found = await rooms.accessRequests(roomID, user);
+        return json(200, { requests: found.map((r) => ({ userID: r.userID, requestedAt: new Date(r.requestedAt).toISOString() })) });
+      }
+      case "requestRoomAccess": {
+        await rooms.requestAccess(await requireRoom(request), user, now());
+        return noContent();
+      }
+      case "cancelRoomAccess": {
+        await rooms.cancelAccess(await requireRoom(request), user);
+        return noContent();
+      }
+      case "approveRoomAccess":
+      case "denyRoomAccess": {
+        const roomID = await requireRoom(request);
+        await rooms.answerAccess(roomID, toUserID(requireParam(request.params, "userID")), user, name === "approveRoomAccess", now());
+        return noContent();
+      }
       case "addRoomMember": {
         const roomID = await requireRoom(request);
         const body = jsonObject(request.body);
@@ -200,11 +283,11 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
         if (range === null) return badRequest();
         const house = await currentHouse(user);
         if (house === null) return noHouse();
-        return json(200, { tasks: (await myTasks.execute(user, house.id, range)).map(taskItemDTO) });
+        return json(200, { tasks: (await myTasks.execute(user, house.id, range)).map((item) => taskItemDTO(item, photoURL)) });
       }
       case "roomTasks": {
         const roomID = await requireRoom(request);
-        return json(200, { tasks: (await roomTasks.execute(roomID, user)).map(taskItemDTO) });
+        return json(200, { tasks: (await roomTasks.execute(roomID, user)).map((item) => taskItemDTO(item, photoURL)) });
       }
       case "createTask": {
         const roomID = await requireRoom(request);
@@ -256,7 +339,7 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
       case "mySporadicTasks": {
         const house = await currentHouse(user);
         if (house === null) return noHouse();
-        return json(200, { tasks: (await sporadicTasks.execute(house.id, user)).map(taskItemDTO) });
+        return json(200, { tasks: (await sporadicTasks.execute(house.id, user)).map((item) => taskItemDTO(item, photoURL)) });
       }
       case "claimOccurrence": {
         const { occurrenceID } = await requireOccurrence(request);
@@ -271,7 +354,7 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
 
       case "swapCandidates": {
         const { occurrenceID, houseID } = await requireOccurrence(request);
-        return json(200, { tasks: (await candidates.execute(user, occurrenceID, houseID)).map(taskItemDTO) });
+        return json(200, { tasks: (await candidates.execute(user, occurrenceID, houseID)).map((item) => taskItemDTO(item, photoURL)) });
       }
       case "createSwap": {
         const body = jsonObject(request.body);
@@ -291,7 +374,8 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
         return json(200, { incoming: incoming.map(taskSwapRequestDTO), outgoing: outgoing.map(taskSwapRequestDTO) });
       }
       case "acceptSwap":
-      case "rejectSwap": {
+      case "rejectSwap":
+      case "cancelSwap": {
         const swapID = taskSwapRequestID(requireParam(request.params, "swapID"));
         // Só quem está na troca a enxerga; o domínio decide quem pode responder (403 para quem a pediu).
         const house = await currentHouse(user);
@@ -300,7 +384,9 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
           incomingSwaps.execute(user, house.id), outgoingSwaps.execute(user, house.id),
         ]);
         if (![...incoming, ...outgoing].some((swap) => swap.id === swapID)) return notFound();
-        const resolved = name === "acceptSwap" ? await acceptSwap.execute(swapID, user) : await rejectSwap.execute(swapID, user);
+        const resolved = name === "acceptSwap" ? await acceptSwap.execute(swapID, user)
+          : name === "rejectSwap" ? await rejectSwap.execute(swapID, user)
+          : await swaps.cancel(swapID, user, now());
         return json(200, taskSwapRequestDTO(resolved));
       }
 

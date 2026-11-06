@@ -9,19 +9,23 @@
   "members": [
     {
       "id": "ffffffff-ffff-4fff-8fff-000000000003",
-      "name": "Bia"
+      "name": "Bia",
+      "photoURL": null
     },
     {
       "id": "ffffffff-ffff-4fff-8fff-000000000002",
-      "name": "Leo"
+      "name": "Leo",
+      "photoURL": null
     },
     {
       "id": "ffffffff-ffff-4fff-8fff-000000000001",
-      "name": "Marina"
+      "name": "Marina",
+      "photoURL": null
     },
     {
       "id": "ffffffff-ffff-4fff-8fff-000000000004",
-      "name": "Rafa"
+      "name": "Rafa",
+      "photoURL": null
     }
   ],
   "rooms": [

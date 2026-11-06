@@ -106,6 +106,8 @@ struct RootView: View {
                         )
                     },
 
+                    weekRatingViewModel: model.weekRating,
+
                     onRequestSwap: { occurrenceID in
                         swapOffer = SwapOffer(id: occurrenceID)
                     },
@@ -210,7 +212,13 @@ struct RootView: View {
                 viewModel: container.makeTaskDetailViewModel(
                     taskDefinitionID: task.id,
                     session: session
-                )
+                ),
+                makeEditorViewModel: { definition in
+                    container.makeTaskEditorViewModel(
+                        editing: definition,
+                        session: session
+                    )
+                }
             )
         }
         .sheet(isPresented: $isPresentingProfile) {
@@ -218,6 +226,7 @@ struct RootView: View {
             ProfileView(
                 whatsAppViewModel: container.makeWhatsAppConnectionViewModel(),
                 accountViewModel: container.makeAccountViewModel(),
+                vacationViewModel: container.makeVacationViewModel(session: session),
                 appInfo: container.appInfo
             )
         }
@@ -270,6 +279,13 @@ struct RootView: View {
                     container.makeTaskEditorViewModel(
                         roomID: roomID,
                         suggestion: suggestion,
+                        session: session
+                    )
+                },
+
+                makeRoomEditorViewModel: { room in
+                    container.makeRoomEditorViewModel(
+                        editing: room,
                         session: session
                     )
                 },
@@ -330,7 +346,17 @@ struct RootView: View {
             NotificationsView(
                 viewModel: container.makeNotificationsViewModel(
                     session: session
-                )
+                ),
+                onOpenTask: { taskDefinitionID in
+                    presentedTask = PresentedTask(id: taskDefinitionID)
+                },
+                onOpenRoom: { roomID in
+                    if selectedTab == .house {
+                        housePath.append(.roomDetail(roomID))
+                    } else {
+                        tasksPath.append(.roomDetail(roomID))
+                    }
+                }
             )
 
         }

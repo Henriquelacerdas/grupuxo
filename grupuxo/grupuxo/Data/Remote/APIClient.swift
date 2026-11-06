@@ -56,7 +56,7 @@ enum APIError: Error, Equatable, LocalizedError, Sendable {
         case "invalid_name": String(localized: "Informe um nome válido.")
         case "invalid_house_name": String(localized: "Informe um nome para a casa.")
         case "invalid_timezone": String(localized: "Fuso horário inválido.")
-        case "invalid_code": String(localized: "Código de convite inválido.")
+        case "invalid_code": String(localized: "Não achamos uma casa com esse código. Confira com quem te mandou.")
         case "already_in_house": String(localized: "Você já faz parte de uma casa.")
         case "no_house": String(localized: "Você ainda não faz parte de uma casa.")
         case "house_deletion_confirmation_required":
@@ -186,6 +186,12 @@ struct APIClient: Sendable {
         _ type: T.Type, _ path: String, query: [String: String] = [:], body: (any Encodable & Sendable)? = nil
     ) async throws -> T {
         try decode(type, from: try await send("POST", path, query: query, body: body))
+    }
+
+    func patch<T: Decodable>(
+        _ type: T.Type, _ path: String, query: [String: String] = [:], body: (any Encodable & Sendable)? = nil
+    ) async throws -> T {
+        try decode(type, from: try await send("PATCH", path, query: query, body: body))
     }
 
     /// A tela que sai cancela a tarefa do `.task`, e o `URLSession` cancelado lança `URLError(.cancelled)`,

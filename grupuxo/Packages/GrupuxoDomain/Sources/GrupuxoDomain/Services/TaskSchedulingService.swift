@@ -58,6 +58,10 @@ public struct TaskSchedulingService: Sendable {
         var definition = input
         definition.endedAt = nil   // uma definição nova nunca nasce encerrada
         let linked = isRoomLinked(definition, state: state)
+        // "Repetir com o cômodo" explícito: a recorrência é sempre a periodicidade do cômodo.
+        if linked, definition.followsRoom == true {
+            definition.recurrence = .weekly(try room(for: definition, state: state).periodicity)
+        }
         if linked { definition.calendarAnchor = try room(for: definition, state: state).calendarAnchor }
         else if case .weekly = definition.recurrence { definition.calendarAnchor = try weekStart(date) }
         definition.rotationQueue = []
@@ -72,7 +76,11 @@ public struct TaskSchedulingService: Sendable {
         } else {
             guard definition.assignmentPolicy != .selfAssigned else { throw DomainError.invalidSchedule }
             if definition.assignmentPolicy == .afterCompletion {
-                definition.recurrence = .none
+                // Repetição própria: o intervalo vale (janela de 2 dias contada da conclusão). Sem intervalo válido,
+                // é a antiga "após conclusão", sem prazo.
+                if !definition.recurrence.isRepeating || !definition.recurrence.hasValidInterval {
+                    definition.recurrence = .none
+                }
             } else {
                 guard definition.recurrence.isRepeating,
                       definition.recurrence.hasValidInterval else {
@@ -92,7 +100,7 @@ public struct TaskSchedulingService: Sendable {
                 debts: debts(for: definition.roomID, state: state)
             )
             if definition.assignmentPolicy == .afterCompletion {
-                try publish(definition: &definition, at: date, dueAt: nil, state: &state)
+                try publish(definition: &definition, at: date, dueAt: ownWindowEnd(opening: date, definition: definition), state: &state)
             } else {
                 definition.nextScheduledAt = firstDate
                 if linked {
@@ -193,6 +201,13 @@ public struct TaskSchedulingService: Sendable {
         for i in state.assignments.indices where state.assignments[i].occurrenceID == occurrenceID && state.assignments[i].isActive {
             state.assignments[i].endedAt = date
         }
+        if definition.kind == .sporadic,
+           let membership = state.roomMemberships.firstIndex(where: {
+               $0.roomID == definition.roomID && $0.userID == userID && $0.isCurrent
+           }) {
+            // Quem faz uma tarefa única pula a vez na próxima de repetição própria do cômodo.
+            state.roomMemberships[membership].skipsNextOwnTurn = true
+        }
         if definition.kind == .recurring && definition.assignmentPolicy == .afterCompletion
             && definition.endedAt == nil && occurrence.didPublishSuccessor != true {
             activatePending(definition: &definition, at: date)
@@ -203,7 +218,9 @@ public struct TaskSchedulingService: Sendable {
                     definition.currentRotationIndex = try rotation.advance(index: current, queue: definition.rotationQueue)
                 } else { definition.currentRotationIndex = 0 }
             }
-            try publish(definition: &definition, at: date, dueAt: nil, state: &state)
+            // Repetição própria: a próxima janela abre um intervalo depois da conclusão e dura 2 dias.
+            let opening = try ownNextOpening(after: date, definition: definition)
+            try publish(definition: &definition, at: opening, dueAt: ownWindowEnd(opening: opening, definition: definition), state: &state)
             state.occurrences[index].didPublishSuccessor = true
             state.definitions[definitionIndex] = definition
         } else if isCalendarScheduled(definition) {
@@ -236,6 +253,10 @@ public struct TaskSchedulingService: Sendable {
         state.occurrences[index].completedByUserID = nil
         state.occurrences[index].completionDebtImpacts = nil
         state.assignments[assignmentIndex].endedAt = nil
+        if definition.kind == .sporadic,
+           let membership = state.roomMemberships.firstIndex(where: { $0.roomID == definition.roomID && $0.userID == userID }) {
+            state.roomMemberships[membership].skipsNextOwnTurn = false
+        }
         // Keep already published turns; completing again must not publish another successor.
     }
 
@@ -533,12 +554,65 @@ public struct TaskSchedulingService: Sendable {
             return
         }
         guard definition.rotationQueue.indices.contains(definition.currentRotationIndex) else { throw DomainError.invalidDistribution }
+        if definition.assignmentPolicy == .afterCompletion {
+            try skipPendingOwnTurns(definition: &definition, state: &state)
+        }
         let user = definition.rotationQueue[definition.currentRotationIndex]
         let eligible = try members(for: definition, at: date, state: state)
         // Vacation does not silently change a published static queue. Leave this turn unassigned.
         appendOccurrence(definition: definition, date: date, dueAt: dueAt,
                          userID: eligible.contains(user) ? user : nil, state: &state)
         definition.currentRotationIndex = try rotation.advance(index: definition.currentRotationIndex, queue: definition.rotationQueue)
+    }
+
+    // MARK: Repetição própria (janela de 2 dias contada da conclusão)
+
+    /// Fim da janela de uma tarefa de repetição própria que abre em `opening`: 2 dias de calendário, até a meia-noite.
+    /// Sem intervalo (antiga "após conclusão"), não há prazo.
+    public func ownWindowEnd(opening: Date, definition: TaskDefinition) throws -> Date? {
+        guard definition.assignmentPolicy == .afterCompletion, definition.recurrence.isRepeating else { return nil }
+        return try adding(.day, 2, to: calendar.startOfDay(for: opening))
+    }
+
+    /// Quando abre a próxima janela depois de uma conclusão em `date`: um intervalo depois, no começo do dia. Sem
+    /// intervalo, abre na hora da conclusão (como sempre foi).
+    public func ownNextOpening(after date: Date, definition: TaskDefinition) throws -> Date {
+        let component: Calendar.Component
+        let count: Int
+        switch definition.recurrence {
+        case .none: return date
+        case let .recurring(frequency, interval):
+            count = interval
+            switch frequency {
+            case .daily: component = .day
+            case .weekly: component = .weekOfYear
+            case .monthly: component = .month
+            case .yearly: component = .year
+            }
+        case let .weekly(periodicity):
+            component = .weekOfYear
+            count = periodicity.intervalWeeks
+        }
+        return calendar.startOfDay(for: try adding(component, count, to: date))
+    }
+
+    /// Quem concluiu uma tarefa única pula a vez uma vez só: a próxima janela de repetição própria vai para o seguinte da
+    /// fila, e quem pulou volta a participar normalmente. Se todos pularam, ninguém é pulado.
+    private func skipPendingOwnTurns(definition: inout TaskDefinition, state: inout TaskSchedulingState) throws {
+        var index = definition.currentRotationIndex
+        var consumed: [Int] = []
+        for _ in definition.rotationQueue.indices {
+            let user = definition.rotationQueue[index]
+            guard let membership = state.roomMemberships.firstIndex(where: {
+                $0.roomID == definition.roomID && $0.userID == user && $0.skipsNextOwnTurn
+            }) else { break }
+            consumed.append(membership)
+            index = try rotation.advance(index: index, queue: definition.rotationQueue)
+        }
+        guard !consumed.isEmpty else { return }
+        for membership in consumed { state.roomMemberships[membership].skipsNextOwnTurn = false }
+        // Se a fila inteira estava marcada, volta ao começo: ninguém perde a vez de verdade.
+        definition.currentRotationIndex = consumed.count == definition.rotationQueue.count ? definition.currentRotationIndex : index
     }
 
     public func appendOccurrence(definition: TaskDefinition, date: Date, dueAt: Date?, userID: User.ID?,
