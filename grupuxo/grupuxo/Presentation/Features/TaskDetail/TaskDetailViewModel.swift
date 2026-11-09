@@ -115,6 +115,22 @@ final class TaskDetailViewModel: ObservableObject {
 
     }
 
+    /// Pedir troca: só da sua vez, já aberta e ainda não feita (a mesma regra de Minhas tarefas).
+    var swapOccurrenceID: TaskOccurrence.ID? {
+
+        guard let current,
+              !isPerformingAction,
+              !current.occurrence.isCompleted,
+              let assignment = current.assignment,
+              assignment.isActive,
+              assignment.userID == userID,
+              current.occurrence.availableAt <= .now
+        else { return nil }
+
+        return current.id
+
+    }
+
     var isCurrentCompleted: Bool {
         current?.occurrence.isCompleted == true
     }

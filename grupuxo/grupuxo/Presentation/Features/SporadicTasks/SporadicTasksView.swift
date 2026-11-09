@@ -4,6 +4,8 @@ import GrupuxoDomain
 
 struct SporadicTasksView: View {
 
+    @ScaledMetric(relativeTo: .title) private var roomIconSide: CGFloat = 60
+
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
 
@@ -634,25 +636,20 @@ struct SporadicTasksView: View {
                     )
                 )
                 .frame(
-                    width: 60,
-                    height: 60
+                    width: roomIconSide,
+                    height: roomIconSide
                 )
 
             Image(
                 systemName: room.icon
             )
-            .font(
-                .system(
-                    size: 24,
-                    weight: .semibold
-                )
-            )
+            .font(.title2.weight(.semibold))
             .foregroundStyle(.white)
             .accessibilityHidden(true)
         }
         .frame(
-            width: 60,
-            height: 60
+            width: roomIconSide,
+            height: roomIconSide
         )
     }
 

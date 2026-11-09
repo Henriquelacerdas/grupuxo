@@ -3,6 +3,8 @@ import SwiftUI
 import GrupuxoDomain
 
 struct RoomCreationSheetView: View {
+
+    @ScaledMetric(relativeTo: .title) private var avatarSide: CGFloat = 60
     @Environment(\.dismiss) private var dismiss
     @Environment(\.showToast) private var showToast
 
@@ -248,12 +250,11 @@ struct RoomCreationSheetView: View {
                         .font(.title)
                         .foregroundStyle(.white)
                         .frame(
-                            width: 60,
-                            height: 60
+                            width: avatarSide,
+                            height: avatarSide
                         )
                         .background(
-                            appearanceColor.color
-                                .gradient,
+                            appearanceColor.color,
                             in: Circle()
                         )
 
@@ -1041,6 +1042,9 @@ private struct RoomCreationAppearancePickerView:
     View {
     @Environment(\.dismiss) private var dismiss
 
+    @ScaledMetric(relativeTo: .largeTitle) private var previewSide: CGFloat = 88
+    @ScaledMetric(relativeTo: .largeTitle) private var previewGlyph: CGFloat = 40
+
     @Binding var symbol: String
     @Binding var color:
         RoomCreationColor
@@ -1094,14 +1098,14 @@ private struct RoomCreationAppearancePickerView:
 
     private var previewCircle: some View {
         Image(systemName: symbol)
-            .font(.system(size: 40))
+            .font(.system(size: previewGlyph))
             .foregroundStyle(.white)
             .frame(
-                width: 88,
-                height: 88
+                width: previewSide,
+                height: previewSide
             )
             .background(
-                color.color.gradient,
+                color.color,
                 in: Circle()
             )
             .padding(.top, 8)

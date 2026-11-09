@@ -206,13 +206,20 @@ private struct FlowChips: View {
                     onTap(tag)
                 } label: {
                     Text(WeekRatingText.title(tag))
-                        .font(.footnote)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                        .font(.subheadline)
+                        .padding(.horizontal, DesignSystem.Spacing.medium)
+                        .padding(.vertical, DesignSystem.Spacing.small)
+                        .background(
+                            (selected.contains(tag) ? Color.accentColor : Color.secondary)
+                                .opacity(DesignSystem.tintedFillOpacity),
+                            in: .capsule
+                        )
+                        .foregroundStyle(selected.contains(tag) ? Color.accentColor : Color.primary)
+                        // O visual segue compacto, mas a área de toque chega a 44 pt (HIG).
+                        .frame(minHeight: DesignSystem.minimumTouchTarget)
+                        .contentShape(.rect)
                 }
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
-                .tint(selected.contains(tag) ? .accentColor : .secondary)
+                .buttonStyle(.plain)
                 .accessibilityAddTraits(selected.contains(tag) ? .isSelected : [])
             }
         }

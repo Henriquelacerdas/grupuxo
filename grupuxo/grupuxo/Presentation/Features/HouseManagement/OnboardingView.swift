@@ -7,6 +7,8 @@ import GrupuxoDomain
 /// passo "Convidar"; ao terminar, o app abre na aba Casa.
 struct OnboardingView: View {
 
+    @ScaledMetric(relativeTo: .body) private var starterIconSide: CGFloat = 32
+
     private enum Step: Hashable {
         case house
         case join
@@ -253,7 +255,7 @@ struct OnboardingView: View {
                         HStack(spacing: DesignSystem.Spacing.medium) {
                             Image(systemName: starter.icon)
                                 .foregroundStyle(.white)
-                                .frame(width: 32, height: 32)
+                                .frame(width: starterIconSide, height: starterIconSide)
                                 .background(starter.color.tint, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                                 .accessibilityHidden(true)
                             Text(starter.name)

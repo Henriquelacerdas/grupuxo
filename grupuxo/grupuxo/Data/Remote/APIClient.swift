@@ -148,6 +148,9 @@ struct APIClient: Sendable {
             return data
         case 401:
             throw APIError.unauthorized
+        case 405:
+            // O servidor publicado ainda não tem essa rota (a `api` é mais antiga que o app).
+            throw APIError.unsupported
         default:
             struct Failure: Decodable { let error: String }
             let code = (try? JSONDecoder().decode(Failure.self, from: data))?.error ?? ""

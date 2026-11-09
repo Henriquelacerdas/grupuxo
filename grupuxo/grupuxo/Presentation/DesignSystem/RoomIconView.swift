@@ -48,8 +48,7 @@ struct RoomIconView: View {
             .font(.system(size: size * 0.47, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
-            .background(color.tint.gradient, in: Circle())
-            .shadow(color: color.tint.opacity(0.3), radius: 5, y: 3)
+            .background(color.tint, in: Circle())
             .accessibilityHidden(true)
     }
 }

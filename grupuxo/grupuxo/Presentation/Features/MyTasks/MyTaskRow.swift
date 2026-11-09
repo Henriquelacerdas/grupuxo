@@ -105,8 +105,6 @@ struct MyTaskRow: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-
-            RoomRowChevron()
         }
         .contentShape(Rectangle())
     }

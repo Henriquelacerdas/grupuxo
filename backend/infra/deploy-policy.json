@@ -5,20 +5,54 @@
       "Sid": "PhotosBucket",
       "Effect": "Allow",
       "Action": [
-        "s3:CreateBucket", "s3:DeleteBucket", "s3:GetBucket*", "s3:ListBucket", "s3:PutBucket*",
-        "s3:GetEncryptionConfiguration", "s3:PutEncryptionConfiguration",
-        "s3:GetLifecycleConfiguration", "s3:PutLifecycleConfiguration", "s3:PutBucketPublicAccessBlock"
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:GetBucket*",
+        "s3:ListBucket",
+        "s3:PutBucket*",
+        "s3:GetEncryptionConfiguration",
+        "s3:PutEncryptionConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutBucketPublicAccessBlock"
       ],
       "Resource": "arn:aws:s3:::grupuxo-dev-photos"
+    },
+    {
+      "Sid": "ScheduledRule",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutRule",
+        "events:DeleteRule",
+        "events:DescribeRule",
+        "events:EnableRule",
+        "events:DisableRule",
+        "events:PutTargets",
+        "events:RemoveTargets",
+        "events:ListTargetsByRule",
+        "events:TagResource",
+        "events:UntagResource",
+        "events:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:events:us-east-1:580100736070:rule/grupuxo-dev-*"
     },
     {
       "Sid": "LambdaRoles",
       "Effect": "Allow",
       "Action": [
-        "iam:CreateRole", "iam:DeleteRole", "iam:GetRole", "iam:UpdateAssumeRolePolicy",
-        "iam:TagRole", "iam:UntagRole", "iam:ListRoleTags",
-        "iam:PutRolePolicy", "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:ListRolePolicies",
-        "iam:ListAttachedRolePolicies", "iam:ListInstanceProfilesForRole"
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:ListRoleTags",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListInstanceProfilesForRole"
       ],
       "Resource": "arn:aws:iam::580100736070:role/grupuxo-dev-*"
     },
@@ -27,7 +61,11 @@
       "Effect": "Allow",
       "Action": "iam:PassRole",
       "Resource": "arn:aws:iam::580100736070:role/grupuxo-dev-*",
-      "Condition": { "StringEquals": { "iam:PassedToService": "lambda.amazonaws.com" } }
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "lambda.amazonaws.com"
+        }
+      }
     },
     {
       "Sid": "LambdaFunctions",
@@ -39,9 +77,14 @@
       "Sid": "LambdaEventSourceMappings",
       "Effect": "Allow",
       "Action": [
-        "lambda:CreateEventSourceMapping", "lambda:GetEventSourceMapping", "lambda:UpdateEventSourceMapping",
-        "lambda:DeleteEventSourceMapping", "lambda:ListEventSourceMappings",
-        "lambda:TagResource", "lambda:UntagResource", "lambda:ListTags"
+        "lambda:CreateEventSourceMapping",
+        "lambda:GetEventSourceMapping",
+        "lambda:UpdateEventSourceMapping",
+        "lambda:DeleteEventSourceMapping",
+        "lambda:ListEventSourceMappings",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:ListTags"
       ],
       "Resource": "*"
     },
@@ -49,8 +92,15 @@
       "Sid": "LogGroups",
       "Effect": "Allow",
       "Action": [
-        "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy",
-        "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource", "logs:TagLogGroup", "logs:ListTagsLogGroup"
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:DeleteRetentionPolicy",
+        "logs:TagResource",
+        "logs:UntagResource",
+        "logs:ListTagsForResource",
+        "logs:TagLogGroup",
+        "logs:ListTagsLogGroup"
       ],
       "Resource": "arn:aws:logs:us-east-1:580100736070:log-group:/aws/lambda/grupuxo-dev-*"
     },
@@ -64,8 +114,12 @@
       "Sid": "DlqAlarm",
       "Effect": "Allow",
       "Action": [
-        "cloudwatch:PutMetricAlarm", "cloudwatch:DeleteAlarms", "cloudwatch:DescribeAlarms",
-        "cloudwatch:TagResource", "cloudwatch:UntagResource", "cloudwatch:ListTagsForResource"
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:TagResource",
+        "cloudwatch:UntagResource",
+        "cloudwatch:ListTagsForResource"
       ],
       "Resource": "arn:aws:cloudwatch:us-east-1:580100736070:alarm:grupuxo-dev-*"
     }

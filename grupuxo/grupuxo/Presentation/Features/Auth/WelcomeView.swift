@@ -47,6 +47,7 @@ struct WelcomeView: View {
 }
 
 private struct WelcomeFeature: View {
+    @ScaledMetric(relativeTo: .title2) private var iconColumn: CGFloat = 36
     let systemImage: String
     let tint: Color
     let title: LocalizedStringKey
@@ -57,7 +58,7 @@ private struct WelcomeFeature: View {
             Image(systemName: systemImage)
                 .font(.title2)
                 .foregroundStyle(tint)
-                .frame(width: 36)
+                .frame(width: iconColumn)
                 .padding(.top, 6)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {

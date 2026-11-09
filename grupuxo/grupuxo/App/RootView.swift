@@ -218,6 +218,12 @@ struct RootView: View {
                         editing: definition,
                         session: session
                     )
+                },
+                makeSwapViewModel: { occurrenceID in
+                    container.makeTaskSwapViewModel(
+                        offeredOccurrenceID: occurrenceID,
+                        session: session
+                    )
                 }
             )
         }

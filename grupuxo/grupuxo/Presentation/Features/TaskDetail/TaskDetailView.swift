@@ -26,6 +26,15 @@ struct TaskDetailView: View {
 
     @State private var isShowingFullQueue = false
 
+    @State private var swapOffer: SwapOffer?
+
+    private struct SwapOffer: Identifiable {
+        let id: TaskOccurrence.ID
+    }
+
+    /// Abre "Pedir troca" por cima do detalhe; sem ele, o botão não aparece.
+    private let makeSwapViewModel: ((TaskOccurrence.ID) -> TaskSwapViewModel)?
+
     /// `false` esconde "Editar".
     private let allowsEditing: Bool
 
@@ -38,7 +47,8 @@ struct TaskDetailView: View {
     init(
         viewModel: TaskDetailViewModel,
         allowsEditing: Bool = true,
-        makeEditorViewModel: ((TaskDefinition) -> TaskEditorViewModel)? = nil
+        makeEditorViewModel: ((TaskDefinition) -> TaskEditorViewModel)? = nil,
+        makeSwapViewModel: ((TaskOccurrence.ID) -> TaskSwapViewModel)? = nil
     ) {
 
         _viewModel = StateObject(
@@ -46,6 +56,7 @@ struct TaskDetailView: View {
         )
         self.allowsEditing = allowsEditing
         self.makeEditorViewModel = makeEditorViewModel
+        self.makeSwapViewModel = makeSwapViewModel
 
     }
 
@@ -152,6 +163,18 @@ struct TaskDetailView: View {
                     viewModel: viewModel,
                     definition: definition
                 )
+            }
+
+        }
+        .sheet(
+            item: $swapOffer,
+            onDismiss: { Task { await viewModel.load() } }
+        ) { offer in
+
+            if let makeSwapViewModel {
+                NavigationStack {
+                    TaskSwapView(viewModel: makeSwapViewModel(offer.id))
+                }
             }
 
         }
@@ -527,10 +550,7 @@ struct TaskDetailView: View {
                         Task { await viewModel.complete() }
                     } label: {
                         Text("Desmarcar como feita")
-                            .frame(
-                                maxWidth: .infinity,
-                                minHeight: DesignSystem.minimumTouchTarget
-                            )
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
 
@@ -540,13 +560,23 @@ struct TaskDetailView: View {
                         Task { await viewModel.complete() }
                     } label: {
                         Text("Marcar como feita")
-                            .frame(
-                                maxWidth: .infinity,
-                                minHeight: DesignSystem.minimumTouchTarget
-                            )
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                 }
+
+            }
+
+            if makeSwapViewModel != nil,
+               let occurrenceID = viewModel.swapOccurrenceID {
+
+                Button {
+                    swapOffer = SwapOffer(id: occurrenceID)
+                } label: {
+                    Text("Pedir troca")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
 
             }
 
@@ -561,18 +591,15 @@ struct TaskDetailView: View {
                 } label: {
 
                     Text("Apagar tarefa")
-                        .frame(
-                            maxWidth: .infinity,
-                            minHeight: DesignSystem.minimumTouchTarget
-                        )
+                        .frame(maxWidth: .infinity)
 
                 }
                 .buttonStyle(.bordered)
-                .tint(.red)
 
             }
 
         }
+        .controlSize(.large)
         .buttonBorderShape(.capsule)
         .disabled(
             viewModel.isPerformingAction
@@ -933,6 +960,9 @@ private struct TaskDetailsEditSheet: View {
 
 private struct UpcomingAssignmentRow: View {
 
+    @ScaledMetric(relativeTo: .title2)
+    private var placeholderSide: CGFloat = 36
+
     enum Position {
         case current
         case next
@@ -964,7 +994,7 @@ private struct UpcomingAssignmentRow: View {
                 Image(systemName: "person.crop.circle.badge.questionmark")
                     .font(.title2)
                     .foregroundStyle(.secondary)
-                    .frame(width: 36, height: 36)
+                    .frame(width: placeholderSide, height: placeholderSide)
 
             }
 

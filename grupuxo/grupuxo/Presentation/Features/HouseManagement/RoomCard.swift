@@ -91,14 +91,6 @@ struct RoomCard: View {
                 .font(.title3.bold())
                 .foregroundStyle(.primary)
 
-            if member.isPrivate {
-
-                Image(systemName: "lock.open.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
-
             Spacer(minLength: DesignSystem.Spacing.small)
 
             Image(systemName: "chevron.right")

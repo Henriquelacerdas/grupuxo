@@ -104,12 +104,14 @@ struct AuthHeader: View {
 struct AuthCheckEmailHeader: View {
     let email: String
 
+    @ScaledMetric(relativeTo: .largeTitle) private var badgeSide: CGFloat = 68
+
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.medium) {
             Image(systemName: "checkmark")
-                .font(.system(size: 34, weight: .medium))
+                .font(.largeTitle.weight(.medium))
                 .foregroundStyle(.white)
-                .frame(width: 68, height: 68)
+                .frame(width: badgeSide, height: badgeSide)
                 .background(Color.green, in: .circle)
                 .padding(.bottom, DesignSystem.Spacing.small)
                 .accessibilityHidden(true)

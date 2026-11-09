@@ -154,6 +154,8 @@ struct ReordenarComodosView: View {
 
 private struct ReorderRoomRow: View {
 
+    @ScaledMetric(relativeTo: .body) private var iconSide: CGFloat = 34
+
     let room: RoomItem
 
     var body: some View {
@@ -164,22 +166,15 @@ private struct ReorderRoomRow: View {
                 .font(.body)
                 .foregroundStyle(.white)
                 .frame(
-                    width: 34,
-                    height: 34
+                    width: iconSide,
+                    height: iconSide
                 )
                 .background(
-                    room.color.gradient,
+                    room.color,
                     in: Circle()
                 )
 
             Text(room.name)
-
-            if room.isPrivate {
-
-                Image(systemName: "lock.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
         }
         .accessibilityElement(
             children: .combine

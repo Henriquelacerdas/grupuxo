@@ -206,6 +206,13 @@ struct APIClientTests {
         #expect(await houses.loadError != .sessionExpired)
     }
 
+    @Test func methodNotAllowedMeansTheServerLacksTheRoute() async throws {
+        let server = FakeServer()
+        await server.on("DELETE /v1/rooms/x", status: 405, body: #"{"error":"method_not_allowed"}"#)
+        let api = client(server)
+        await #expect(throws: APIError.unsupported) { try await api.send("DELETE", "v1/rooms/x") }
+    }
+
     @Test func tokenCancellationDoesNotExpireSession() async throws {
         let server = FakeServer()
         let api = APIClient(baseURL: baseURL, tokens: FailingToken(error: URLError(.cancelled)), transport: server)
