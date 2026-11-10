@@ -3,6 +3,7 @@ import Foundation
 import GrupuxoDomain
 @preconcurrency import EventKit
 
+//Reminders
 struct AppReminder: Identifiable, Sendable {
     let id: String // reminder.calendarItemIdentifier
     let title: String
