@@ -21,6 +21,7 @@ Conferido só na documentação (somente leitura, 2026-10-05): URL `https://grap
 | G7 | Corpo da resposta de sucesso (o código não o lê) | Confirmar que não precisamos do `wamid` de saída | Só leitura da resposta em `dev` |
 | G8 | Assinatura `X-Hub-Signature-256` e *challenge* do webhook com o app real | `SignatureVerifier` foi testado com vetor do `openssl`, não com a Meta | Configurar o webhook em `dev` e enviar uma mensagem |
 | G9 | Formato real do payload do webhook (campos que o decodificador rígido exige) | O decodificador é estrito de propósito | Capturar um evento de `dev` (sem registrar o texto) e rodá-lo no teste |
+| G10 | Quebra-gelos (`conversational_automation`) gravados e exibidos no app do WhatsApp | A configuração vive no número; o toque deve chegar como texto exato | `node tools/whatsapp-config/ice-breakers.ts apply` (autorizado), abrir conversa nova no aparelho de teste e tocar em cada um |
 
 ## 2. Gemini (`src/assistant/gemini-client.ts`)
 

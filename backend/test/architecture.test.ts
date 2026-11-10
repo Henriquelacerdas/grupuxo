@@ -65,9 +65,9 @@ function srcImports(file: string): { specifier: string; target: string }[] {
 // na lista é proibido. `adapters` e `lambdas` são raízes de composição e podem importar tudo.
 const layers: Record<string, readonly string[]> = {
   domain: ["domain/"],
-  whatsapp: ["whatsapp/", "domain/ids.ts", "domain/dates.ts", "http.ts"],
+  whatsapp: ["whatsapp/", "domain/ids.ts", "domain/dates.ts", "http.ts", "latency.ts"],
   auth: ["auth/", "domain/ids.ts", "domain/dates.ts", "http.ts"],
-  assistant: ["assistant/", "domain/", "whatsapp/ports.ts", "whatsapp/incoming-message.ts", "http.ts"],
+  assistant: ["assistant/", "domain/", "whatsapp/ports.ts", "whatsapp/incoming-message.ts", "http.ts", "latency.ts"],
 };
 
 test("cada camada de src/ só importa o que a arquitetura permite", () => {

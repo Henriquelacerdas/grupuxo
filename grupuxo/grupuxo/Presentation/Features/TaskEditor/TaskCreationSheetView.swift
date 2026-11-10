@@ -226,16 +226,12 @@ struct TaskCreationSheetView: View {
                     .disabled(isSaving)
                 }
 
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     if isSaving {
                         ProgressView("Salvando tarefa")
-                    } else if canSave {
-                        saveButton
-                            .buttonStyle(.borderedProminent)
                     } else {
                         saveButton
-                            .buttonStyle(.bordered)
-                            .disabled(true)
+                            .disabled(!canSave)
                     }
                 }
             }

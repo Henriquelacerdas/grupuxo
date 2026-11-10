@@ -6,8 +6,10 @@ import {
 } from "./common.ts";
 import { buildGeminiHandlers, GEMINI_ITEMS } from "./gemini.ts";
 import { buildGraphHandlers, g1Conclusion, GRAPH_ITEMS } from "./graph.ts";
+import { ICE_BREAKERS } from "../../src/assistant/ice-breakers.ts";
+import { buildIceBreakerHandlers, configuredPrompts, ICE_BREAKER_ITEMS } from "../whatsapp-config/ice-breakers.ts";
 
-// Roda com `node --test tools/validate/` (fora do `npm test`). Nenhum teste toca a rede: tudo usa `--dry-run`.
+// Roda com `node --test tools/validate/` (fora do `npm test`); cobre também `tools/whatsapp-config/`. Nenhum teste toca a rede: tudo usa `--dry-run`.
 
 const lines: string[] = [];
 let restore: ((line: string) => void) | undefined;
@@ -119,5 +121,32 @@ describe("--dry-run (sem rede)", () => {
     assert.ok(text.includes("[M1e-b modelo inexistente] status=404"));
     assert.ok(text.includes("list_my_tasks{range=week} parse=ok id=true thoughtSignature=true"));
     assert.ok(!text.includes("abc"), "o valor do argumento do prompt de injeção não pode aparecer");
+  });
+});
+
+describe("quebra-gelos (tools/whatsapp-config)", () => {
+  it("lê a configuração sem confiar na forma", () => {
+    assert.deepEqual(configuredPrompts(JSON.stringify({ id: "1" })), []);
+    assert.deepEqual(configuredPrompts(JSON.stringify({ conversational_automation: { prompts: ["a", "b"] } })), ["a", "b"]);
+    assert.equal(configuredPrompts(JSON.stringify({ conversational_automation: { prompts: [1] } })), null);
+    assert.equal(configuredPrompts(JSON.stringify({ conversational_automation: "x" })), null);
+  });
+
+  it("show e apply no --dry-run gravam ICE_BREAKERS e conferem, sem vazar token nem PHONE_NUMBER_ID", async () => {
+    const rec = recording(dryRunHttp());
+    const code = await runMain(["show", "apply", "--dry-run"], ICE_BREAKER_ITEMS, (dryRun) => buildIceBreakerHandlers(dryRun, rec));
+    const text = lines.join("\n");
+    assert.equal(code, 0, text);
+    assert.equal(rec.calls(), 3);
+    assert.ok(text.includes("[show] 0 quebra-gelo(s) configurado(s)"), text);
+    assert.ok(text.includes("[apply] success=true"), text);
+    assert.ok(text.includes(`[apply: conferência] ${ICE_BREAKERS.length} quebra-gelo(s)`), text);
+    assert.ok(text.includes("igual a ICE_BREAKERS: sim"), text);
+    assert.ok(!text.includes("ATENÇÃO: a configuração"), text);
+    for (const forbidden of ["dry-run-token", "123456789012345"]) assert.ok(!text.includes(forbidden), forbidden);
+  });
+
+  it("recusa rodar sem item explícito", async () => {
+    assert.equal(await runMain(["--dry-run"], ICE_BREAKER_ITEMS, (dryRun) => buildIceBreakerHandlers(dryRun)), 1);
   });
 });

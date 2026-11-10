@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
+import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
 import { SQSClient } from "@aws-sdk/client-sqs";
 import { DynamoConditionFailedError, DynamoTransactionCanceledError } from "../../src/adapters/dynamodb/client.ts";
 import {
-  SdkDynamoClient, SdkSecretsManagerClient, SdkSqsClient, UnsupportedDynamoValueError,
+  SdkCognitoIdentityClient, SdkDynamoClient, SdkSecretsManagerClient, SdkSqsClient, UnsupportedDynamoValueError,
 } from "../../src/main/aws-sdk.ts";
 
 // O SDK real até a camada HTTP, que é falsa: confere o formato de fio (JSON 1.0 com `AttributeValue`), a tradução
@@ -173,4 +174,26 @@ test("Secrets Manager: devolve o SecretString", async () => {
   const secrets = new SdkSecretsManagerClient(new SecretsManagerClient({ region: "us-east-1", credentials, requestHandler: handler, maxAttempts: 1 }));
   assert.equal(await secrets.getSecretString("grupuxo/whatsapp"), "{\"a\":\"b\"}");
   assert.deepEqual(sent[0]?.body, { SecretId: "grupuxo/whatsapp" });
+});
+
+function cognito(reply: (target: string, body: Record<string, unknown>) => Reply) {
+  const { sent, handler } = fakeHandler(reply);
+  const client = new SdkCognitoIdentityClient(
+    new CognitoIdentityProviderClient({ region: "us-east-1", credentials, requestHandler: handler, maxAttempts: 1 }), "us-east-1_M9GpISkE3",
+  );
+  return { client, sent };
+}
+
+test("Cognito: AdminDeleteUser com o pool e o username no fio", async () => {
+  const { client, sent } = cognito(() => ok({}));
+  await client.adminDeleteUser("signinwithapple_001234.abcdef.5678");
+  assert.equal(sent[0]?.target, "AWSCognitoIdentityProviderService.AdminDeleteUser");
+  assert.deepEqual(sent[0]?.body, { UserPoolId: "us-east-1_M9GpISkE3", Username: "signinwithapple_001234.abcdef.5678" });
+});
+
+test("Cognito: usuário inexistente conta como apagado; outro erro é propagado", async () => {
+  const missing = cognito(() => awsError("UserNotFoundException"));
+  await missing.client.adminDeleteUser("11111111-aaaa-4aaa-8aaa-000000000001");
+  const denied = cognito(() => awsError("NotAuthorizedException"));
+  await assert.rejects(denied.client.adminDeleteUser("11111111-aaaa-4aaa-8aaa-000000000001"), (error: unknown) => error instanceof Error && error.name === "NotAuthorizedException");
 });

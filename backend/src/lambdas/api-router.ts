@@ -4,7 +4,7 @@
 export type Method = "GET" | "POST" | "DELETE";
 
 export type RouteName =
-  | "registerAccount" | "myAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp"
+  | "registerAccount" | "myAccount" | "deleteAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp"
   | "houseSnapshot" | "myHouse" | "leaveHouse" | "createHouse" | "joinHouse"
   | "createRoom" | "roomParticipation" | "addRoomMember" | "removeRoomMember"
   | "myTasks" | "roomTasks" | "createTask" | "taskDefinition" | "endTask"
@@ -14,7 +14,7 @@ export type RouteName =
   | "myNotifications" | "readNotification";
 
 /** Rotas de conta e de WhatsApp (tratadas em `api.ts`); as demais são de casa, cômodo, tarefa e ocorrência. */
-export type AccountRouteName = "registerAccount" | "myAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp";
+export type AccountRouteName = "registerAccount" | "myAccount" | "deleteAccount" | "issueWhatsAppLink" | "whatsAppStatus" | "unlinkWhatsApp";
 export type AppRouteName = Exclude<RouteName, AccountRouteName>;
 
 export type RouteParam = "houseID" | "roomID" | "userID" | "taskID" | "occurrenceID" | "swapID" | "notificationID";
@@ -33,6 +33,7 @@ const param = (name: RouteParam): Segment => ({ param: name });
 const ROUTES: readonly RouteDefinition[] = [
   { name: "registerAccount", method: "POST", pattern: ["me"] },
   { name: "myAccount", method: "GET", pattern: ["me"] },
+  { name: "deleteAccount", method: "DELETE", pattern: ["me"] },
   { name: "issueWhatsAppLink", method: "POST", pattern: ["me", "whatsapp", "link"] },
   { name: "whatsAppStatus", method: "GET", pattern: ["me", "whatsapp"] },
   { name: "unlinkWhatsApp", method: "DELETE", pattern: ["me", "whatsapp"] },

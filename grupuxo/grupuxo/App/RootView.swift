@@ -69,6 +69,28 @@ struct RootView: View {
                 
                 shortcutManager.pendingDestination = nil
             }
+            // Lançamento a frio: o atalho pode ter definido o destino antes de esta tela existir.
+            .onAppear { applyPendingShortcut() }
+    }
+
+    private func applyPendingShortcut() {
+        guard let destination = shortcutManager.pendingDestination else { return }
+
+        switch destination {
+        case .myTasks:
+            selectedTab = .myTasks
+            tasksPath = []
+
+        case .house:
+            selectedTab = .house
+            housePath = []
+
+        case .sporadicTasks:
+            selectedTab = .house
+            housePath = [.sporadicTasks]
+        }
+
+        shortcutManager.pendingDestination = nil
     }
     
     private var tabs: some View {

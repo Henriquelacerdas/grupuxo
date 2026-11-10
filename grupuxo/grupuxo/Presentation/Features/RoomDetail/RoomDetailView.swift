@@ -144,6 +144,7 @@ struct RoomDetailView: View {
                 }
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
 
                 if !info.isMember {
 
@@ -179,6 +180,7 @@ struct RoomDetailView: View {
                     .frame(height: 32)
                 }
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 0, trailing: 0))
             }
 
@@ -291,6 +293,7 @@ struct RoomDetailView: View {
          .background {
             ZStack(alignment: .top) {
                 Color(uiColor: .systemGroupedBackground)
+                    .ignoresSafeArea()
                 if let room = viewModel.participation?.room {
                     LinearGradient(
                         colors: [room.color.tint.opacity(0.75), Color(uiColor: .systemGroupedBackground).opacity(0)],
@@ -591,7 +594,6 @@ struct RoomDetailView: View {
                         }
                     }
                     .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-                    .listRowSeparator(.hidden)
                     .swipeActions(edge: .leading, allowsFullSwipe: false) {
                         if !isSporadic && viewModel.canComplete(item) {
                             Button {

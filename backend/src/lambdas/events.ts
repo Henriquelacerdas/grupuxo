@@ -83,6 +83,16 @@ export interface SqsRecord {
   readonly body: string;
   /** `MessageGroupId` da fila FIFO (o telefone); `null` em fila padrão. */
   readonly messageGroupId: string | null;
+  readonly sentAt?: number;
+  readonly firstReceivedAt?: number;
+  readonly receiveCount?: number;
+}
+
+function numericAttribute(attributes: unknown, key: string, minimum = 0): number | undefined {
+  const raw = isRecord(attributes) ? field(attributes, key) : undefined;
+  if (typeof raw !== "string" || !/^[0-9]{1,16}$/.test(raw)) return undefined;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) && value >= minimum ? value : undefined;
 }
 
 /** `null` se o evento não for um lote do SQS bem formado. */
@@ -99,7 +109,12 @@ export function parseSqsEvent(event: unknown): readonly SqsRecord[] | null {
     if (typeof messageId !== "string" || messageId === "" || typeof body !== "string") return null;
     const attributes = field(record, "attributes");
     const group = isRecord(attributes) ? field(attributes, "MessageGroupId") : undefined;
-    result.push({ messageId, body, messageGroupId: typeof group === "string" && group !== "" ? group : null });
+    const sentAt = numericAttribute(attributes, "SentTimestamp");
+    const firstReceivedAt = numericAttribute(attributes, "ApproximateFirstReceiveTimestamp");
+    const receiveCount = numericAttribute(attributes, "ApproximateReceiveCount", 1);
+    result.push({ messageId, body, messageGroupId: typeof group === "string" && group !== "" ? group : null,
+      ...(sentAt === undefined ? {} : { sentAt }), ...(firstReceivedAt === undefined ? {} : { firstReceivedAt }),
+      ...(receiveCount === undefined ? {} : { receiveCount }) });
   }
   return result;
 }

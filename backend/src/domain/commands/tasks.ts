@@ -1,5 +1,5 @@
 import { at, uniqueMap } from "../arrays.ts";
-import type { Instant } from "../dates.ts";
+import { createCalendar, type Instant } from "../dates.ts";
 import {
   isActiveAssignment, isCompleted, isCurrentMember, taskItem, type Room, type TaskAssignment, type TaskDefinition, type TaskItem,
 } from "../entities.ts";
@@ -100,14 +100,21 @@ function canSee(item: TaskItem, room: Room, userID: UserID, state: StoreState): 
   return retained(item, userID, state) || eligibility.canView(item.definition, room, userID, state.roomMemberships);
 }
 
-/** Tarefas atribuídas ao usuário, já disponíveis em `date`. Chamar `refreshSchedule` antes. */
+/**
+ * Tarefas atribuídas ao usuário que já estão disponíveis em `date` **ou** que ficam disponíveis ainda nesta semana
+ * (segunda 00:00 do fuso da casa até a segunda seguinte): a vez dele daqui a dois dias já aparece hoje. As futuras
+ * só aparecem; concluir, oferecer troca etc. continuam exigindo `availableAt <= date`. Chamar `refreshSchedule` antes.
+ */
 export function userTasks(state: StoreState, userID: UserID, houseID: HouseID, date: Instant, items = taskItems(state)): TaskItem[] {
   if (!state.houseMemberships.some((m) => m.houseID === houseID && m.userID === userID)) return [];
+  const house = state.houses.find((candidate) => candidate.id === houseID);
+  const calendar = house === undefined ? undefined : createCalendar(house.timezone);
+  const horizon = calendar === undefined ? date : Math.max(date, calendar.addWeeks(calendar.weekStart(date), 1) - 1);
   const roomsByID = uniqueMap(state.rooms, (r) => r.id);
   return items.filter((item) => {
     const room = roomsByID.get(item.definition.roomID);
     return room !== undefined && room.houseID === houseID && canSee(item, room, userID, state) &&
-      item.occurrence.availableAt <= date && item.assignment?.userID === userID;
+      item.occurrence.availableAt <= horizon && item.assignment?.userID === userID;
   });
 }
 

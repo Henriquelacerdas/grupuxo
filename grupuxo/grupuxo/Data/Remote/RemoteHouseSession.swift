@@ -171,6 +171,17 @@ final class RemoteHouseSession: ObservableObject {
         }
     }
 
+    /// Apaga a conta no servidor: sai da casa (o último morador leva a casa junto), desvincula o WhatsApp, remove o
+    /// perfil e o usuário no Cognito. Repetir é seguro. `true` = a conta acabou; o app só encerra a sessão local.
+    func deleteAccountOnServer() async -> Bool {
+        var deleted = false
+        await perform { api in
+            try await api.send("DELETE", "v1/me")
+            deleted = true
+        }
+        return deleted
+    }
+
     /// Chamar no logout.
     func reset() {
         generation += 1

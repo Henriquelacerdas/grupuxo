@@ -1,3 +1,4 @@
+import { noLatency, type LatencyObserver } from "../latency.ts";
 import type { DynamoClient } from "../adapters/dynamodb/client.ts";
 import { HouseStateStore } from "../adapters/dynamodb/house-state-store.ts";
 import { DynamoPendingActionStore } from "../adapters/dynamodb/pending-action-store.ts";
@@ -19,9 +20,9 @@ export const LINK_TOKEN_GRACE_SECONDS = 60 * 60;
 export const PENDING_ACTION_GRACE_SECONDS = 60 * 60;
 
 /** Adaptadores DynamoDB do domínio sobre o mesmo store, com a escrita acima de 100 ações dividida (atalho da trilha). */
-export function houseAdapters(client: DynamoClient) {
+export function houseAdapters(client: DynamoClient, latency: LatencyObserver = noLatency) {
   const ctx: CommandContext = { now, newID };
-  const store = new HouseStateStore(client, dynamoRuntime, { oversizedWrites: "split" });
+  const store = new HouseStateStore(client, dynamoRuntime, { oversizedWrites: "split", latency });
   return {
     store,
     houses: new DynamoHouseRepository(store, client, ctx, newAccessCode),

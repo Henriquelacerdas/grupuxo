@@ -24,6 +24,15 @@ export class InMemoryUserDirectory implements UserDirectory {
     return this.bySub.get(cognitoSub) ?? null;
   }
 
+  async deleteUser(cognitoSub: CognitoSub): Promise<void> {
+    const id = this.bySub.get(cognitoSub);
+    if (id === undefined) return;
+    this.store.update((state) => {
+      state.users = state.users.filter((user) => user.id !== id);
+    });
+    this.bySub.delete(cognitoSub);
+  }
+
   async ensureUser(cognitoSub: CognitoSub, profile: UserProfile): Promise<UserID> {
     if (parseProfileName(profile.name) !== profile.name) throw new UserDirectoryError("invalidProfile");
     const existing = this.bySub.get(cognitoSub);

@@ -134,6 +134,12 @@ test("mensagem vazia não chama o modelo", async () => {
   assert.equal(gemini.requests.length, 0);
 });
 
+test("o quebra-gelo de ajuda responde a ajuda fixa sem chamar o modelo", async () => {
+  const { responder, gemini, users } = setup();
+  assert.equal(await responder.reply("O que você sabe fazer?", users.marina.id, fresh()), GeminiMessageResponder.helpReply);
+  assert.equal(gemini.requests.length, 0);
+});
+
 // --- injeção de prompt ---
 
 test("o texto que o modelo escrever é descartado: a resposta nunca é ditada por ele", async () => {

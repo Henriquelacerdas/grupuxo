@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { ApiEnvFactory } from "./api-support.ts";
+import { SUBS, type ApiEnvFactory } from "./api-support.ts";
 import { bodyOf, createHouse, expectError, expectStatus, join, list, register, rec, text, twoHousesScenario } from "./api-routes-helpers.ts";
 
 // Rotas de casa (BACKEND.md, seção 6.1): GET/DELETE /v1/me/house, POST /v1/houses, POST /v1/houses/join.
@@ -100,6 +100,63 @@ export function houseRoutes(name: string, make: ApiEnvFactory): void {
     assert.deepEqual(list(remaining["members"]).map((member) => rec(member)["name"]), ["Ana"]);
     // Pode voltar pelo mesmo código.
     assert.equal(rec((await join(env, "bia", house.code))["house"])["id"], house.id);
+  });
+
+  test(`${name}: excluir conta: sai da casa, a conta some e uma nova conta com o mesmo token recomeça do zero`, async () => {
+    const env = make();
+    const { house } = await twoHousesScenario(env);
+    expectError(await env.call(null, "DELETE", "/v1/me"), 401, "unauthorized");
+    assert.deepEqual(env.identities.removed, [], "sem token nada é apagado");
+    assert.equal((await env.call("bia", "DELETE", "/v1/me")).statusCode, 204);
+    assert.deepEqual(env.identities.removed, [SUBS.bia], "o usuário do Cognito é o da Bia, e só ele");
+    expectError(await env.call("bia", "GET", "/v1/me"), 403, "account_not_registered");
+    expectError(await env.call("bia", "GET", "/v1/me/house"), 403, "account_not_registered");
+    const remaining = bodyOf(await env.call("ana", "GET", "/v1/me/house"));
+    assert.deepEqual(list(remaining["members"]).map((member) => rec(member)["name"]), ["Ana"]);
+    await register(env, "bia", "Bia");
+    expectError(await env.call("bia", "GET", "/v1/me/house"), 404, "no_house");
+    assert.equal(rec((await join(env, "bia", house.code))["house"])["id"], house.id);
+  });
+
+  test(`${name}: excluir conta apaga o usuário do Cognito pelo username do token (login com a Apple)`, async () => {
+    const env = make();
+    await register(env, "ana", "Ana");
+    assert.equal((await env.call("ana", "DELETE", "/v1/me", { username: "signinwithapple_001234.abcdef.5678" })).statusCode, 204);
+    assert.deepEqual(env.identities.removed, ["signinwithapple_001234.abcdef.5678"]);
+  });
+
+  test(`${name}: excluir conta sem nunca ter cadastrado conta ainda apaga o usuário do Cognito`, async () => {
+    const env = make();
+    assert.equal((await env.call("caio", "DELETE", "/v1/me")).statusCode, 204);
+    assert.deepEqual(env.identities.removed, [SUBS.caio]);
+    // Repetir é seguro.
+    assert.equal((await env.call("caio", "DELETE", "/v1/me")).statusCode, 204);
+    expectError(await env.call("caio", "GET", "/v1/me"), 403, "account_not_registered");
+  });
+
+  test(`${name}: falha ao apagar o usuário do Cognito: 500 sem detalhe, e repetir termina o serviço`, async () => {
+    const env = make();
+    await twoHousesScenario(env);
+    env.identities.failWith = new Error("AccessDenied hunter2");
+    const failed = await env.call("bia", "DELETE", "/v1/me");
+    assert.equal(failed.statusCode, 500);
+    assert.deepEqual(JSON.parse(failed.body), { error: "internal" });
+    // Os dados do servidor já saíram; o usuário do Cognito continua e a repetição o apaga.
+    expectError(await env.call("bia", "GET", "/v1/me"), 403, "account_not_registered");
+    env.identities.failWith = null;
+    assert.equal((await env.call("bia", "DELETE", "/v1/me")).statusCode, 204);
+    assert.deepEqual(env.identities.removed, [SUBS.bia]);
+  });
+
+  test(`${name}: excluir conta do último morador apaga a casa; sem casa também funciona`, async () => {
+    const env = make();
+    await register(env, "ana", "Ana");
+    const house = await createHouse(env, "ana");
+    assert.equal((await env.call("ana", "DELETE", "/v1/me")).statusCode, 204);
+    expectError(await env.call("ana", "GET", "/v1/me"), 403, "account_not_registered");
+    await register(env, "bia", "Bia");
+    expectError(await env.call("bia", "POST", "/v1/houses/join", { body: JSON.stringify({ code: house.code }) }), 404, "invalid_code");
+    assert.equal((await env.call("bia", "DELETE", "/v1/me")).statusCode, 204);
   });
 
   test(`${name}: o último morador só sai confirmando, e a casa é excluída (o código deixa de valer)`, async () => {

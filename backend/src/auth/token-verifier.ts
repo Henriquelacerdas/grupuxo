@@ -8,8 +8,19 @@ export function parseCognitoSub(value: string): CognitoSub | null {
   return /^[\x21-\x7E]{1,128}$/.test(value) ? (value as CognitoSub) : null;
 }
 
+/** Promove uma `string` a `username` do Cognito: de 1 a 128 caracteres ASCII visíveis, sem espaço nem controle. */
+export function parseCognitoUsername(value: string): string | null {
+  return /^[\x21-\x7E]{1,128}$/.test(value) ? value : null;
+}
+
 export interface VerifiedToken {
   readonly cognitoSub: CognitoSub;
+  /**
+   * Claim `username` do access token: o nome do usuário no pool. É o `sub` para quem entra com e-mail e senha e outro
+   * valor (`signinwithapple_...`) para quem entra por provedor externo, e é o que o `AdminDeleteUser` aceita.
+   * Ausente se o token não o trouxer ou ele não passar em `parseCognitoUsername`.
+   */
+  readonly username?: string;
 }
 
 /** Valida o `Authorization: Bearer` do app. O `userID` do domínio vem sempre daqui (via `UserDirectory`), nunca do corpo. */

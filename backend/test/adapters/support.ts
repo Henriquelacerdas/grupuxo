@@ -1,4 +1,4 @@
-import type { SecretsManagerClient, SqsClient, SqsSendMessageInput } from "../../src/adapters/aws/clients.ts";
+import type { CognitoIdentityClient, SecretsManagerClient, SqsClient, SqsSendMessageInput } from "../../src/adapters/aws/clients.ts";
 
 /** Cliente SQS falso: guarda os envios, sem rede. `failWith` faz o próximo envio falhar. */
 export class FakeSqsClient implements SqsClient {
@@ -25,5 +25,16 @@ export class FakeSecretsClient implements SecretsManagerClient {
     this.calls += 1;
     this.requested.push(secretID);
     return this.response();
+  }
+}
+
+/** Cliente do Cognito falso: guarda os usernames apagados; `failWith` faz a próxima chamada falhar. */
+export class FakeCognitoClient implements CognitoIdentityClient {
+  readonly deleted: string[] = [];
+  failWith: Error | null = null;
+
+  async adminDeleteUser(username: string): Promise<void> {
+    if (this.failWith !== null) throw this.failWith;
+    this.deleted.push(username);
   }
 }

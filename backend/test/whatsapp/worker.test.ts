@@ -7,7 +7,7 @@ import { InMemoryRateCounter } from "../../src/adapters/in-memory/rate-counter.t
 import { userID, type UserID } from "../../src/domain/ids.ts";
 import type { IncomingMessage } from "../../src/whatsapp/incoming-message.ts";
 import { createLinkConfig, WhatsAppLinker } from "../../src/whatsapp/linking/whatsapp-linker.ts";
-import { EchoResponder, type InboxStore, type MessageResponder } from "../../src/whatsapp/ports.ts";
+import { EchoResponder, type InboxStore, type MessageResponder, type WhatsAppTypingIndicator } from "../../src/whatsapp/ports.ts";
 import { MessageRateLimiter } from "../../src/whatsapp/rate-limit.ts";
 import { WhatsAppWorker } from "../../src/whatsapp/worker.ts";
 import { uuid } from "../support/world.ts";
@@ -22,8 +22,8 @@ function setup() {
   const links = new InMemoryWhatsAppLinkStore();
   const sender = new InMemoryWhatsAppSender();
   const linker = new WhatsAppLinker(createLinkConfig("5511900000000"), new InMemoryLinkTokenStore(), links, () => PROCESSED_AT);
-  const makeWorker = (responder: MessageResponder = new EchoResponder()) =>
-    new WhatsAppWorker({ inbox, links, linker, responder, sender, rateLimiter: openRateLimiter(), now: () => PROCESSED_AT });
+  const makeWorker = (responder: MessageResponder = new EchoResponder(), typing?: WhatsAppTypingIndicator) =>
+    new WhatsAppWorker({ inbox, links, linker, responder, sender, ...(typing === undefined ? {} : { typing }), rateLimiter: openRateLimiter(), now: () => PROCESSED_AT });
   const message = (wamid = "wamid.A", text = "oi"): IncomingMessage => ({ wamid, phoneE164: phone, text, receivedAt: 1_700_000_000_000 });
   const link = () => links.create({ userID: id, phoneE164: phone, consentedAt: PROCESSED_AT, linkedAt: PROCESSED_AT });
   return { sender, makeWorker, message, link };
@@ -111,7 +111,7 @@ test("a caixa de entrada só recebe o wamid e os horários, nunca o texto", asyn
 
 // --- limite de taxa por número ---
 
-function rateLimitedSetup(limit: number) {
+function rateLimitedSetup(limit: number, typing?: WhatsAppTypingIndicator) {
   const inbox = new InMemoryInboxStore();
   const links = new InMemoryWhatsAppLinkStore();
   const sender = new InMemoryWhatsAppSender();
@@ -120,7 +120,7 @@ function rateLimitedSetup(limit: number) {
   const replies: string[] = [];
   const responder: MessageResponder = { reply: async (text) => { replies.push(text); return `ok ${text}`; } };
   const worker = new WhatsAppWorker({
-    inbox, links, linker, responder, sender, now: () => clock,
+    inbox, links, linker, responder, sender, now: () => clock, ...(typing === undefined ? {} : { typing }),
     rateLimiter: new MessageRateLimiter({ counter: new InMemoryRateCounter(), limit, windowSeconds: 60 }),
   });
   const message = (wamid: string, from = phone): IncomingMessage => ({ wamid, phoneE164: from, text: wamid, receivedAt: 1_700_000_000_000 });
@@ -186,4 +186,57 @@ test("falha ao avisar deixa a mensagem para nova tentativa, que a descarta em si
   });
   await assert.rejects(failing.process(message("w2")), /Graph fora do ar/);
   assert.equal(await inbox.claim("w2", 0), "claimed");
+});
+
+test("digitando inicia antes do responder, é cancelado e encerrado antes do envio final", async () => {
+  const { sender, makeWorker, message, link } = setup();
+  await link();
+  const events: string[] = [];
+  const send = sender.send.bind(sender);
+  sender.send = async (text, toPhone) => { events.push("send"); await send(text, toPhone); };
+  const typing: WhatsAppTypingIndicator = { showTyping: async (wamid, signal) => {
+    assert.equal(wamid, "wamid.A");
+    events.push("typing");
+    await new Promise<void>((resolve) => signal.addEventListener("abort", () => { events.push("cancel"); resolve(); }, { once: true }));
+    events.push("settled");
+  } };
+  await makeWorker({ reply: async () => { events.push("reply"); return "ok"; } }, typing).process(message());
+  assert.deepEqual(events, ["typing", "reply", "cancel", "settled", "send"]);
+  assert.deepEqual(sender.sent, [{ phoneE164: phone, text: "ok" }]);
+});
+
+test("falha do indicador não falha a resposta nem reativa uma mensagem já processada", async () => {
+  const { sender, makeWorker, message, link } = setup();
+  await link();
+  let attempts = 0;
+  const worker = makeWorker(new EchoResponder(), { showTyping: async () => { attempts++; throw new Error("erro privado da Graph"); } });
+  await worker.process(message());
+  await worker.process(message());
+  assert.equal(attempts, 1);
+  assert.equal(sender.sent.length, 1);
+});
+
+test("falha do responder cancela o indicador e preserva o erro que deve causar retry", async () => {
+  const { sender, makeWorker, message, link } = setup();
+  await link();
+  let cancelled = false;
+  const error = new Error("falha do responder");
+  const worker = makeWorker({ reply: async () => { throw error; } }, { showTyping: async (_wamid, signal) => {
+    await new Promise<void>((resolve) => signal.addEventListener("abort", () => { cancelled = true; resolve(); }, { once: true }));
+  } });
+  await assert.rejects(worker.process(message()), (actual) => actual === error);
+  assert.equal(cancelled, true);
+  assert.equal(sender.sent.length, 0);
+});
+
+test("digitando só é acionado para mensagens permitidas de números vinculados", async () => {
+  const indicated: string[] = [];
+  const typing: WhatsAppTypingIndicator = { showTyping: async (wamid) => { indicated.push(wamid); } };
+  const { links, worker, message } = rateLimitedSetup(1, typing);
+  await links.create({ userID: id, phoneE164: phone, consentedAt: PROCESSED_AT, linkedAt: PROCESSED_AT });
+  await worker.process(message("allowed"));
+  await worker.process(message("limited"));
+  await worker.process(message("silent"));
+  await worker.process(message("unknown", "+5521988887777"));
+  assert.deepEqual(indicated, ["allowed"]);
 });

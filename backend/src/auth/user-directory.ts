@@ -44,4 +44,10 @@ export interface UserDirectory {
    * pedido venceu e o `UserID` sai de um `GetItem` consistente em `COGNITO#<sub>`.
    */
   ensureUser(cognitoSub: CognitoSub, profile: UserProfile): Promise<UserID>;
+
+  /**
+   * Apaga a ligação `COGNITO#<sub>` e o perfil do morador. Idempotente: conta sem morador não faz nada. Quem chama
+   * já tirou o morador da casa e do WhatsApp. No DynamoDB: `TransactWriteItems` com os dois `Delete`.
+   */
+  deleteUser(cognitoSub: CognitoSub): Promise<void>;
 }

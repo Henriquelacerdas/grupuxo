@@ -18,6 +18,11 @@ struct MockTaskRepository: TaskRepository {
         return await store.read { state in
             guard state.houseMemberships.contains(where: { $0.houseID == houseID && $0.userID == userID }) else { return [] }
             let roomsByID = Dictionary(uniqueKeysWithValues: state.rooms.map { ($0.id, $0) })
+            // Também a vez que só começa mais tarde nesta semana (segunda a segunda); concluir continua exigindo disponibilidade.
+            var weekCalendar = Calendar.current
+            weekCalendar.firstWeekday = 2
+            let now = Date.now
+            let horizon = weekCalendar.dateInterval(of: .weekOfYear, for: now)?.end ?? now
             return items(from: state).filter { item in
                 guard let room = roomsByID[item.definition.roomID] else { return false }
                 return room.houseID == houseID
@@ -27,7 +32,7 @@ struct MockTaskRepository: TaskRepository {
                         userID: userID,
                         roomMemberships: state.roomMemberships
                     ))
-                    && item.occurrence.availableAt <= Date.now
+                    && (item.occurrence.availableAt <= now || item.occurrence.availableAt < horizon)
                     && (item.assignment?.userID == userID)
             }
         }

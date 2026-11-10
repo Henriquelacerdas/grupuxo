@@ -303,6 +303,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 | `POST /v1/me/whatsapp/link` | `200 { "url", "expiresAt" }` com o link `wa.me`; número já conectado → `409 already_linked`. |
 | `GET /v1/me/whatsapp` | `200 { "linked": false }` ou `{ "linked": true, "phone": "+55•••••••8888", "linkedAt" }` (telefone mascarado). |
 | `DELETE /v1/me/whatsapp` | `204`, idempotente. |
+| `DELETE /v1/me` | Exclui a conta (exigência da App Store): sai da casa com as duas confirmações (o último morador leva a casa junto), desvincula o WhatsApp, apaga `COGNITO#<sub>` e o perfil `USER#<id>` e, por último, o **usuário do Cognito** (`AdminDeleteUser` com o claim `username` do próprio access token, ou o `sub` se faltar; nunca um valor do corpo). `204`, sem corpo nem query. Cada passo é idempotente e o do Cognito é o último: repetir depois de uma falha termina o serviço, e quem nunca cadastrou a conta (`POST /v1/me`) também recebe `204` e tem só o usuário do Cognito apagado. Usuário do Cognito que já não existe (`UserNotFoundException`) conta como feito; qualquer outra falha é `500 internal`. O servidor apaga o usuário (e não o app, com `Amplify.Auth.deleteUser`) porque o `DeleteUser` exige o escopo `aws.cognito.signin.user.admin`, que o app client não permite (`invalid_scope`) e que o login com a Apple (Hosted UI) não traz; a role da `api` recebe `cognito-idp:AdminDeleteUser` só neste user pool. Depois do `204` o app só encerra a sessão local. O item `PENDING#<id>` (pedido de conclusão) não é apagado: só guarda o ID da ocorrência e expira por TTL. |
 
 #### Casa (implementada)
 
@@ -327,7 +328,7 @@ Fuso: o mock usa o do dispositivo. No backend passa a ser **por casa** (`House.t
 
 | Rota | Entrada | Resposta e erros |
 | --- | --- | --- |
-| `GET /v1/me/tasks` | query opcional `range=week\|all` (padrão `all`) | `200 { "tasks": [TaskItem] }` do morador na sua casa: pendentes por prazo, concluídas por último. Sem casa → `404 no_house`. |
+| `GET /v1/me/tasks` | query opcional `range=week\|all` (padrão `all`) | `200 { "tasks": [TaskItem] }` do morador na sua casa: as já disponíveis e as que ficam disponíveis ainda na semana corrente (segunda 00:00 do fuso da casa até a segunda seguinte), pendentes por prazo, concluídas por último. As futuras só aparecem: concluir e oferecer troca continuam exigindo `availableAt <= agora`. Sem casa → `404 no_house`. |
 | `GET /v1/rooms/{roomID}/tasks` | | `200 { "tasks": [TaskItem] }` do cômodo (recorrentes, ordenadas por prazo). |
 | `POST /v1/rooms/{roomID}/tasks` | `{ "name", "details", "effort": 1..3, "kind": "recurring" \| "sporadic", "recurrence": Recurrence, "assignmentPolicy" }` | `201 TaskDefinition`. `400 invalid_task_name`, `400 invalid_schedule`, `403 task_unavailable` (quem cria precisa participar do cômodo). |
 | `GET /v1/rooms/{roomID}/tasks/{taskID}` | | `200 TaskDefinition`. |
@@ -362,7 +363,7 @@ Todos em `src/lambdas/api-dto.ts`; exemplos em `test/fixtures/api/`. Campos inte
 
 | Tipo | Campos | Exemplo |
 | --- | --- | --- |
-| `HouseSnapshot` | `userID`, `home`, `participations`, `roomTasks` (recorrentes visíveis), `myTasks` (atribuídas ao morador, já disponíveis), `sporadicTasks` (inclui sugestão de responsável) | `house-snapshot.json` |
+| `HouseSnapshot` | `userID`, `home`, `participations`, `roomTasks` (recorrentes visíveis), `myTasks` (atribuídas ao morador, disponíveis ou que ficam disponíveis na semana corrente), `sporadicTasks` (inclui sugestão de responsável) | `house-snapshot.json` |
 | `User` | `id`, `name` | `me-house.json` |
 | `House` | `id`, `name`, `accessCode`, `timezone`, `createdAt` | `house.json` |
 | `Room` | `id`, `houseID`, `name`, `kind` (`wholeHouse`\|`standard`), `category`, `visibility`, `periodicity { executionsPerPeriod, intervalWeeks }`, `responsibleCount`, `calendarAnchor`\|null, `icon`, `color` | `room.json` |
@@ -420,6 +421,7 @@ mensagem ─► registrar o wamid na caixa de entrada (item WAMID#; se já foi p
         ─► mensagem com token de vínculo? responder pelo `WhatsAppLinker` (seção 8) e parar
         ─► resolver telefone → usuário (vínculo PHONE#)
               ├─ desconhecido: responder "Vincule seu número no app"
+        ─► iniciar indicador nativo "digitando…" em paralelo ao responder (seção 7.5)
         ─► Gemini (function calling) interpreta a intenção
         ─► resposta a uma confirmação pendente ("sim"/"não" inteiro)? tratada por código, sem o Gemini (seção 7.4)
         ─► executa a ferramenta → caso de uso (leitura) ou pedido de conclusão (grava só o pedido pendente)
@@ -481,7 +483,7 @@ Implementado e testado com `GeminiClient` falso e `HttpFetch` falso; nenhum test
 **`GeminiMessageResponder`** (`gemini-responder.ts`), `reply(text, userID)`:
 
 1. Resolve a casa por `HouseRepository.houses(userID)`, **antes** de chamar o modelo: nenhuma casa → orienta a criar ou entrar numa casa pelo app; mais de uma → diz que o WhatsApp ainda não suporta várias casas e manda usar o app; uma → segue.
-2. Mensagem em branco → lista do que o bot sabe fazer, sem chamar o modelo. Texto cortado em 500 caracteres antes de ir ao modelo.
+2. Mensagem em branco ou o quebra-gelo de ajuda ("O que você sabe fazer?", `ice-breakers.ts`; ver [WHATSAPP-MENSAGENS.md](WHATSAPP-MENSAGENS.md#quebra-gelos-ice-breakers)) → lista do que o bot sabe fazer, sem chamar o modelo. Texto cortado em 500 caracteres antes de ir ao modelo.
 3. Laço de *function calling* com limite de rodadas (padrão 3) e no máximo 3 chamadas por rodada; consultas repetidas respondem uma vez. A instrução de sistema é fixa; o texto do morador só vai como mensagem de usuário.
 4. A saída das ferramentas **não** volta ao modelo. A resposta é montada em `task-format.ts` a partir do que os casos de uso devolveram, então nomes e datas só vêm dos dados, e o texto que o modelo escrever é descartado: uma instrução escondida na mensagem ou num nome de tarefa de outro morador não consegue ditar o que o bot diz. Só uma falha recuperável (argumento inválido, cômodo não encontrado/ambíguo) volta ao modelo, como erro de código fixo mais os nomes dos cômodos, para ele corrigir a chamada.
 5. Falha do Gemini (`GeminiRequestError`, já depois das novas tentativas do cliente) → mensagem fixa em português ("Tente de novo em instantes"). Qualquer outro erro (banco, bug) propaga e o SQS tenta de novo. Se a rodada de correção falhar, mantém o que já foi respondido. Toda falha do Gemini chama `onGeminiFailure`; na Lambda `worker` isso escreve `worker: gemini falhou: GeminiRequestError code=… status=…` no stderr (`describeFailure`, sem conteúdo).
@@ -504,6 +506,10 @@ A composição na Lambda `worker` está em `compose.ts` (seção 3.1). Pendente:
 ### 7.5 Envio pela Graph API (`src/whatsapp/graph-sender.ts`)
 
 `GraphWhatsAppSender` implementa `WhatsAppSender.send(text, toPhone)` com `HttpFetch` injetado. Testado só com `HttpFetch` falso; nada chamou a Graph API de verdade ainda.
+
+**Indicador nativo (implementado e publicado no dev em 28/10/2026).** O port separado `WhatsAppTypingIndicator.showTyping(wamid, signal)` é ligado ao mesmo adaptador na composição. Depois de deduplicar, aplicar o limite de taxa e encontrar o vínculo, o worker inicia uma única chamada em paralelo ao `MessageResponder`. Não é acionado para orientação de vínculo, tokens de conexão, duplicatas processadas ou mensagens limitadas. O POST usa o mesmo endpoint e token, com `{ "messaging_product": "whatsapp", "status": "read", "message_id": "<wamid recebido>", "typing_indicator": { "type": "text" } }`, conforme a [documentação oficial da Meta](https://developers.facebook.com/documentation/business-messaging/whatsapp/typing-indicators). Isso marca a mensagem como lida e mostra o indicador, sem enviar uma mensagem intermediária ao histórico. O WhatsApp o dispensa com a resposta ou após até 25 s; não há renovação automática.
+
+A chamada do indicador tem timeout próprio de 1 s e não bloqueia o início do Gemini. Quando o responder termina (inclusive com falha), o worker cancela a chamada pendente e aguarda seu encerramento antes do envio final/retorno, sem deixar promessas soltas na Lambda. Falhas HTTP, rede ou timeout do indicador não falham a mensagem, não geram retry SQS e não registram conteúdo/IDs; erros do responder ou do envio final continuam propagando normalmente. `HttpFetch` deve respeitar o `AbortSignal`, como o `fetch` do Node. A telemetria usa `typingMs`, `typingCalls`, `typingFailures`, `typingTimeouts`, `typingCancellations` e `typingStatus`, separados dos contadores de envio de texto. A espera no SQS anterior ao processamento não é coberta pelo indicador.
 
 - `POST https://graph.facebook.com/<WHATSAPP_GRAPH_VERSION>/<PHONE_NUMBER_ID>/messages`, corpo `{ "messaging_product": "whatsapp", "recipient_type": "individual", "to": "+5511999998888", "type": "text", "text": { "body": "…" } }`. `recipient_type` não estava no pedido original: entra porque o exemplo da documentação da Meta o inclui (conferido em 2026-10-05; o exemplo da doc usa `v25.0`).
 - **Campo `to`:** E.164 **com `+`**, exatamente como o port recebe e como o vínculo guarda (a documentação recomenda o `+` e o código do país, e aceita `+`, `-`, `()` e espaços). O sender recusa (`invalidRecipient`) o que não for `^\+[1-9][0-9]{7,14}$`, sem chamar a rede. **Nono dígito (validado com a Graph real, 15/10/2026):** o `from` de celulares brasileiros chega sem o 9 (`+556182045694`), mas a Graph só aceita enviar para o número com ele (`+5561982045694`); sem o 9 responde `131030` ("fora da lista permitida"). `graphRecipient` insere o 9 só no campo `to` de celulares `+55` + DDD + 8 dígitos começando em 6 a 9; o vínculo e o limite de taxa continuam usando o número como a Meta entregou.
@@ -577,7 +583,7 @@ Regras:
 - Nada de segredos no repositório, em variáveis de ambiente em texto puro nem em log. As Lambdas leem o segredo uma vez por instância e mantêm em cache (`SecretStringReader`: só o sucesso fica em cache).
 - **Menor privilégio:** cada role recebe apenas `secretsmanager:GetSecretValue` no ARN desse segredo. Evitar a política gerenciada `SecretsManagerReadWrite`, que dá escrita em todos os segredos da conta.
 - Sem usuário IAM com chaves de acesso para as Lambdas: elas usam a role de execução. Pessoas acessam por um usuário IAM de deploy (chaves só no `~/.aws` de quem faz o deploy); migrar para IAM Identity Center depois.
-- DynamoDB sem credenciais: as Lambdas acessam a tabela pela role de execução (IAM), então não há senha de banco para guardar nem rotacionar. **Menor privilégio:** cada role recebe só as ações de que precisa, restritas ao ARN da tabela e do índice `GSI1` (`dynamodb:GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query`, `BatchGetItem`, `ConditionCheckItem`; a `TransactWriteItems` é autorizada por essas ações, não existe permissão com esse nome). O webhook não acessa a tabela. Nunca `dynamodb:*` nem `Resource: "*"`.
+- DynamoDB sem credenciais: as Lambdas acessam a tabela pela role de execução (IAM), então não há senha de banco para guardar nem rotacionar. **Menor privilégio:** cada role recebe só as ações de que precisa, restritas ao ARN da tabela e do índice `GSI1` (`dynamodb:GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query`, `BatchGetItem`, `ConditionCheckItem`; a `TransactWriteItems` é autorizada por essas ações, não existe permissão com esse nome). O webhook não acessa a tabela. Nunca `dynamodb:*` nem `Resource: "*"`. A `api` também recebe `cognito-idp:AdminDeleteUser` no ARN do user pool (excluir a conta, §6.1): nenhuma outra ação do Cognito.
 - Tabela com criptografia em repouso (padrão da AWS), `deletion_protection_enabled` em todo ambiente (inclusive `dev`, depois que a `grupuxo-dev` foi apagada em out/2026) e recuperação a um ponto no tempo (PITR) em `prod` ❓ (PITR tem custo por GB; decidir se vale na v1).
 - Ambientes separados (`dev`, `prod`), com números e apps Meta distintos.
 - Observabilidade: CloudWatch Logs com retenção definida, alarmes para DLQ com mensagens e erros 5xx, *X-Ray* opcional.
@@ -638,7 +644,7 @@ Os passos 1–3 e o esqueleto do webhook (passo 5, sem LLM) podem andar em paral
 
 ## 14. Estado da implementação e contrato com a tabela
 
-Código em `backend/` (`npm test`). Os testes rodam com adaptadores em memória e clientes falsos; nada nos testes acessa AWS, DynamoDB, Meta ou Gemini. O `dev` está implantado (`backend/infra/README.md`: tabela `grupuxo-dev` com proteção contra exclusão e recuperação pontual, fila FIFO com DLQ, Lambdas `api` com 1769 MB, `webhook` e `worker`). Latência da `api` e o que já mudou por causa dela: [LATENCIA.md](LATENCIA.md).
+Código em `backend/` (`npm test`). Os testes rodam com adaptadores em memória e clientes falsos; nada nos testes acessa AWS, DynamoDB, Meta ou Gemini. O `dev` está implantado (`backend/infra/README.md`: tabela `grupuxo-dev` com proteção contra exclusão e recuperação pontual, fila FIFO com DLQ, Lambdas `api` com 1769 MB, `webhook` e `worker`). Latência da `api` e do WhatsApp, diagnóstico e instrumentação publicada no worker/webhook em 28/10: [LATENCIA.md](LATENCIA.md). O canal emite telemetria numérica por mensagem/requisição, sem conteúdo ou identificadores; `SentTimestamp`, primeiro recebimento e receive count do SQS passam a ser metadados opcionais na conversão do evento, sem mudar o corpo da fila, a tabela ou os ports do domínio.
 
 | Peça | Onde | Situação |
 | --- | --- | --- |

@@ -10,6 +10,7 @@ struct HouseView: View {
 
     @StateObject private var whatsApp: WhatsAppConnectionViewModel
     @State private var confirmLeave = false
+    @State private var confirmSignOut = false
     @State private var copied = false
 
     init(whatsAppViewModel: WhatsAppConnectionViewModel) {
@@ -23,6 +24,7 @@ struct HouseView: View {
             }
             WhatsAppConnectionSection(viewModel: whatsApp)
             HomeArrivalSection()
+//            RemindersSyncSection()
             roomsSection
             membersSection
 
@@ -44,8 +46,10 @@ struct HouseView: View {
                 .disabled(houses.isLoading)
 
                 Button("Sair da conta", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                    Task { await authService.signOut() }
+                    confirmSignOut = true
                 }
+
+                DeleteAccountButton()
             } footer: {
                 if isLastMember {
                     Text("Você é o único morador: se sair, a casa será excluída.")
@@ -59,6 +63,9 @@ struct HouseView: View {
             }
         }
         .refreshable { await houses.refresh() }
+        .confirmationDialog("Sair da conta?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
+        }
         .confirmationDialog("Sair da casa?", isPresented: $confirmLeave, titleVisibility: .visible) {
             Button("Sair da casa", role: .destructive) { Task { await houses.leaveHouse() } }
         }

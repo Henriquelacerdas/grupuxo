@@ -1,5 +1,6 @@
+import { noLatency, type LatencyObserver } from "../latency.ts";
 import type { HttpFetch } from "../http.ts";
-import type { WhatsAppSender } from "./ports.ts";
+import type { WhatsAppSender, WhatsAppTypingIndicator } from "./ports.ts";
 
 // Envio de mensagens de texto pela Graph API da Meta (WhatsApp Cloud API). Nenhuma mensagem de erro carrega o
 // corpo da resposta, o token, o texto da mensagem nem o telefone do destinatário.
@@ -48,6 +49,7 @@ export class GraphSendError extends Error {
 }
 
 export interface GraphWhatsAppSenderOptions {
+  readonly latency?: LatencyObserver;
   /** Token permanente do System User (Secrets Manager, `WHATSAPP_TOKEN`). Vai só no cabeçalho `Authorization`. */
   readonly accessToken: string | undefined;
   /** `PHONE_NUMBER_ID` do número do bot. Entra na URL, por isso só dígitos. */
@@ -57,6 +59,8 @@ export interface GraphWhatsAppSenderOptions {
   readonly http: HttpFetch;
   /** Padrão: 10 s. */
   readonly timeoutMs?: number;
+  /** Indicador opcional: no máximo 1 s por padrão, cancelável quando a resposta fica pronta. */
+  readonly typingTimeoutMs?: number;
 }
 
 const GRAPH_ORIGIN = "https://graph.facebook.com/";
@@ -89,13 +93,16 @@ export function truncateMessage(text: string): string {
   return `${codePoints.slice(0, MAX_MESSAGE_CHARS - 1).join("")}${ELLIPSIS}`;
 }
 
-export class GraphWhatsAppSender implements WhatsAppSender {
+export class GraphWhatsAppSender implements WhatsAppSender, WhatsAppTypingIndicator {
+  private readonly latency: LatencyObserver;
   private readonly url: string;
   private readonly accessToken: string;
   private readonly http: HttpFetch;
   private readonly timeoutMs: number;
+  private readonly typingTimeoutMs: number;
 
   constructor(options: GraphWhatsAppSenderOptions) {
+    this.latency = options.latency ?? noLatency;
     const { accessToken, phoneNumberID, apiVersion } = options;
     if (apiVersion === undefined || apiVersion === "") throw new GraphConfigurationError("WHATSAPP_GRAPH_VERSION não configurada");
     if (!VERSION_PATTERN.test(apiVersion)) throw new GraphConfigurationError("WHATSAPP_GRAPH_VERSION inválida");
@@ -107,10 +114,37 @@ export class GraphWhatsAppSender implements WhatsAppSender {
     }
     const timeoutMs = options.timeoutMs ?? 10_000;
     if (!Number.isInteger(timeoutMs) || timeoutMs <= 0) throw new GraphConfigurationError("timeout da Graph API inválido");
+    const typingTimeoutMs = options.typingTimeoutMs ?? 1_000;
+    if (!Number.isInteger(typingTimeoutMs) || typingTimeoutMs <= 0) throw new GraphConfigurationError("timeout do indicador inválido");
     this.url = `${GRAPH_ORIGIN}${apiVersion}/${phoneNumberID}/messages`;
     this.accessToken = accessToken;
     this.http = options.http;
     this.timeoutMs = timeoutMs;
+    this.typingTimeoutMs = typingTimeoutMs;
+  }
+
+  /** Marca a mensagem como lida e mostra o indicador nativo. Falhas são opcionais, sem retry ou log de conteúdo. */
+  async showTyping(wamid: string, signal: AbortSignal): Promise<void> {
+    if (signal.aborted || wamid.trim() === "" || wamid.length > 512) return;
+    const stop = this.latency.start("typingMs");
+    const timeout = AbortSignal.timeout(this.typingTimeoutMs);
+    try {
+      this.latency.add("typingCalls");
+      const response = await this.http(this.url, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${this.accessToken}` },
+        body: JSON.stringify({ messaging_product: "whatsapp", status: "read", message_id: wamid, typing_indicator: { type: "text" } }),
+        signal: AbortSignal.any([signal, timeout]),
+      });
+      this.latency.add("typingStatus", response.status);
+      if (!response.ok) this.latency.add("typingFailures");
+    } catch {
+      if (signal.aborted) this.latency.add("typingCancellations");
+      else {
+        this.latency.add("typingFailures");
+        if (timeout.aborted) this.latency.add("typingTimeouts");
+      }
+    } finally { stop(); }
   }
 
   /**
@@ -120,7 +154,12 @@ export class GraphWhatsAppSender implements WhatsAppSender {
   async send(text: string, toPhone: string): Promise<void> {
     if (!RECIPIENT_PATTERN.test(toPhone)) throw new GraphSendError("invalidRecipient");
     if (text === "") throw new GraphSendError("emptyMessage");
+    const stop = this.latency.start("graphMs");
     try {
+      const body = truncateMessage(text);
+      this.latency.add("replyChars", Array.from(body).length);
+      if (body !== text) this.latency.add("graphTruncations");
+      this.latency.add("graphCalls");
       const response = await this.http(this.url, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${this.accessToken}` },
@@ -129,16 +168,19 @@ export class GraphWhatsAppSender implements WhatsAppSender {
           recipient_type: "individual",
           to: graphRecipient(toPhone),
           type: "text",
-          text: { body: truncateMessage(text) },
+          text: { body },
         }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
+      this.latency.add("graphStatus", response.status);
       if (!response.ok) throw new GraphSendError("status", response.status);
     } catch (error) {
+      this.latency.add("graphFailures");
       if (error instanceof GraphSendError) throw error;
       // O erro original não é repassado: nada dele precisa chegar a log ou resposta.
       const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+      this.latency.add(timedOut ? "graphTimeouts" : "graphNetworkFailures");
       throw new GraphSendError(timedOut ? "timeout" : "network");
-    }
+    } finally { stop(); }
   }
 }

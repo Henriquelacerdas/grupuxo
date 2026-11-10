@@ -1,3 +1,4 @@
+import { measure, noLatency, type LatencyObserver } from "../latency.ts";
 import type { HttpFetch } from "../http.ts";
 
 // Port do Gemini e implementação sobre a API REST `generateContent` com *function calling*. O modelo só interpreta
@@ -101,6 +102,7 @@ export class GeminiRequestError extends Error {
 }
 
 export interface HttpGeminiClientOptions {
+  readonly latency?: LatencyObserver;
   /** Chave da API (Secrets Manager, `GEMINI_API_KEY`). Vai só no cabeçalho `x-goog-api-key`. */
   readonly apiKey: string | undefined;
   /** Nome do modelo (`GEMINI_MODEL`). Sem valor, o cliente não é criado: não há modelo escondido. */
@@ -150,6 +152,7 @@ function field(record: Readonly<Record<string, unknown>>, name: string): unknown
 }
 
 export class HttpGeminiClient implements GeminiClient {
+  private readonly latency: LatencyObserver;
   private readonly url: string;
   private readonly apiKey: string;
   private readonly http: HttpFetch;
@@ -161,6 +164,7 @@ export class HttpGeminiClient implements GeminiClient {
   private readonly sleep: ((milliseconds: number) => Promise<void>) | undefined;
 
   constructor(options: HttpGeminiClientOptions) {
+    this.latency = options.latency ?? noLatency;
     const { apiKey, model } = options;
     if (model === undefined || model === "") throw new GeminiConfigurationError("GEMINI_MODEL não configurado");
     if (!MODEL_PATTERN.test(model)) throw new GeminiConfigurationError("GEMINI_MODEL inválido");
@@ -187,18 +191,31 @@ export class HttpGeminiClient implements GeminiClient {
   }
 
   async generate(request: GeminiRequest): Promise<GeminiResponse> {
+    return measure(this.latency, "geminiMs", () => this.generateWithRetries(request));
+  }
+
+  private async generateWithRetries(request: GeminiRequest): Promise<GeminiResponse> {
     const body = JSON.stringify(this.requestBody(request));
     for (let attempt = 1; ; attempt++) {
+      this.latency.add("geminiAttempts");
+      const stop = this.latency.start("geminiAttemptMs");
+      let status: number | null = null;
       try {
-        return await this.attempt(body);
+        const response = await this.attempt(body, (value) => { status = value; });
+        this.latency.attempt({ durationMs: stop(), outcome: "success", status });
+        return response;
       } catch (error) {
+        this.latency.attempt({ durationMs: stop(), outcome: error instanceof GeminiRequestError ? error.code : "failure",
+          status });
         if (!(error instanceof GeminiRequestError) || !isTransient(error) || attempt >= this.maxAttempts) throw error;
-        if (this.sleep !== undefined && this.retryDelayMs > 0) await this.sleep(this.retryDelayMs);
+        this.latency.add("geminiRetries");
+        const sleep = this.sleep;
+        if (sleep !== undefined && this.retryDelayMs > 0) await measure(this.latency, "geminiRetrySleepMs", () => sleep(this.retryDelayMs));
       }
     }
   }
 
-  private async attempt(requestBody: string): Promise<GeminiResponse> {
+  private async attempt(requestBody: string, onStatus: (status: number) => void): Promise<GeminiResponse> {
     let text: string;
     try {
       const response = await this.http(this.url, {
@@ -207,6 +224,7 @@ export class HttpGeminiClient implements GeminiClient {
         body: requestBody,
         signal: AbortSignal.timeout(this.timeoutMs),
       });
+      onStatus(response.status);
       if (!response.ok) throw new GeminiRequestError("status", response.status);
       text = await response.text();
     } catch (error) {

@@ -15,6 +15,7 @@
     "benchmark:reads": "node tools/performance/read-latency.ts"
   },
   "devDependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "3.1142.0",
     "@aws-sdk/client-dynamodb": "3.1142.0",
     "@aws-sdk/client-secrets-manager": "3.1142.0",
     "@aws-sdk/client-sqs": "3.1142.0",

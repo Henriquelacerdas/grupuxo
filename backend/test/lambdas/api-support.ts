@@ -11,6 +11,7 @@ import { InMemoryStore } from "../../src/adapters/in-memory/store.ts";
 import { InMemoryUserDirectory } from "../../src/adapters/in-memory/user-directory.ts";
 import { InMemoryLinkTokenStore, InMemoryWhatsAppLinkStore } from "../../src/adapters/in-memory/whatsapp.ts";
 import { CognitoJwtVerifier } from "../../src/auth/cognito-jwt-verifier.ts";
+import type { IdentityRemover } from "../../src/auth/identity-remover.ts";
 import type { UserDirectory } from "../../src/auth/user-directory.ts";
 import type { CommandContext } from "../../src/domain/commands/context.ts";
 import type { Instant } from "../../src/domain/dates.ts";
@@ -48,13 +49,26 @@ export function inMemoryApiDeps(
 
 export type Who = "ana" | "bia" | "caio";
 
-const SUBS: Readonly<Record<Who, string>> = {
+export const SUBS: Readonly<Record<Who, string>> = {
   ana: "11111111-aaaa-4aaa-8aaa-000000000001",
   bia: "22222222-bbbb-4bbb-8bbb-000000000002",
   caio: "33333333-cccc-4ccc-8ccc-000000000003",
 };
 
+/** Cognito falso: guarda os usernames apagados (uma entrada por chamada); `failWith` faz as chamadas falharem. */
+export class FakeIdentityRemover implements IdentityRemover {
+  readonly removed: string[] = [];
+  failWith: Error | null = null;
+
+  async deleteIdentity(username: string): Promise<void> {
+    if (this.failWith !== null) throw this.failWith;
+    this.removed.push(username);
+  }
+}
+
 export interface CallOptions {
+  /** `username` do access token (padrão: o `sub`). Quem entra com a Apple tem `signinwithapple_...`. */
+  readonly username?: string;
   readonly body?: string;
   readonly query?: string;
   readonly headers?: Readonly<Record<string, string>>;
@@ -62,6 +76,7 @@ export interface CallOptions {
 
 export interface ApiEnv {
   readonly users: UserDirectory;
+  readonly identities: FakeIdentityRemover;
   /** Relógio do servidor (mutável). */
   clock: Instant;
   call(who: Who | null, method: string, path: string, options?: CallOptions): Promise<HttpApiResult>;
@@ -80,8 +95,10 @@ function assemble(
   base: Pick<ApiDependencies, "users" | "snapshots" | "houses" | "rooms" | "tasks" | "swaps" | "notifications" | "newID">, clock: Clock, snapshot: () => unknown,
 ): ApiEnv {
   const links = new InMemoryWhatsAppLinkStore();
+  const identities = new FakeIdentityRemover();
   const handler = createApiHandler({
     ...base,
+    identities,
     verifier: new CognitoJwtVerifier({ userPoolID: USER_POOL_ID, clientID: CLIENT_ID }, { jwks: new FakeJwksSource([key]), now: () => NOW }),
     linker: new WhatsAppLinker(createLinkConfig("5511900000000"), new InMemoryLinkTokenStore(), links, () => NOW),
     links,
@@ -89,13 +106,14 @@ function assemble(
   });
   return {
     users: base.users,
+    identities,
     get clock() { return clock.value; },
     set clock(value: Instant) { clock.value = value; },
     snapshot,
     call: (who, method, path, options = {}) => handler(httpEvent({
       method, path,
       headers: {
-        ...(who === null ? {} : { authorization: `Bearer ${signJWT({ key, claims: accessClaims({ sub: SUBS[who], username: SUBS[who] }) })}` }),
+        ...(who === null ? {} : { authorization: `Bearer ${signJWT({ key, claims: accessClaims({ sub: SUBS[who], username: options.username ?? SUBS[who] }) })}` }),
         ...options.headers,
       },
       ...(options.body === undefined ? {} : { body: options.body }),

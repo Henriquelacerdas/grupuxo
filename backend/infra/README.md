@@ -95,4 +95,4 @@ aws logs tail /aws/lambda/grupuxo-dev-worker --since 15m
 aws sqs get-queue-attributes --queue-url "$(terraform output -raw dlq_url)" --attribute-names ApproximateNumberOfMessages
 ```
 
-O código não registra conteúdo de mensagem: os logs só mostram erros e a duração das invocações.
+O código não registra conteúdo, telefone ou wamid. Além de erros seguros e reports da Lambda, worker/webhook emitem eventos JSON `whatsapp_latency` com tempos e contagens por mensagem/lote/requisição (publicados em 28/10/2026). Campos, consultas e hashes da publicação em [docs/LATENCIA.md](../../docs/LATENCIA.md).

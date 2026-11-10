@@ -140,6 +140,14 @@ export interface WhatsAppSender {
 }
 
 /**
+ * Indicador transitório, associado à mensagem recebida; não envia texto à conversa.
+ * Deve respeitar o cancelamento para não atrasar a resposta final.
+ */
+export interface WhatsAppTypingIndicator {
+  showTyping(wamid: string, signal: AbortSignal): Promise<void>;
+}
+
+/**
  * Contador por chave e janela, base do limite de taxa por número (`MessageRateLimiter`). Atômico: chamadas
  * concorrentes com a mesma chave e janela recebem contagens distintas e consecutivas. No DynamoDB:
  * `UpdateItem` em (`RATE#<key>`, `<windowStart>`) com `ADD #count :one SET #ttl = :ttl`

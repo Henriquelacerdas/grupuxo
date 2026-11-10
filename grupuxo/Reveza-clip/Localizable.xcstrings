@@ -1,0 +1,19 @@
+{
+  "sourceLanguage" : "pt-BR",
+  "strings" : {
+    "A casa em dia, sem discussão: o Reveza distribui as tarefas domésticas de forma justa entre os moradores." : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Keep the house in order without arguments: Reveza splits household chores fairly among everyone who lives there." } }
+      }
+    },
+    "Baixar o app completo" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Get the full app" } }
+      }
+    },
+    "Reveza" : {
+      "shouldTranslate" : false
+    }
+  },
+  "version" : "1.0"
+}

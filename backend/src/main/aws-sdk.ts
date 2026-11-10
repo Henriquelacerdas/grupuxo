@@ -1,10 +1,11 @@
+import { AdminDeleteUserCommand, type CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { GetSecretValueCommand, type SecretsManagerClient as SdkSecretsManager } from "@aws-sdk/client-secrets-manager";
 import { SendMessageCommand, type SQSClient } from "@aws-sdk/client-sqs";
 import {
   BatchGetCommand, DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand,
   type DynamoDBDocumentClient,
 } from "@aws-sdk/lib-dynamodb";
-import type { SecretsManagerClient, SqsClient, SqsSendMessageInput } from "../adapters/aws/clients.ts";
+import type { CognitoIdentityClient, SecretsManagerClient, SqsClient, SqsSendMessageInput } from "../adapters/aws/clients.ts";
 import {
   DynamoConditionFailedError, DynamoTransactionCanceledError, MAX_BATCH_GET_KEYS, MAX_TRANSACT_ACTIONS,
   type DynamoCancellationReason, type DynamoClient, type DynamoDeleteInput, type DynamoGetInput, type DynamoItem,
@@ -223,5 +224,26 @@ export class SdkSecretsManagerClient implements SecretsManagerClient {
   async getSecretString(secretID: string): Promise<string | undefined> {
     const output = await this.secrets.send(new GetSecretValueCommand({ SecretId: secretID }));
     return output.SecretString;
+  }
+}
+
+/** `CognitoIdentityClient` sobre o cliente do SDK, ligado a um user pool. */
+export class SdkCognitoIdentityClient implements CognitoIdentityClient {
+  private readonly cognito: Pick<CognitoIdentityProviderClient, "send">;
+  private readonly userPoolID: string;
+
+  constructor(cognito: Pick<CognitoIdentityProviderClient, "send">, userPoolID: string) {
+    if (userPoolID === "") throw new Error("COGNITO_USER_POOL_ID vazio");
+    this.cognito = cognito;
+    this.userPoolID = userPoolID;
+  }
+
+  async adminDeleteUser(username: string): Promise<void> {
+    try {
+      await this.cognito.send(new AdminDeleteUserCommand({ UserPoolId: this.userPoolID, Username: username }));
+    } catch (error) {
+      if (errorName(error) === "UserNotFoundException") return;
+      throw error;
+    }
   }
 }

@@ -1,14 +1,16 @@
 import { randomInt, randomUUID } from "node:crypto";
+import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { CognitoIdentityRemover } from "../adapters/aws/cognito-identity-remover.ts";
 import { SecretStringReader } from "../adapters/aws/secrets-manager-reader.ts";
 import type { DynamoRuntime } from "../adapters/dynamodb/house-state-store.ts";
 import type { Instant } from "../domain/dates.ts";
 import type { IDGenerator } from "../domain/ids.ts";
 import type { HttpFetch } from "../http.ts";
 import type { Environment } from "../lambdas/config.ts";
-import { SdkDynamoClient, SdkSecretsManagerClient } from "./aws-sdk.ts";
+import { SdkCognitoIdentityClient, SdkDynamoClient, SdkSecretsManagerClient } from "./aws-sdk.ts";
 
 // Ponto de entrada: a única camada de `src/` que lê `process.env`, usa relógio, aleatoriedade e rede globais e
 // importa o AWS SDK. Tudo o mais recebe essas dependências por parâmetro. Nada aqui registra em log.
@@ -45,6 +47,11 @@ export function dynamoClient(tableName: string): SdkDynamoClient {
     unmarshallOptions: { wrapNumbers: false },
   });
   return new SdkDynamoClient({ document, tableName, sleep });
+}
+
+/** Apaga usuários do user pool `userPoolID` (a região vem do ambiente da Lambda). */
+export function identityRemover(userPoolID: string): CognitoIdentityRemover {
+  return new CognitoIdentityRemover(new SdkCognitoIdentityClient(new CognitoIdentityProviderClient({}), userPoolID));
 }
 
 /** Leitor do segredo `SECRET_ID` (cache por instância). */
