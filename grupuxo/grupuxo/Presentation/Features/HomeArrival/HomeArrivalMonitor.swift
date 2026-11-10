@@ -299,22 +299,31 @@ extension HomeArrivalMonitor: CLLocationManagerDelegate {
 // MARK: - Notificações
 
 /// Mostra o aviso mesmo com o app aberto e leva para "Minhas tarefas" ao tocar.
+///
+/// Usa as versões com `completionHandler`, as mais confiáveis para o toque que
+/// abre o app a frio (app fechado).
 final class ArrivalNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
 
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler:
+            @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list, .sound])
     }
 
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
-        guard response.notification.request.identifier == "grupuxo.arrival" else { return }
-        await MainActor.run {
-            ShortcutNavigationManager.shared.navigate(to: .myTasks)
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        if response.notification.request.identifier == "grupuxo.arrival" {
+            // Se o app abriu a frio, o RootView lê este destino assim que aparecer.
+            Task { @MainActor in
+                ShortcutNavigationManager.shared.navigate(to: .myTasks)
+            }
         }
+        completionHandler()
     }
 }
