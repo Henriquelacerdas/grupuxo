@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.developer.associated-appclip-app-identifiers</key>
 	<array>
-		<string>$(AppIdentifierPrefix)henrique.grupuxo.Clip</string>
+		<string>$(AppIdentifierPrefix)erika.grupuxo.Clip</string>
 	</array>
 	<key>com.apple.developer.applesignin</key>
 	<array>

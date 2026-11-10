@@ -716,6 +716,9 @@
         }
       }
     },
+    "A cada ciclo, cada cômodo passa para outra pessoa, como na lousa da república." : {
+
+    },
     "A cada mês" : {
       "localizations" : {
         "en" : {
@@ -1068,6 +1071,9 @@
         }
       }
     },
+    "Ao continuar, você concorda com os Termos de Uso e a Política de Privacidade." : {
+
+    },
     "Ao descartar as alterações nenhuma Tarefa Única será atribuída a você." : {
       "localizations" : {
         "en" : {
@@ -1170,6 +1176,9 @@
           }
         }
       }
+    },
+    "As tarefas são divididas pelo esforço de cada uma. Ninguém fica sempre com a parte pesada." : {
+
     },
     "Aspirar o chão" : {
       "extractionState" : "manual",
@@ -1275,6 +1284,12 @@
         }
       }
     },
+    "Boas-vindas ao Reveza" : {
+
+    },
+    "Cada cômodo tem a sua vez" : {
+
+    },
     "Cada Tarefa Única realizada pula sua vez na próxima Tarefa Extra." : {
       "localizations" : {
         "en" : {
@@ -1286,6 +1301,7 @@
       }
     },
     "Cadastrar" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1296,6 +1312,7 @@
       }
     },
     "Cadastre-se" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1486,6 +1503,9 @@
         }
       }
     },
+    "Código" : {
+
+    },
     "Código (6 caracteres)" : {
       "localizations" : {
         "en" : {
@@ -1497,6 +1517,7 @@
       }
     },
     "Código de confirmação" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1537,6 +1558,7 @@
       }
     },
     "Código inválido ou senha não atende aos requisitos." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1547,6 +1569,7 @@
       }
     },
     "Código numérico" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1726,7 +1749,14 @@
         }
       }
     },
+    "Confira o Wi-Fi ou os dados móveis e tente de novo." : {
+
+    },
+    "Confira seu e-mail" : {
+
+    },
     "Confirmar" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1806,6 +1836,9 @@
         }
       }
     },
+    "Continuar" : {
+
+    },
     "Continuar com a Apple" : {
       "localizations" : {
         "en" : {
@@ -1835,6 +1868,9 @@
           }
         }
       }
+    },
+    "Cria no app Lembretes um lembrete para cada tarefa sua e mantém os dois em sincronia. Tarefas de outros moradores não aparecem. Ao desligar, os lembretes criados pelo Reveza são apagados." : {
+
     },
     "Cria uma tarefa no cômodo escolhido, com a periodicidade do cômodo." : {
 
@@ -1872,7 +1908,11 @@
         }
       }
     },
+    "Criar conta" : {
+
+    },
     "Criar Conta" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1902,6 +1942,9 @@
         }
       }
     },
+    "Crie uma senha nova" : {
+
+    },
     "Defina primeiro a localização da casa." : {
       "localizations" : {
         "en" : {
@@ -1911,6 +1954,9 @@
           }
         }
       }
+    },
+    "Depois disso, você entra direto no Reveza." : {
+
     },
     "Descartar" : {
       "localizations" : {
@@ -2056,7 +2102,11 @@
         }
       }
     },
+    "Digite seu e-mail. Vamos mandar um código para você criar uma senha nova." : {
+
+    },
     "Digite seu email para receber um código de redefinição." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2067,6 +2117,7 @@
       }
     },
     "Digite seu email." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2085,6 +2136,9 @@
           }
         }
       }
+    },
+    "Divisão justa" : {
+
     },
     "Duração do ciclo" : {
       "localizations" : {
@@ -2105,6 +2159,12 @@
           }
         }
       }
+    },
+    "E-mail" : {
+
+    },
+    "E-mail ou senha incorretos. Tente de novo ou toque em Esqueci a senha." : {
+
     },
     "Editar" : {
       "localizations" : {
@@ -2137,6 +2197,7 @@
       }
     },
     "Email" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2147,6 +2208,7 @@
       }
     },
     "Email ou senha incorretos." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2177,6 +2239,7 @@
       }
     },
     "Entrar" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2195,6 +2258,12 @@
           }
         }
       }
+    },
+    "Entrar com e-mail" : {
+
+    },
+    "Entrar com esse e-mail" : {
+
     },
     "Entrar na casa" : {
       "localizations" : {
@@ -2242,7 +2311,11 @@
         }
       }
     },
+    "Entre para criar uma casa ou participar de uma que já existe." : {
+
+    },
     "Enviamos um código de confirmação para o seu e-mail. Se não chegar em alguns minutos, confira o spam ou a pasta de promoções." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2253,6 +2326,7 @@
       }
     },
     "Enviamos um código para seu email." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2293,6 +2367,7 @@
       }
     },
     "Erro ao solicitar redefinição. Verifique o email digitado." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2358,7 +2433,14 @@
         }
       }
     },
+    "Esqueceu a senha?" : {
+
+    },
+    "Esqueci a senha" : {
+
+    },
     "Esqueci minha senha" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2367,6 +2449,9 @@
           }
         }
       }
+    },
+    "Esse e-mail já tem uma conta no Reveza." : {
+
     },
     "Esta conta já está confirmada. Volte e entre com sua senha." : {
       "localizations" : {
@@ -2437,6 +2522,12 @@
           }
         }
       }
+    },
+    "Excluir conta" : {
+
+    },
+    "Excluir sua conta?" : {
+
     },
     "Excluir Tarefa Única?" : {
       "localizations" : {
@@ -2707,6 +2798,7 @@
       }
     },
     "Já existe uma conta com este e-mail. Volte e entre com sua senha, ou use \"Esqueci minha senha\"." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2725,6 +2817,9 @@
           }
         }
       }
+    },
+    "Já tenho uma conta" : {
+
     },
     "Laranja" : {
       "localizations" : {
@@ -2757,6 +2852,12 @@
           }
         }
       }
+    },
+    "Lembretes" : {
+
+    },
+    "Lembretes na hora certa, e todo mundo vê o que já foi feito." : {
+
     },
     "Leve" : {
       "localizations" : {
@@ -2845,6 +2946,7 @@
       }
     },
     "Login" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2865,6 +2967,9 @@
       }
     },
     "Mais opções do cômodo" : {
+
+    },
+    "Mandamos um código para %@. Se não chegar, olhe o spam." : {
 
     },
     "Marcar como concluída" : {
@@ -2987,6 +3092,9 @@
         }
       }
     },
+    "Morador" : {
+
+    },
     "Morador sugerido: %@" : {
       "localizations" : {
         "en" : {
@@ -3078,6 +3186,9 @@
           }
         }
       }
+    },
+    "Não encontramos uma conta com este e-mail." : {
+
     },
     "Não encontramos uma conta com este e-mail. Cadastre-se de novo." : {
       "localizations" : {
@@ -3202,6 +3313,9 @@
           }
         }
       }
+    },
+    "Não foi possível excluir a conta" : {
+
     },
     "Não foi possível falar com o servidor agora. Tente de novo em instantes." : {
       "localizations" : {
@@ -3367,6 +3481,9 @@
         }
       }
     },
+    "Ninguém precisa cobrar ninguém" : {
+
+    },
     "Nível de esforço" : {
       "localizations" : {
         "en" : {
@@ -3441,6 +3558,7 @@
       }
     },
     "Nova senha" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3666,7 +3784,11 @@
         }
       }
     },
+    "ou" : {
+
+    },
     "OU" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3957,6 +4079,7 @@
       }
     },
     "Redefinição de senha necessária. Clique em 'Esqueci minha senha'." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3966,7 +4089,11 @@
         }
       }
     },
+    "Redefinição de senha necessária. Toque em Esqueci a senha." : {
+
+    },
     "Redefinição de senha necessária. Volte e toque em \"Esqueci minha senha\"." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3977,6 +4104,7 @@
       }
     },
     "Redefinir senha" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3987,6 +4115,7 @@
       }
     },
     "Redefinir Senha" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4045,6 +4174,9 @@
           }
         }
       }
+    },
+    "Reveza" : {
+
     },
     "Rodízio" : {
       "localizations" : {
@@ -4126,6 +4258,9 @@
         }
       }
     },
+    "Sair da conta?" : {
+
+    },
     "Sair do cômodo" : {
       "localizations" : {
         "en" : {
@@ -4196,6 +4331,9 @@
         }
       }
     },
+    "Salvar e entrar" : {
+
+    },
     "Salvar ordem" : {
       "localizations" : {
         "en" : {
@@ -4256,6 +4394,12 @@
           }
         }
       }
+    },
+    "Sem acesso ao Lembretes. Permita em Ajustes > Privacidade e Segurança > Lembretes." : {
+
+    },
+    "Sem conexão" : {
+
     },
     "Sem conexão com a internet. Tente de novo." : {
       "localizations" : {
@@ -4358,6 +4502,12 @@
         }
       }
     },
+    "Senha alterada, mas não deu para entrar: %@" : {
+
+    },
+    "Senha alterada. Volte e entre com a senha nova." : {
+
+    },
     "Senha fraca. %@" : {
       "localizations" : {
         "en" : {
@@ -4368,7 +4518,11 @@
         }
       }
     },
+    "Senha nova" : {
+
+    },
     "Senha redefinida com sucesso!" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4397,6 +4551,12 @@
           }
         }
       }
+    },
+    "Seu perfil e o vínculo com o WhatsApp serão apagados e você sai da casa. Se for o último morador, a casa, os cômodos e as tarefas também serão excluídos. Não dá para desfazer." : {
+
+    },
+    "Sincronizar com o Lembretes" : {
+
     },
     "Só é possível pedir para entrar em cômodos privados de que você não participa." : {
       "extractionState" : "manual",
@@ -4712,6 +4872,9 @@
         }
       }
     },
+    "Tente de novo em instantes." : {
+
+    },
     "Termina %@" : {
       "localizations" : {
         "en" : {
@@ -4973,6 +5136,9 @@
         }
       }
     },
+    "Use um e-mail que você acessa. É por ele que você recupera a senha." : {
+
+    },
     "Varrer a área" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5015,6 +5181,7 @@
       }
     },
     "Verificar Email" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5128,6 +5295,7 @@
       }
     },
     "Você já pode fazer login com sua nova senha." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5228,7 +5396,11 @@
         }
       }
     },
+    "Voltar para o login" : {
+
+    },
     "Voltar para o Login" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
