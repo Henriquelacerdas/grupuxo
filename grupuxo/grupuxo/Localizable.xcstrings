@@ -1241,6 +1241,16 @@
         }
       }
     },
+    "Ative as notificações do Reveza em Ajustes para receber o resumo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Reveza notifications in Settings to receive the summary."
+          }
+        }
+      }
+    },
     "Ative as notificações do Reveza em Ajustes para receber os avisos." : {
       "localizations" : {
         "en" : {
@@ -2696,6 +2706,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Notice time"
+          }
+        }
+      }
+    },
+    "Horário do resumo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summary time"
           }
         }
       }
@@ -4287,6 +4307,26 @@
         }
       }
     },
+    "Resumo diário" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily summary"
+          }
+        }
+      }
+    },
+    "Resumo diário das minhas tarefas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily summary of my tasks"
+          }
+        }
+      }
+    },
     "Reveza" : {
 
     },
@@ -5124,6 +5164,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "All"
+          }
+        }
+      }
+    },
+    "Todo dia, no horário escolhido, o Reveza lista as suas tarefas pendentes. O aviso é urgente e pode aparecer mesmo com um Foco ligado, se você permitir avisos urgentes do Reveza em Ajustes. A lista se atualiza quando você abre o app." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every day, at the time you choose, Reveza lists your pending tasks. The notice is time sensitive and can come through even with a Focus on, if you allow time sensitive notifications for Reveza in Settings. The list updates whenever you open the app."
           }
         }
       }

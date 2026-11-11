@@ -133,6 +133,7 @@ class AuthService: ObservableObject {
         // Os lembretes ficam no aparelho, não na conta: sem isto, a próxima conta veria as tarefas desta no Lembretes.
         await ReminderLinkCleaner().removeAll()
         ReminderSyncPreference().setEnabled(false)
+        DailyTasksNoticeManager.shared.disable()
         CycleNoticeManager.shared.disable()
         let outcome = await client.signOut()
         if outcome == .failed {

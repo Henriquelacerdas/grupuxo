@@ -319,7 +319,7 @@ final class ArrivalNotificationDelegate: NSObject, UNUserNotificationCenterDeleg
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let id = response.notification.request.identifier
-        if id == "grupuxo.arrival" || id.hasPrefix("grupuxo.cycle.") {
+        if id == "grupuxo.arrival" || id.hasPrefix("grupuxo.cycle.") || id.hasPrefix("grupuxo.daily.") {
 //        if response.notification.request.identifier == "grupuxo.arrival" {
             // Se o app abriu a frio, o RootView lê este destino assim que aparecer.
             Task { @MainActor in

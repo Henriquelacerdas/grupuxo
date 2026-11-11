@@ -205,6 +205,7 @@ struct RootView: View {
             else { houseActivations += 1 }
         }
         .task { await CycleNoticeManager.shared.reschedule() }
+        .task(id: taskChanges) { await DailyTasksNoticeManager.shared.reschedule() }
         .sheet(
             item: $presentedTask,
             onDismiss: {
