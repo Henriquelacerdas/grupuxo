@@ -302,12 +302,13 @@ struct RemoteTaskRepository: TaskRepository {
 
     func updateTaskDetails(
         id: TaskDefinition.ID, name: String, details: String, effort: TaskEffort?, recurrence: RecurrencePolicy?,
-        requestedBy userID: User.ID
+        followsRoom: Bool?, requestedBy userID: User.ID
     ) async throws -> TaskDefinition {
         let roomID = try await index.room(of: id)
         let path = "v1/rooms/\(roomID.apiString)/tasks/\(id.apiString)"
         let body = UpdateTaskBody(
-            name: name, details: details, effort: effort?.points, recurrence: recurrence.map(RecurrenceDTO.init)
+            name: name, details: details, effort: effort?.points, recurrence: recurrence.map(RecurrenceDTO.init),
+            followsRoom: followsRoom
         )
         try await mutate("PATCH", path, body: body)
         let updated = try await api.get(TaskDefinitionDTO.self, path).domain()

@@ -412,6 +412,40 @@ struct SchedulingTests {
         #expect(viewModel.state.draft.roomID == MockSeed.kitchen.id)
     }
 
+    @Test @MainActor func editingARecurringTaskCanSwitchBetweenTheRoomAndAnOwnRepetition() async throws {
+        let (store, repository, _, _) = fixture()
+        let roomRepository = MockRoomRepository(store: store)
+        let kitchen = try #require(await roomRepository.rooms(in: MockSeed.house.id, requesting: MockSeed.currentUser.id)
+            .first { $0.id == MockSeed.kitchen.id })
+        var task = TaskDefinition(
+            id: UUID(), roomID: kitchen.id, name: "Panelas", details: "", effort: TaskEffort(points: 2),
+            kind: .recurring, recurrence: .weekly(kitchen.periodicity), assignmentPolicy: .balancedAutomatically,
+            followsRoom: true
+        )
+        task = try await repository.create(task, requestedBy: MockSeed.currentUser.id, at: .now)
+        let viewModel = TaskEditorViewModel(
+            createTask: CreateTaskUseCase(repository: repository, roomRepository: roomRepository),
+            getHouseRooms: GetHouseRoomsUseCase(repository: roomRepository),
+            houseID: MockSeed.house.id, requestingUserID: MockSeed.currentUser.id,
+            draft: TaskDraft(), editing: task, updateTask: UpdateTaskDetailsUseCase(repository: repository)
+        )
+        await viewModel.loadRooms()
+        #expect(viewModel.canEditRecurrence)
+        #expect(!viewModel.changesRepetitionMode)
+
+        viewModel.setFollowsRoom(false)
+        #expect(viewModel.changesRepetitionMode)
+        let chosen = viewModel.state.draft.recurrence
+        #expect(!viewModel.isRoomPeriodicity(chosen))
+        await viewModel.save()
+
+        guard case .saved(let saved) = viewModel.state else {
+            Issue.record("esperava salvo, veio \(viewModel.state)")
+            return
+        }
+        #expect(saved.followsRoom == false && saved.assignmentPolicy == .afterCompletion && saved.recurrence == chosen)
+    }
+
     @Test @MainActor func repeatWithRoomFollowsTheRoomPeriodicity() async throws {
         let (store, repository, _, _) = fixture()
         let viewModel = TaskEditorViewModel(createTask: CreateTaskUseCase(

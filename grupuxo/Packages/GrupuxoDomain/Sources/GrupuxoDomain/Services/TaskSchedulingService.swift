@@ -160,6 +160,54 @@ public struct TaskSchedulingService: Sendable {
         return removed
     }
 
+    /// Passa uma tarefa recorrente entre "Repetir com o cômodo" (`followsRoom == true`, entra na escala do cômodo) e
+    /// repetição própria (`followsRoom == false`, política por conclusão com o `recurrence` dado). A definição (e o
+    /// histórico concluído) continua; as ocorrências ainda não concluídas, inclusive a vez atual, saem junto com as
+    /// atribuições, e a tarefa é reagendada como se fosse criada agora no novo modo (`create`). Quem sai da escala do
+    /// cômodo replaneja o cômodo a partir da próxima segunda, porque a divisão de papéis não conta mais com ela.
+    /// Mesma permissão de `endTask`. Já no modo pedido, não faz nada (mudar só o intervalo da repetição própria é edição simples, fora daqui).
+    ///
+    /// Devolve as ocorrências removidas; trocas pendentes que as citem são tratadas por quem guarda as trocas.
+    @discardableResult
+    public func convertRepetition(_ taskID: TaskDefinition.ID, followsRoom: Bool, recurrence: RecurrencePolicy?,
+                                  requestedBy userID: User.ID, at date: Date,
+                                  state: inout TaskSchedulingState) throws -> Set<TaskOccurrence.ID> {
+        guard let index = state.definitions.firstIndex(where: { $0.id == taskID }) else {
+            throw DomainError.entityNotFound
+        }
+        let definition = state.definitions[index]
+        let room = try room(for: definition, state: state)
+        guard definition.kind == .recurring, definition.endedAt == nil,
+              state.houseMemberships.contains(where: { $0.houseID == room.houseID && $0.userID == userID }),
+              state.roomMemberships.contains(where: { $0.roomID == room.id && $0.userID == userID && $0.isCurrent }) else {
+            throw DomainError.taskUnavailable
+        }
+        let wasLinked = isRoomLinked(definition, state: state)
+        if wasLinked == followsRoom { return [] }
+        var converted = definition
+        converted.followsRoom = followsRoom
+        if followsRoom {
+            converted.assignmentPolicy = .balancedAutomatically
+            converted.recurrence = .weekly(room.periodicity)
+        } else {
+            guard let recurrence, recurrence.isRepeating, recurrence.hasValidInterval else {
+                throw DomainError.invalidSchedule
+            }
+            converted.assignmentPolicy = .afterCompletion
+            converted.recurrence = recurrence
+            converted.calendarAnchor = nil
+        }
+        let removed = Set(state.occurrences.filter { $0.taskDefinitionID == taskID && !$0.isCompleted }.map(\.id))
+        state.occurrences.removeAll { removed.contains($0.id) }
+        state.assignments.removeAll { removed.contains($0.occurrenceID) }
+        state.definitions.remove(at: index)
+        _ = try create(converted, at: date, state: &state)
+        if wasLinked {
+            try rebalance(houseID: room.houseID, boundary: addingWeeks(1, to: try weekStart(date)), at: date, state: &state)
+        }
+        return removed
+    }
+
     public func complete(occurrenceID: TaskOccurrence.ID, by userID: User.ID, at date: Date,
                   state: inout TaskSchedulingState) throws {
         guard let index = state.occurrences.firstIndex(where: { $0.id == occurrenceID }),

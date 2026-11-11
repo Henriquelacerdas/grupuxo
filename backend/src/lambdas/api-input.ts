@@ -240,16 +240,22 @@ export function parseUpdateTask(body: Fields): TaskDetailsInput | null {
   const effort = field(body, "effort");
   const recurrenceBody = field(body, "recurrence");
   const recurrence = recurrenceBody === undefined ? undefined : parseRecurrence(recurrenceBody);
+  const followsRoom = field(body, "followsRoom");
   if (
     (name !== undefined && typeof name !== "string") || (details !== undefined && typeof details !== "string") ||
-    (effort !== undefined && (!isInteger(effort) || effort < 1 || effort > 3)) || recurrence === null
+    (effort !== undefined && (!isInteger(effort) || effort < 1 || effort > 3)) || recurrence === null ||
+    (followsRoom !== undefined && typeof followsRoom !== "boolean")
   ) {
     return null;
   }
-  if (name === undefined && details === undefined && effort === undefined && recurrence === undefined) return null;
+  if (
+    name === undefined && details === undefined && effort === undefined && recurrence === undefined &&
+    followsRoom === undefined
+  ) return null;
   return {
     ...(name === undefined ? {} : { name }), ...(details === undefined ? {} : { details }),
     ...(effort === undefined ? {} : { effort }), ...(recurrence === undefined ? {} : { recurrence }),
+    ...(followsRoom === undefined ? {} : { followsRoom }),
   };
 }
 

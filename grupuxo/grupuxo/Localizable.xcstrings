@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "pt-BR",
   "strings" : {
+    "Ao salvar, a vez atual é refeita no novo modo de repetição." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you save, the current turn is redone in the new repetition mode."
+          }
+        }
+      }
+    },
     "Depois" : {
       "localizations" : {
         "en" : {

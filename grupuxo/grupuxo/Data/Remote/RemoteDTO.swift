@@ -381,12 +381,15 @@ struct UpdateTaskBody: Encodable, Sendable {
     let effort: Int?
     /// Só a repetição própria muda o intervalo; `nil` não vai no JSON.
     let recurrence: RecurrenceDTO?
+    /// Passa entre "Repetir com o cômodo" e repetição própria; `nil` não vai no JSON e não muda.
+    let followsRoom: Bool?
 
-    init(name: String, details: String, effort: Int? = nil, recurrence: RecurrenceDTO? = nil) {
+    init(name: String, details: String, effort: Int? = nil, recurrence: RecurrenceDTO? = nil, followsRoom: Bool? = nil) {
         self.name = name
         self.details = details
         self.effort = effort
         self.recurrence = recurrence
+        self.followsRoom = followsRoom
     }
 }
 

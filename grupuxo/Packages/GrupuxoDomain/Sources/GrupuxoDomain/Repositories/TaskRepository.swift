@@ -30,12 +30,15 @@ public protocol TaskRepository: Sendable {
 
     /// Edita a tarefa: nome e descrição sempre; `effort` e `recurrence` quando mudam. Só a tarefa de repetição própria
     /// muda o intervalo (`recurrence`); a avulsa é de quem criou e a recorrente, de quem participa do cômodo.
+    /// `followsRoom` passa a recorrente entre "Repetir com o cômodo" (`true`) e repetição própria (`false`, com o
+    /// `recurrence` novo): a vez atual recomeça no novo modo. `nil` não muda o modo.
     func updateTaskDetails(
         id: TaskDefinition.ID,
         name: String,
         details: String,
         effort: TaskEffort?,
         recurrence: RecurrencePolicy?,
+        followsRoom: Bool?,
         requestedBy userID: User.ID
     ) async throws -> TaskDefinition
 
@@ -109,7 +112,7 @@ extension TaskRepository {
         requestedBy userID: User.ID
     ) async throws -> TaskDefinition {
         try await updateTaskDetails(
-            id: id, name: name, details: details, effort: nil, recurrence: nil, requestedBy: userID
+            id: id, name: name, details: details, effort: nil, recurrence: nil, followsRoom: nil, requestedBy: userID
         )
     }
 }

@@ -79,7 +79,7 @@ struct RemoteTaskEditTests {
 
         _ = try await tasks.updateTaskDetails(
             id: id, name: "Louça", details: "", effort: TaskEffort(points: 3),
-            recurrence: .recurring(frequency: .monthly, interval: 1), requestedBy: user
+            recurrence: .recurring(frequency: .monthly, interval: 1), followsRoom: nil, requestedBy: user
         )
         let first = try #require(await server.keys().firstIndex(of: "PATCH \(path)"))
         #expect(await server.bodyHas("effort", at: first))
@@ -92,6 +92,26 @@ struct RemoteTaskEditTests {
         #expect(second != first)
         #expect(await !server.bodyHas("effort", at: second))
         #expect(await !server.bodyHas("recurrence", at: second))
+        #expect(await !server.bodyHas("followsRoom", at: second))
+    }
+
+    @Test func sendsFollowsRoomOnlyWhenTheModeChanges() async throws {
+        let server = FakeServer()
+        let tasks = repository(server)
+        let path = "/v1/rooms/\(roomID)/tasks/\(taskID)"
+        await server.on("GET /v1/me/sporadic-tasks", body: listing())
+        await server.on("PATCH \(path)", status: 204, body: "")
+        await server.on("GET \(path)", body: definitionJSON(name: "Louça", details: ""))
+        let id = UUID(uuidString: taskID)!
+        _ = try await tasks.sporadicTasks(in: UUID(), requesting: user)
+
+        _ = try await tasks.updateTaskDetails(
+            id: id, name: "Louça", details: "", effort: nil,
+            recurrence: .recurring(frequency: .monthly, interval: 1), followsRoom: false, requestedBy: user
+        )
+        let patch = try #require(await server.keys().firstIndex(of: "PATCH \(path)"))
+        #expect(await server.bodyHas("followsRoom", at: patch))
+        #expect(await server.bodyHas("recurrence", at: patch))
     }
 
     @Test func deletesASporadicTaskWithDelete() async throws {

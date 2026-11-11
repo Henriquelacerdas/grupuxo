@@ -366,4 +366,65 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     const length = Date.parse(text(first["dueAt"])) - Date.parse(text(first["availableAt"]));
     assert.ok(length > 24 * 3_600_000 && length <= 48 * 3_600_000, `janela de ${length} ms`);
   });
+  test(`${name}: editar recorrente: passar entre "Repetir com o cômodo" e repetição própria`, async () => {
+    const env = make();
+    const { house } = await twoHousesScenario(env);
+    const room = await createRoom(env, "ana", house.id, {
+      name: "Cozinha", visibility: "common", periodicity: { executionsPerPeriod: 1, intervalWeeks: 1 },
+    });
+    const roomPath = `/v1/rooms/${text(room["id"])}/tasks`;
+    const monthly = { kind: "recurring", frequency: "monthly", interval: 1 };
+    const created = expectStatus(await env.call("ana", "POST", roomPath, {
+      body: JSON.stringify({ ...WEEKLY_TASK, name: "Panelas", followsRoom: true }),
+    }), 201);
+    const path = `${roomPath}/${text(created["id"])}`;
+    const openOccurrences = async () => {
+      const all = [
+        ...list(bodyOf(await env.call("ana", "GET", "/v1/me/tasks"))["tasks"]),
+        ...list(bodyOf(await env.call("bia", "GET", "/v1/me/tasks"))["tasks"]),
+      ].map(rec).filter((item) => rec(item["definition"])["id"] === created["id"]);
+      return all.map((item) => rec(item["occurrence"]));
+    };
+    assert.ok((await openOccurrences()).length > 0, "acompanhando o cômodo, já nasce com a vez da semana");
+
+    // Para repetição própria sem intervalo válido: 400 e nada muda.
+    expectError(await env.call("ana", "PATCH", path, { body: JSON.stringify({ followsRoom: false }) }), 400, "invalid_schedule");
+    expectError(await env.call("ana", "PATCH", path, {
+      body: JSON.stringify({ followsRoom: false, recurrence: { kind: "none" } }),
+    }), 400, "invalid_schedule");
+    assert.equal(rec(bodyOf(await env.call("ana", "GET", path)))["followsRoom"], true);
+    expectError(await env.call("ana", "PATCH", path, { body: JSON.stringify({ followsRoom: "não" }) }), 400, "bad_request");
+
+    // Do cômodo para repetição própria: uma janela de 2 dias, intervalo mensal, política por conclusão.
+    const own = expectStatus(await env.call("ana", "PATCH", path, {
+      body: JSON.stringify({ followsRoom: false, recurrence: monthly }),
+    }), 200);
+    assert.equal(own["followsRoom"], false);
+    assert.equal(own["assignmentPolicy"], "afterCompletion");
+    assert.deepEqual(own["recurrence"], monthly);
+    const ownOpen = await openOccurrences();
+    assert.equal(ownOpen.length, 1, "só a janela aberta da repetição própria");
+    assert.equal(typeof ownOpen[0]?.["dueAt"], "string");
+
+    // Já no modo pedido: nada muda (mudar o intervalo é edição simples).
+    const same = expectStatus(await env.call("ana", "PATCH", path, { body: JSON.stringify({ followsRoom: false }) }), 200);
+    assert.equal(same["followsRoom"], false);
+    assert.equal((await openOccurrences()).length, 1);
+
+    // De volta ao cômodo: a recorrência é a periodicidade do cômodo e a vez da própria some.
+    const back = expectStatus(await env.call("bia", "PATCH", path, { body: JSON.stringify({ followsRoom: true }) }), 200);
+    assert.equal(back["followsRoom"], true);
+    assert.equal(back["assignmentPolicy"], "balancedAutomatically");
+    assert.deepEqual(back["recurrence"], { kind: "weekly", periodicity: { executionsPerPeriod: 1, intervalWeeks: 1 } });
+    assert.ok(!(await openOccurrences()).some((o) => o["id"] === ownOpen[0]?.["id"]), "a janela da repetição própria saiu");
+    assert.ok((await openOccurrences()).length > 0);
+
+    // Avulsa não passa por aqui; quem não é do cômodo é recusado.
+    const sporadic = expectStatus(await env.call("ana", "POST", roomPath, {
+      body: JSON.stringify({ name: "Avulsa", details: "", effort: 1, kind: "sporadic", recurrence: { kind: "none" }, assignmentPolicy: "selfAssigned" }),
+    }), 201);
+    expectError(await env.call("ana", "PATCH", `${roomPath}/${text(sporadic["id"])}`, {
+      body: JSON.stringify({ followsRoom: false, recurrence: monthly }),
+    }), 400, "invalid_schedule");
+  });
 }

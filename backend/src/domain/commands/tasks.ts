@@ -191,12 +191,19 @@ export function endTask(
       taskDefinitionID: taskID, roomID, actorUserID: requestedBy, subjectName: definition.name,
     });
   }
+  rejectSwapsOfRemoved(ctx, state, removed, houseID, requestedBy, date);
+}
+
+/** As trocas pendentes que citam uma ocorrência removida viram recusadas e avisam quem pediu. */
+function rejectSwapsOfRemoved(
+  ctx: CommandContext, state: StoreState, removed: ReadonlySet<TaskOccurrenceID>, houseID: HouseID, actor: UserID, date: Instant,
+): void {
   if (removed.size === 0) return;
   state.taskSwapRequests.forEach((request, index) => {
     if (request.status !== "pending" || !(removed.has(request.offeredOccurrenceID) || removed.has(request.requestedOccurrenceID))) return;
     state.taskSwapRequests[index] = { ...request, status: "rejected", resolvedAt: date };
     state.notifications.push(buildNotification(ctx, request.requesterID, houseID, "taskSwapRejected", date, {
-      swapRequestID: request.id, actorUserID: requestedBy,
+      swapRequestID: request.id, actorUserID: actor,
     }));
   });
 }
@@ -206,8 +213,10 @@ export interface TaskDetailsPatch {
   readonly name?: string;
   readonly details?: string;
   readonly effort?: TaskEffort;
-  /** Só tarefa de repetição própria muda o intervalo (ver `updateTaskDetails`). */
+  /** Só tarefa de repetição própria muda o intervalo (ver `updateTaskDetails`); ao sair do cômodo, é o novo intervalo. */
   readonly recurrence?: RecurrencePolicy;
+  /** Passa a tarefa recorrente para "Repetir com o cômodo" (`true`) ou para repetição própria (`false`, com `recurrence`). */
+  readonly followsRoom?: boolean;
 }
 
 /**
@@ -244,8 +253,11 @@ function ownSporadicDefinition(
  * Mudar o esforço reescreve o `effortSnapshot` das ocorrências ainda não concluídas (as concluídas já geraram seu impacto
  * no saldo e não mudam); numa tarefa que acompanha o cômodo, a escala do cômodo é replanejada a partir da próxima
  * segunda, porque a divisão de papéis depende do esforço. Só a tarefa de **repetição própria** (`afterCompletion`)
- * muda o intervalo (vale a partir da próxima janela); passar entre "Repetir com o cômodo" e repetição própria não é
- * suportado (`invalidSchedule`). Avisa quem acompanha o cômodo (menos quem editou).
+ * muda o intervalo (vale a partir da próxima janela). `followsRoom` passa a tarefa entre "Repetir com o cômodo" e
+ * repetição própria (`TaskSchedulingService.convertRepetition`): a vez aberta e as futuras saem, a tarefa é reagendada
+ * no novo modo e as trocas pendentes que citam essas ocorrências são recusadas; só tarefa recorrente (`invalidSchedule`
+ * para avulsa) e, ao ir para repetição própria, com um intervalo válido. Avisa quem acompanha o cômodo (menos quem
+ * editou).
  */
 export function updateTaskDetails(
   ctx: CommandContext, state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsPatch,
@@ -253,17 +265,21 @@ export function updateTaskDetails(
 ): TaskDefinition {
   const { definition, index } = editableDefinition(state, roomID, taskID, requestedBy);
   const scheduling = schedulingFor(ctx, state, houseOfRoom(state, roomID));
-  if (patch.recurrence !== undefined && !sameRecurrence(patch.recurrence, definition.recurrence)) {
+  const linked = scheduling.isRoomLinked(definition, state);
+  if (patch.followsRoom !== undefined && definition.kind !== "recurring") throw new DomainError("invalidSchedule");
+  const switching = patch.followsRoom !== undefined && patch.followsRoom !== linked;
+  // Ao trocar de modo, o intervalo novo (se houver) é validado pela conversão; senão só a repetição própria o muda.
+  const changesInterval = patch.recurrence !== undefined && !switching && !sameRecurrence(patch.recurrence, definition.recurrence);
+  if (changesInterval && patch.recurrence !== undefined) {
     const own = definition.kind === "recurring" && definition.assignmentPolicy === "afterCompletion";
     if (!own || !isRepeating(patch.recurrence) || !hasValidInterval(patch.recurrence)) throw new DomainError("invalidSchedule");
   }
-  const linked = scheduling.isRoomLinked(definition, state);
   const updated: TaskDefinition = {
     ...definition,
     ...(patch.name === undefined ? {} : { name: patch.name }),
     ...(patch.details === undefined ? {} : { details: patch.details }),
     ...(patch.effort === undefined ? {} : { effort: patch.effort }),
-    ...(patch.recurrence === undefined ? {} : { recurrence: patch.recurrence }),
+    ...(patch.recurrence === undefined || switching ? {} : { recurrence: patch.recurrence }),
   };
   state.definitions[index] = updated;
   const effort = patch.effort;
@@ -273,6 +289,13 @@ export function updateTaskDetails(
       o.taskDefinitionID === taskID && !isCompleted(o) ? { ...o, effortSnapshot: effort } : o
     );
     if (linked) scheduling.rebalance(houseOfRoom(state, roomID), scheduling.addingWeeks(1, scheduling.weekStart(date)), date, state);
+  }
+  if (switching && patch.followsRoom !== undefined) {
+    const houseID = houseOfRoom(state, roomID);
+    const removed = scheduling.convertRepetition(
+      taskID, patch.followsRoom, patch.recurrence ?? null, requestedBy, date, state,
+    );
+    rejectSwapsOfRemoved(ctx, state, new Set(removed), houseID, requestedBy, date);
   }
   const result = state.definitions.find((d) => d.id === taskID) ?? updated;
   notifyTaskEdited(ctx, state, definition, result, requestedBy, date, effortChanged);

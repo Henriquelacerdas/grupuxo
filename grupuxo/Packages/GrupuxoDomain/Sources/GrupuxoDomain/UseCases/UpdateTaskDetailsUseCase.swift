@@ -21,6 +21,7 @@ public struct UpdateTaskDetailsUseCase: Sendable {
         details: String,
         effort: TaskEffort? = nil,
         recurrence: RecurrencePolicy? = nil,
+        followsRoom: Bool? = nil,
         requestedBy userID: User.ID
     ) async throws -> TaskDefinition {
 
@@ -42,6 +43,7 @@ public struct UpdateTaskDetailsUseCase: Sendable {
             details: details,
             effort: effort,
             recurrence: recurrence,
+            followsRoom: followsRoom,
             requestedBy: userID
         )
     }

@@ -336,7 +336,7 @@ struct TaskCreationSheetView: View {
             .padding(.vertical, DesignSystem.Spacing.extraSmall)
             .frame(minHeight: Layout.rowMinimumHeight)
             .background(cardBackground)
-            .disabled(viewModel.selectedRoom == nil || viewModel.isEditing)
+            .disabled(viewModel.selectedRoom == nil || !viewModel.canEditRecurrence)
             .accessibilityIdentifier("followsRoomToggle")
 
             if let room = viewModel.selectedRoom, !followsRoom {
@@ -360,6 +360,10 @@ struct TaskCreationSheetView: View {
                 footer("\(RecurrencePresentation.name(for: room.periodicity)), junto com o cômodo. Muda de pessoa a cada rodízio.")
             } else {
                 footer("Escolha um cômodo primeiro.")
+            }
+
+            if viewModel.changesRepetitionMode {
+                footer("Ao salvar, a vez atual é refeita no novo modo de repetição.")
             }
         }
     }

@@ -32,6 +32,7 @@ export interface TaskDetailsInput {
   readonly details?: string;
   readonly effort?: number;
   readonly recurrence?: TaskDefinition["recurrence"];
+  readonly followsRoom?: boolean;
 }
 
 export class GetMyTasksUseCase {
@@ -163,6 +164,7 @@ export class UpdateTaskDetailsUseCase {
       ...(patch.details === undefined ? {} : { details: patch.details }),
       ...(patch.effort === undefined ? {} : { effort: taskEffort(patch.effort) }),
       ...(patch.recurrence === undefined ? {} : { recurrence: patch.recurrence }),
+      ...(patch.followsRoom === undefined ? {} : { followsRoom: patch.followsRoom }),
     }, requestedBy, this.now());
   }
 }

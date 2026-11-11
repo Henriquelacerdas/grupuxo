@@ -163,6 +163,7 @@ struct MockTaskRepository: TaskRepository {
         details: String,
         effort: TaskEffort?,
         recurrence: RecurrencePolicy?,
+        followsRoom: Bool?,
         requestedBy userID: User.ID
     ) async throws -> TaskDefinition {
 
@@ -241,8 +242,24 @@ struct MockTaskRepository: TaskRepository {
                 state.definitions[definitionIndex].recurrence = recurrence
             }
 
+            if let followsRoom {
+                guard previousDefinition.kind == .recurring else {
+                    throw DomainError.invalidSchedule
+                }
+                var schedule = state.schedule
+                let removed = try scheduling.convertRepetition(
+                    id, followsRoom: followsRoom, recurrence: recurrence,
+                    requestedBy: userID, at: .now, state: &schedule
+                )
+                state.schedule = schedule
+                rejectPendingSwaps(
+                    citing: removed, in: &state, at: .now,
+                    message: "A troca foi cancelada porque a repetição de \(trimmedName) mudou."
+                )
+            }
+
             let updatedDefinition =
-                state.definitions[definitionIndex]
+                state.definitions.first { $0.id == id } ?? state.definitions[definitionIndex]
 
             if didChange {
 
@@ -538,25 +555,30 @@ struct MockTaskRepository: TaskRepository {
             var schedule = state.schedule
             let removed = try scheduling.endTask(taskID, requestedBy: userID, at: date, state: &schedule)
             state.schedule = schedule
-            guard !removed.isEmpty else { return }
+            rejectPendingSwaps(
+                citing: removed, in: &state, at: date,
+                message: "A troca foi cancelada porque \(state.definitions.first { $0.id == taskID }?.name ?? "A tarefa") foi encerrada."
+            )
+        }
+    }
 
-            // O estado de agendamento não guarda trocas: as pendentes que citam uma ocorrência removida
-            // seriam impossíveis de aceitar, então viram recusadas e avisam quem pediu.
-            let taskName = state.definitions.first { $0.id == taskID }?.name ?? "A tarefa"
-            for index in state.taskSwapRequests.indices {
-                let request = state.taskSwapRequests[index]
-                guard request.isPending,
-                      removed.contains(request.offeredOccurrenceID) || removed.contains(request.requestedOccurrenceID)
-                else { continue }
-                state.taskSwapRequests[index].status = .rejected
-                state.taskSwapRequests[index].resolvedAt = date
-                state.notifications.append(AppNotification(
-                    id: UUID(), recipientUserID: request.requesterID, kind: .taskSwapRejected,
-                    swapRequestID: request.id,
-                    message: "A troca foi cancelada porque \(taskName) foi encerrada.",
-                    createdAt: date
-                ))
-            }
+    /// O estado de agendamento não guarda trocas: as pendentes que citam uma ocorrência removida seriam impossíveis de
+    /// aceitar, então viram recusadas e avisam quem pediu.
+    private func rejectPendingSwaps(
+        citing removed: Set<TaskOccurrence.ID>, in state: inout MockStore.State, at date: Date, message: String
+    ) {
+        guard !removed.isEmpty else { return }
+        for index in state.taskSwapRequests.indices {
+            let request = state.taskSwapRequests[index]
+            guard request.isPending,
+                  removed.contains(request.offeredOccurrenceID) || removed.contains(request.requestedOccurrenceID)
+            else { continue }
+            state.taskSwapRequests[index].status = .rejected
+            state.taskSwapRequests[index].resolvedAt = date
+            state.notifications.append(AppNotification(
+                id: UUID(), recipientUserID: request.requesterID, kind: .taskSwapRejected,
+                swapRequestID: request.id, message: message, createdAt: date
+            ))
         }
     }
 

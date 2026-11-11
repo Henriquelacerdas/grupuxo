@@ -12,6 +12,7 @@ import {
 } from "../ids.ts";
 import {
   assertNever, hasValidInterval, isRepeating, isValidPeriodicity, samePeriodicity, sameRecurrence, weeklyPeriodicityOf,
+  type RecurrencePolicy,
 } from "../value-objects.ts";
 import { DISTANT_PAST } from "../dates.ts";
 import { FairnessCalculator } from "./fairness.ts";
@@ -182,6 +183,55 @@ export class TaskSchedulingService {
     state.assignments = state.assignments.filter((a) => !removed.has(a.occurrenceID));
     state.definitions[index] = { ...definition, endedAt: date, nextScheduledAt: null, pendingRotation: null };
     return [...removed];
+  }
+
+  /**
+   * Passa uma tarefa recorrente entre "Repetir com o cômodo" (`followsRoom === true`, entra na escala do cômodo) e
+   * repetição própria (`followsRoom === false`, política por conclusão com o `recurrence` dado). A definição (e o
+   * histórico concluído) continua; as ocorrências ainda não concluídas, inclusive a vez atual, saem junto com as
+   * atribuições, e a tarefa é reagendada como se fosse criada agora no novo modo (`create`). Quem sai da escala do
+   * cômodo replaneja o cômodo a partir da próxima segunda, porque a divisão de papéis não conta mais com ela.
+   * Mesma permissão de `endTask`. Já no modo pedido, não faz nada (mudar só o intervalo da repetição própria é edição
+   * simples, fora daqui). Devolve as ocorrências removidas; trocas pendentes que as citem são tratadas por quem
+   * guarda as trocas.
+   */
+  convertRepetition(
+    taskID: TaskDefinitionID, followsRoom: boolean, recurrence: RecurrencePolicy | null, requestedBy: UserID,
+    date: Instant, state: SchedulingState,
+  ): TaskOccurrenceID[] {
+    const index = state.definitions.findIndex((d) => d.id === taskID);
+    const definition = state.definitions[index];
+    if (definition === undefined) throw new DomainError("entityNotFound");
+    const room = this.room(definition, state);
+    if (
+      definition.kind !== "recurring" || definition.endedAt !== null ||
+      !state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === requestedBy) ||
+      !state.roomMemberships.some((m) => m.roomID === room.id && m.userID === requestedBy && isCurrentMember(m))
+    ) {
+      throw new DomainError("taskUnavailable");
+    }
+    const wasLinked = this.isRoomLinked(definition, state);
+    if (wasLinked === followsRoom) return [];
+    let converted: TaskDefinition;
+    if (followsRoom) {
+      converted = {
+        ...definition, followsRoom: true, assignmentPolicy: "balancedAutomatically",
+        recurrence: { kind: "weekly", periodicity: room.periodicity },
+      };
+    } else {
+      if (recurrence === null || !isRepeating(recurrence) || !hasValidInterval(recurrence)) {
+        throw new DomainError("invalidSchedule");
+      }
+      converted = { ...definition, followsRoom: false, assignmentPolicy: "afterCompletion", recurrence, calendarAnchor: null };
+    }
+    const removed = state.occurrences.filter((o) => o.taskDefinitionID === taskID && !isCompleted(o)).map((o) => o.id);
+    const removedSet = new Set(removed);
+    state.occurrences = state.occurrences.filter((o) => !removedSet.has(o.id));
+    state.assignments = state.assignments.filter((a) => !removedSet.has(a.occurrenceID));
+    state.definitions.splice(index, 1);
+    this.create(converted, date, state);
+    if (wasLinked) this.rebalance(room.houseID, this.addingWeeks(1, this.weekStart(date)), date, state);
+    return removed;
   }
 
   complete(occurrenceID: TaskOccurrenceID, userID: UserID, date: Instant, state: SchedulingState): void {

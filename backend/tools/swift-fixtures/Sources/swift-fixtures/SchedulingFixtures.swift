@@ -126,6 +126,7 @@ enum Step {
     case addAbsence(Absence)
     case suggestedResident(room: UUID, at: Date)
     case endTask(UUID, requestedBy: UUID, at: Date)
+    case convertRepetition(UUID, followsRoom: Bool, recurrence: RecurrencePolicy?, requestedBy: UUID, at: Date)
 }
 
 func enc(_ ref: Ref) -> [String: Any] { ["def": id(ref.def), "n": ref.n] }
@@ -149,6 +150,9 @@ func enc(_ step: Step, house: UUID) -> [String: Any] {
     case let .addAbsence(a): ["op": "addAbsence", "absence": enc(a)]
     case let .suggestedResident(room, at): ["op": "suggestedResident", "roomID": id(room), "at": d(at)]
     case let .endTask(definition, user, at): ["op": "endTask", "definitionID": id(definition), "requestedBy": id(user), "at": d(at)]
+    case let .convertRepetition(definition, followsRoom, recurrence, user, at):
+        ["op": "convertRepetition", "definitionID": id(definition), "followsRoom": followsRoom,
+         "recurrence": opt(recurrence) { enc($0) } as Any, "requestedBy": id(user), "at": d(at)]
     }
 }
 
@@ -239,6 +243,9 @@ func apply(_ step: Step, service: TaskSchedulingService, state: inout TaskSchedu
     case let .endTask(definition, user, at):
         // O valor é só a quantidade: os IDs das ocorrências removidas são aleatórios.
         return try service.endTask(definition, requestedBy: user, at: at, state: &state).count
+    case let .convertRepetition(definition, followsRoom, recurrence, user, at):
+        return try service.convertRepetition(definition, followsRoom: followsRoom, recurrence: recurrence,
+                                             requestedBy: user, at: at, state: &state).count
     }
     return nil
 }
@@ -281,6 +288,7 @@ func generateScheduling(outDir: String) {
         ("scheduling-membership", membershipScenarios()),
         ("scheduling-calendar", calendarScenarios()),
         ("scheduling-end", endScenarios()),
+        ("scheduling-convert", convertScenarios()),
     ]
     for (name, scenarios) in groups {
         writeFixture(name: name, command: "scheduling", cases: scenarios.map(run), outDir: outDir)

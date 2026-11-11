@@ -10,20 +10,26 @@ final class TaskEditorViewModel: ObservableObject {
     private let getHouseRooms: GetHouseRoomsUseCase
     private let houseID: House.ID
     private let requestingUserID: User.ID
-    /// Tarefa sendo editada; `nil` = criando uma nova. O cômodo, o tipo (única ou recorrente) e "Repetir com o
-    /// cômodo" não mudam na edição; só nome, descrição, esforço e, na repetição própria, o intervalo.
+    /// Tarefa sendo editada; `nil` = criando uma nova. O cômodo e o tipo (única ou recorrente) não mudam na
+    /// edição; nome, descrição, esforço, o intervalo da repetição própria e "Repetir com o cômodo" (recorrente) sim.
     private let editing: TaskDefinition?
     private let updateTask: UpdateTaskDetailsUseCase?
 
     var isEditing: Bool { editing != nil }
 
     /// O formulário como abriu: a edição só salva se algo mudou.
-    let initialDraft: TaskDraft
+    private(set) var initialDraft: TaskDraft
 
-    /// Só a repetição própria (política por conclusão) muda o intervalo.
+    /// A tarefa recorrente pode trocar entre "Repetir com o cômodo" e repetição própria; a avulsa não tem repetição.
     var canEditRecurrence: Bool {
         guard let editing else { return true }
-        return editing.kind == .recurring && editing.assignmentPolicy == .afterCompletion
+        return editing.kind == .recurring
+    }
+
+    /// O modo de repetição mudou em relação à tarefa aberta (a vez atual recomeça ao salvar).
+    var changesRepetitionMode: Bool {
+        guard let editing, editing.kind == .recurring else { return false }
+        return state.draft.followsRoom != initialDraft.followsRoom
     }
 
     init(
@@ -63,6 +69,7 @@ final class TaskEditorViewModel: ObservableObject {
             var draft = state.draft
             if let editing, editing.followsRoom == nil, let room = rooms.first(where: { $0.id == editing.roomID }) {
                 draft.followsRoom = editing.isLinked(to: room)
+                initialDraft.followsRoom = draft.followsRoom   // só resolve o modo da definição antiga: não é edição
             }
             // Ao editar, a recorrência guardada é a verdade (a da repetição própria não deriva do cômodo).
             if !isEditing || draft.followsRoom { syncWithRoom(&draft) }
@@ -163,12 +170,16 @@ final class TaskEditorViewModel: ObservableObject {
     private func saveEdit(_ definition: TaskDefinition, draft: TaskDraft) async {
         state = .saving(draft)
         let effort = draft.effortPoints == definition.effort.points ? nil : TaskEffort(points: draft.effortPoints)
-        let recurrence = canEditRecurrence && draft.recurrence != definition.recurrence ? draft.recurrence : nil
+        let switching = changesRepetitionMode
+        // Ao voltar para o cômodo, a repetição é a dele (o servidor ignora o intervalo); na repetição própria, o
+        // intervalo vai quando muda ou quando ela acabou de ser escolhida.
+        let recurrence = canEditRecurrence && !draft.followsRoom && (switching || draft.recurrence != definition.recurrence)
+            ? draft.recurrence : nil
         do {
             guard let updateTask else { throw APIError.unsupported }
             let updated = try await updateTask(
                 id: definition.id, name: draft.name, details: draft.details, effort: effort,
-                recurrence: recurrence, requestedBy: requestingUserID
+                recurrence: recurrence, followsRoom: switching ? draft.followsRoom : nil, requestedBy: requestingUserID
             )
             state = .saved(updated)
         } catch {

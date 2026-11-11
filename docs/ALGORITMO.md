@@ -122,6 +122,8 @@ Só `.afterCompletion` com recorrência de intervalo (o app envia essa política
 
 `TaskDefinition.followsRoom` (opcional): `true` = a tarefa segue a escala e a periodicidade do cômodo (na criação a recorrência vira a do cômodo, `weekly(room.periodicity)`); `false` = repetição própria. **Ausente** (definição gravada antes do campo) = o comportamento antigo: vale a periodicidade igual à do cômodo. `isRoomLinked`/`TaskDefinition.isLinked(to:)` leem o campo; política `afterCompletion` ou `selfAssigned` nunca é vinculada. Quando o cômodo muda de periodicidade (`PATCH /rooms/{id}`), as tarefas vinculadas passam para a nova.
 
+**Trocar de modo ao editar** (`TaskSchedulingService.convertRepetition`, Swift e TypeScript; cenários dourados em `scheduling-convert`): a definição e o histórico concluído continuam; as ocorrências ainda não concluídas (a vez aberta e as futuras) e suas atribuições saem, a definição é recriada pelo mesmo `create` no modo novo (`followsRoom` e política `balancedAutomatically` para o cômodo; `false`, `afterCompletion` e o intervalo dado, sem âncora de calendário, para a repetição própria) e, se ela saía da escala do cômodo, o cômodo é replanejado a partir da próxima segunda (`rebalance`). Mesma permissão de `endTask` (participante atual do cômodo); só recorrente ativa. Já no modo pedido não faz nada. Quem guarda as trocas recusa as pendentes que citavam as ocorrências removidas.
+
 `RefreshTaskScheduleUseCase` publica a próxima vez de quem está sem pendente, dentro de 12 semanas a partir da semana atual. Na escala do cômodo, pular semanas sem abrir o app publica também as vezes intermediárias (atrasadas), preservando fase e histórico. Repetir o refresh não duplica dados.
 
 ## Publicação por morador
