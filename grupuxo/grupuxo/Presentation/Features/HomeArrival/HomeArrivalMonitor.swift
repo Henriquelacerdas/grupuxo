@@ -318,7 +318,9 @@ final class ArrivalNotificationDelegate: NSObject, UNUserNotificationCenterDeleg
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        if response.notification.request.identifier == "grupuxo.arrival" {
+        let id = response.notification.request.identifier
+        if id == "grupuxo.arrival" || id.hasPrefix("grupuxo.cycle.") {
+//        if response.notification.request.identifier == "grupuxo.arrival" {
             // Se o app abriu a frio, o RootView lê este destino assim que aparecer.
             Task { @MainActor in
                 ShortcutNavigationManager.shared.navigate(to: .myTasks)

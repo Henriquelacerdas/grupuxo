@@ -210,6 +210,16 @@
         }
       }
     },
+    "%@: as próximas atividades já estão disponíveis. Toque para ver as suas." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: your next activities are now available. Tap to see yours."
+          }
+        }
+      }
+    },
     "%lld %@" : {
       "localizations" : {
         "en" : {
@@ -1221,6 +1231,16 @@
         }
       }
     },
+    "Ative as notificações do Reveza em Ajustes para receber o aviso." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Reveza notifications in Settings to receive the notice."
+          }
+        }
+      }
+    },
     "Ative as notificações do Reveza em Ajustes para receber os avisos." : {
       "localizations" : {
         "en" : {
@@ -1257,6 +1277,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Update home location"
+          }
+        }
+      }
+    },
+    "Avisar quando o ciclo virar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notify me when the cycle turns over"
           }
         }
       }
@@ -1877,7 +1907,14 @@
       }
     },
     "Cria no app Lembretes um lembrete para cada tarefa sua e mantém os dois em sincronia. Tarefas de outros moradores não aparecem. Ao desligar, os lembretes criados pelo Reveza são apagados." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Creates a reminder in the Reminders app for each of your tasks and keeps the two in sync. Other residents’ tasks don’t appear. When turned off, the reminders created by Reveza are deleted."
+          }
+        }
+      }
     },
     "Cria uma tarefa no cômodo escolhido, com a periodicidade do cômodo." : {
 
@@ -2653,6 +2690,16 @@
         }
       }
     },
+    "Horário do aviso" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notice time"
+          }
+        }
+      }
+    },
     "Ícone" : {
       "localizations" : {
         "en" : {
@@ -2871,7 +2918,14 @@
       }
     },
     "Lembretes na hora certa, e todo mundo vê o que já foi feito." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminders at the right time, and everyone can see what’s already been done."
+          }
+        }
+      }
     },
     "Leve" : {
       "localizations" : {
@@ -3508,6 +3562,16 @@
         }
       }
     },
+    "No dia em que o ciclo de um cômodo seu recomeça, o Reveza avisa que as próximas atividades já estão disponíveis. Os avisos são agendados no aparelho e se atualizam quando você abre o app." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On the day a cycle of one of your rooms starts over, Reveza lets you know your next activities are available. Notices are scheduled on the device and update whenever you open the app."
+          }
+        }
+      }
+    },
     "Nome" : {
       "localizations" : {
         "en" : {
@@ -3598,6 +3662,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "New Task"
+          }
+        }
+      }
+    },
+    "Novo ciclo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New cycle"
+          }
+        }
+      }
+    },
+    "Novo ciclo começou" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A new cycle has started"
           }
         }
       }
@@ -4424,7 +4508,14 @@
       }
     },
     "Sem acesso ao Lembretes. Permita em Ajustes > Privacidade e Segurança > Lembretes." : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No access to Reminders. Allow it in Settings > Privacy & Security > Reminders"
+          }
+        }
+      }
     },
     "Sem conexão" : {
 
@@ -4584,7 +4675,14 @@
 
     },
     "Sincronizar com o Lembretes" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync with Reminders"
+          }
+        }
+      }
     },
     "Só é possível pedir para entrar em cômodos privados de que você não participa." : {
       "extractionState" : "manual",

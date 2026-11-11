@@ -144,6 +144,14 @@ final class AppContainer {
         )
     }
 
+    func makeGetHouseOverviewUseCase() -> GetHouseOverviewUseCase {
+           GetHouseOverviewUseCase(
+               roomRepository: roomRepository,
+               taskRepository: taskRepository,
+               accessRequestRepository: roomAccessRequestRepository
+           )
+       }
+    
     func makeHouseManagementViewModel(
         session: AppSession
     ) -> HouseManagementViewModel {
