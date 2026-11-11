@@ -87,7 +87,7 @@ final class CycleNoticeManager: ObservableObject {
 
     func setTime(_ date: Date) {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
-        hour = parts.hour ?? 9
+        hour = parts.hour ?? 8
         minute = parts.minute ?? 0
         defaults.set(hour, forKey: Key.hour)
         defaults.set(minute, forKey: Key.minute)
