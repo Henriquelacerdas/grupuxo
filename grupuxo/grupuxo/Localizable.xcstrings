@@ -15,7 +15,14 @@
       }
     },
     "%@" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        }
+      }
     },
     "%@ · %@" : {
       "localizations" : {
@@ -2854,7 +2861,14 @@
       }
     },
     "Lembretes" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reminders"
+          }
+        }
+      }
     },
     "Lembretes na hora certa, e todo mundo vê o que já foi feito." : {
 
@@ -3785,7 +3799,14 @@
       }
     },
     "ou" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "or"
+          }
+        }
+      }
     },
     "OU" : {
       "extractionState" : "stale",
@@ -3963,7 +3984,14 @@
       }
     },
     "Privado" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private"
+          }
+        }
+      }
     },
     "Progresso do ciclo" : {
       "localizations" : {
