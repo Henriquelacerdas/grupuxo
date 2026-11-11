@@ -61,19 +61,23 @@ export function roomParticipation(
   const period = scheduling.periodIndex(updated, date);
   const start = scheduling.addingWeeks(period * updated.periodicity.intervalWeeks, updated.calendarAnchor);
   const end = scheduling.addingWeeks(updated.periodicity.intervalWeeks, start);
-  const names: string[] = [];
-  const version = lastWhere(updated.scheduleVersions, (v) => v.effectiveAt <= date);
-  if (isMember && version !== undefined && version.queue.length > 0) {
-    for (let role = 0; role < version.responsibleCount; role++) {
-      const slot = (period - version.periodIndex) * version.responsibleCount + role;
-      const user = at(version.queue, slot % version.queue.length);
-      const name = state.users.find((u) => u.id === user)?.name;
-      if (name !== undefined) names.push(name);
+  const responsibles = (periodIndex: number, when: Instant): string[] => {
+    const names: string[] = [];
+    const version = lastWhere(updated.scheduleVersions, (v) => v.effectiveAt <= when);
+    if (isMember && version !== undefined && version.queue.length > 0) {
+      for (let role = 0; role < version.responsibleCount; role++) {
+        const slot = (periodIndex - version.periodIndex) * version.responsibleCount + role;
+        const user = at(version.queue, slot % version.queue.length);
+        const name = state.users.find((u) => u.id === user)?.name;
+        if (name !== undefined) names.push(name);
+      }
     }
-  }
+    return names;
+  };
   return {
     room: visibleRoom(updated, userID, state), isMember, memberCount: isMember ? members.length : 0,
-    responsibleNames: names, periodStart: start, periodEnd: end,
+    responsibleNames: responsibles(period, date), nextResponsibleNames: responsibles(period + 1, end),
+    periodStart: start, periodEnd: end,
   };
 }
 

@@ -56,6 +56,7 @@ export interface RoomParticipationDTO {
   readonly isMember: boolean;
   readonly memberCount: number;
   readonly responsibleNames: readonly string[];
+  readonly nextResponsibleNames: readonly string[];
   readonly periodStart: IsoInstant;
   readonly periodEnd: IsoInstant;
 }
@@ -167,7 +168,8 @@ export function roomDTO(room: Room): RoomDTO {
 export function roomParticipationDTO(participation: RoomParticipation): RoomParticipationDTO {
   return {
     room: roomDTO(participation.room), isMember: participation.isMember, memberCount: participation.memberCount,
-    responsibleNames: [...participation.responsibleNames], periodStart: iso(participation.periodStart),
+    responsibleNames: [...participation.responsibleNames],
+    nextResponsibleNames: [...participation.nextResponsibleNames], periodStart: iso(participation.periodStart),
     periodEnd: iso(participation.periodEnd),
   };
 }

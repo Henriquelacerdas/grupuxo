@@ -1,6 +1,46 @@
 {
   "sourceLanguage" : "pt-BR",
   "strings" : {
+    "Depois" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        }
+      }
+    },
+    "%@ (previsão)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (forecast)"
+          }
+        }
+      }
+    },
+    "A contagem começa quando a tarefa é feita. A cada vez, ela passa para a próxima pessoa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The count starts when the task is done. Each time, it moves to the next person."
+          }
+        }
+      }
+    },
+    "Será adicionada para você." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It will be added for you."
+          }
+        }
+      }
+    },
     "" : {
       "shouldTranslate" : false
     },

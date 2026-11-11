@@ -197,6 +197,10 @@ struct TaskCreationSheetView: View {
                         roomRow
                             .disabled(viewModel.isEditing)
 
+                        if isUniqueTask, !viewModel.isEditing {
+                            footer("Será adicionada para você.")
+                        }
+
                         if !isUniqueTask {
                             repetitionSection
                         }
@@ -351,7 +355,7 @@ struct TaskCreationSheetView: View {
                     .foregroundStyle(.secondary)
                 }
 
-                footer("A cada vez, ela passa para a próxima pessoa.")
+                footer("A contagem começa quando a tarefa é feita. A cada vez, ela passa para a próxima pessoa.")
             } else if let room = viewModel.selectedRoom {
                 footer("\(RecurrencePresentation.name(for: room.periodicity)), junto com o cômodo. Muda de pessoa a cada rodízio.")
             } else {

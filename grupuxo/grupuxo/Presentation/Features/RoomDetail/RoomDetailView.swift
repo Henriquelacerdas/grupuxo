@@ -255,6 +255,10 @@ struct RoomDetailView: View {
                     detailRow("Agora", systemImage: "person.crop.circle.badge.checkmark", value: responsibles)
                 }
 
+                if let next = viewModel.nextResponsiblesSummary {
+                    detailRow("Depois", systemImage: "person.crop.circle.badge.clock", value: next)
+                }
+
                 detailRow(
                     "Participantes",
                     systemImage: "person.2.fill",

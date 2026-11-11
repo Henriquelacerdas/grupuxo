@@ -94,13 +94,16 @@ struct RoomParticipationDTO: Decodable, Sendable {
     let isMember: Bool
     let memberCount: Int
     let responsibleNames: [String]
+    /// Ausente em servidor que ainda não publicou a previsão.
+    let nextResponsibleNames: [String]?
     let periodStart: Date
     let periodEnd: Date
 
     var domain: RoomParticipation {
         RoomParticipation(
             room: room.domain, isMember: isMember, memberCount: memberCount,
-            responsibleNames: responsibleNames, periodStart: periodStart, periodEnd: periodEnd
+            responsibleNames: responsibleNames, nextResponsibleNames: nextResponsibleNames ?? [],
+            periodStart: periodStart, periodEnd: periodEnd
         )
     }
 }

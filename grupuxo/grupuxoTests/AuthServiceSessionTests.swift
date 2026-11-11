@@ -111,6 +111,16 @@ struct AuthServiceSessionTests {
         #expect(!service.isSignedIn)
     }
 
+    @Test func signOutRunsTheHookBeforeLeavingTheSession() async {
+        let service = AuthService(client: FakeAuthSessionClient(valid))
+        await service.checkSession()
+        var wasSignedInInTheHook: Bool?
+        service.beforeSignOut = { [service] in wasSignedInInTheHook = service.isSignedIn }
+        await service.signOut()
+        #expect(wasSignedInInTheHook == true)
+        #expect(!service.isSignedIn)
+    }
+
     @Test(arguments: [AuthSignOutOutcome.complete, .partial, .failed])
     func signOutAlwaysClearsLocalState(outcome: AuthSignOutOutcome) async {
         let service = AuthService(client: FakeAuthSessionClient(valid, signOut: outcome))

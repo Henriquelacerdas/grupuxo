@@ -38,6 +38,8 @@ export function roomRoutes(name: string, make: ApiEnvFactory): void {
     assert.deepEqual([anaSolo["isMember"], anaSolo["memberCount"]], [true, 1]);
     const biaSolo = bodyOf(await env.call("bia", "GET", `/v1/rooms/${text(solo["id"])}`));
     assert.deepEqual([biaSolo["isMember"], biaSolo["memberCount"], biaSolo["responsibleNames"]], [false, 0, []]);
+    // Quem não participa do cômodo também não vê a previsão do próximo ciclo.
+    assert.deepEqual(biaSolo["nextResponsibleNames"], []);
     const biaShared = bodyOf(await env.call("bia", "GET", `/v1/rooms/${text(shared["id"])}`));
     assert.deepEqual([biaShared["isMember"], biaShared["memberCount"]], [true, 2]);
   });
@@ -261,6 +263,18 @@ export function roomRoutes(name: string, make: ApiEnvFactory): void {
     const joined = bodyOf(await env.call("bia", "GET", `/v1/rooms/${roomID}`));
     assert.deepEqual([joined["isMember"], joined["memberCount"]], [true, 2]);
     assert.ok(list(bodyOf(await env.call("bia", "GET", "/v1/me/notifications"))["notifications"]).map(rec).some((n) => n["kind"] === "roomAccessApproved"));
+  });
+
+  test(`${name}: o cômodo mostra quem assume no próximo ciclo (previsão do rodízio)`, async () => {
+    const env = make();
+    const { house } = await twoHousesScenario(env);
+    const room = bodyOf(await env.call("ana", "GET", `/v1/rooms/${house.wholeHouseRoomID}`));
+    const now = list(room["responsibleNames"]);
+    const next = list(room["nextResponsibleNames"]);
+    assert.equal(now.length, 1);
+    assert.equal(next.length, 1);
+    // Quem entrou no meio do ciclo só passa a valer no próximo, com a fila nova: a previsão é de um dos dois.
+    assert.ok(["Ana", "Bia"].includes(String(next[0])));
   });
 
   test(`${name}: avaliar a semana: só quem não cuidou do cômodo avalia, na janela de 2 dias; o resultado sai para quem cuidou`, async () => {

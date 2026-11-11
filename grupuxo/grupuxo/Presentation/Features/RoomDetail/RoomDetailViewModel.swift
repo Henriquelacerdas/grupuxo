@@ -95,6 +95,19 @@ final class RoomDetailViewModel: ObservableObject {
         )
     }
 
+    /// "Julia C. e Bia" (previsão): quem assume no próximo ciclo. Sem fila ou sem previsão, `nil`.
+    var nextResponsiblesSummary: String? {
+        guard let participation else { return nil }
+
+        guard let names = text.responsibles(
+            names: participation.nextResponsibleNames,
+            userIDs: [],
+            currentUserID: userID
+        ) else { return nil }
+
+        return String(localized: "\(names) (previsão)")
+    }
+
     /// "Semanal", "Quinzenal"...
     var cycleDurationSummary: String? {
         participation.map { RoomDetailText.cycleDuration($0.room.periodicity) }

@@ -14,6 +14,9 @@ final class PushRegistration: ObservableObject {
     /// Manda o token ao servidor (`PUT /v1/me/devices`); definido quando a casa abre. Devolve `true` se registrou.
     var sendToken: ((String, String) async -> Bool)?
 
+    /// Tira o token do servidor (`DELETE /v1/me/devices?token=`), para a conta que sai não receber mais push neste aparelho.
+    var removeToken: ((String) async -> Void)?
+
     private var token: String?
     private let center: UNUserNotificationCenter
 
@@ -57,6 +60,12 @@ final class PushRegistration: ObservableObject {
         let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
         token = hex
         Task { _ = await sendToken?(hex, Self.environment) }
+    }
+
+    /// Ao sair da conta: o servidor esquece este aparelho. O token volta a ser enviado quando a próxima conta abrir a casa.
+    func unregisterFromServer() async {
+        guard let token else { return }
+        await removeToken?(token)
     }
 
     /// Reenvia o token que já chegou (a casa pode abrir depois dele).

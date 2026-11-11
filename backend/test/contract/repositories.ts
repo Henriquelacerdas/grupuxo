@@ -466,6 +466,7 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     assert.equal(participation.isMember, true);
     assert.equal(participation.memberCount, 1);
     assert.deepEqual(participation.responsibleNames, ["Fundadora"]);
+    assert.deepEqual(participation.nextResponsibleNames, ["Fundadora"]);
     // Quem tem o código entra: o código recém-criado vale.
     const friend = userID(uuid(902));
     await env.registerUser({ id: friend, name: "Amigo", email: null });

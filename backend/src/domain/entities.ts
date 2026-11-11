@@ -66,6 +66,8 @@ export interface RoomParticipation {
   readonly isMember: boolean;
   readonly memberCount: number;
   readonly responsibleNames: readonly string[];
+  /** Previsão: quem assume no próximo ciclo, pela fila atual (muda se alguém entrar ou sair). Vazio sem fila. */
+  readonly nextResponsibleNames: readonly string[];
   readonly periodStart: Instant;
   readonly periodEnd: Instant;
 }

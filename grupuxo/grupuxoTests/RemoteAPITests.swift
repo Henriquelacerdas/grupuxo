@@ -149,6 +149,7 @@ struct RemoteDTOTests {
         #expect(participation.isMember)
         #expect(participation.memberCount == 4)
         #expect(participation.responsibleNames == ["Bia"])
+        #expect(participation.nextResponsibleNames == ["Marina"])
         #expect(participation.periodEnd.timeIntervalSince(participation.periodStart) == 7 * 24 * 3600)
     }
 

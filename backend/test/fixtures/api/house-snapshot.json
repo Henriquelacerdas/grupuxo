@@ -152,6 +152,9 @@
       "responsibleNames": [
         "Rafa"
       ],
+      "nextResponsibleNames": [
+        "Bia"
+      ],
       "periodStart": "2026-10-12T03:00:00.000Z",
       "periodEnd": "2026-10-19T03:00:00.000Z"
     },
@@ -176,6 +179,9 @@
       "memberCount": 4,
       "responsibleNames": [
         "Bia"
+      ],
+      "nextResponsibleNames": [
+        "Marina"
       ],
       "periodStart": "2026-10-12T03:00:00.000Z",
       "periodEnd": "2026-10-19T03:00:00.000Z"
@@ -202,6 +208,9 @@
       "responsibleNames": [
         "Leo"
       ],
+      "nextResponsibleNames": [
+        "Rafa"
+      ],
       "periodStart": "2026-10-12T03:00:00.000Z",
       "periodEnd": "2026-10-19T03:00:00.000Z"
     },
@@ -226,6 +235,9 @@
       "memberCount": 4,
       "responsibleNames": [
         "Marina"
+      ],
+      "nextResponsibleNames": [
+        "Leo"
       ],
       "periodStart": "2026-10-12T03:00:00.000Z",
       "periodEnd": "2026-10-19T03:00:00.000Z"
@@ -252,6 +264,9 @@
       "responsibleNames": [
         "Marina"
       ],
+      "nextResponsibleNames": [
+        "Leo"
+      ],
       "periodStart": "2026-10-12T03:00:00.000Z",
       "periodEnd": "2026-10-19T03:00:00.000Z"
     },
@@ -276,6 +291,9 @@
       "memberCount": 2,
       "responsibleNames": [
         "Bia"
+      ],
+      "nextResponsibleNames": [
+        "Marina"
       ],
       "periodStart": "2026-10-12T03:00:00.000Z",
       "periodEnd": "2026-10-19T03:00:00.000Z"

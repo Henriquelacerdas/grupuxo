@@ -391,7 +391,7 @@ Todos em `src/lambdas/api-dto.ts`; exemplos em `test/fixtures/api/`. Campos inte
 | `User` | `id`, `name` | `me-house.json` |
 | `House` | `id`, `name`, `accessCode`, `timezone`, `createdAt` | `house.json` |
 | `Room` | `id`, `houseID`, `name`, `kind` (`wholeHouse`\|`standard`), `category`, `visibility`, `periodicity { executionsPerPeriod, intervalWeeks }`, `responsibleCount`, `calendarAnchor`\|null, `icon`, `color` | `room.json` |
-| `RoomParticipation` | `room`, `isMember`, `memberCount`, `responsibleNames`, `periodStart`, `periodEnd` | `room-participation.json` |
+| `RoomParticipation` | `room`, `isMember`, `memberCount`, `responsibleNames`, `nextResponsibleNames` (previsão: quem assume no próximo ciclo pela fila atual; vazio para quem não participa), `periodStart`, `periodEnd` | `room-participation.json` |
 | `Recurrence` | `{ kind: "none" }` \| `{ kind: "recurring", frequency, interval }` \| `{ kind: "weekly", periodicity }` | `task-definition.json` |
 | `TaskDefinition` | `id`, `roomID`, `name`, `details`, `effort` (1 a 3; carga interna, não exibir como pontuação), `kind`, `recurrence`, `assignmentPolicy`, `calendarAnchor`, `endedAt` (null = ativa), `createdByUserID`\|null (quem criou a tarefa; null em tarefas antigas), `followsRoom`\|null ("Repetir com o cômodo"; null = definição antiga) | `task-definition.json` |
 | `TaskSwapRequest` | `id`, `requesterID`, `receiverID`, `offeredOccurrenceID`, `requestedOccurrenceID`, `status` (`pending`\|`accepted`\|`rejected`\|`cancelled`), `createdAt`, `resolvedAt`\|null | `task-swap-request.json` |

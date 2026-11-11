@@ -66,6 +66,7 @@ final class TaskEditorViewModel: ObservableObject {
             }
             // Ao editar, a recorrência guardada é a verdade (a da repetição própria não deriva do cômodo).
             if !isEditing || draft.followsRoom { syncWithRoom(&draft) }
+            if !isEditing { applyDefaultRoom(&draft) }
             if draft != state.draft { state = .editing(draft) }
         } catch is CancellationError {
             // A tela saiu antes da resposta.
@@ -103,7 +104,15 @@ final class TaskEditorViewModel: ObservableObject {
             draft.assignmentPolicy = draft.kind == .sporadic ? .selfAssigned : .balancedAutomatically
         }
         syncWithRoom(&draft)
+        if !isEditing, draft.kind != previous.kind { applyDefaultRoom(&draft) }
         state = .editing(draft)
+    }
+
+    /// Tarefa única sem cômodo escolhido cai em "Casa toda" (o cômodo que inclui todo mundo).
+    private func applyDefaultRoom(_ draft: inout TaskDraft) {
+        guard draft.kind == .sporadic, draft.roomID == nil,
+              let wholeHouse = rooms.first(where: \.representsWholeHouse) else { return }
+        draft.roomID = wholeHouse.id
     }
 
     /// Cômodo escolhido no rascunho, se já carregado.

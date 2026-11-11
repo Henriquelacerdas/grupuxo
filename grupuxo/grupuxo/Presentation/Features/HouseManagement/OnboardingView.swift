@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 @preconcurrency import Amplify
 import GrupuxoDomain
@@ -34,6 +35,9 @@ struct OnboardingView: View {
     @State private var confirmSignOut = false
     @State private var selectedStarters: Set<StarterRoom.ID> = []
     @State private var isCreatingRooms = false
+    /// Foto escolhida no 1º passo; sobe depois que a casa existe, porque o servidor só conhece a conta nesse momento.
+    @State private var photoSelection: PhotosPickerItem?
+    @State private var photoJPEG: Data?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -53,7 +57,24 @@ struct OnboardingView: View {
             Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
         }
         .onChange(of: path) { houses.errorMessage = nil }
+        .onChange(of: photoSelection) { _, item in
+            guard let item else { return }
+            Task {
+                defer { photoSelection = nil }
+                guard let data = try? await item.loadTransferable(type: Data.self),
+                      let jpeg = ProfilePhoto.jpegData(from: data) else { return }
+                photoJPEG = jpeg
+            }
+        }
         .task { await prefillName() }
+    }
+
+    /// Foto opcional: se o envio falhar, a casa segue e a foto se troca em Ajustes › Conta.
+    private func uploadPendingPhoto() async {
+        guard let photoJPEG else { return }
+        _ = await houses.updatePhoto(jpeg: photoJPEG)
+        self.photoJPEG = nil
+        houses.errorMessage = nil
     }
 
     // MARK: - Seu perfil
@@ -63,11 +84,16 @@ struct OnboardingView: View {
             Section {
                 OnboardingHeader(
                     title: "Como a casa vai te chamar?",
-                    subtitle: "Seu nome aparece nas tarefas e no rodízio."
+                    subtitle: "Seu nome e sua foto aparecem nas tarefas e no rodízio."
                 )
-                InitialAvatar(name: myName)
+                InitialAvatar(name: myName, photo: photoJPEG.flatMap { UIImage(data: $0) })
                     .frame(maxWidth: .infinity)
                     .padding(.top, DesignSystem.Spacing.large)
+                PhotosPicker(selection: $photoSelection, matching: .images) {
+                    Text(photoJPEG == nil ? "Adicionar foto" : "Trocar foto")
+                        .frame(maxWidth: .infinity, minHeight: DesignSystem.minimumTouchTarget)
+                }
+                .accessibilityIdentifier("onboardingPickPhoto")
             }
             .onboardingHeaderRow()
 
@@ -180,7 +206,10 @@ struct OnboardingView: View {
         guard !houses.isLoading, inviteCode.count == Self.inviteCodeLength else { return }
         Task {
             await houses.joinHouse(code: inviteCode, myName: myName)
-            if houses.house != nil { finish() }
+            if houses.house != nil {
+                await uploadPendingPhoto()
+                finish()
+            }
         }
     }
 
@@ -224,6 +253,7 @@ struct OnboardingView: View {
         Task {
             await houses.createHouse(name: houseName, myName: myName)
             if houses.house != nil {
+                await uploadPendingPhoto()
                 path.append(.rooms)
             } else {
                 isFinishing = false
@@ -457,16 +487,27 @@ private struct OnboardingHeader: View {
 /// Círculo com as iniciais do nome digitado (o mesmo visual do `ResidentAvatar` grande).
 private struct InitialAvatar: View {
     let name: String
+    var photo: UIImage?
 
     @ScaledMetric(relativeTo: .largeTitle) private var diameter: CGFloat = 96
 
     var body: some View {
-        Text(name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined())
-            .font(.largeTitle.bold())
-            .foregroundStyle(.tint)
-            .frame(width: diameter, height: diameter)
-            .background(Color.accentColor.opacity(DesignSystem.tintedFillOpacity), in: Circle())
-            .accessibilityHidden(true)
+        Group {
+            if let photo {
+                Image(uiImage: photo)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: diameter, height: diameter)
+                    .clipShape(Circle())
+            } else {
+                Text(name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined())
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(.tint)
+                    .frame(width: diameter, height: diameter)
+                    .background(Color.accentColor.opacity(DesignSystem.tintedFillOpacity), in: Circle())
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 

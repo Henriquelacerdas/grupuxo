@@ -391,6 +391,27 @@ struct SchedulingTests {
         #expect(viewModel.state.draft.recurrence == .recurring(frequency: .weekly, interval: 1))
     }
 
+    @Test @MainActor func uniqueTaskDefaultsToTheWholeHouseRoom() async throws {
+        let (store, repository, _, _) = fixture()
+        let viewModel = TaskEditorViewModel(createTask: CreateTaskUseCase(
+                                                repository: repository,
+                                                roomRepository: MockRoomRepository(store: store)
+                                            ),
+                                            getHouseRooms: GetHouseRoomsUseCase(repository: MockRoomRepository(store: store)),
+                                            houseID: MockSeed.house.id, requestingUserID: MockSeed.currentUser.id,
+                                            draft: TaskDraft())
+        await viewModel.loadRooms()
+        #expect(viewModel.state.draft.roomID == nil)
+
+        viewModel.updateDraft { $0.kind = .sporadic }
+        #expect(viewModel.selectedRoom?.representsWholeHouse == true)
+
+        // Quem já escolheu um cômodo não perde a escolha ao virar tarefa única.
+        viewModel.updateDraft { $0.kind = .recurring; $0.roomID = MockSeed.kitchen.id }
+        viewModel.updateDraft { $0.kind = .sporadic }
+        #expect(viewModel.state.draft.roomID == MockSeed.kitchen.id)
+    }
+
     @Test @MainActor func repeatWithRoomFollowsTheRoomPeriodicity() async throws {
         let (store, repository, _, _) = fixture()
         let viewModel = TaskEditorViewModel(createTask: CreateTaskUseCase(

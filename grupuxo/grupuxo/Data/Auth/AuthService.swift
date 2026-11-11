@@ -9,6 +9,9 @@ class AuthService: ObservableObject {
     @Published var isSignedIn = false
     @Published private(set) var hasCheckedSession = false
     @Published private(set) var sessionCheckFailed = false
+
+    /// Roda antes do logout, com a sessão ainda válida (tirar o aparelho do servidor precisa do token). Falhas não travam a saída.
+    var beforeSignOut: (@MainActor @Sendable () async -> Void)?
     
     enum SignInStatus {
         case success
@@ -146,6 +149,15 @@ class AuthService: ObservableObject {
     // Faz o logout. Mesmo se o Cognito falhar (ex.: sem rede), o estado local é limpo.
     func signOut() async {
         // Os lembretes ficam no aparelho, não na conta: sem isto, a próxima conta veria as tarefas desta no Lembretes.
+        if let beforeSignOut {
+            // Sem rede, o logout não espera mais que alguns segundos por isso.
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await beforeSignOut() }
+                group.addTask { try? await Task.sleep(for: .seconds(3)) }
+                await group.next()
+                group.cancelAll()
+            }
+        }
         await ReminderLinkCleaner().removeAll()
         ReminderSyncPreference().setEnabled(false)
         let outcome = await client.signOut()

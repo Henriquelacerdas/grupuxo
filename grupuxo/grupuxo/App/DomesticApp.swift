@@ -33,6 +33,10 @@ struct DomesticApp: App {
                         guard let api = houses.api else { return false }
                         return (try? await api.send("PUT", "v1/me/devices", body: DeviceBody(token: token, environment: environment))) != nil
                     }
+                    push.removeToken = { [houses] token in
+                        _ = try? await houses.api?.send("DELETE", "v1/me/devices", query: ["token": token])
+                    }
+                    authService.beforeSignOut = { [push] in await push.unregisterFromServer() }
                     await push.resumeIfAuthorized()
                 }
         }
