@@ -476,6 +476,25 @@ final class MyTasksViewModel: ObservableObject {
             }
         }
         
+        /// Lista do Lembretes só desta casa. Reaproveita a que já existe; se falhar, devolve nil.
+        func reminderList() -> EKCalendar? {
+            let key = "reminderSync.calendarID.\(userID.uuidString).\(houseID)"
+            if let id = UserDefaults.standard.string(forKey: key),
+               let existing = eventStore.calendar(withIdentifier: id),
+               existing.allowsContentModifications {
+                return existing
+            }
+
+            guard let source = eventStore.defaultCalendarForNewReminders()?.source else { return nil }
+            let list = EKCalendar(for: .reminder, eventStore: eventStore)
+            list.title = "Reveza – \(houseName)"
+            list.source = source
+            guard (try? eventStore.saveCalendar(list, commit: true)) != nil else { return nil }
+
+            UserDefaults.standard.set(list.calendarIdentifier, forKey: key)
+            return list
+        }
+        
         guard let defaultCalendar = eventStore.defaultCalendarForNewReminders() else {
             errorMessage = "Não foi encontrada uma lista padrão de Lembretes no iOS."
             print("Erro: defaultCalendarForNewReminders() é nil.")
@@ -485,11 +504,12 @@ final class MyTasksViewModel: ObservableObject {
         let newReminder = EKReminder(eventStore: eventStore)
         newReminder.title = title
         newReminder.notes = notes
-        newReminder.calendar = defaultCalendar
+        newReminder.calendar = reminderList() ?? defaultCalendar
         if let occurrenceID { newReminder.url = ReminderLink.url(for: occurrenceID) }
         
         if let dueDate {
             newReminder.dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
+            newReminder.addAlarm(EKAlarm(absoluteDate: dueDate))
         }
         
         newReminder.priority = priority
