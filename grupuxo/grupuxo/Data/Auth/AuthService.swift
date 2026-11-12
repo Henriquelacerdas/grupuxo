@@ -60,7 +60,7 @@ class AuthService: ObservableObject {
     }
 
     /// Regras de senha do user pool (`amplify_outputs.json`), mostradas no cadastro.
-    static let passwordRules = String(localized: "Mínimo de 8 caracteres, com letra maiúscula, minúscula, número e símbolo.")
+    static let passwordRules = String(localized: "Pelo menos 6 caracteres, com uma letra minúscula.")
 
     /// O e-mail é o nome de usuário no Cognito: sem espaços nas pontas (o teclado e o preenchimento automático
     /// costumam deixar um no fim) e em minúsculas, para o cadastro e o login sempre baterem.

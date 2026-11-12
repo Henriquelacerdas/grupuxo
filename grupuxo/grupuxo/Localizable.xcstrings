@@ -1410,12 +1410,12 @@
         }
       }
     },
-    "Ao conectar, você envia uma mensagem pelo WhatsApp e autoriza o Reveza a consultar suas tarefas e a marcar como feitas as que você confirmar por lá. Você pode desconectar quando quiser." : {
+    "No WhatsApp, o Reveza te responde quais são suas tarefas e marca como feitas. Ele só responde quando você escreve." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "When you connect, you send a message on WhatsApp and allow Reveza to look up your tasks and mark as done the ones you confirm there. You can disconnect at any time."
+            "value" : "On WhatsApp, Reveza replies with your tasks and marks them as done. It only replies when you write to it."
           }
         }
       }
@@ -4103,12 +4103,12 @@
         }
       }
     },
-    "Mínimo de 8 caracteres, com letra maiúscula, minúscula, número e símbolo." : {
+    "Pelo menos 6 caracteres, com uma letra minúscula." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol."
+            "value" : "At least 6 characters, with a lowercase letter."
           }
         }
       }
@@ -4965,12 +4965,12 @@
         }
       }
     },
-    "O Reveza deixa de responder a este número. Você pode conectar de novo depois." : {
+    "Você pode conectar de novo quando quiser." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reveza will stop replying to this number. You can connect again later."
+            "value" : "You can connect again whenever you want."
           }
         }
       }

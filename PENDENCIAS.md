@@ -37,9 +37,9 @@ Comparei os textos de todas as telas com o catálogo do app e vi por imagem Aval
 
 **Textos do Figma aplicados em 12/11/2026:** rodapé de Pedir troca, Ativar notificações (título, corpo e rodapé), Primeiros cômodos (título, subtítulo e rodapé), notificações desligadas no iPhone, nome da casa vazio e modo férias. "Convidar" já estava igual.
 
-**Textos do Figma que não apliquei (precisam de decisão)**
-- **Senha:** o Figma diz "Pelo menos 8 caracteres." (Criar conta, Nova senha) e "A senha nova precisa ter pelo menos 8 caracteres." (Alterar senha), mas a política do Cognito exige também maiúscula, minúscula, número e símbolo. O app mantém a regra completa (`AuthService.passwordRules`) para não induzir a erro.
-- **WhatsApp:** os textos do Figma ("No WhatsApp, o Reveza te responde…", "Você pode conectar de novo quando quiser.") são mais curtos que os do app, e o do app serve de consentimento (autoriza consultar e marcar tarefas como feitas). Mantido; trocar exige aval, por causa da revisão da App Store.
+**Também aplicados em 12/11/2026:** a regra de senha do app agora segue a política real do Cognito ("Pelo menos 6 caracteres, com uma letra minúscula."), em Criar conta, Nova senha, Alterar senha e nas mensagens de erro; e os textos de WhatsApp do Figma ("No WhatsApp, o Reveza te responde…" e "Você pode conectar de novo quando quiser.").
+
+**Atenção**
 - **Onboarding "uma vez por dia, suas tarefas":** o texto do Figma já está no app, mas o resumo diário e o aviso de ciclo são locais e só valem depois de ligados em Ajustes › Notificações.
 
 **Decisão da designer**
