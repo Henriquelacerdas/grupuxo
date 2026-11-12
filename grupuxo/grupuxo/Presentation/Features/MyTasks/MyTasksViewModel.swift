@@ -237,6 +237,14 @@ final class MyTasksViewModel: ObservableObject {
         let displayed = completions.applying(to: overview)
         let contentToPresent = content(from: displayed, at: date)
         state = contentToPresent.allItems.isEmpty ? .empty : .content(contentToPresent)
+//        PendingTasksBadge.update(
+//            pending: reminderEligibleItems(in: contentToPresent)
+//                .filter { !$0.occurrence.isCompleted }
+//                .count
+//        )
+        PendingTasksBadge.update(
+            pending: contentToPresent.allItems.filter { !$0.occurrence.isCompleted }.count
+        )
     }
 
     // MARK: - Apresentação
