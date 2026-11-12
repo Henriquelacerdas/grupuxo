@@ -4,19 +4,19 @@ import GrupuxoDomain
 
 @MainActor
 struct RootView: View {
-
+    
     @StateObject private var model: RootModel
     
-    @StateObject private var shortcutManager = ShortcutNavigationManager.shared
-
+    @ObservedObject private var shortcutManager = ShortcutNavigationManager.shared
+    
     @State private var selectedTab: AppTab = .myTasks
     @State private var tasksActivations = 0
     @State private var houseActivations = 0
-
+    
     @State private var tasksPath: [AppRoute] = []
-
+    
     @State private var housePath: [AppRoute] = []
-
+    
     /// Tarefa aberta na sheet de detalhes.
     @State private var presentedTask: PresentedTask?
 
@@ -31,7 +31,7 @@ struct RootView: View {
 
     /// Atualiza as listas quando a sheet de detalhes é fechada.
     @State private var taskChanges = 0
-
+    
     init(api: APIClient, user: User, house: House, myHouse: MyHouseCache? = nil) {
         _model = StateObject(
             wrappedValue: RootModel(
@@ -51,54 +51,53 @@ struct RootView: View {
     private var container: AppContainer {
         model.container
     }
-
+    
     private var session: AppSession {
         model.session
     }
-
+    
     var body: some View {
         tabs
             .toastHost()
-            .onChange(of: shortcutManager.pendingDestination) { _, _ in
-                applyPendingShortcut()
+            .onChange(
+                of: shortcutManager.pendingDestination,
+                initial: true
+            ) { _, destination in
+                
+                guard let destination else { return }
+                
+                switch destination {
+                    
+                case .myTasks:
+                    selectedTab = .myTasks
+                    tasksPath = []
+                    
+                case .house:
+                    selectedTab = .house
+                    housePath = []
+                    
+                case .sporadicTasks:
+                    selectedTab = .house
+                    housePath = [.sporadicTasks]
+                }
+                
+                shortcutManager.pendingDestination = nil
             }
-            // Lançamento a frio: o atalho pode ter definido o destino antes de esta tela existir.
-            .onAppear { applyPendingShortcut() }
-    }
-
-    private func applyPendingShortcut() {
-        guard let destination = shortcutManager.pendingDestination else { return }
-
-        switch destination {
-        case .myTasks:
-            selectedTab = .myTasks
-            tasksPath = []
-
-        case .house:
-            selectedTab = .house
-            housePath = []
-
-        case .sporadicTasks:
-            selectedTab = .house
-            housePath = [.sporadicTasks]
-        }
-
-        shortcutManager.pendingDestination = nil
     }
 
     private var tabs: some View {
-
+        
         TabView(selection: $selectedTab) {
-
+            
             // MARK: - Minhas tarefas
-
+            
             NavigationStack(path: $tasksPath) {
-
+                
                 MyTasksView(
                     viewModel: container.makeMyTasksViewModel(
                         session: session
                     ),
-
+                    
                     makeTaskEditorViewModel: {
                         container.makeTaskEditorViewModel(
                             roomID: nil,
@@ -111,21 +110,21 @@ struct RootView: View {
                     onRequestSwap: { occurrenceID in
                         swapOffer = SwapOffer(id: occurrenceID)
                     },
-
+                    
                     onSelectTask: { taskDefinitionID in
                         presentedTask = PresentedTask(
                             id: taskDefinitionID
                         )
                     },
-
+                    
                     onSelectNotifications: {
                         tasksPath.append(.notifications)
                     },
-
+                    
                     onSelectProfile: {
                         isPresentingProfile = true
                     },
-
+                    
                     reloadTrigger: ReloadKey(
                         activation: tasksActivations,
                         taskChanges: taskChanges
@@ -142,37 +141,37 @@ struct RootView: View {
                 )
             }
             .tag(AppTab.myTasks)
-
+            
             // MARK: - Gerenciamento da casa
-
+            
             NavigationStack(path: $housePath) {
-
+                
                 HouseManagementView(
                     viewModel: container.makeHouseManagementViewModel(
                         session: session
                     ),
-
+                    
                     houseName: session.currentHouse.name,
-
+                    
                     makeTaskEditorViewModel: {
                         container.makeTaskEditorViewModel(
                             roomID: nil,
                             session: session
                         )
                     },
-
+                    
                     makeRoomEditorViewModel: {
                         container.makeRoomEditorViewModel(
                             session: session
                         )
                     },
-
+                    
                     onSelectRoom: { roomID in
                         housePath.append(
                             .roomDetail(roomID)
                         )
                     },
-
+                    
                     onSelectSporadicTasks: {
                         housePath.append(.sporadicTasks)
                     },
@@ -201,13 +200,15 @@ struct RootView: View {
             if tab == .myTasks { tasksActivations += 1 }
             else { houseActivations += 1 }
         }
+        .task { await CycleNoticeManager.shared.reschedule() }
+        .task(id: taskChanges) { await DailyTasksNoticeManager.shared.reschedule() }
         .sheet(
             item: $presentedTask,
             onDismiss: {
                 taskChanges += 1
             }
         ) { task in
-
+            
             TaskDetailView(
                 viewModel: container.makeTaskDetailViewModel(
                     taskDefinitionID: task.id,
@@ -253,34 +254,34 @@ struct RootView: View {
             }
         }
     }
-
+    
     // MARK: - Destinations
-
+    
     @ViewBuilder
     private func destination(
         for route: AppRoute
     ) -> some View {
-
+        
         switch route {
-
-        // MARK: Room Detail
-
-       
+            
+            // MARK: Room Detail
+            
+            
         case let .roomDetail(roomID):
-
+            
             RoomDetailView(
                 viewModel: container.makeRoomDetailViewModel(
                     roomID: roomID,
                     session: session
                 ),
-
+                
                 makeTaskEditorViewModel: {
                     container.makeTaskEditorViewModel(
                         roomID: roomID,
                         session: session
                     )
                 },
-
+                
                 makeSuggestionEditorViewModel: { suggestion in
                     container.makeTaskEditorViewModel(
                         roomID: roomID,
@@ -303,52 +304,52 @@ struct RootView: View {
                 },
                 reloadTrigger: taskChanges
             )
-
-
-        // MARK: Sporadic Tasks
-
+            
+            
+            // MARK: Sporadic Tasks
+            
         case .sporadicTasks:
-
+            
             SporadicTasksView(
                 viewModel: container.makeSporadicTasksViewModel(
                     session: session
                 ),
-
+                
                 onEditTask: { taskDefinitionID in
                     presentedTask = PresentedTask(
                         id: taskDefinitionID
                     )
                 },
-
+                
                 reloadTrigger: taskChanges
             )
-
-        // MARK: Task Editor
-
+            
+            // MARK: Task Editor
+            
         case let .taskEditor(roomID):
-
+            
             TaskEditorView(
                 viewModel: container.makeTaskEditorViewModel(
                     roomID: roomID,
                     session: session
                 )
             )
-
-        // MARK: Task Swap
-
+            
+            // MARK: Task Swap
+            
         case let .taskSwap(offeredOccurrenceID):
-
+            
             TaskSwapView(
                 viewModel: container.makeTaskSwapViewModel(
                     offeredOccurrenceID: offeredOccurrenceID,
                     session: session
                 )
             )
-
-        // MARK: Notifications
-
+            
+            // MARK: Notifications
+            
         case .notifications:
-
+            
             NotificationsView(
                 viewModel: container.makeNotificationsViewModel(
                     session: session

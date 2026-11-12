@@ -14,6 +14,16 @@
         }
       }
     },
+    "%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        }
+      }
+    },
     "%@ · %@" : {
       "localizations" : {
         "en" : {
@@ -303,6 +313,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$@, esforço %2$lld de 3"
+          }
+        }
+      }
+    },
+    "%@: as próximas atividades já estão disponíveis. Toque para ver as suas." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@: your next activities are now available. Tap to see yours."
           }
         }
       }
@@ -830,16 +850,7 @@
         }
       }
     },
-    "A cada ciclo, cada cômodo passa para outra pessoa, como na lousa da república." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Each cycle, every room moves on to someone else, like the chore board in a shared house."
-          }
-        }
-      }
-    },
+    "A cada ciclo, cada cômodo passa para outra pessoa, como na lousa da república." : {},
     "A cada mês" : {
       "localizations" : {
         "en" : {
@@ -898,6 +909,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The task distribution is invalid."
+          }
+        }
+      }
+    },
+    "A localização está imprecisa. Tente de novo, de preferência ao ar livre." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The location is not accurate enough. Try again, preferably outdoors."
           }
         }
       }
@@ -1048,9 +1069,8 @@
         }
       }
     },
-    "Abre a tela de Minhas Tarefas do Grupuxo." : {
-
-    },
+    "Abra o app e entre na sua conta." : {},
+    "Abre a tela de Minhas Tarefas do Grupuxo." : {},
     "Abre as tarefas únicas da casa" : {
       "localizations" : {
         "en" : {
@@ -1061,9 +1081,7 @@
         }
       }
     },
-    "Abre o formulário para adicionar a tarefa sugerida" : {
-
-    },
+    "Abre o formulário para adicionar a tarefa sugerida" : {},
     "Abre o formulário para editar e adicionar esta tarefa." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1075,8 +1093,16 @@
         }
       }
     },
-    "Abre os detalhes da tarefa" : {
-
+    "Abre os detalhes da tarefa" : {},
+    "Abrir Ajustes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
+          }
+        }
+      }
     },
     "Abrir Ajustes do iPhone" : {
       "localizations" : {
@@ -1088,12 +1114,8 @@
         }
       }
     },
-    "Abrir Minhas Tarefas" : {
-
-    },
-    "Abrir Tarefas Avulsas" : {
-
-    },
+    "Abrir Minhas Tarefas" : {},
+    "Abrir Tarefas Avulsas" : {},
     "Aceitar" : {
       "localizations" : {
         "en" : {
@@ -1378,6 +1400,16 @@
         }
       }
     },
+    "Ao chegar em casa, o Reveza envia uma notificação com suas tarefas pendentes. A localização da casa fica só neste aparelho e não é enviada ao servidor. Vale uma distância de cerca de 150 m, e o aviso pode levar alguns minutos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you arrive home, Reveza sends a notification with your pending tasks. The home location stays only on this device and is not sent to the server. It works within roughly 150 m, and the alert may take a few minutes."
+          }
+        }
+      }
+    },
     "Ao conectar, você envia uma mensagem pelo WhatsApp e autoriza o Reveza a consultar suas tarefas e a marcar como feitas as que você confirmar por lá. Você pode desconectar quando quiser." : {
       "localizations" : {
         "en" : {
@@ -1388,16 +1420,7 @@
         }
       }
     },
-    "Ao continuar, você concorda com os Termos de Uso e a Política de Privacidade." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "By continuing, you agree to the Terms of Use and the Privacy Policy."
-          }
-        }
-      }
-    },
+    "Ao continuar, você concorda com os Termos de Uso e a Política de Privacidade." : {},
     "Ao descartar as alterações nenhuma Tarefa Única será atribuída a você." : {
       "localizations" : {
         "en" : {
@@ -1640,16 +1663,7 @@
         }
       }
     },
-    "As tarefas são divididas pelo esforço de cada uma. Ninguém fica sempre com a parte pesada." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chores are split by the effort each one takes. Nobody is always stuck with the heavy part."
-          }
-        }
-      }
-    },
+    "As tarefas são divididas pelo esforço de cada uma. Ninguém fica sempre com a parte pesada." : {},
     "Aspirar o chão" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1687,6 +1701,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Warning: You are the last participant in this room. If you leave, the room and its tasks will be deleted."
+          }
+        }
+      }
+    },
+    "Ative as notificações do Reveza em Ajustes para receber o aviso." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Reveza notifications in Settings to receive the notice."
+          }
+        }
+      }
+    },
+    "Ative as notificações do Reveza em Ajustes para receber o resumo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Reveza notifications in Settings to receive the summary."
+          }
+        }
+      }
+    },
+    "Ative as notificações do Reveza em Ajustes para receber os avisos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on Reveza notifications in Settings to receive alerts."
           }
         }
       }
@@ -1738,6 +1782,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Current"
+          }
+        }
+      }
+    },
+    "Atualizar localização da casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update home location"
+          }
+        }
+      }
+    },
+    "Avisar quando o ciclo virar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notify me when the cycle turns over"
           }
         }
       }
@@ -1823,16 +1887,7 @@
         }
       }
     },
-    "Boas-vindas ao Reveza" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Welcome to Reveza"
-          }
-        }
-      }
-    },
+    "Boas-vindas ao Reveza" : {},
     "Bom" : {
       "localizations" : {
         "en" : {
@@ -1843,16 +1898,7 @@
         }
       }
     },
-    "Cada cômodo tem a sua vez" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Every room takes its turn"
-          }
-        }
-      }
-    },
+    "Cada cômodo tem a sua vez" : {},
     "Cada Tarefa Única realizada pula sua vez na próxima Tarefa Extra." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1860,6 +1906,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Each One-off Task you complete skips your turn on the next Extra Task."
+          }
+        }
+      }
+    },
+    "Cadastrar" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign up"
+          }
+        }
+      }
+    },
+    "Cadastre-se" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign up"
           }
         }
       }
@@ -2066,16 +2134,7 @@
         }
       }
     },
-    "Código" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Code"
-          }
-        }
-      }
-    },
+    "Código" : {},
     "Código (6 caracteres)" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2083,6 +2142,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Code (6 characters)"
+          }
+        }
+      }
+    },
+    "Código de confirmação" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmation code"
           }
         }
       }
@@ -2124,6 +2194,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Incorrect code. Check the latest email you received."
+          }
+        }
+      }
+    },
+    "Código inválido ou senha não atende aos requisitos." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid code, or the password doesn't meet the requirements."
+          }
+        }
+      }
+    },
+    "Código numérico" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Numeric code"
           }
         }
       }
@@ -2368,29 +2460,20 @@
         }
       }
     },
-    "Confira o Wi-Fi ou os dados móveis e tente de novo." : {
+    "Confira o Wi-Fi ou os dados móveis e tente de novo." : {},
+    "Confira seu e-mail" : {},
+    "Confirmar" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Check your Wi-Fi or mobile data and try again."
+            "value" : "Confirm"
           }
         }
       }
     },
-    "Confira seu e-mail" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check your email"
-          }
-        }
-      }
-    },
-    "Confira sua conexão e tente novamente." : {
-
-    },
+    "Confira sua conexão e tente novamente." : {},
     "Confirmar alterações" : {
       "localizations" : {
         "en" : {
@@ -2471,16 +2554,7 @@
         }
       }
     },
-    "Continuar" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Continue"
-          }
-        }
-      }
-    },
+    "Continuar" : {},
     "Continuar com a Apple" : {
       "localizations" : {
         "en" : {
@@ -2576,11 +2650,12 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Creates a reminder in the Reminders app for each of your tasks and keeps both in sync. Other housemates' tasks never appear. Turning it off deletes the reminders Reveza created."
+            "value" : "Creates a reminder in the Reminders app for each of your tasks and keeps the two in sync. Other residents’ tasks don’t appear. When turned off, the reminders created by Reveza are deleted."
           }
         }
       }
     },
+    "Cria uma tarefa no cômodo escolhido, com a periodicidade do cômodo." : {},
     "Criando cômodo" : {
       "localizations" : {
         "en" : {
@@ -2591,6 +2666,7 @@
         }
       }
     },
+    "Criar ${taskName} em ${room}" : {},
     "Criar casa" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2622,12 +2698,14 @@
         }
       }
     },
-    "Criar conta" : {
+    "Criar conta" : {},
+    "Criar Conta" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Create account"
+            "value" : "Create Account"
           }
         }
       }
@@ -2673,12 +2751,13 @@
         }
       }
     },
-    "Crie uma senha nova" : {
+    "Crie uma senha nova" : {},
+    "Defina primeiro a localização da casa." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Create a new password"
+            "value" : "Set your home location first."
           }
         }
       }
@@ -2693,16 +2772,7 @@
         }
       }
     },
-    "Depois disso, você entra direto no Reveza." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "After that, you'll go straight into Reveza."
-          }
-        }
-      }
-    },
+    "Depois disso, você entra direto no Reveza." : {},
     "Descartar" : {
       "localizations" : {
         "en" : {
@@ -2855,12 +2925,25 @@
         }
       }
     },
-    "Digite seu e-mail. Vamos mandar um código para você criar uma senha nova." : {
+    "Digite seu e-mail. Vamos mandar um código para você criar uma senha nova." : {},
+    "Digite seu email para receber um código de redefinição." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Enter your email. We'll send you a code to create a new password."
+            "value" : "Enter your email to receive a reset code."
+          }
+        }
+      }
+    },
+    "Digite seu email." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter your email."
           }
         }
       }
@@ -2875,16 +2958,7 @@
         }
       }
     },
-    "Divisão justa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A fair split"
-          }
-        }
-      }
-    },
+    "Divisão justa" : {},
     "Duração do ciclo" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2896,16 +2970,17 @@
         }
       }
     },
-    "E-mail" : {
+    "e mais %lld" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Email"
+            "value" : "and %lld more"
           }
         }
       }
     },
+    "E-mail" : {},
     "E-mail e senha" : {
       "localizations" : {
         "en" : {
@@ -2916,16 +2991,7 @@
         }
       }
     },
-    "E-mail ou senha incorretos. Tente de novo ou toque em Esqueci a senha." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wrong email or password. Try again or tap Forgot password."
-          }
-        }
-      }
-    },
+    "E-mail ou senha incorretos. Tente de novo ou toque em Esqueci a senha." : {},
     "Editar" : {
       "localizations" : {
         "en" : {
@@ -2986,6 +3052,39 @@
         }
       }
     },
+    "Email" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Email"
+          }
+        }
+      }
+    },
+    "Email ou senha incorretos." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incorrect email or password."
+          }
+        }
+      }
+    },
+    "Entrar" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in"
+          }
+        }
+      }
+    },
     "Entrar com código" : {
       "localizations" : {
         "en" : {
@@ -2996,26 +3095,8 @@
         }
       }
     },
-    "Entrar com e-mail" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign in with email"
-          }
-        }
-      }
-    },
-    "Entrar com esse e-mail" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign in with this email"
-          }
-        }
-      }
-    },
+    "Entrar com e-mail" : {},
+    "Entrar com esse e-mail" : {},
     "Entrar na casa" : {
       "localizations" : {
         "en" : {
@@ -3078,12 +3159,25 @@
         }
       }
     },
-    "Entre para criar uma casa ou participar de uma que já existe." : {
+    "Entre para criar uma casa ou participar de uma que já existe." : {},
+    "Enviamos um código de confirmação para o seu e-mail. Se não chegar em alguns minutos, confira o spam ou a pasta de promoções." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign in to create a house or join one that already exists."
+            "value" : "We sent a confirmation code to your email. If it doesn't arrive in a few minutes, check your spam or promotions folder."
+          }
+        }
+      }
+    },
+    "Enviamos um código para seu email." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We sent a code to your email."
           }
         }
       }
@@ -3144,6 +3238,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Balance automatically"
+          }
+        }
+      }
+    },
+    "Erro ao solicitar redefinição. Verifique o email digitado." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't request the reset. Check the email you entered."
           }
         }
       }
@@ -3225,36 +3330,20 @@
         }
       }
     },
-    "Esqueceu a senha?" : {
+    "Esqueceu a senha?" : {},
+    "Esqueci a senha" : {},
+    "Esqueci minha senha" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Forgot your password?"
+            "value" : "I forgot my password"
           }
         }
       }
     },
-    "Esqueci a senha" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Forgot password"
-          }
-        }
-      }
-    },
-    "Esse e-mail já tem uma conta no Reveza." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This email already has a Reveza account."
-          }
-        }
-      }
-    },
+    "Esse e-mail já tem uma conta no Reveza." : {},
     "Esta conta já está confirmada. Volte e entre com sua senha." : {
       "localizations" : {
         "en" : {
@@ -3356,9 +3445,7 @@
         }
       }
     },
-    "Exibição de tarefas" : {
-
-    },
+    "Exibição de tarefas" : {},
     "Expande a seção" : {
       "localizations" : {
         "en" : {
@@ -3486,6 +3573,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Today"
+          }
+        }
+      }
+    },
+    "Horário do aviso" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notice time"
+          }
+        }
+      }
+    },
+    "Horário do resumo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summary time"
           }
         }
       }
@@ -3661,6 +3768,17 @@
         }
       }
     },
+    "Já existe uma conta com este e-mail. Volte e entre com sua senha, ou use \"Esqueci minha senha\"." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "There is already an account with this email. Go back and sign in with your password, or use \"I forgot my password\"."
+          }
+        }
+      }
+    },
     "Já tem responsável" : {
       "localizations" : {
         "en" : {
@@ -3671,16 +3789,7 @@
         }
       }
     },
-    "Já tenho uma conta" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "I already have an account"
-          }
-        }
-      }
-    },
+    "Já tenho uma conta" : {},
     "Laranja" : {
       "localizations" : {
         "en" : {
@@ -3738,7 +3847,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reminders at the right time, and everyone sees what's already done."
+            "value" : "Reminders at the right time, and everyone can see what’s already been done."
           }
         }
       }
@@ -3819,6 +3928,27 @@
         }
       }
     },
+    "Localização da casa definida neste aparelho" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home location set on this device"
+          }
+        }
+      }
+    },
+    "Login" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in"
+          }
+        }
+      }
+    },
     "Mais opções" : {
       "localizations" : {
         "en" : {
@@ -3829,19 +3959,8 @@
         }
       }
     },
-    "Mais opções do cômodo" : {
-
-    },
-    "Mandamos um código para %@. Se não chegar, olhe o spam." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "We sent a code to %@. If it doesn't arrive, check your spam folder."
-          }
-        }
-      }
-    },
+    "Mais opções do cômodo" : {},
+    "Mandamos um código para %@. Se não chegar, olhe o spam." : {},
     "Marcar como concluída" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3975,7 +4094,14 @@
       }
     },
     "Minhas Tarefas" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My Tasks"
+          }
+        }
+      }
     },
     "Mínimo de 8 caracteres, com letra maiúscula, minúscula, número e símbolo." : {
       "localizations" : {
@@ -4007,16 +4133,7 @@
         }
       }
     },
-    "Morador" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Resident"
-          }
-        }
-      }
-    },
+    "Morador" : {},
     "Morador sugerido: %@" : {
       "localizations" : {
         "en" : {
@@ -4074,6 +4191,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Shows only the current and next turn"
+          }
+        }
+      }
+    },
+    "Mostrar minhas tarefas ao chegar em casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show my tasks when I arrive at home"
           }
         }
       }
@@ -4139,22 +4266,23 @@
         }
       }
     },
-    "Não encontramos uma conta com este e-mail." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "We couldn't find an account with this email."
-          }
-        }
-      }
-    },
+    "Não encontramos uma conta com este e-mail." : {},
     "Não encontramos uma conta com este e-mail. Cadastre-se de novo." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "We couldn't find an account with this email. Sign up again."
+          }
+        }
+      }
+    },
+    "Não encontrei esse cômodo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t find this room"
           }
         }
       }
@@ -4260,6 +4388,18 @@
         }
       }
     },
+    "Não foi possível criar a tarefa: %@" : {},
+    "Não foi possível criar a tarefa. %@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t create the task. %@"
+          }
+        }
+      }
+    },
     "Não foi possível enviar" : {
       "localizations" : {
         "en" : {
@@ -4270,16 +4410,7 @@
         }
       }
     },
-    "Não foi possível excluir a conta" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn't delete the account"
-          }
-        }
-      }
-    },
+    "Não foi possível excluir a conta" : {},
     "Não foi possível falar com o servidor agora. Tente de novo em instantes." : {
       "localizations" : {
         "en" : {
@@ -4341,9 +4472,7 @@
         }
       }
     },
-    "Não foi possível verificar sua sessão" : {
-
-    },
+    "Não foi possível verificar sua sessão" : {},
     "Não há tarefas elegíveis para troca no momento." : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4518,22 +4647,23 @@
         }
       }
     },
-    "Ninguém precisa cobrar ninguém" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nobody has to chase anybody"
-          }
-        }
-      }
-    },
+    "Ninguém precisa cobrar ninguém" : {},
     "Nível de esforço" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Effort level"
+          }
+        }
+      }
+    },
+    "No dia em que o ciclo de um cômodo seu recomeça, o Reveza avisa que as próximas atividades já estão disponíveis. Os avisos são agendados no aparelho e se atualizam quando você abre o app." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On the day a cycle of one of your rooms starts over, Reveza lets you know your next activities are available. Notices are scheduled on the device and update whenever you open the app."
           }
         }
       }
@@ -4579,6 +4709,7 @@
         }
       }
     },
+    "Nome da tarefa" : {},
     "Nome do cômodo" : {
       "localizations" : {
         "en" : {
@@ -4599,6 +4730,16 @@
         }
       }
     },
+    "Notificações em casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifications at home"
+          }
+        }
+      }
+    },
     "Nova casa" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4606,6 +4747,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "New house"
+          }
+        }
+      }
+    },
+    "Nova senha" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New password"
           }
         }
       }
@@ -4627,6 +4779,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "New Task"
+          }
+        }
+      }
+    },
+    "Novo ciclo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New cycle"
+          }
+        }
+      }
+    },
+    "Novo ciclo começou" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A new cycle has started"
           }
         }
       }
@@ -4959,6 +5131,17 @@
         }
       }
     },
+    "OU" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OR"
+          }
+        }
+      }
+    },
     "Outras" : {
       "localizations" : {
         "en" : {
@@ -4975,6 +5158,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Other suggestions"
+          }
+        }
+      }
+    },
+    "Para avisos com o app fechado, permita a localização “Sempre”." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To be notified while the app is closed, allow “Always” location access."
           }
         }
       }
@@ -5137,6 +5330,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Profile"
+          }
+        }
+      }
+    },
+    "Permita o acesso à localização em Ajustes para definir a casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow location access in Settings to set your home."
           }
         }
       }
@@ -5672,9 +5875,7 @@
         }
       }
     },
-    "Reabrir" : {
-
-    },
+    "Reabrir" : {},
     "Recolhe a seção" : {
       "localizations" : {
         "en" : {
@@ -5725,12 +5926,47 @@
         }
       }
     },
-    "Redefinição de senha necessária. Toque em Esqueci a senha." : {
+    "Redefinição de senha necessária. Clique em 'Esqueci minha senha'." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You need to reset your password. Tap Forgot password."
+            "value" : "Password reset required. Tap 'I forgot my password'."
+          }
+        }
+      }
+    },
+    "Redefinição de senha necessária. Toque em Esqueci a senha." : {},
+    "Redefinição de senha necessária. Volte e toque em \"Esqueci minha senha\"." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password reset required. Go back and tap \"I forgot my password\"."
+          }
+        }
+      }
+    },
+    "Redefinir senha" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset password"
+          }
+        }
+      }
+    },
+    "Redefinir Senha" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset Password"
           }
         }
       }
@@ -5845,6 +6081,26 @@
         }
       }
     },
+    "Resumo diário" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily summary"
+          }
+        }
+      }
+    },
+    "Resumo diário das minhas tarefas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily summary of my tasks"
+          }
+        }
+      }
+    },
     "resposta" : {
       "localizations" : {
         "en" : {
@@ -5865,16 +6121,7 @@
         }
       }
     },
-    "Reveza" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reveza"
-          }
-        }
-      }
-    },
+    "Reveza" : {},
     "Rodízio" : {
       "localizations" : {
         "en" : {
@@ -6036,16 +6283,7 @@
         }
       }
     },
-    "Sair da conta?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign out?"
-          }
-        }
-      }
-    },
+    "Sair da conta?" : {},
     "Sair do cômodo" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6188,16 +6426,7 @@
         }
       }
     },
-    "Salvar e entrar" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Save and sign in"
-          }
-        }
-      }
-    },
+    "Salvar e entrar" : {},
     "Salvar ordem" : {
       "localizations" : {
         "en" : {
@@ -6285,21 +6514,12 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No access to Reminders. Allow it in Settings > Privacy & Security > Reminders."
+            "value" : "No access to Reminders. Allow it in Settings > Privacy & Security > Reminders"
           }
         }
       }
     },
-    "Sem conexão" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No connection"
-          }
-        }
-      }
-    },
+    "Sem conexão" : {},
     "Sem conexão com a internet. Tente de novo." : {
       "localizations" : {
         "en" : {
@@ -6391,26 +6611,8 @@
         }
       }
     },
-    "Senha alterada, mas não deu para entrar: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Password changed, but we couldn't sign you in: %@"
-          }
-        }
-      }
-    },
-    "Senha alterada. Volte e entre com a senha nova." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Password changed. Go back and sign in with your new password."
-          }
-        }
-      }
-    },
+    "Senha alterada, mas não deu para entrar: %@" : {},
+    "Senha alterada. Volte e entre com a senha nova." : {},
     "Senha atual" : {
       "localizations" : {
         "en" : {
@@ -6431,12 +6633,14 @@
         }
       }
     },
-    "Senha nova" : {
+    "Senha nova" : {},
+    "Senha redefinida com sucesso!" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "New password"
+            "value" : "Password reset successfully!"
           }
         }
       }
@@ -6513,16 +6717,7 @@
         }
       }
     },
-    "Seu perfil e o vínculo com o WhatsApp serão apagados e você sai da casa. Se for o último morador, a casa, os cômodos e as tarefas também serão excluídos. Não dá para desfazer." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your profile and WhatsApp link will be erased and you will leave the house. If you are the last resident, the house, rooms and tasks will be deleted too. This cannot be undone."
-          }
-        }
-      }
-    },
+    "Seu perfil e o vínculo com o WhatsApp serão apagados e você sai da casa. Se for o último morador, a casa, os cômodos e as tarefas também serão excluídos. Não dá para desfazer." : {},
     "Seus pedidos" : {
       "localizations" : {
         "en" : {
@@ -6759,6 +6954,16 @@
         }
       }
     },
+    "Tarefa %@ criada em %@." : {
+      "localizations" : {
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tarefa %1$@ criada em %2$@."
+          }
+        }
+      }
+    },
     "Tarefa apagada" : {
       "localizations" : {
         "en" : {
@@ -6842,9 +7047,6 @@
         }
       }
     },
-    "Tarefas Avulsas" : {
-
-    },
     "Tarefas do ciclo" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6908,16 +7110,7 @@
         }
       }
     },
-    "Tente de novo em instantes." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try again in a moment."
-          }
-        }
-      }
-    },
+    "Tente de novo em instantes." : {},
     "Termina %@" : {
       "localizations" : {
         "en" : {
@@ -7065,6 +7258,16 @@
         }
       }
     },
+    "Todo dia, no horário escolhido, o Reveza lista as suas tarefas pendentes. O aviso é urgente e pode aparecer mesmo com um Foco ligado, se você permitir avisos urgentes do Reveza em Ajustes. A lista se atualiza quando você abre o app." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every day, at the time you choose, Reveza lists your pending tasks. The notice is time sensitive and can come through even with a Focus on, if you allow time sensitive notifications for Reveza in Settings. The list updates whenever you open the app."
+          }
+        }
+      }
+    },
     "Todo mundo que entrar vai ver esse nome." : {
       "localizations" : {
         "en" : {
@@ -7111,6 +7314,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tap to change"
+          }
+        }
+      }
+    },
+    "Toque para ver suas tarefas." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to see your tasks."
           }
         }
       }
@@ -7289,16 +7502,17 @@
         }
       }
     },
-    "Use um e-mail que você acessa. É por ele que você recupera a senha." : {
+    "Usar minha localização atual como casa" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Use an email you can access. It's how you'll recover your password."
+            "value" : "Use my current location as home"
           }
         }
       }
     },
+    "Use um e-mail que você acessa. É por ele que você recupera a senha." : {},
     "Varrer a área" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -7336,6 +7550,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Green"
+          }
+        }
+      }
+    },
+    "Verificar Email" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verify Email"
           }
         }
       }
@@ -7386,6 +7611,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "You're not part of a house yet."
+          }
+        }
+      }
+    },
+    "Você ainda não participa de uma casa." : {},
+    "Você chegou em casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're home"
           }
         }
       }
@@ -7532,6 +7768,17 @@
         }
       }
     },
+    "Você já pode fazer login com sua nova senha." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can now sign in with your new password."
+          }
+        }
+      }
+    },
     "Você já tem um WhatsApp conectado." : {
       "localizations" : {
         "en" : {
@@ -7646,12 +7893,34 @@
         }
       }
     },
-    "Voltar para o login" : {
+    "Você tem %lld tarefas pendentes" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Back to sign in"
+            "value" : "You have %lld pending tasks"
+          }
+        }
+      }
+    },
+    "Você tem 1 tarefa pendente" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have 1 pending task"
+          }
+        }
+      }
+    },
+    "Voltar para o login" : {},
+    "Voltar para o Login" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to Sign In"
           }
         }
       }

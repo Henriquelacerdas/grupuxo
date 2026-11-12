@@ -151,12 +151,16 @@ final class AppContainer {
         )
     }
 
+    func makeGetHouseRoomsUseCase() -> GetHouseRoomsUseCase {
+        GetHouseRoomsUseCase(repository: roomRepository)
+    }
+
     func makeRefreshTaskScheduleUseCase() -> RefreshTaskScheduleUseCase {
         RefreshTaskScheduleUseCase(
             repository: taskRepository
         )
     }
-
+    
     func makeMyTasksViewModel(
         session: AppSession
     ) -> MyTasksViewModel {
@@ -185,6 +189,14 @@ final class AppContainer {
         )
     }
 
+    func makeGetHouseOverviewUseCase() -> GetHouseOverviewUseCase {
+           GetHouseOverviewUseCase(
+               roomRepository: roomRepository,
+               taskRepository: taskRepository,
+               accessRequestRepository: roomAccessRequestRepository
+           )
+       }
+    
     func makeHouseManagementViewModel(
         session: AppSession
     ) -> HouseManagementViewModel {
@@ -340,7 +352,7 @@ final class AppContainer {
         )
     }
 
-    private func makeTaskEditorViewModel(
+    func makeTaskEditorViewModel(
         draft: TaskDraft,
         session: AppSession
     ) -> TaskEditorViewModel {

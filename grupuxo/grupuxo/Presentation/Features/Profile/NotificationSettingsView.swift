@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Notificações: avisos push por tipo, a situação da permissão do iPhone e o espelho das tarefas no app Lembretes.
+/// Notificações: avisos push por tipo, lembretes agendados no aparelho, a permissão do iPhone e o espelho das tarefas no app Lembretes.
 /// Avisos diretos (pedido de troca, pedido de entrada) sempre chegam; o resto se liga e desliga aqui.
 struct NotificationSettingsView: View {
 
@@ -23,7 +23,6 @@ struct NotificationSettingsView: View {
 
             if let current = preferences.preferences {
                 Section {
-                    toggle("Quando o ciclo virar", isOn: current.cycleTurned) { $0.cycleTurned = $1 }
                     toggle("Atividade da casa", isOn: current.houseActivity) { $0.houseActivity = $1 }
                     toggle("Resumo da semana", isOn: current.weeklySummary) { $0.weeklySummary = $1 }
                 } header: {
@@ -33,6 +32,11 @@ struct NotificationSettingsView: View {
                 }
                 .disabled(preferences.isSaving)
             }
+
+            // Lembretes agendados neste aparelho (funcionam sem internet): resumo diário, virada de ciclo e chegada em casa.
+            DailyTasksNoticeSection()
+            CycleNoticeSection()
+            HomeArrivalSection()
 
             RemindersSyncSection()
         }

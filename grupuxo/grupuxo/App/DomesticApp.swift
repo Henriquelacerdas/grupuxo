@@ -18,6 +18,9 @@ struct DomesticApp: App {
         } catch {
             print("Erro ao configurar Amplify: \(error)")
         }
+
+        // Precisa existir já no lançamento: é o que recebe a chegada em casa com o app fechado.
+        HomeArrivalMonitor.shared.start()
     }
 
     var body: some Scene {

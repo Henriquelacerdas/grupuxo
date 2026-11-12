@@ -160,6 +160,9 @@ class AuthService: ObservableObject {
         }
         await ReminderLinkCleaner().removeAll()
         ReminderSyncPreference().setEnabled(false)
+        PendingTasksBadge.clear()
+        DailyTasksNoticeManager.shared.disable()
+        CycleNoticeManager.shared.disable()
         let outcome = await client.signOut()
         if outcome == .failed {
             print("Logout remoto falhou; limpando o estado local.")
