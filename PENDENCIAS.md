@@ -1,6 +1,6 @@
 # Pendências do design final (Figma "Reveza · Oficial (clicável)")
 
-Estado em 11/11/2026. Decisões do dono: em divergência o [DESIGN.md](docs/DESIGN.md) vence; foto e push entram como código + Terraform **sem apply** (CLAUDE.md).
+Estado em 12/11/2026. Decisões do dono: em divergência o [DESIGN.md](docs/DESIGN.md) vence; foto e push entram como código + Terraform **sem apply** (CLAUDE.md).
 
 ## Implementado (backend + app, com testes)
 
@@ -15,12 +15,38 @@ Bot sem "atrasada"; mensagem de código inválido; periodicidade do cômodo ocul
 | Item | Situação |
 |---|---|
 | Saída da casa/rodízio "até o fim do ciclo" | Sair do cômodo já vale na próxima segunda; sair da casa continua imediato. |
-| Rodapé da validade da troca por tipo | O texto exato está só no Figma; falta copiá-lo (o comportamento já o justifica). |
 | Esqueci a senha por link | Não se faz: o Cognito manda código (mudar exige mexer no user pool protegido). |
-| Verificação visual | As telas novas compilam e têm testes de view model/repositório, mas não foram conferidas no simulador contra o Figma. |
+| Verificação visual | Conferidos textos de todas as telas e 4 telas por imagem (12/11/2026); o layout (espaços, tipografia) das demais não foi comparado pixel a pixel. |
 | Docs | `docs/PERFIL-PENDENCIAS.md` ainda lista itens que já existem (nome, senha, férias, foto). |
 
 ## Regras da designer que ainda divergem
 
 - "Excluir" × "Apagar": padronizado em "Apagar" (tarefa, casa, conta) e "Excluir cômodo"; aguarda confirmação dela.
 - "A cada 2 meses" × 3 e 6 meses no menu de Criar Tarefa segue em aberto.
+
+## Figma × app (conferência de 12/11/2026, página "Reveza · Oficial (clicável)")
+
+Comparei os textos de todas as telas com o catálogo do app e vi por imagem Avaliar a semana, Resumo da semana, Notificações e Notificações (Ajustes). O que segue diverge do Figma e ainda não foi feito.
+
+**Falta construir**
+- **Widgets** (página "Widgets"): pequeno (lista, "o que falta", vazio) e médio (lista com prazo, cômodo + tarefas). O app não tem extensão de widget.
+- **Resumo da semana completo:** o Figma traz o período ("27 out – 2 nov"), "23 de 25 tarefas feitas na casa", "Seu cômodo" com "O QUE FOI BOM" e "O QUE PODE MELHORAR", e a seção "Casa" com o nível dos outros cômodos ("Poucas avaliações para mostrar"). O app lista só os cômodos de que a pessoa cuidou, sem a seção Casa nem o total de tarefas (exige dado novo no servidor).
+- **Tags da avaliação:** o Figma tem 8, separadas por nível: boas (Bem limpo, Organizado, No prazo, Caprichado) e a melhorar (Faltou limpar, Ficou bagunçado, Ficou pela metade, Demorou para ficar pronto). O app e o servidor têm 7 com outros nomes (Bem feito, No prazo, Organizado, Foi além, Meio às pressas, Atrasou, Faltaram detalhes). Trocar o catálogo muda o contrato (`RATING_TAGS`).
+- **Notificações em duas linhas:** o Figma mostra título e detalhe por aviso ("Julia C. aceitou a troca / Você faz Limpar a pia até domingo", "Novo ciclo na Cozinha / Você e Henrique L. até domingo", "Henrique L. mudou o esforço / Varrer o chão: Leve → Médio"). O app mostra uma frase só.
+- **Saída da casa "até o fim do ciclo":** o texto do Figma já existe, o comportamento não (a saída da casa vale na hora).
+
+**Textos diferentes (cópia direta do Figma)**
+- Rodapé de Pedir troca: "A pessoa precisa aceitar. Tarefa do ciclo: a troca vale até o fim do ciclo. Tarefa geral: fica com quem recebeu até ser feita." (o app diz só "A pessoa precisa aceitar para a troca valer.").
+- Ativar notificações (onboarding): título "Quer que o Reveza te lembre?", corpo "Avisaremos quando chegar a sua vez em um cômodo, quando alguém pedir uma troca de tarefa e, uma vez por dia, suas tarefas." e rodapé "Você pode alterar o horário e o conteúdo das notificações em Ajustes."
+- Primeiros cômodos: "Quais cômodos tem na casa?", "Marque os que entram no rodízio." e "Todos começam com rodízio toda semana e algumas tarefas sugeridas. Você pode alterar depois em cada cômodo."
+- Notificações desligadas no iPhone: "Para receber alertas de Reveza, permita as notificações do aplicativo em Ajustes."
+- Alterar senha: "A senha nova precisa ter pelo menos 8 caracteres." (o app diz "diferente da atual"); Criar conta e Nova senha: "Pelo menos 8 caracteres."
+- Casa (Ajustes) com nome vazio: acrescentar "Se você sair agora, o nome anterior será salvo."
+- Modo férias: "Você sai dos rodízios a partir do próximo ciclo e volta quando desligar."
+- WhatsApp: "No WhatsApp, o Reveza te responde quais são suas tarefas e marca como feitas. Ele só responde quando você escreve." e "Você pode conectar de novo quando quiser."
+- Convidar: "Quem entrar com este código participa do rodízio da <casa>."
+
+**Decisão da designer**
+- **Ajustes › Notificações:** o Figma tem "Lembrar das minhas tarefas" com "Horário" e, abaixo, "Quando o ciclo virar", "Atividade da casa" e "Resumo da semana". Por escolha do dono, o app usa os lembretes locais do ramo Shortcuts ("Resumo diário das minhas tarefas", "Avisar quando o ciclo virar", ambos com horário próprio), e ainda tem "Chegada em casa", "Sincronizar com o Lembretes" e os atalhos do Siri, que **não existem no Figma**. Falta a designer desenhar essas telas ou aprovar os rótulos atuais.
+- **Excluir conta:** o Figma diz "Apaga seu perfil e seu histórico, e tira você de todos os rodízios." O app diz "Apaga seu perfil e o vínculo com o WhatsApp e tira você da casa.", que descreve melhor o que acontece. Qual vale?
+- **"Esqueci a senha por link":** o Figma mostra link ("vale por 1 hora"); o app manda código (Cognito).
