@@ -40,7 +40,7 @@ const SWAP_STATUSES: readonly TaskSwapRequestStatus[] = ["pending", "accepted", 
 const NOTIFICATION_KINDS: readonly AppNotificationKind[] = [
   "taskSwapRequested", "taskSwapAccepted", "taskSwapRejected", "taskEdited", "taskDeleted", "effortChanged",
   "memberJoined", "memberLeft", "roomDeleted", "roomAccessRequested", "roomAccessApproved", "roomAccessDenied",
-  "cycleTurned", "weeklySummaryReady", "taskReminder",
+  "cycleTurned", "weeklySummaryReady",
 ];
 const FREQUENCIES = ["daily", "weekly", "monthly", "yearly"] as const;
 

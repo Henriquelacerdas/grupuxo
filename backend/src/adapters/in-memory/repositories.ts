@@ -7,7 +7,7 @@ import {
   ACCESS_CODE_ATTEMPTS, addHouseMember, createHouse, houseMemberIDs, houseMembers, joinHouseByCode, leaveHouse,
   normalizeAccessCode, removeHouseMember, renameHouse, setVacation, vacationStatus, type LeaveHouseOutcome, type VacationStatus,
 } from "../../domain/commands/houses.ts";
-import { emitCycleNotifications, emitTaskReminders, emitWeeklySummary } from "../../domain/commands/cycles.ts";
+import { emitCycleNotifications, emitWeeklySummary } from "../../domain/commands/cycles.ts";
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
 import { pendingRatings, ratingSummary, rateRoom, type PendingRating, type RatingInput, type RatingResult } from "../../domain/commands/ratings.ts";
 import {
@@ -72,11 +72,10 @@ export class InMemoryHouseRepository implements HouseRepository {
     this.store.update((s) => removeHouseMember(this.ctx, s, userID, houseID, requestedBy, at, confirmRoomDeletion));
   }
 
-  async emitScheduledNotifications(houseID: HouseID, at: Instant, reminderHours: ReadonlyMap<UserID, number> = new Map()): Promise<number> {
+  async emitScheduledNotifications(houseID: HouseID, at: Instant): Promise<number> {
     return this.store.update((s) => {
       refreshSchedule(this.ctx, s, houseID, at);
-      return emitCycleNotifications(this.ctx, s, houseID, at) + emitWeeklySummary(this.ctx, s, houseID, at) +
-        emitTaskReminders(this.ctx, s, houseID, at, reminderHours);
+      return emitCycleNotifications(this.ctx, s, houseID, at) + emitWeeklySummary(this.ctx, s, houseID, at);
     });
   }
 

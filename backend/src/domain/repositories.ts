@@ -30,7 +30,7 @@ export interface HouseRepository {
    * Avisos que dependem do tempo, para a tarefa agendada: "o ciclo virou" e "o resumo da semana está pronto".
    * Idempotente (um aviso por pessoa e ciclo). Devolve quantos criou.
    */
-  emitScheduledNotifications(houseID: HouseID, at: Instant, reminderHours?: ReadonlyMap<UserID, number>): Promise<number>;
+  emitScheduledNotifications(houseID: HouseID, at: Instant): Promise<number>;
   /** Modo férias do morador (ausência sem data de volta). */
   vacation(userID: UserID, houseID: HouseID): Promise<VacationStatus>;
   /** Liga (a partir da próxima segunda) ou desliga o modo férias; idempotente. Replaneja a escala. */

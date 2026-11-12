@@ -3,10 +3,9 @@ import { test } from "node:test";
 import { listHouseIDs } from "../src/adapters/dynamodb/house-lister.ts";
 import { createScheduledHandler } from "../src/lambdas/scheduled.ts";
 import { dynamoApiEnv, inMemoryApiEnv, type ApiEnv } from "./lambdas/api-support.ts";
-import { bodyOf, expectStatus, list, rec, text, twoHousesScenario, WEEKLY_TASK } from "./lambdas/api-routes-helpers.ts";
+import { bodyOf, expectStatus, list, rec, text, twoHousesScenario } from "./lambdas/api-routes-helpers.ts";
 import { FakeDynamoClient } from "./support/fake-dynamo-client.ts";
-import { houseID, userID } from "../src/domain/ids.ts";
-import { localDateTime } from "../src/domain/dates.ts";
+import { houseID } from "../src/domain/ids.ts";
 import { uuid } from "./support/world.ts";
 
 test("o handler agendado percorre as casas, soma os avisos e isola a que falha", async () => {
@@ -14,8 +13,7 @@ test("o handler agendado percorre as casas, soma os avisos e isola a que falha",
   const failures: string[] = [];
   const handler = createScheduledHandler({
     houseIDs: async () => [a, b, c], now: () => 7, onFailure: (d) => failures.push(d),
-    reminderHours: async () => new Map([[userID(uuid(9)), 9]]),
-    emit: async (id, at, hours) => { assert.deepEqual([...hours], [[uuid(9), 9]]); assert.equal(at, 7); if (id === b) throw new RangeError("x"); return id === a ? 2 : 3; },
+    emit: async (id, at) => { assert.equal(at, 7); if (id === b) throw new RangeError("x"); return id === a ? 2 : 3; },
   });
   assert.deepEqual(await handler({}), { houses: 3, created: 5, failures: 1 });
   assert.deepEqual(failures, ["RangeError"], "só o nome do erro");
@@ -56,29 +54,5 @@ for (const [name, make] of [["em memória", inMemoryApiEnv], ["DynamoDB", dynamo
     assert.equal(await emit(periodEnd + 3 * 24 * 3_600_000 + 1000), 0);
     const kindsAfter = [...(await kinds("ana")), ...(await kinds("bia"))];
     assert.equal(kindsAfter.filter((k) => k === "weeklySummaryReady").length, 1);
-  });
-}
-
-for (const [name, make] of [["em memória", inMemoryApiEnv], ["DynamoDB", dynamoApiEnv]] as const) {
-  test(`${name}: o lembrete diário avisa na hora escolhida quem tem tarefa pendente, uma vez por dia`, async () => {
-    const env: ApiEnv = make();
-    const { house, ids } = await twoHousesScenario(env);
-    const id = houseID(house.id);
-    const remindersOf = async (who: "ana" | "bia") =>
-      list(bodyOf(await env.call(who, "GET", "/v1/me/notifications"))["notifications"]).map(rec).filter((n) => n["kind"] === "taskReminder").length;
-    const both = (hour: number) => new Map([[userID(ids.ana), hour], [userID(ids.bia), hour]]);
-    const hour = localDateTime("America/Sao_Paulo", env.clock).hour;
-    const dayMs = 24 * 3_600_000;
-
-    assert.equal(await env.emitScheduled(id, env.clock, both(hour)), 0, "sem tarefa ninguém é lembrado");
-    expectStatus(await env.call("ana", "POST", `/v1/rooms/${house.wholeHouseRoomID}/tasks`, { body: JSON.stringify(WEEKLY_TASK) }), 201);
-
-    assert.equal(await env.emitScheduled(id, env.clock, both((hour + 1) % 24)), 0, "fora da hora escolhida");
-    assert.equal(await env.emitScheduled(id, env.clock, new Map()), 0, "quem não quer o lembrete fica de fora");
-    assert.equal(await env.emitScheduled(id, env.clock, both(hour)), 1, "só quem tem a tarefa (uma tarefa, um responsável)");
-    assert.equal(await env.emitScheduled(id, env.clock, both(hour)), 0, "mesmo dia: não duplica");
-    assert.equal((await remindersOf("ana")) + (await remindersOf("bia")), 1);
-    // No dia seguinte, na mesma hora, a tarefa ainda pendente é lembrada de novo.
-    assert.equal(await env.emitScheduled(id, env.clock + dayMs, both(hour)), 1);
   });
 }

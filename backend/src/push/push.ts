@@ -34,9 +34,9 @@ export function validPreferences(value: NotificationPreferences): boolean {
 /** Se o morador quer receber um aviso deste tipo como push. */
 export function allowsPush(preferences: NotificationPreferences, kind: AppNotificationKind): boolean {
   switch (kind) {
-    case "cycleTurned": return preferences.cycleTurned;
+    // Virada de ciclo: o app agenda o aviso no aparelho (lembrete local); o servidor guarda o aviso mas não manda push.
+    case "cycleTurned": return false;
     case "weeklySummaryReady": return preferences.weeklySummary;
-    case "taskReminder": return preferences.remindTasks;
     case "taskEdited": case "taskDeleted": case "effortChanged": case "memberJoined": case "memberLeft": case "roomDeleted":
       return preferences.houseActivity;
     case "taskSwapRequested": case "taskSwapAccepted": case "taskSwapRejected":

@@ -5730,23 +5730,6 @@
         }
       }
     },
-    "push.taskReminder" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You have tasks to do today."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Você tem tarefas para fazer hoje."
-          }
-        }
-      }
-    },
     "push.weeklySummaryReady" : {
       "extractionState" : "stale",
       "localizations" : {

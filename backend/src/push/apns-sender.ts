@@ -37,7 +37,7 @@ export function pushArguments(message: PushMessage): { readonly suffix: string; 
   switch (message.kind) {
     case "memberJoined": case "memberLeft": case "cycleTurned": case "roomAccessApproved": case "roomAccessDenied":
       return { suffix: "", args: [subject] };
-    case "weeklySummaryReady": case "taskReminder": case "taskSwapRequested": case "taskSwapAccepted": case "taskSwapRejected":
+    case "weeklySummaryReady": case "taskSwapRequested": case "taskSwapAccepted": case "taskSwapRejected":
       return { suffix: "", args: [] };
     case "taskEdited": case "taskDeleted": case "effortChanged": case "roomDeleted": case "roomAccessRequested":
       return message.actorName === null ? { suffix: ".anon", args: [subject] } : { suffix: "", args: [message.actorName, subject] };
