@@ -409,10 +409,8 @@ export function decodeRoomRating(item: DynamoItem): RoomRating {
   return decoding(() => ({
     roomID: roomID(str(item, "roomID")), periodStart: num(item, "periodStart"), raterID: userID(str(item, "raterID")),
     level: oneOf(item, "level", RATING_LEVELS),
-    tags: list(item, "tags").map((value) => {
-      const tag = RATING_TAGS.find((candidate) => candidate === value);
-      return tag ?? invalid();
-    }),
+    // Tag que saiu do catálogo (avaliações gravadas antes de 12/11/2026) é descartada, não derruba a leitura.
+    tags: list(item, "tags").flatMap((value) => RATING_TAGS.filter((candidate) => candidate === value)),
     ratedAt: num(item, "ratedAt"),
   }));
 }

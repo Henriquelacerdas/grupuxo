@@ -1,7 +1,7 @@
 import { at, lastWhere } from "../arrays.ts";
 import type { Instant } from "../dates.ts";
 import {
-  isCurrentMember, RATING_LEVELS, RATING_TAGS, type Room, type RoomRating, type RoomRatingLevel, type RoomRatingTag,
+  isCurrentMember, RATING_LEVELS, RATING_TAGS, tagMatchesLevel, type Room, type RoomRating, type RoomRatingLevel, type RoomRatingTag,
   type RoomScheduleVersion,
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
@@ -123,7 +123,10 @@ export function rateRoom(
   ) {
     throw new DomainError("taskUnavailable");
   }
-  if (!RATING_LEVELS.includes(input.level) || !input.tags.every((tag) => RATING_TAGS.includes(tag))) {
+  if (
+    !RATING_LEVELS.includes(input.level) ||
+    !input.tags.every((tag) => RATING_TAGS.includes(tag) && tagMatchesLevel(tag, input.level))
+  ) {
     throw new DomainError("invalidRating");
   }
   const tags = RATING_TAGS.filter((tag) => input.tags.includes(tag)); // ordem do catálogo, sem repetição

@@ -145,8 +145,11 @@ struct RateWeekSheet: View {
                 }
             }
 
-            if draft.level != nil {
-                FlowChips(items: RatingTag.allCases, selected: draft.tags) { tag in
+            if let level = draft.level {
+                Text(WeekRatingText.tagsQuestion(for: level))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                FlowChips(items: RatingTag.options(for: level), selected: draft.tags) { tag in
                     viewModel.toggle(tag, for: item.roomID)
                 }
             }

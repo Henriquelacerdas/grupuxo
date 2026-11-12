@@ -301,17 +301,19 @@ export function roomRoutes(name: string, make: ApiEnvFactory): void {
     assert.deepEqual(await pending("caio"), [], "outra casa não vê nada");
 
     // Entradas inválidas e acessos indevidos.
-    const good = { periodStart, level: "great", tags: ["wellDone", "onTime"] };
+    const good = { periodStart, level: "great", tags: ["spotless", "onTime"] };
     expectError(await rate(rater, { ...good, level: "otimo" }), 400, "bad_request");
     expectError(await rate(rater, { ...good, tags: ["inventada"] }), 400, "bad_request");
     expectError(await rate(rater, { ...good, periodStart: "ontem" }), 400, "bad_request");
-    expectError(await rate(rater, { ...good, tags: "wellDone" }), 400, "bad_request");
+    expectError(await rate(rater, { ...good, tags: "spotless" }), 400, "bad_request");
+    expectError(await rate(rater, { ...good, tags: ["messy"] }), 400, "invalid_rating"); // tag de melhorar com nível bom
+    expectError(await rate(rater, { ...good, level: "needsWork" }), 400, "invalid_rating"); // tag de elogio com "precisa melhorar"
     expectError(await rate(responsible, good), 403, "task_unavailable");
     expectError(await rate(rater, { ...good, periodStart: new Date(periodEnd).toISOString() }), 403, "task_unavailable");
     expectError(await rate("caio", good), 404, "not_found");
 
     // Avaliar: 204; refazer dentro da janela substitui; some da lista de pendentes.
-    assert.equal((await rate(rater, { periodStart, level: "needsWork", tags: ["late"] })).statusCode, 204);
+    assert.equal((await rate(rater, { periodStart, level: "needsWork", tags: ["messy"] })).statusCode, 204);
     assert.equal((await rate(rater, good)).statusCode, 204);
     assert.deepEqual(await pending(rater), []);
     // Com 1 avaliação e a janela aberta, o resultado ainda não sai; para quem não cuidou, nunca.

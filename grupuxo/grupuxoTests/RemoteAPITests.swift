@@ -802,7 +802,7 @@ struct RemoteRepositoryTests {
         ]}
         """
         await server.on("GET /v1/me/ratings/pending", body: pending)
-        await server.on("GET /v1/me/ratings/summary", body: #"{"summary":[{"roomID":"\#(kitchen.apiString)","roomName":"Cozinha","periodStart":"2026-10-12T03:00:00.000Z","periodEnd":"2026-10-19T03:00:00.000Z","level":"great","tags":["wellDone"]}]}"#)
+        await server.on("GET /v1/me/ratings/summary", body: #"{"summary":[{"roomID":"\#(kitchen.apiString)","roomName":"Cozinha","periodStart":"2026-10-12T03:00:00.000Z","periodEnd":"2026-10-19T03:00:00.000Z","level":"great","tags":["spotless"]}]}"#)
         await server.on("POST /v1/rooms/\(kitchen.apiString)/ratings", status: 204, body: "")
         let repository = RemoteRatingRepository(api: client(server))
         let model = await WeekRatingViewModel(
@@ -812,19 +812,20 @@ struct RemoteRepositoryTests {
         await model.load()
         #expect(await model.pending.map(\.roomName) == ["Cozinha", "Banheiro"])
         #expect(await model.summary.first?.level == .great)
-        #expect(await model.summary.first?.tags == [.wellDone])
+        #expect(await model.summary.first?.tags == [.spotless])
         #expect(await !model.canSubmit, "sem nenhum nível escolhido, nada a enviar")
 
         await model.select(.great, for: kitchen)
         await model.toggle(.onTime, for: kitchen)
-        await model.toggle(.wellDone, for: kitchen)
+        await model.toggle(.spotless, for: kitchen)
         await model.toggle(.onTime, for: kitchen) // desmarca
+        await model.toggle(.messy, for: kitchen) // tag de melhorar não vale com nível bom
         #expect(await model.canSubmit)
         #expect(await model.submit())
         let post = try #require(await server.keys().firstIndex(of: "POST /v1/rooms/\(kitchen.apiString)/ratings"))
         #expect(await server.string("level", inBody: post) == "great")
         #expect(await server.string("periodStart", inBody: post) == "2026-10-12T03:00:00.000Z")
-        #expect(await server.strings("tags", inBody: post) == ["wellDone"])
+        #expect(await server.strings("tags", inBody: post) == ["spotless"])
         #expect(await server.keys().filter { $0.hasPrefix("POST") }.count == 1, "o Banheiro não foi avaliado, então não vai ao servidor")
     }
 

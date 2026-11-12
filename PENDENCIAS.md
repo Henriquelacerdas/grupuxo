@@ -31,9 +31,10 @@ Comparei os textos de todas as telas com o catálogo do app e vi por imagem Aval
 **Falta construir**
 - **Widgets** (página "Widgets"): pequeno (lista, "o que falta", vazio) e médio (lista com prazo, cômodo + tarefas). O app não tem extensão de widget.
 - **Resumo da semana completo:** o Figma traz o período ("27 out – 2 nov"), "23 de 25 tarefas feitas na casa", "Seu cômodo" com "O QUE FOI BOM" e "O QUE PODE MELHORAR", e a seção "Casa" com o nível dos outros cômodos ("Poucas avaliações para mostrar"). O app lista só os cômodos de que a pessoa cuidou, sem a seção Casa nem o total de tarefas (exige dado novo no servidor).
-- **Tags da avaliação:** o Figma tem 8, separadas por nível: boas (Bem limpo, Organizado, No prazo, Caprichado) e a melhorar (Faltou limpar, Ficou bagunçado, Ficou pela metade, Demorou para ficar pronto). O app e o servidor têm 7 com outros nomes (Bem feito, No prazo, Organizado, Foi além, Meio às pressas, Atrasou, Faltaram detalhes). Trocar o catálogo muda o contrato (`RATING_TAGS`).
 - **Notificações em duas linhas:** o Figma mostra título e detalhe por aviso ("Julia C. aceitou a troca / Você faz Limpar a pia até domingo", "Novo ciclo na Cozinha / Você e Henrique L. até domingo", "Henrique L. mudou o esforço / Varrer o chão: Leve → Médio"). O app mostra uma frase só.
 - **Saída da casa "até o fim do ciclo":** o texto do Figma já existe, o comportamento não (a saída da casa vale na hora).
+
+**Tags da avaliação (12/11/2026):** as 8 do Figma, 4 de elogio (níveis Bom e Ótimo) e 4 de melhoria (Precisa melhorar); o servidor recusa tag do lado errado do nível e descarta, na leitura, as tags do catálogo antigo.
 
 **Textos do Figma aplicados em 12/11/2026:** rodapé de Pedir troca, Ativar notificações (título, corpo e rodapé), Primeiros cômodos (título, subtítulo e rodapé), notificações desligadas no iPhone, nome da casa vazio e modo férias. "Convidar" já estava igual.
 

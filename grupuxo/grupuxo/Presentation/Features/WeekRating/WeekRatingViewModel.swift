@@ -53,11 +53,14 @@ final class WeekRatingViewModel: ObservableObject {
     func select(_ level: RatingLevel, for roomID: Room.ID) {
         var draft = draft(for: roomID)
         draft.level = level
+        // Cada nível tem as suas tags: ao trocar de lado, as marcadas antes saem.
+        draft.tags = draft.tags.filter { RatingTag.options(for: level).contains($0) }
         drafts[roomID] = draft
     }
 
     func toggle(_ tag: RatingTag, for roomID: Room.ID) {
         var draft = draft(for: roomID)
+        guard let level = draft.level, RatingTag.options(for: level).contains(tag) else { return }
         if draft.tags.contains(tag) { draft.tags.remove(tag) } else { draft.tags.insert(tag) }
         drafts[roomID] = draft
     }

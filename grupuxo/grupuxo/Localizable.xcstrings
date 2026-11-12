@@ -1766,16 +1766,6 @@
         }
       }
     },
-    "Atrasou" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ran late"
-          }
-        }
-      }
-    },
     "Atual" : {
       "localizations" : {
         "en" : {
@@ -1862,16 +1852,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bathroom"
-          }
-        }
-      }
-    },
-    "Bem feito" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Well done"
           }
         }
       }
@@ -3476,16 +3456,6 @@
         }
       }
     },
-    "Faltaram detalhes" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Missed some spots"
-          }
-        }
-      }
-    },
     "Fazer isso depois" : {
       "localizations" : {
         "en" : {
@@ -3533,16 +3503,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Filter tasks"
-          }
-        }
-      }
-    },
-    "Foi além" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Went the extra mile"
           }
         }
       }
@@ -4008,16 +3968,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Medium"
-          }
-        }
-      }
-    },
-    "Meio às pressas" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A bit rushed"
           }
         }
       }
@@ -6816,12 +6766,12 @@
         }
       }
     },
-    "Sua conta" : {
+    "Conta, foto e nome" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your account"
+            "value" : "Account, photo and name"
           }
         }
       }
@@ -7944,6 +7894,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "The house needs a name. If you leave now, the previous name will be saved."
+          }
+        }
+      }
+    },
+    "Bem limpo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotless"
+          }
+        }
+      }
+    },
+    "Caprichado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done with care"
+          }
+        }
+      }
+    },
+    "Faltou limpar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missed some cleaning"
+          }
+        }
+      }
+    },
+    "Ficou bagunçado" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left messy"
+          }
+        }
+      }
+    },
+    "Ficou pela metade" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Left half done"
+          }
+        }
+      }
+    },
+    "Demorou para ficar pronto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Took too long"
+          }
+        }
+      }
+    },
+    "O que pode melhorar? (opcional)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What could be better? (optional)"
+          }
+        }
+      }
+    },
+    "O que foi bom? (opcional)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What went well? (optional)"
           }
         }
       }

@@ -1,5 +1,6 @@
 import Foundation
 import GrupuxoDomain
+import SwiftUI
 
 /// Textos dos níveis e das tags da avaliação (frases completas no catálogo; sem estrelas nem pontuação).
 enum WeekRatingText {
@@ -12,6 +13,11 @@ enum WeekRatingText {
         }
     }
 
+    /// Pergunta acima das tags: elogio para bom e ótimo, melhoria para "precisa melhorar".
+    static func tagsQuestion(for level: RatingLevel) -> LocalizedStringKey {
+        level == .needsWork ? "O que pode melhorar? (opcional)" : "O que foi bom? (opcional)"
+    }
+
     static func systemImage(_ level: RatingLevel) -> String {
         switch level {
         case .needsWork: "hand.thumbsdown"
@@ -22,13 +28,14 @@ enum WeekRatingText {
 
     static func title(_ tag: RatingTag) -> String {
         switch tag {
-        case .wellDone: String(localized: "Bem feito")
-        case .onTime: String(localized: "No prazo")
+        case .spotless: String(localized: "Bem limpo")
         case .tidy: String(localized: "Organizado")
-        case .wentTheExtraMile: String(localized: "Foi além")
-        case .rushed: String(localized: "Meio às pressas")
-        case .late: String(localized: "Atrasou")
-        case .missedSpots: String(localized: "Faltaram detalhes")
+        case .onTime: String(localized: "No prazo")
+        case .careful: String(localized: "Caprichado")
+        case .notCleaned: String(localized: "Faltou limpar")
+        case .messy: String(localized: "Ficou bagunçado")
+        case .halfDone: String(localized: "Ficou pela metade")
+        case .tookTooLong: String(localized: "Demorou para ficar pronto")
         }
     }
 

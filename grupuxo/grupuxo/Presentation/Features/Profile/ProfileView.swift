@@ -120,7 +120,7 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
                         Text(me.name)
                             .font(.title3.bold())
-                        Text("Sua conta")
+                        Text("Conta, foto e nome")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }

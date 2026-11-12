@@ -23,10 +23,10 @@ test("o nível é a média arredondada dos três níveis", () => {
 
 test("uma tag só aparece se duas pessoas a marcaram, na ordem do catálogo e sem contagem", () => {
   const result = aggregateRatings([
-    rating(1, "good", ["late", "wellDone"]),
-    rating(2, "good", ["wellDone", "tidy", "late"]),
+    rating(1, "good", ["onTime", "spotless"]),
+    rating(2, "good", ["spotless", "tidy", "onTime"]),
     rating(3, "good", ["tidy"]),
   ]);
-  assert.deepEqual(result?.tags, ["wellDone", "tidy", "late"]);
-  assert.deepEqual(aggregateRatings([rating(1, "good", ["wellDone"])])?.tags, [], "uma voz só não vira tag");
+  assert.deepEqual(result?.tags, ["spotless", "tidy", "onTime"]);
+  assert.deepEqual(aggregateRatings([rating(1, "good", ["spotless"])])?.tags, [], "uma voz só não vira tag");
 });

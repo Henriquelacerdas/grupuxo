@@ -7,15 +7,30 @@ public enum RatingLevel: String, CaseIterable, Codable, Sendable {
     case great
 }
 
-/// Tags opcionais e genéricas da avaliação (catálogo fixo; o servidor recusa o resto).
+/// Tags opcionais e genéricas da avaliação (catálogo fixo; o servidor recusa o resto). As quatro primeiras dizem o que
+/// foi bom (níveis bom e ótimo); as outras quatro, o que pode melhorar (nível "precisa melhorar").
 public enum RatingTag: String, CaseIterable, Codable, Sendable {
-    case wellDone
-    case onTime
+    case spotless
     case tidy
-    case wentTheExtraMile
-    case rushed
-    case late
-    case missedSpots
+    case onTime
+    case careful
+    case notCleaned
+    case messy
+    case halfDone
+    case tookTooLong
+
+    /// Tag de "o que pode melhorar".
+    public var isImprovement: Bool {
+        switch self {
+        case .notCleaned, .messy, .halfDone, .tookTooLong: true
+        case .spotless, .tidy, .onTime, .careful: false
+        }
+    }
+
+    /// As tags que o nível aceita: melhorar para "precisa melhorar", elogio para os demais.
+    public static func options(for level: RatingLevel) -> [RatingTag] {
+        allCases.filter { $0.isImprovement == (level == .needsWork) }
+    }
 }
 
 /// Um cômodo cujo ciclo acabou e que o morador pode avaliar até `windowEnd` ("Termina terça").

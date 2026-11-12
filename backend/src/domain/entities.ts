@@ -256,9 +256,26 @@ export interface RoomAccessRequest {
 export const RATING_LEVELS = ["needsWork", "good", "great"] as const;
 export type RoomRatingLevel = (typeof RATING_LEVELS)[number];
 
-/** Tags opcionais e genéricas da avaliação (catálogo fixo; sem texto livre). */
-export const RATING_TAGS = ["wellDone", "onTime", "tidy", "wentTheExtraMile", "rushed", "late", "missedSpots"] as const;
+/**
+ * Tags opcionais e genéricas da avaliação (catálogo fixo; sem texto livre; docs/DESIGN.md). As quatro primeiras dizem o
+ * que foi bom (níveis `good` e `great`), as outras quatro o que pode melhorar (nível `needsWork`).
+ */
+export const RATING_TAGS = [
+  "spotless", "tidy", "onTime", "careful", "notCleaned", "messy", "halfDone", "tookTooLong",
+] as const;
 export type RoomRatingTag = (typeof RATING_TAGS)[number];
+
+const IMPROVEMENT_TAGS: readonly RoomRatingTag[] = ["notCleaned", "messy", "halfDone", "tookTooLong"];
+
+/** `true` para as tags de "o que pode melhorar"; as demais são de "o que foi bom". */
+export function isImprovementTag(tag: RoomRatingTag): boolean {
+  return IMPROVEMENT_TAGS.includes(tag);
+}
+
+/** Cada nível só aceita as tags do seu lado: `needsWork` as de melhorar, `good` e `great` as de elogio. */
+export function tagMatchesLevel(tag: RoomRatingTag, level: RoomRatingLevel): boolean {
+  return isImprovementTag(tag) === (level === "needsWork");
+}
 
 /**
  * Avaliação anônima de um cômodo num ciclo. A chave natural é (cômodo, início do ciclo, quem avaliou): refazer dentro
