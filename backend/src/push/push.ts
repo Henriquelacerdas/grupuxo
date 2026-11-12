@@ -36,6 +36,7 @@ export function allowsPush(preferences: NotificationPreferences, kind: AppNotifi
   switch (kind) {
     case "cycleTurned": return preferences.cycleTurned;
     case "weeklySummaryReady": return preferences.weeklySummary;
+    case "taskReminder": return preferences.remindTasks;
     case "taskEdited": case "taskDeleted": case "effortChanged": case "memberJoined": case "memberLeft": case "roomDeleted":
       return preferences.houseActivity;
     case "taskSwapRequested": case "taskSwapAccepted": case "taskSwapRejected":

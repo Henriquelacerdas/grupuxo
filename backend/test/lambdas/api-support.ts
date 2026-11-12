@@ -17,7 +17,7 @@ import type { IdentityRemover } from "../../src/auth/identity-remover.ts";
 import type { UserDirectory } from "../../src/auth/user-directory.ts";
 import type { CommandContext } from "../../src/domain/commands/context.ts";
 import type { Instant } from "../../src/domain/dates.ts";
-import type { HouseID } from "../../src/domain/ids.ts";
+import type { HouseID, UserID } from "../../src/domain/ids.ts";
 import { emptyStoreState } from "../../src/domain/store-state.ts";
 import { createApiHandler, type ApiDependencies } from "../../src/lambdas/api.ts";
 import type { HttpApiResult } from "../../src/lambdas/events.ts";
@@ -83,7 +83,7 @@ export interface ApiEnv {
   readonly photos: InMemoryPhotoStore;
   readonly push: InMemoryPushDirectory;
   /** Roda o que a tarefa agendada roda numa casa, no instante `at`. */
-  emitScheduled(houseID: HouseID, at: Instant): Promise<number>;
+  emitScheduled(houseID: HouseID, at: Instant, reminderHours?: ReadonlyMap<UserID, number>): Promise<number>;
   /** Relógio do servidor (mutável). */
   clock: Instant;
   call(who: Who | null, method: string, path: string, options?: CallOptions): Promise<HttpApiResult>;
@@ -120,7 +120,7 @@ function assemble(
     identities,
     photos,
     push,
-    emitScheduled: (houseID, at) => base.houses.emitScheduledNotifications(houseID, at),
+    emitScheduled: (houseID, at, reminderHours) => base.houses.emitScheduledNotifications(houseID, at, reminderHours),
     get clock() { return clock.value; },
     set clock(value: Instant) { clock.value = value; },
     snapshot,

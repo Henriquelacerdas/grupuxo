@@ -219,7 +219,7 @@ export type AppNotificationKind =
   | "taskEdited" | "taskDeleted" | "effortChanged"
   | "memberJoined" | "memberLeft"
   | "roomDeleted" | "roomAccessRequested" | "roomAccessApproved" | "roomAccessDenied"
-  | "cycleTurned" | "weeklySummaryReady";
+  | "cycleTurned" | "weeklySummaryReady" | "taskReminder";
 
 /**
  * Aviso para um morador. O texto é montado pelo app a partir destes dados (idioma do aparelho), nunca gravado aqui:

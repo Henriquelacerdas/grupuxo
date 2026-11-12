@@ -66,7 +66,9 @@ test("o notificador respeita as preferências, nomeia quem fez e tira token recu
 });
 
 test("allowsPush liga cada tipo à preferência certa", () => {
-  const off = { ...DEFAULT_PREFERENCES, cycleTurned: false, houseActivity: false, weeklySummary: false };
+  const off = { ...DEFAULT_PREFERENCES, cycleTurned: false, houseActivity: false, weeklySummary: false, remindTasks: false };
+  assert.equal(allowsPush(off, "taskReminder"), false);
+  assert.equal(allowsPush(DEFAULT_PREFERENCES, "taskReminder"), true);
   assert.equal(allowsPush(off, "cycleTurned"), false);
   assert.equal(allowsPush(off, "weeklySummaryReady"), false);
   assert.equal(allowsPush(off, "memberJoined"), false);
@@ -83,6 +85,9 @@ test("JWT do APNs é ES256 verificável e o corpo só leva chaves e argumentos (
   assert.ok(createVerify("SHA256").update(`${header}.${claims}`).verify({ key: publicKey, dsaEncoding: "ieee-p1363" }, Buffer.from(signature ?? "", "base64url")));
   const payload: unknown = JSON.parse(apnsPayload({ kind: "taskEdited", actorName: "Bia", subjectName: "Louça" }));
   assert.deepEqual(payload, { aps: { alert: { "loc-key": "push.taskEdited", "loc-args": ["Bia", "Louça"] }, sound: "default" }, kind: "taskEdited" });
+  assert.deepEqual(JSON.parse(apnsPayload({ kind: "taskReminder", actorName: null, subjectName: null })), {
+    aps: { alert: { "loc-key": "push.taskReminder", "loc-args": [] }, sound: "default" }, kind: "taskReminder",
+  });
 });
 
 test("o ApnsPushSender escolhe o host pelo ambiente e traduz o status", async () => {

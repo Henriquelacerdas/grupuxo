@@ -1,10 +1,12 @@
 import { lastWhere } from "../arrays.ts";
-import type { Instant } from "../dates.ts";
-import type { HouseID } from "../ids.ts";
+import { createCalendar, localDateTime, type Instant } from "../dates.ts";
+import { isCompleted } from "../entities.ts";
+import type { HouseID, UserID } from "../ids.ts";
 import type { StoreState } from "../store-state.ts";
 import { schedulingFor, type CommandContext } from "./context.ts";
 import { houseResidentIDs, notifyAll } from "./notifications.ts";
 import { ratingSummary, responsibleAt } from "./ratings.ts";
+import { taskItems, userTasks } from "./tasks.ts";
 
 // Avisos que dependem da passagem do tempo ("o ciclo virou", "o resumo da semana está pronto"). Quem chama é a tarefa
 // agendada (EventBridge, de hora em hora); os comandos são idempotentes: repetir no mesmo ciclo não duplica aviso.
@@ -46,6 +48,33 @@ export function emitWeeklySummary(ctx: CommandContext, state: StoreState, houseI
     const since = Math.min(...results.map((r) => r.periodEnd));
     if (state.notifications.some((n) => n.kind === "weeklySummaryReady" && n.recipientUserID === userID && n.createdAt >= since)) continue;
     notifyAll(ctx, state, [userID], null, houseID, "weeklySummaryReady", date);
+    created += 1;
+  }
+  return created;
+}
+
+/**
+ * "Lembrete das tarefas": para o morador que tem tarefa sua disponível e ainda não feita, na hora que escolheu (hora de
+ * parede no fuso da casa). `reminderHours` traz só quem quer o lembrete (`remindTasks`) e tem aparelho, com o horário
+ * (0 a 23); as preferências moram fora da casa, então quem chama as lê. Um aviso por pessoa e dia (do fuso da casa):
+ * repetir a chamada na mesma hora não duplica. Sem tarefa pendente não há aviso. Devolve quantos avisos criou.
+ */
+export function emitTaskReminders(
+  ctx: CommandContext, state: StoreState, houseID: HouseID, date: Instant, reminderHours: ReadonlyMap<UserID, number>,
+): number {
+  const house = state.houses.find((h) => h.id === houseID);
+  if (house === undefined || reminderHours.size === 0) return 0;
+  const hour = localDateTime(house.timezone, date).hour;
+  const dayStart = createCalendar(house.timezone).startOfDay(date);
+  const items = taskItems(state);
+  let created = 0;
+  for (const userID of houseResidentIDs(state, houseID)) {
+    if (reminderHours.get(userID) !== hour) continue;
+    if (state.notifications.some((n) => n.kind === "taskReminder" && n.recipientUserID === userID && n.createdAt >= dayStart)) continue;
+    const pending = userTasks(state, userID, houseID, date, items)
+      .some((item) => !isCompleted(item.occurrence) && item.occurrence.availableAt <= date);
+    if (!pending) continue;
+    notifyAll(ctx, state, [userID], null, houseID, "taskReminder", date);
     created += 1;
   }
   return created;
