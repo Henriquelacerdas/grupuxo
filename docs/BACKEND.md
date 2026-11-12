@@ -762,6 +762,44 @@ Retenção (opções **obrigatórias** do construtor de cada adaptador, em segun
 Lambdas novas, sem dependências de runtime (`npm run build` gera `dist/push` e `dist/scheduled`):
 
 - **`push`** (`src/main/push.ts`, `src/lambdas/push.ts`): gatilho **DynamoDB Streams** da tabela (`stream_view_type = NEW_IMAGE`), filtrado no mapeamento a `INSERT` de `NOTIF#`. Para cada aviso novo: confere as preferências de quem recebe (`allowsPush`), manda a todos os aparelhos (`DEVICE#`) e tira o token que o APNs recusou (`400`/`410`). O servidor manda **só dados**: `loc-key` `push.<tipo>` (variante `.anon` sem quem fez) e `loc-args` na ordem fixa de `pushArguments`; o texto está no String Catalog do app. JWT ES256 com `node:crypto` (`src/push/apns-sender.ts`), HTTP/2 com `node:http2` em `src/main/apns-http2.ts`. Segredo `grupuxo/<ambiente>/apns` (sem valor no Terraform): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, `APNS_PRIVATE_KEY` (o .p8). Falha de um registro volta em `batchItemFailures`. Sem conteúdo em log.
-- **`scheduled`** (`src/main/scheduled.ts`, `src/lambdas/scheduled.ts`): regra do EventBridge `rate(1 hour)`. Para cada casa (itens `META`, por `Scan` filtrado: `DynamoClient.scan`, só aqui) renova a escala e cria, de forma idempotente (um aviso por pessoa e ciclo), `cycleTurned` ("o ciclo de X virou", para quem cuida do cômodo no ciclo novo) e `weeklySummaryReady` (para quem tem resultado liberado). Os avisos entram como `NOTIF#` e o `push` os entrega.
+- **`scheduled`** (`src/main/scheduled.ts`, `src/lambdas/scheduled.ts`): regra do EventBridge `rate(1 hour)`. Para cada casa (itens `META`, por `Scan` filtrado: `DynamoClient.scan`, só aqui) renova a escala e cria, de forma idempotente (um aviso por pessoa e ciclo), `cycleTurned` ("o ciclo de X virou", para quem cuida do cômodo no ciclo novo) e `weeklySummaryReady` (para quem tem resultado liberado). Os avisos entram como `NOTIF#` e o `push` os entrega. As casas rodam **em paralelo** (8 ao mesmo tempo) e com orçamento de 90 s (timeout da função: 120 s): ao estourar, para de começar casas, devolve `skipped` e a hora seguinte começa numa casa diferente (rotação por hora), para ninguém ficar sempre no fim. **Limite conhecido:** a listagem é um `Scan` da tabela inteira (o filtro `SK = META` só corta o que volta, não o que é lido), então o custo cresce com todos os itens de todas as casas a cada hora; o próximo passo é um índice esparso de casas (com a hora da próxima virada) e fan-out por SQS, que mexe na tabela e pede autorização.
 - **Terraform** (`infra/`): bucket `grupuxo-<env>-photos` privado e criptografado, política da `api` em `photos/*`, `PHOTOS_BUCKET`, stream da tabela, Lambdas `push` e `scheduled`, mapeamento do stream, regra e permissão do EventBridge, segredo do APNs. **Aplicado no `dev` em 12/11/2026** (`terraform apply` autorizado pelo dono; segredo do APNs gravado). Mudanças novas de infra seguem dependendo de autorização (CLAUDE.md). O app precisa do capability Push Notifications no perfil de provisionamento (`aps-environment` já está em `grupuxo.entitlements`).
 - **Lembretes no aparelho:** o resumo diário das tarefas, o aviso de virada de ciclo e a chegada em casa são agendados no próprio iPhone (notificações locais, sem servidor). Por isso `cycleTurned` não gera push (o aviso continua na lista) e `remindTasks`/`reminderHour` ficam guardados no contrato sem efeito.
+
+### Agendador em escala (desenho de referência; **não planejado**)
+
+> **Não implementar sem pedido explícito do dono.** O projeto é de aprendizado e não tem escala que justifique isto: com dezenas ou centenas de casas, o `Scan` custa centavos e termina em segundos, e o paralelismo com orçamento de tempo (já feito) basta. O desenho fica aqui só como referência para o dia em que houver milhares de casas. Riscos de fazê-lo cedo: complexidade permanente (índice, fila, Lambda, DLQ), mudança na tabela real (`apply` e varredura de migração) e falha silenciosa (`nextDueAt` errado ou ausente faz a casa deixar de receber avisos sem erro).
+
+**Problema.** A `scheduled` de hoje lista as casas por `Scan` da tabela inteira a cada hora: o filtro `SK = META` só reduz o que volta, e o custo é de todos os itens de todas as casas. Com paralelismo e orçamento de tempo (já feitos) o tempo deixou de ser o gargalo, mas o custo e a leitura total continuam crescendo com a tabela. Quase toda hora, quase nenhuma casa tem algo a avisar: os avisos só nascem na virada do ciclo de um cômodo e no fechamento da janela de avaliação.
+
+**Ideia.** Cada casa guarda no `META` o instante da **próxima coisa que pode gerar aviso** (`nextDueAt`), num índice esparso. Uma hora é só uma consulta ao índice por "casas com `nextDueAt` ≤ agora", e o custo passa a depender de quantas casas vencem naquela hora, não do tamanho da tabela.
+
+**`nextDueAt` (função pura no domínio, sem I/O).** Menor instante, depois de `agora`, entre, para cada cômodo com `calendarAnchor` e escala:
+- o fim do período corrente (o ciclo vira: `cycleTurned`);
+- o fim da janela de avaliação do período anterior (`windowEnd = periodEnd + RATING_WINDOW_DAYS`, que libera o resumo: `weeklySummaryReady`), enquanto ela estiver aberta.
+
+Sem cômodo com ciclo, não há `nextDueAt` e a casa fica fora do índice (esparso). O mesmo cálculo roda nos dois adaptadores. Resumo liberado por ter 2 avaliações (antes da janela fechar) é caso à parte: o comando que grava uma avaliação define `nextDueAt = agora`, a próxima rodada emite o aviso (idempotente) e recalcula o valor normal.
+
+**Quem grava.** O `HouseStateStore.update`, na mesma transação que já regrava o `META` (ação 0, `version + 1`): depois de rodar o comando, chama a função acima sobre o estado final e grava (ou remove) os atributos do índice. Nenhuma regra nova no adaptador, só a chamada à função do domínio. Toda escrita da casa mantém o valor em dia; a rodada da `scheduled` o avança para a próxima fronteira.
+
+**Modelo (proposto para a seção 4).**
+
+| Item | `PK` | `SK` | Atributos novos | Para quê |
+| --- | --- | --- | --- | --- |
+| Casa (`META`) | `HOUSE#<id>` | `META` | `GSI2PK = DUE#<shard>`, `GSI2SK = <nextDueAt em ms, 15 dígitos>#<houseID>` (ausentes sem `nextDueAt`) | Índice esparso `GSI2` das casas com algo a avisar |
+
+- `shard` = `hash(houseID) mod 16` (16 partições de índice, para que as escritas da virada de segunda-feira não concentrem numa chave só). Consulta por shard com `GSI2SK <= <agora>`, `ProjectionExpression` só do `PK`; projeção do índice `KEYS_ONLY`.
+- Índice novo na tabela (Terraform, `PAY_PER_REQUEST`): criar índice em tabela existente é online, **mas é mudança na tabela real e exige autorização do dono** (CLAUDE.md).
+
+**Fan-out.**
+1. `scheduled` (EventBridge, hora em hora) vira **coordenadora**: para cada shard consulta o `GSI2` até `agora` e envia os `houseID` para uma fila SQS padrão (lotes de 10 mensagens, cada uma com até 25 casas). Sem I/O de casa, termina em segundos.
+2. Nova Lambda `scheduled-worker` consome a fila: para cada casa chama o `emitScheduledNotifications` de hoje (idempotente; recalcula `nextDueAt`). Falha → SQS repete → DLQ com alarme. A concorrência máxima da fonte de eventos (`scaling_config.maximum_concurrency`) é o freio que protege o DynamoDB no pico da segunda-feira.
+3. Mensagem duplicada ou casa repetida entre rodadas é inofensiva (idempotência por pessoa e ciclo; o índice só mostra a casa de novo se `nextDueAt` ainda vencer).
+
+**Porta e testes.** Port `ScheduledHouses.dueAt(at, cursor)` (casas vencidas até `at`, paginado), com adaptador em memória (calcula pela função pura) e DynamoDB (`GSI2`), os dois sob o mesmo teste de contrato. Testes: `nextDueAt` por cenário (primeiro ciclo, virada, janela aberta e fechada, férias, sem escala, mudança de periodicidade, fuso e horário de verão), índice mantido por todo comando que escreve a casa, casa sem `nextDueAt` fora do índice, coordenadora com cliente falso, `scheduled-worker` com falha e repetição.
+
+**Migração (precisa de autorização).** Casas existentes não têm os atributos. Passos: (1) `terraform apply` do índice; (2) uma varredura única (`tools/`, descartável) que grava `GSI2PK/GSI2SK` em cada `META`; (3) só então publicar a coordenadora. Enquanto isso, a `scheduled` atual (Scan) continua valendo. Casa sem atributo é invisível ao índice: mitigação = a própria escrita da casa corrige o valor, e uma métrica compara, por amostra, casas com e sem `nextDueAt`.
+
+**Alternativas descartadas.** EventBridge Scheduler por casa e ciclo (milhões de agendas, atualizadas a cada mudança de escala; cota de 1 milhão por conta); TTL do DynamoDB como relógio (atraso de até 48 h); `Scan` paralelo por segmentos (continua lendo a tabela toda).
+
+**Decisões para o dono.** (a) Aprovar o índice `GSI2` e a fila na tabela/conta reais, e quando fazer o `apply` e a varredura; (b) 16 shards e lotes de 25 casas servem para a escala-alvo (centenas de milhares de casas), ajustáveis; (c) o aviso de resumo por 2 avaliações continua com atraso de até 1 h (rodada seguinte), como hoje.

@@ -5,6 +5,10 @@ import { houseAdapters } from "./dynamo-adapters.ts";
 import { dynamoClient, environment, lazyHandler, now } from "./runtime.ts";
 
 // Lambda `scheduled` (regra do EventBridge a cada hora). Ambiente: `TABLE_NAME`.
+// O orçamento deixa folga para o timeout da função (120 s em infra/lambdas.tf): a última casa começada ainda termina.
+const CONCURRENCY = 8;
+const TIME_BUDGET_MS = 90_000;
+
 export const handler = lazyHandler(async () => {
   const settings = parsePushSettings({ SECRET_ID: "-", ...environment() });
   const client = dynamoClient(settings.tableName);
@@ -13,6 +17,8 @@ export const handler = lazyHandler(async () => {
     houseIDs: () => listHouseIDs(client),
     emit: (houseID, at) => houses.emitScheduledNotifications(houseID, at),
     now,
+    concurrency: CONCURRENCY,
+    timeBudgetMs: TIME_BUDGET_MS,
     onFailure: (description) => { process.stderr.write(`scheduled: casa falhou: ${description}\n`); },
   });
 });

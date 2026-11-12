@@ -12,11 +12,69 @@ test("o handler agendado percorre as casas, soma os avisos e isola a que falha",
   const a = houseID(uuid(1)), b = houseID(uuid(2)), c = houseID(uuid(3));
   const failures: string[] = [];
   const handler = createScheduledHandler({
-    houseIDs: async () => [a, b, c], now: () => 7, onFailure: (d) => failures.push(d),
+    houseIDs: async () => [a, b, c], now: () => 7, onFailure: (d) => failures.push(d), concurrency: 1,
     emit: async (id, at) => { assert.equal(at, 7); if (id === b) throw new RangeError("x"); return id === a ? 2 : 3; },
   });
-  assert.deepEqual(await handler({}), { houses: 3, created: 5, failures: 1 });
+  assert.deepEqual(await handler({}), { houses: 3, created: 5, failures: 1, skipped: 0 });
   assert.deepEqual(failures, ["RangeError"], "só o nome do erro");
+});
+
+test("o handler agendado processa as casas em paralelo, sem passar do limite de concorrência", async () => {
+  const ids = Array.from({ length: 20 }, (_, n) => houseID(uuid(n + 1)));
+  let running = 0, peak = 0;
+  const seen = new Set<string>();
+  const handler = createScheduledHandler({
+    houseIDs: async () => ids, now: () => 0, onFailure: () => {}, concurrency: 4,
+    emit: async (id) => {
+      running += 1; peak = Math.max(peak, running); seen.add(id);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      running -= 1;
+      return 1;
+    },
+  });
+  assert.deepEqual(await handler({}), { houses: 20, created: 20, failures: 0, skipped: 0 });
+  assert.equal(seen.size, 20, "cada casa uma vez");
+  assert.equal(peak, 4, "usa toda a concorrência e não passa dela");
+});
+
+test("sem casas, o handler agendado não faz nada", async () => {
+  const handler = createScheduledHandler({ houseIDs: async () => [], now: () => 0, onFailure: () => {}, concurrency: 8, emit: async () => 1 });
+  assert.deepEqual(await handler({}), { houses: 0, created: 0, failures: 0, skipped: 0 });
+});
+
+test("a concorrência do handler agendado precisa ser um inteiro positivo", () => {
+  for (const concurrency of [0, -1, 1.5, Number.NaN]) {
+    assert.throws(() => createScheduledHandler({ houseIDs: async () => [], now: () => 0, onFailure: () => {}, concurrency, emit: async () => 0 }), RangeError);
+  }
+});
+
+test("estourado o orçamento de tempo, o handler agendado para de começar casas e conta as que ficaram", async () => {
+  const ids = Array.from({ length: 10 }, (_, n) => houseID(uuid(n + 1)));
+  let clock = 0;
+  const done: string[] = [];
+  const handler = createScheduledHandler({
+    houseIDs: async () => ids, now: () => clock, onFailure: () => {}, concurrency: 1, timeBudgetMs: 25,
+    emit: async (id) => { done.push(id); clock += 10; return 0; },
+  });
+  // Começa em 0, 10 e 20 (< 25); no 30 o orçamento acabou.
+  assert.deepEqual(await handler({}), { houses: 10, created: 0, failures: 0, skipped: 7 });
+  assert.equal(done.length, 3);
+});
+
+test("o handler agendado começa numa casa diferente a cada hora, para ninguém ficar sempre no fim da fila", async () => {
+  const ids = Array.from({ length: 5 }, (_, n) => houseID(uuid(n + 1)));
+  const firstOf = async (hour: number): Promise<string | undefined> => {
+    const order: string[] = [];
+    await createScheduledHandler({
+      houseIDs: async () => ids, now: () => hour * 3_600_000 + 5, onFailure: () => {}, concurrency: 1,
+      emit: async (id) => { order.push(id); return 0; },
+    })({});
+    assert.equal(new Set(order).size, 5, "todas, uma vez");
+    return order[0];
+  };
+  const starts = await Promise.all([0, 1, 2, 3, 4, 5].map(firstOf));
+  assert.equal(new Set(starts.slice(0, 5)).size, 5, "cinco horas seguidas, cinco inícios diferentes");
+  assert.equal(starts[5], starts[0], "e volta ao começo");
 });
 
 test("listHouseIDs enumera só os itens META, em todas as páginas", async () => {
