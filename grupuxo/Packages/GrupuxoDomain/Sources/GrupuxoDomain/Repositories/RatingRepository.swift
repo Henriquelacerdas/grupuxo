@@ -9,6 +9,6 @@ public protocol RatingRepository: Sendable {
     /// Grava ou refaz a avaliação; fecha a janela depois de 2 dias.
     func rate(_ choice: RoomRatingChoice, by userID: User.ID) async throws
 
-    /// Resultados liberados dos cômodos de que o morador cuidou no ciclo que acabou.
-    func summary(in houseID: House.ID, for userID: User.ID) async throws -> [RatingResult]
+    /// Resumo da semana: período, tarefas feitas e os resultados liberados (os cômodos do morador e os da casa).
+    func summary(in houseID: House.ID, for userID: User.ID) async throws -> WeekSummary
 }

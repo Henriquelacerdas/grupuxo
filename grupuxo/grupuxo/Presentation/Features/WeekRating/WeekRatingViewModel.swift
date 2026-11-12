@@ -13,7 +13,7 @@ final class WeekRatingViewModel: ObservableObject {
     }
 
     @Published private(set) var pending: [PendingRating] = []
-    @Published private(set) var summary: [RatingResult] = []
+    @Published private(set) var summary: WeekSummary = .empty
     @Published private(set) var drafts: [Room.ID: Draft] = [:]
     @Published private(set) var isSaving = false
     @Published var errorMessage: String?
@@ -21,7 +21,7 @@ final class WeekRatingViewModel: ObservableObject {
     private let getPending: GetPendingRatingsUseCase
     private let rate: RateRoomsUseCase
     private let getSummary: GetRatingSummaryUseCase
-    private let userID: User.ID
+    let userID: User.ID
     private let houseID: House.ID
 
     init(
@@ -38,12 +38,12 @@ final class WeekRatingViewModel: ObservableObject {
     /// Falha aqui não atrapalha Minhas tarefas: a linha só não aparece.
     func load() async {
         pending = (try? await getPending(houseID: houseID, userID: userID)) ?? []
-        summary = (try? await getSummary(houseID: houseID, userID: userID)) ?? []
+        summary = (try? await getSummary(houseID: houseID, userID: userID)) ?? .empty
         drafts = drafts.filter { entry in pending.contains { $0.roomID == entry.key } }
     }
 
     var hasPending: Bool { !pending.isEmpty }
-    var hasSummary: Bool { !summary.isEmpty }
+    var hasSummary: Bool { summary.hasResultForMyRooms }
 
     /// "Termina terça": o fim da janela de avaliação mais próxima.
     var closesAt: Date? { pending.map(\.windowEnd).min() }

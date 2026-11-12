@@ -1,7 +1,7 @@
 import { at, lastWhere } from "../arrays.ts";
-import type { Instant } from "../dates.ts";
+import { createCalendar, type Instant } from "../dates.ts";
 import {
-  isCurrentMember, RATING_LEVELS, RATING_TAGS, tagMatchesLevel, type Room, type RoomRating, type RoomRatingLevel, type RoomRatingTag,
+  isCompleted, isCurrentMember, RATING_LEVELS, RATING_TAGS, tagMatchesLevel, type Room, type RoomRating, type RoomRatingLevel, type RoomRatingTag,
   type RoomScheduleVersion,
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
@@ -165,4 +165,73 @@ export function ratingSummary(ctx: CommandContext, state: StoreState, houseID: H
     });
   }
   return result;
+}
+
+/** Um cômodo no Resumo da semana. `level` é `null` quando ninguém avaliou (a janela fechou sem avaliações). */
+export interface RoomSummary {
+  readonly roomID: RoomID;
+  readonly roomName: string;
+  readonly periodStart: Instant;
+  readonly periodEnd: Instant;
+  readonly ratingCount: number;
+  readonly level: RoomRatingLevel | null;
+  /** Só para quem cuidou do cômodo; nos demais cômodos da casa vai vazio. */
+  readonly tags: readonly RoomRatingTag[];
+  readonly responsibleIDs: readonly UserID[];
+  /** Nomes de quem cuidou, na mesma ordem de `responsibleIDs` (como estão hoje no perfil). */
+  readonly responsibleNames: readonly string[];
+}
+
+/**
+ * Resumo da semana completo (Figma "Resumo da semana"): o período (a última semana de calendário que acabou, no fuso da
+ * casa) e quantas tarefas recorrentes dos cômodos que o morador enxerga foram feitas nele; `mine` (cômodos de que ele
+ * cuidou, com as tags), `house` (os demais, só nível e contagem) e `upcoming` (cômodos que ainda não terminaram o primeiro
+ * ciclo). Um cômodo só entra em `mine`/`house` quando o resultado está liberado (2 ou mais avaliações ou janela fechada).
+ */
+export interface WeekSummary {
+  readonly weekStart: Instant;
+  readonly weekEnd: Instant;
+  readonly tasksDone: number;
+  readonly tasksTotal: number;
+  readonly mine: readonly RoomSummary[];
+  readonly house: readonly RoomSummary[];
+  readonly upcoming: readonly { readonly roomID: RoomID; readonly roomName: string }[];
+}
+
+export function weekSummary(ctx: CommandContext, state: StoreState, houseID: HouseID, userID: UserID, date: Instant): WeekSummary {
+  const house = state.houses.find((h) => h.id === houseID);
+  if (house === undefined) throw new DomainError("entityNotFound");
+  const calendar = createCalendar(house.timezone);
+  const weekEnd = calendar.weekStart(date);
+  const weekStart = calendar.addWeeks(weekEnd, -1);
+  const rooms = visibleRooms(state, houseID, userID);
+  const roomIDs = new Set(rooms.map((r) => r.id));
+  const definitionIDs = new Set(state.definitions.filter((d) => d.kind === "recurring" && roomIDs.has(d.roomID)).map((d) => d.id));
+  const inWeek = state.occurrences.filter((o) => definitionIDs.has(o.taskDefinitionID) && o.availableAt >= weekStart && o.availableAt < weekEnd);
+
+  const mine: RoomSummary[] = [];
+  const others: RoomSummary[] = [];
+  const upcoming: { roomID: RoomID; roomName: string }[] = [];
+  for (const room of rooms) {
+    const period = lastEndedPeriod(ctx, state, room, date);
+    if (period === null) {
+      if (room.calendarAnchor !== null && room.scheduleVersions.length > 0) upcoming.push({ roomID: room.id, roomName: room.name });
+      continue;
+    }
+    if (period.responsibleIDs.length === 0) continue;
+    const ratings = state.roomRatings.filter((r) => r.roomID === room.id && r.periodStart === period.periodStart);
+    if (ratings.length < MIN_RATINGS_FOR_RESULT && date < period.windowEnd) continue;
+    const aggregate = aggregateRatings(ratings);
+    const isMine = period.responsibleIDs.includes(userID);
+    (isMine ? mine : others).push({
+      roomID: room.id, roomName: room.name, periodStart: period.periodStart, periodEnd: period.periodEnd,
+      ratingCount: ratings.length, level: aggregate?.level ?? null, tags: isMine ? (aggregate?.tags ?? []) : [],
+      responsibleIDs: period.responsibleIDs,
+      responsibleNames: period.responsibleIDs.map((id) => state.users.find((u) => u.id === id)?.name ?? ""),
+    });
+  }
+  return {
+    weekStart, weekEnd, tasksDone: inWeek.filter((o) => isCompleted(o)).length, tasksTotal: inWeek.length,
+    mine, house: others, upcoming,
+  };
 }

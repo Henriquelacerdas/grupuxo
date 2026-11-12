@@ -179,11 +179,23 @@ export function createRouteHandlers(deps: RouteDependencies): (name: AppRouteNam
       case "myRatingSummary": {
         const house = await currentHouse(user);
         if (house === null) return noHouse();
-        const summary = await rooms.ratingSummary(house.id, user, now());
-        return json(200, { summary: summary.map((r) => ({
-          roomID: r.roomID, roomName: r.roomName, periodStart: new Date(r.periodStart).toISOString(),
-          periodEnd: new Date(r.periodEnd).toISOString(), level: r.level, tags: [...r.tags],
-        })) });
+        const { results, week } = await rooms.ratingSummary(house.id, user, now());
+        const iso = (value: number): string => new Date(value).toISOString();
+        const roomSummary = (r: (typeof week.mine)[number]) => ({
+          roomID: r.roomID, roomName: r.roomName, periodStart: iso(r.periodStart), periodEnd: iso(r.periodEnd),
+          ratingCount: r.ratingCount, level: r.level, tags: [...r.tags], responsibleUserIDs: [...r.responsibleIDs], responsibleNames: [...r.responsibleNames],
+        });
+        return json(200, {
+          // Só os cômodos de que o morador cuidou e com resultado (formato antigo, mantido para apps anteriores).
+          summary: results.map((r) => ({
+            roomID: r.roomID, roomName: r.roomName, periodStart: iso(r.periodStart), periodEnd: iso(r.periodEnd),
+            level: r.level, tags: [...r.tags],
+          })),
+          week: { start: iso(week.weekStart), end: iso(week.weekEnd), tasksDone: week.tasksDone, tasksTotal: week.tasksTotal },
+          mine: week.mine.map(roomSummary),
+          house: week.house.map(roomSummary),
+          upcoming: week.upcoming.map((u) => ({ roomID: u.roomID, roomName: u.roomName })),
+        });
       }
       case "rateRoom": {
         const roomID = await requireRoom(request);

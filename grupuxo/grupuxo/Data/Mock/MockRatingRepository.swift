@@ -8,5 +8,5 @@ struct MockRatingRepository: RatingRepository {
 
     func rate(_ choice: RoomRatingChoice, by userID: User.ID) async throws {}
 
-    func summary(in houseID: House.ID, for userID: User.ID) async throws -> [RatingResult] { [] }
+    func summary(in houseID: House.ID, for userID: User.ID) async throws -> WeekSummary { .empty }
 }

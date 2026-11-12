@@ -8,7 +8,7 @@ import type {
 import type { LeaveHouseOutcome, VacationStatus } from "./commands/houses.ts";
 import type { TaskDetailsPatch } from "./commands/tasks.ts";
 import type { RoomPatch } from "./commands/rooms.ts";
-import type { PendingRating, RatingInput, RatingResult } from "./commands/ratings.ts";
+import type { PendingRating, RatingInput, RatingResult, WeekSummary } from "./commands/ratings.ts";
 
 export interface HouseRepository {
   addMember(name: string, houseID: HouseID, requestedBy: UserID, at: Instant): Promise<User>;
@@ -41,6 +41,12 @@ export interface HouseRepository {
   memberIDs(houseID: HouseID): Promise<UserID[]>;
 }
 
+/** O resumo antigo (só os cômodos de que o morador cuidou) e o Resumo da semana completo. */
+export interface RatingSummaryBundle {
+  readonly results: RatingResult[];
+  readonly week: WeekSummary;
+}
+
 export interface RoomRepository {
   participation(roomID: RoomID, requesting: UserID, at: Instant): Promise<RoomParticipation>;
   room(id: RoomID, requesting: UserID): Promise<Room>;
@@ -65,7 +71,7 @@ export interface RoomRepository {
   /** Grava ou refaz a avaliação (anônima) dentro da janela de 2 dias depois do fim do ciclo. */
   rateRoom(roomID: RoomID, userID: UserID, input: RatingInput, at: Instant): Promise<void>;
   /** Resultado da semana dos cômodos de que o morador cuidou (só quando liberado: 2 avaliações ou janela fechada). */
-  ratingSummary(houseID: HouseID, userID: UserID, at: Instant): Promise<RatingResult[]>;
+  ratingSummary(houseID: HouseID, userID: UserID, at: Instant): Promise<RatingSummaryBundle>;
 }
 
 export interface RoomAccessRequestSummary {

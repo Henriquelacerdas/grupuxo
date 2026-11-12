@@ -34,7 +34,7 @@ public struct GetRatingSummaryUseCase: Sendable {
         self.repository = repository
     }
 
-    public func callAsFunction(houseID: House.ID, userID: User.ID) async throws -> [RatingResult] {
+    public func callAsFunction(houseID: House.ID, userID: User.ID) async throws -> WeekSummary {
         try await repository.summary(in: houseID, for: userID)
     }
 }

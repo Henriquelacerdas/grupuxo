@@ -7977,6 +7977,126 @@
           }
         }
       }
+    },
+    "%lld de %lld tarefas feitas na casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of %lld tasks done in the house"
+          }
+        }
+      }
+    },
+    "Seu cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your room"
+          }
+        }
+      }
+    },
+    "Seus cômodos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your rooms"
+          }
+        }
+      }
+    },
+    "As tags aparecem sem nome e sem contagem. Só quem cuidou do cômodo (%@) vê esta parte." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tags appear without names or counts. Only those who looked after the room (%@) see this part."
+          }
+        }
+      }
+    },
+    "O que foi bom" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What went well"
+          }
+        }
+      }
+    },
+    "O que pode melhorar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What could be better"
+          }
+        }
+      }
+    },
+    "Poucas avaliações para mostrar" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not enough ratings to show"
+          }
+        }
+      }
+    },
+    "1 avaliação" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 rating"
+          }
+        }
+      }
+    },
+    "%lld avaliações" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ratings"
+          }
+        }
+      }
+    },
+    "A %@ entra no resumo quando o ciclo dela terminar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ will join the summary when its cycle ends."
+          }
+        }
+      }
+    },
+    "%@ entram no resumo quando o ciclo deles terminar." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ will join the summary when their cycle ends."
+          }
+        }
+      }
+    },
+    "Ninguém vê quem avaliou." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nobody sees who rated."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

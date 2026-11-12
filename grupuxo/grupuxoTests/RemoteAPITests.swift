@@ -802,7 +802,7 @@ struct RemoteRepositoryTests {
         ]}
         """
         await server.on("GET /v1/me/ratings/pending", body: pending)
-        await server.on("GET /v1/me/ratings/summary", body: #"{"summary":[{"roomID":"\#(kitchen.apiString)","roomName":"Cozinha","periodStart":"2026-10-12T03:00:00.000Z","periodEnd":"2026-10-19T03:00:00.000Z","level":"great","tags":["spotless"]}]}"#)
+                await server.on("GET /v1/me/ratings/summary", body: #"{"summary":[],"week":{"start":"2026-10-12T03:00:00.000Z","end":"2026-10-19T03:00:00.000Z","tasksDone":23,"tasksTotal":25},"mine":[{"roomID":"\#(kitchen.apiString)","roomName":"Cozinha","periodStart":"2026-10-12T03:00:00.000Z","periodEnd":"2026-10-19T03:00:00.000Z","ratingCount":3,"level":"great","tags":["spotless"],"responsibleUserIDs":["\#(user.apiString)"],"responsibleNames":["Ana"]}],"house":[{"roomID":"\#(bathroom.apiString)","roomName":"Banheiro","periodStart":"2026-10-12T03:00:00.000Z","periodEnd":"2026-10-19T03:00:00.000Z","ratingCount":0,"level":null,"tags":[],"responsibleUserIDs":[],"responsibleNames":[]}],"upcoming":[{"roomID":"\#(UUID().apiString)","roomName":"Garagem"}]}"#)
         await server.on("POST /v1/rooms/\(kitchen.apiString)/ratings", status: 204, body: "")
         let repository = RemoteRatingRepository(api: client(server))
         let model = await WeekRatingViewModel(
@@ -811,8 +811,14 @@ struct RemoteRepositoryTests {
         )
         await model.load()
         #expect(await model.pending.map(\.roomName) == ["Cozinha", "Banheiro"])
-        #expect(await model.summary.first?.level == .great)
-        #expect(await model.summary.first?.tags == [.spotless])
+        let summary = await model.summary
+        #expect(summary.tasksDone == 23 && summary.tasksTotal == 25)
+        #expect(summary.mine.first?.level == .great)
+        #expect(summary.mine.first?.tags == [.spotless])
+        #expect(summary.mine.first?.ratingCount == 3)
+        #expect(summary.house.first?.level == nil, "sem avaliações: o app mostra \"Poucas avaliações\"")
+        #expect(summary.upcomingRoomNames == ["Garagem"])
+        #expect(await model.hasSummary)
         #expect(await !model.canSubmit, "sem nenhum nível escolhido, nada a enviar")
 
         await model.select(.great, for: kitchen)

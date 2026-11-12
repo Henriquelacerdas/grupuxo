@@ -67,23 +67,65 @@ public struct RoomRatingChoice: Hashable, Sendable {
     }
 }
 
-/// Resultado da semana de um cômodo de que o morador cuidou: só o agregado, nunca quem avaliou.
-public struct RatingResult: Identifiable, Hashable, Sendable {
+/// Um cômodo no Resumo da semana. `level` é `nil` quando ninguém avaliou (a janela fechou sem avaliações). As tags só
+/// vêm nos cômodos de que o morador cuidou; nos demais ficam vazias. Nunca traz quem avaliou.
+public struct RoomWeekResult: Identifiable, Hashable, Sendable {
     public let roomID: Room.ID
     public let roomName: String
     public let periodStart: Date
     public let periodEnd: Date
-    public let level: RatingLevel
+    public let ratingCount: Int
+    public let level: RatingLevel?
     public let tags: [RatingTag]
+    public let responsibleUserIDs: [User.ID]
+    public let responsibleNames: [String]
 
     public var id: Room.ID { roomID }
 
-    public init(roomID: Room.ID, roomName: String, periodStart: Date, periodEnd: Date, level: RatingLevel, tags: [RatingTag]) {
+    public init(
+        roomID: Room.ID, roomName: String, periodStart: Date, periodEnd: Date, ratingCount: Int, level: RatingLevel?,
+        tags: [RatingTag], responsibleUserIDs: [User.ID], responsibleNames: [String]
+    ) {
         self.roomID = roomID
         self.roomName = roomName
         self.periodStart = periodStart
         self.periodEnd = periodEnd
+        self.ratingCount = ratingCount
         self.level = level
         self.tags = tags
+        self.responsibleUserIDs = responsibleUserIDs
+        self.responsibleNames = responsibleNames
     }
+}
+
+/// Resumo da semana (Figma): o período, as tarefas feitas na casa, os cômodos de que o morador cuidou ("Seu cômodo"),
+/// os demais ("Casa") e os que ainda não terminaram o primeiro ciclo.
+public struct WeekSummary: Hashable, Sendable {
+    public let weekStart: Date
+    public let weekEnd: Date
+    public let tasksDone: Int
+    public let tasksTotal: Int
+    public let mine: [RoomWeekResult]
+    public let house: [RoomWeekResult]
+    public let upcomingRoomNames: [String]
+
+    public init(
+        weekStart: Date, weekEnd: Date, tasksDone: Int, tasksTotal: Int, mine: [RoomWeekResult], house: [RoomWeekResult],
+        upcomingRoomNames: [String]
+    ) {
+        self.weekStart = weekStart
+        self.weekEnd = weekEnd
+        self.tasksDone = tasksDone
+        self.tasksTotal = tasksTotal
+        self.mine = mine
+        self.house = house
+        self.upcomingRoomNames = upcomingRoomNames
+    }
+
+    /// Há resultado de cômodo que o morador cuidou para mostrar (a linha "Resumo da semana" em Minhas tarefas).
+    public var hasResultForMyRooms: Bool { mine.contains { $0.level != nil } }
+
+    public static let empty = WeekSummary(
+        weekStart: .distantPast, weekEnd: .distantPast, tasksDone: 0, tasksTotal: 0, mine: [], house: [], upcomingRoomNames: []
+    )
 }

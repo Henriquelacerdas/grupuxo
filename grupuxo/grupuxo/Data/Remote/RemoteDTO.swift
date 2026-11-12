@@ -450,21 +450,49 @@ struct PendingRatingsDTO: Decodable, Sendable {
     let pending: [PendingRatingDTO]
 }
 
-struct RatingResultDTO: Decodable, Sendable {
+struct RoomWeekResultDTO: Decodable, Sendable {
     let roomID: UUID
     let roomName: String
     let periodStart: Date
     let periodEnd: Date
-    let level: RatingLevel
+    let ratingCount: Int
+    let level: RatingLevel?
     let tags: [RatingTag]
+    let responsibleUserIDs: [UUID]
+    let responsibleNames: [String]
 
-    var domain: RatingResult {
-        RatingResult(roomID: roomID, roomName: roomName, periodStart: periodStart, periodEnd: periodEnd, level: level, tags: tags)
+    var domain: RoomWeekResult {
+        RoomWeekResult(
+            roomID: roomID, roomName: roomName, periodStart: periodStart, periodEnd: periodEnd, ratingCount: ratingCount,
+            level: level, tags: tags, responsibleUserIDs: responsibleUserIDs, responsibleNames: responsibleNames
+        )
     }
 }
 
 struct RatingSummaryDTO: Decodable, Sendable {
-    let summary: [RatingResultDTO]
+
+    struct Week: Decodable, Sendable {
+        let start: Date
+        let end: Date
+        let tasksDone: Int
+        let tasksTotal: Int
+    }
+
+    struct Upcoming: Decodable, Sendable {
+        let roomName: String
+    }
+
+    let week: Week
+    let mine: [RoomWeekResultDTO]
+    let house: [RoomWeekResultDTO]
+    let upcoming: [Upcoming]
+
+    var domain: WeekSummary {
+        WeekSummary(
+            weekStart: week.start, weekEnd: week.end, tasksDone: week.tasksDone, tasksTotal: week.tasksTotal,
+            mine: mine.map(\.domain), house: house.map(\.domain), upcomingRoomNames: upcoming.map(\.roomName)
+        )
+    }
 }
 
 /// Corpo de `POST /v1/rooms/{id}/ratings`; `periodStart` é o instante exato que o servidor mandou, em ISO com milissegundos.

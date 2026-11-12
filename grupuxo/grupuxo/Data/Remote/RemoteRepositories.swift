@@ -522,7 +522,7 @@ struct RemoteRatingRepository: RatingRepository {
         try await api.send("POST", "v1/rooms/\(choice.roomID.apiString)/ratings", body: body)
     }
 
-    func summary(in houseID: House.ID, for userID: User.ID) async throws -> [RatingResult] {
-        try await api.get(RatingSummaryDTO.self, "v1/me/ratings/summary").summary.map(\.domain)
+    func summary(in houseID: House.ID, for userID: User.ID) async throws -> WeekSummary {
+        try await api.get(RatingSummaryDTO.self, "v1/me/ratings/summary").domain
     }
 }

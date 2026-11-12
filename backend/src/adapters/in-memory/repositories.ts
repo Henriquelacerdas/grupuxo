@@ -9,7 +9,7 @@ import {
 } from "../../domain/commands/houses.ts";
 import { emitCycleNotifications, emitWeeklySummary } from "../../domain/commands/cycles.ts";
 import { markNotificationAsRead, notificationsFor } from "../../domain/commands/notifications.ts";
-import { pendingRatings, ratingSummary, rateRoom, type PendingRating, type RatingInput, type RatingResult } from "../../domain/commands/ratings.ts";
+import { pendingRatings, ratingSummary, rateRoom, weekSummary, type PendingRating, type RatingInput } from "../../domain/commands/ratings.ts";
 import {
   answerRoomAccess, cancelRoomAccess, createRoom, deleteRoom, pendingRoomAccessIDs, requestRoomAccess, roomAccessRequestsFor, roomFor,
   roomParticipation, roomsFor, updateRoom, type RoomPatch,
@@ -23,7 +23,7 @@ import type { Instant } from "../../domain/dates.ts";
 import type { House, Room, RoomMembership, RoomParticipation, TaskDefinition, TaskItem, TaskSwapRequest, User, AppNotification } from "../../domain/entities.ts";
 import type { HouseID, NotificationID, RoomID, TaskDefinitionID, TaskOccurrenceID, TaskSwapRequestID, UserID } from "../../domain/ids.ts";
 import type {
-  HouseRepository, NotificationRepository, RoomAccessRequestSummary, RoomRepository, TaskRepository, TaskSwapRepository,
+  HouseRepository, NotificationRepository, RatingSummaryBundle, RoomAccessRequestSummary, RoomRepository, TaskRepository, TaskSwapRepository,
 } from "../../domain/repositories.ts";
 import type { InMemoryStore } from "./store.ts";
 
@@ -178,10 +178,13 @@ export class InMemoryRoomRepository implements RoomRepository {
     this.store.update((s) => rateRoom(this.ctx, s, roomID, userID, input, at));
   }
 
-  async ratingSummary(houseID: HouseID, userID: UserID, at: Instant): Promise<RatingResult[]> {
+  async ratingSummary(houseID: HouseID, userID: UserID, at: Instant): Promise<RatingSummaryBundle> {
     return this.store.update((s) => {
       refreshSchedule(this.ctx, s, houseID, at);
-      return ratingSummary(this.ctx, s, houseID, userID, at);
+      return {
+        results: ratingSummary(this.ctx, s, houseID, userID, at),
+        week: weekSummary(this.ctx, s, houseID, userID, at),
+      };
     });
   }
 }

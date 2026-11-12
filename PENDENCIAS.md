@@ -30,9 +30,12 @@ Comparei os textos de todas as telas com o catálogo do app e vi por imagem Aval
 
 **Falta construir**
 - **Widgets** (página "Widgets"): pequeno (lista, "o que falta", vazio) e médio (lista com prazo, cômodo + tarefas). O app não tem extensão de widget.
-- **Resumo da semana completo:** o Figma traz o período ("27 out – 2 nov"), "23 de 25 tarefas feitas na casa", "Seu cômodo" com "O QUE FOI BOM" e "O QUE PODE MELHORAR", e a seção "Casa" com o nível dos outros cômodos ("Poucas avaliações para mostrar"). O app lista só os cômodos de que a pessoa cuidou, sem a seção Casa nem o total de tarefas (exige dado novo no servidor).
 - **Notificações em duas linhas:** o Figma mostra título e detalhe por aviso ("Julia C. aceitou a troca / Você faz Limpar a pia até domingo", "Novo ciclo na Cozinha / Você e Henrique L. até domingo", "Henrique L. mudou o esforço / Varrer o chão: Leve → Médio"). O app mostra uma frase só.
 - **Saída da casa "até o fim do ciclo":** o texto do Figma já existe, o comportamento não (a saída da casa vale na hora).
+
+**Resumo da semana (12/11/2026):** a tela traz o período, "N de M tarefas feitas na casa", "Seu cômodo" (nível, avaliações e tags em "O que foi bom" e "O que pode melhorar") e "Casa" (demais cômodos, "Poucas avaliações para mostrar" quando ninguém avaliou, e a nota dos cômodos ainda no primeiro ciclo). O servidor devolve esses campos em `GET /v1/me/ratings/summary` (BACKEND.md §6.1).
+
+**Decisão de regra (pede aval):** o rodapé do Figma em Avaliar a semana diz "O resultado de cada cômodo só aparece com 2 avaliações ou mais", mas o servidor libera o resultado também quando a janela fecha com 1 avaliação (senão uma casa de 2 moradores nunca veria o resumo). Por isso não apliquei esse trecho do rodapé; o app mantém "Sua avaliação é anônima: ninguém vê quem avaliou. O resultado aparece para quem cuidou do cômodo."
 
 **Tags da avaliação (12/11/2026):** as 8 do Figma, 4 de elogio (níveis Bom e Ótimo) e 4 de melhoria (Precisa melhorar); o servidor recusa tag do lado errado do nível e descarta, na leitura, as tags do catálogo antigo.
 

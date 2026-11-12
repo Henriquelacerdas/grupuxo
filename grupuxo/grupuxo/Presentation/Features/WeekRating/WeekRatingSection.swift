@@ -33,7 +33,7 @@ struct WeekRatingSection: View {
             RateWeekSheet(viewModel: viewModel)
         }
         .sheet(isPresented: $isShowingSummary) {
-            WeekSummarySheet(results: viewModel.summary)
+            WeekSummarySheet(summary: viewModel.summary, currentUserID: viewModel.userID)
         }
     }
 
@@ -158,40 +158,144 @@ struct RateWeekSheet: View {
     }
 }
 
-/// Folha "Resumo da semana": o resultado de cada cômodo de que a pessoa cuidou (só o agregado).
+/// Folha "Resumo da semana" (Figma): o período e as tarefas feitas na casa; "Seu cômodo" com o nível, as avaliações e as
+/// tags de quem cuidou; e "Casa" com os demais cômodos (só nível e contagem). Nunca mostra quem avaliou.
 struct WeekSummarySheet: View {
 
-    let results: [RatingResult]
+    let summary: WeekSummary
+    let currentUserID: User.ID
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
 
         NavigationStack {
-            List(results) { result in
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.small) {
-                    HStack {
-                        Text(result.roomName).font(.headline)
-                        Spacer()
-                        Label(WeekRatingText.title(result.level), systemImage: WeekRatingText.systemImage(result.level))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.tint)
-                    }
-                    if !result.tags.isEmpty {
-                        Text(result.tags.map(WeekRatingText.title).joined(separator: " · "))
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
+                        Text(WeekRatingText.period(from: summary.weekStart, to: summary.weekEnd))
+                            .font(.title2.bold())
+                        Text("\(summary.tasksDone) de \(summary.tasksTotal) tarefas feitas na casa")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
                 }
-                .padding(.vertical, DesignSystem.Spacing.extraSmall)
+
+                ForEach(Array(summary.mine.enumerated()), id: \.element.id) { index, room in
+                    Section {
+                        myRoomCard(room)
+                    } header: {
+                        if index == 0 { Text(summary.mine.count == 1 ? "Seu cômodo" : "Seus cômodos") }
+                    } footer: {
+                        Text("As tags aparecem sem nome e sem contagem. Só quem cuidou do cômodo (\(caretakers(of: room))) vê esta parte.")
+                    }
+                }
+
+                if !summary.house.isEmpty || !summary.upcomingRoomNames.isEmpty {
+                    Section {
+                        ForEach(summary.house) { room in
+                            roomRow(room)
+                        }
+                    } header: {
+                        Text("Casa")
+                    } footer: {
+                        Text(houseFooter)
+                    }
+                }
             }
             .navigationTitle("Resumo da semana")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("OK") { dismiss() }
+                    Button("Fechar", systemImage: "xmark") { dismiss() }
+                        .labelStyle(.iconOnly)
                 }
             }
         }
+    }
+
+    private func myRoomCard(_ room: RoomWeekResult) -> some View {
+
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+
+            roomLine(room)
+
+            let good = room.tags.filter { !$0.isImprovement }
+            let improve = room.tags.filter(\.isImprovement)
+
+            if !good.isEmpty {
+                tagGroup(title: "O que foi bom", tags: good)
+            }
+            if !improve.isEmpty {
+                tagGroup(title: "O que pode melhorar", tags: improve)
+            }
+        }
+        .padding(.vertical, DesignSystem.Spacing.extraSmall)
+    }
+
+    private func roomRow(_ room: RoomWeekResult) -> some View {
+        roomLine(room).padding(.vertical, DesignSystem.Spacing.extraSmall)
+    }
+
+    /// Nome e "N avaliações" à esquerda; o nível à direita ("—" quando faltam avaliações).
+    private func roomLine(_ room: RoomWeekResult) -> some View {
+
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(room.roomName).font(.headline)
+                Text(room.level == nil ? "Poucas avaliações para mostrar" : WeekRatingText.ratingCount(room.ratingCount))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if let level = room.level {
+                Text(WeekRatingText.title(level))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("—").foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func tagGroup(title: LocalizedStringKey, tags: [RatingTag]) -> some View {
+
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.small) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
+            FlexibleLayout(spacing: DesignSystem.Spacing.small) {
+                ForEach(tags, id: \.self) { tag in
+                    Text(WeekRatingText.title(tag))
+                        .font(.subheadline)
+                        .padding(.horizontal, DesignSystem.Spacing.medium)
+                        .padding(.vertical, DesignSystem.Spacing.small)
+                        .background(Color.secondary.opacity(DesignSystem.tintedFillOpacity), in: .capsule)
+                }
+            }
+        }
+    }
+
+    /// "você e Henrique L.": quem cuidou do cômodo, com "você" no lugar do próprio morador.
+    private func caretakers(of room: RoomWeekResult) -> String {
+        let names = zip(room.responsibleUserIDs, room.responsibleNames).map { id, name in
+            id == currentUserID ? String(localized: "você") : ResidentNameFormatting.shortName(name)
+        }
+        return ListFormatter.localizedString(byJoining: names)
+    }
+
+    private var houseFooter: String {
+        let names = ListFormatter.localizedString(byJoining: summary.upcomingRoomNames)
+        let note = switch summary.upcomingRoomNames.count {
+        case 0: ""
+        case 1: String(localized: "A \(names) entra no resumo quando o ciclo dela terminar.")
+        default: String(localized: "\(names) entram no resumo quando o ciclo deles terminar.")
+        }
+        let anonymity = String(localized: "Ninguém vê quem avaliou.")
+        return note.isEmpty ? anonymity : "\(anonymity) \(note)"
     }
 }
 

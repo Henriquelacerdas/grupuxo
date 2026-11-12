@@ -327,6 +327,24 @@ export function roomRoutes(name: string, make: ApiEnvFactory): void {
     assert.deepEqual([result["roomID"], result["level"], result["tags"]], [roomID, "great", []]);
     assert.ok(!JSON.stringify(result).includes(ids[rater]), "o resultado nunca identifica quem avaliou");
     assert.deepEqual(await summary(rater), []);
+
+    // Resumo completo: quem cuidou vê o cômodo em `mine` (com as tags marcadas por 2+, aqui nenhuma); o outro morador o vê
+    // em `house`, só com nível e contagem; o período é a última semana de calendário que acabou.
+    const overview = async (who: "ana" | "bia") => bodyOf(await env.call(who, "GET", "/v1/me/ratings/summary"));
+    const mineBody = await overview(responsible);
+    const [mineRoom] = list(mineBody["mine"]).map(rec);
+    assert.ok(mineRoom !== undefined);
+    assert.deepEqual([mineRoom["roomID"], mineRoom["ratingCount"], mineRoom["level"], mineRoom["tags"]], [roomID, 1, "great", []]);
+    assert.deepEqual(list(mineBody["house"]), []);
+    const week = rec(mineBody["week"]);
+    assert.equal(Date.parse(text(week["end"])) - Date.parse(text(week["start"])), 7 * 24 * 3_600_000);
+    assert.ok(typeof week["tasksDone"] === "number" && typeof week["tasksTotal"] === "number");
+    const houseBody = await overview(rater);
+    assert.deepEqual(list(houseBody["mine"]), []);
+    const [houseRoom] = list(houseBody["house"]).map(rec);
+    assert.ok(houseRoom !== undefined);
+    assert.deepEqual([houseRoom["roomID"], houseRoom["ratingCount"], houseRoom["level"], houseRoom["tags"]], [roomID, 1, "great", []]);
+    assert.ok(!JSON.stringify(houseBody).includes(ids[rater]), "nem o resumo da casa identifica quem avaliou");
     expectError(await rate(rater, good), 403, "task_unavailable");
   });
 }
