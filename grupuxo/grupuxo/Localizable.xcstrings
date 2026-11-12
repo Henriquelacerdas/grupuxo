@@ -923,12 +923,12 @@
         }
       }
     },
-    "A partir do próximo ciclo, você sai dos rodízios e volta quando desligar." : {
+    "Você sai dos rodízios a partir do próximo ciclo e volta quando desligar." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "From the next cycle, you leave the rotations and come back when you turn it off."
+            "value" : "You leave the rotations from the next cycle and come back when you turn it off."
           }
         }
       }
@@ -943,12 +943,12 @@
         }
       }
     },
-    "A pessoa precisa aceitar para a troca valer." : {
+    "A pessoa precisa aceitar. Tarefa do ciclo: a troca vale até o fim do ciclo. Tarefa geral: fica com quem recebeu até ser feita." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The other person needs to accept for the swap to happen."
+            "value" : "The person has to accept. Cycle task: the swap lasts until the end of the cycle. General task: it stays with whoever received it until it's done."
           }
         }
       }
@@ -1632,12 +1632,12 @@
         }
       }
     },
-    "As notificações do Reveza estão desligadas no iPhone." : {
+    "Para receber alertas de Reveza, permita as notificações do aplicativo em Ajustes." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reveza notifications are turned off on this iPhone."
+            "value" : "To receive Reveza alerts, allow the app's notifications in Settings."
           }
         }
       }
@@ -3982,12 +3982,12 @@
         }
       }
     },
-    "Marque os que você quer já. Cada um vem com tarefas sugeridas, que você muda depois." : {
+    "Marque os que entram no rodízio." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pick the ones you want now. Each comes with suggested tasks you can change later."
+            "value" : "Select the ones that join the rotation."
           }
         }
       }
@@ -4945,12 +4945,12 @@
         }
       }
     },
-    "O Reveza avisa de pedidos de troca, tarefas editadas e quando alguém entra na casa. Você escolhe os avisos em Ajustes." : {
+    "Avisaremos quando chegar a sua vez em um cômodo, quando alguém pedir uma troca de tarefa e, uma vez por dia, suas tarefas." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Reveza tells you about swap requests, edited tasks and when someone joins the house. You choose the alerts in Settings."
+            "value" : "We'll let you know when it's your turn in a room, when someone asks to swap a task and, once a day, about your tasks."
           }
         }
       }
@@ -5101,12 +5101,12 @@
         }
       }
     },
-    "Os outros cômodos você cria na aba Casa, no \"+\"." : {
+    "Todos começam com rodízio toda semana e algumas tarefas sugeridas. Você pode alterar depois em cada cômodo." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You create the other rooms in the House tab, with \"+\"."
+            "value" : "All start with a weekly rotation and some suggested tasks. You can change this later in each room."
           }
         }
       }
@@ -5747,7 +5747,7 @@
         }
       }
     },
-    "Quais cômodos a casa tem?" : {
+    "Quais cômodos tem na casa?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5837,12 +5837,12 @@
         }
       }
     },
-    "Quer saber quando algo mudar?" : {
+    "Quer que o Reveza te lembre?" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Want to know when something changes?"
+            "value" : "Want Reveza to remind you?"
           }
         }
       }
@@ -7924,6 +7924,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "WhatsApp connected"
+          }
+        }
+      }
+    },
+    "Você pode alterar o horário e o conteúdo das notificações em Ajustes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can change the time and content of notifications in Settings."
+          }
+        }
+      }
+    },
+    "A casa precisa de um nome. Se você sair agora, o nome anterior será salvo." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The house needs a name. If you leave now, the previous name will be saved."
           }
         }
       }

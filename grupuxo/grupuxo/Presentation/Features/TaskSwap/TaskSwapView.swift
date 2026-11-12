@@ -141,7 +141,7 @@ struct TaskSwapView: View {
                     if group.isSameEffort {
                         Text("Trocar por uma tarefa de mesmo esforço é o mais justo.")
                     } else if group == groups.last {
-                        Text("A pessoa precisa aceitar para a troca valer.")
+                        Text("A pessoa precisa aceitar. Tarefa do ciclo: a troca vale até o fim do ciclo. Tarefa geral: fica com quem recebeu até ser feita.")
                     }
                 }
             }

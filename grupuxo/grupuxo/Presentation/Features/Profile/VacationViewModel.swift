@@ -48,7 +48,7 @@ final class VacationViewModel: ObservableObject {
     /// O que o rodapé diz: quando começa, ou como voltar.
     func footer(now: Date = .now) -> String {
         guard status.isOn else {
-            return String(localized: "A partir do próximo ciclo, você sai dos rodízios e volta quando desligar.")
+            return String(localized: "Você sai dos rodízios a partir do próximo ciclo e volta quando desligar.")
         }
         if let startsAt = status.startsAt, status.hasNotStarted(at: now) {
             let day = startsAt.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(HouseOverviewText.appLocale))

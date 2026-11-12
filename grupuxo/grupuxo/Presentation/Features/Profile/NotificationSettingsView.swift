@@ -76,7 +76,7 @@ struct NotificationSettingsView: View {
                     if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                 }
             } footer: {
-                Text("As notificações do Reveza estão desligadas no iPhone.")
+                Text("Para receber alertas de Reveza, permita as notificações do aplicativo em Ajustes.")
             }
         default:
             EmptyView()

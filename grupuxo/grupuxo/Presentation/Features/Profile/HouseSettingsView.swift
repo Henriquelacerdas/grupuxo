@@ -88,7 +88,7 @@ struct HouseSettingsView: View {
             header: "Nome da casa",
             placeholder: "Nome da casa",
             currentName: house.name,
-            emptyMessage: String(localized: "A casa precisa de um nome.")
+            emptyMessage: String(localized: "A casa precisa de um nome. Se você sair agora, o nome anterior será salvo.")
         ) { name in
             await houses.renameHouse(to: name)
         }

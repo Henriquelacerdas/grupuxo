@@ -267,8 +267,8 @@ struct OnboardingView: View {
         OnboardingStepScreen {
             Section {
                 OnboardingHeader(
-                    title: "Quais cômodos a casa tem?",
-                    subtitle: "Marque os que você quer já. Cada um vem com tarefas sugeridas, que você muda depois."
+                    title: "Quais cômodos tem na casa?",
+                    subtitle: "Marque os que entram no rodízio."
                 )
             }
             .onboardingHeaderRow()
@@ -305,7 +305,7 @@ struct OnboardingView: View {
                 if let message = houses.errorMessage {
                     Text(message).foregroundStyle(.red)
                 } else {
-                    Text("Os outros cômodos você cria na aba Casa, no \"+\".")
+                    Text("Todos começam com rodízio toda semana e algumas tarefas sugeridas. Você pode alterar depois em cada cômodo.")
                 }
             }
         } footer: {
@@ -390,8 +390,8 @@ struct OnboardingView: View {
         OnboardingStepScreen {
             Section {
                 OnboardingHeader(
-                    title: "Quer saber quando algo mudar?",
-                    subtitle: "O Reveza avisa de pedidos de troca, tarefas editadas e quando alguém entra na casa. Você escolhe os avisos em Ajustes."
+                    title: "Quer que o Reveza te lembre?",
+                    subtitle: "Avisaremos quando chegar a sua vez em um cômodo, quando alguém pedir uma troca de tarefa e, uma vez por dia, suas tarefas."
                 )
             }
             .onboardingHeaderRow()
@@ -408,6 +408,11 @@ struct OnboardingView: View {
 
             Button("Agora não", action: finish)
                 .frame(minHeight: DesignSystem.minimumTouchTarget)
+
+            Text("Você pode alterar o horário e o conteúdo das notificações em Ajustes.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
         .navigationBarBackButtonHidden()
     }
