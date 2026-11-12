@@ -8,7 +8,7 @@ Bot sem "atrasada"; mensagem de código inválido; periodicidade do cômodo ocul
 
 ## Infra
 
-`terraform apply` feito no `dev` em 12/11/2026 (bucket de fotos, Lambdas `push` e `scheduled`, stream, EventBridge) e segredo `grupuxo/dev/apns` gravado. Push Notifications já está ativo no App ID; falta testar o push num aparelho real. A Lambda `scheduled` em produção ainda tem o lembrete diário do servidor (`taskReminder`): republicar (`npm run build` e `terraform apply`, com autorização) para ele sair do ar.
+`terraform apply` feito no `dev` em 12/11/2026 (bucket de fotos, Lambdas `push` e `scheduled`, stream, EventBridge) e segredo `grupuxo/dev/apns` gravado. Push Notifications já está ativo no App ID; falta testar o push num aparelho real. As Lambdas foram republicadas em 12/11/2026 sem o lembrete diário do servidor (os lembretes são locais).
 
 ## Não implementado
 
