@@ -6,6 +6,12 @@
   "roomID": null,
   "actorUserID": "ffffffff-ffff-4fff-8fff-000000000001",
   "subjectName": null,
+  "roomName": null,
+  "taskName": null,
+  "dueAt": null,
+  "effortFrom": null,
+  "effortTo": null,
+  "names": [],
   "createdAt": "2026-10-14T12:00:00.000Z",
   "readAt": null
 }

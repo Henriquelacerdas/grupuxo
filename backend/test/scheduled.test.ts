@@ -45,6 +45,11 @@ for (const [name, make] of [["em memória", inMemoryApiEnv], ["DynamoDB", dynamo
     assert.equal(await emit(periodEnd + 2 * 3_600_000), 0);
     const all = [...(await kinds("ana")), ...(await kinds("bia"))];
     assert.equal(all.filter((k) => k === "cycleTurned").length, 1);
+    const turnedNotice = [...list(bodyOf(await env.call("ana", "GET", "/v1/me/notifications"))["notifications"]), ...list(bodyOf(await env.call("bia", "GET", "/v1/me/notifications"))["notifications"])]
+      .map(rec).find((n) => n["kind"] === "cycleTurned");
+    assert.ok(turnedNotice !== undefined);
+    assert.ok(Date.parse(text(turnedNotice["dueAt"])) > periodEnd, "até quando vale o novo ciclo");
+    assert.deepEqual(turnedNotice["names"], [], "só uma pessoa cuida do cômodo: ninguém mais na segunda linha");
     // Janela de avaliação fechada: quem cuidou do ciclo anterior tem resumo (com 1 voto) e é avisado uma vez.
     const rater = list(bodyOf(await env.call("ana", "GET", "/v1/me/ratings/pending"))["pending"]).length > 0 ? "ana" : "bia";
     env.clock = periodEnd + 12 * 3_600_000;

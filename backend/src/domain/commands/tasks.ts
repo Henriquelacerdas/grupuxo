@@ -33,6 +33,11 @@ function houseOfOccurrence(state: StoreState, occurrenceID: TaskOccurrenceID): H
  * Definição de uma tarefa do cômodo (inclusive encerrada). Quem não é da casa, ou não pode ver a tarefa, recebe o
  * mesmo `entityNotFound` de uma tarefa que não existe.
  */
+/** Nome do cômodo como está agora (para a segunda linha dos avisos); vazio se não existe mais. */
+function roomNameOf(state: StoreState, roomID: RoomID): string {
+  return state.rooms.find((r) => r.id === roomID)?.name ?? "";
+}
+
 export function taskDefinitionFor(state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, userID: UserID): TaskDefinition {
   const room = state.rooms.find((r) => r.id === roomID);
   const definition = state.definitions.find((d) => d.id === taskID && d.roomID === roomID);
@@ -188,7 +193,7 @@ export function endTask(
   const removed = new Set(schedulingFor(ctx, state, houseID).endTask(taskID, requestedBy, date, state));
   if (wasActive) {
     notifyAll(ctx, state, roomAudienceIDs(state, roomID), requestedBy, houseID, "taskDeleted", date, {
-      taskDefinitionID: taskID, roomID, actorUserID: requestedBy, subjectName: definition.name,
+      taskDefinitionID: taskID, roomID, actorUserID: requestedBy, subjectName: definition.name, roomName: roomNameOf(state, roomID),
     });
   }
   rejectSwapsOfRemoved(ctx, state, removed, houseID, requestedBy, date);
@@ -312,11 +317,18 @@ export function notifyTaskEdited(
 ): void {
   const houseID = houseOfRoom(state, after.roomID);
   const audience = roomAudienceIDs(state, after.roomID);
-  const refs = { taskDefinitionID: after.id, roomID: after.roomID, actorUserID: actor, subjectName: after.name };
+  const refs = {
+    taskDefinitionID: after.id, roomID: after.roomID, actorUserID: actor, subjectName: after.name,
+    roomName: roomNameOf(state, after.roomID),
+  };
   if (before.name !== after.name || before.details !== after.details) {
     notifyAll(ctx, state, audience, actor, houseID, "taskEdited", date, refs);
   }
-  if (effortChanged) notifyAll(ctx, state, audience, actor, houseID, "effortChanged", date, refs);
+  if (effortChanged) {
+    notifyAll(ctx, state, audience, actor, houseID, "effortChanged", date, {
+      ...refs, effortFrom: before.effort.points, effortTo: after.effort.points,
+    });
+  }
 }
 
 /**
@@ -342,7 +354,7 @@ export function deleteSporadicTask(
   state.occurrences = state.occurrences.filter((o) => o.taskDefinitionID !== taskID);
   state.definitions = state.definitions.filter((d) => d.id !== taskID);
   notifyAll(ctx, state, roomAudienceIDs(state, roomID), requestedBy, houseOfRoom(state, roomID), "taskDeleted", date, {
-    roomID, actorUserID: requestedBy, subjectName: definition.name,
+    roomID, actorUserID: requestedBy, subjectName: definition.name, roomName: roomNameOf(state, roomID),
   });
 }
 

@@ -26,9 +26,11 @@ export function emitCycleNotifications(ctx: CommandContext, state: StoreState, h
       state.notifications.filter((n) => n.kind === "cycleTurned" && n.roomID === room.id && n.createdAt >= periodStart).map((n) => n.recipientUserID),
     );
     const before = state.notifications.length;
-    notifyAll(ctx, state, responsible.filter((id) => !already.has(id)), null, houseID, "cycleTurned", date, {
-      roomID: room.id, subjectName: room.name,
-    });
+    const dueAt = scheduling.addingWeeks(room.periodicity.intervalWeeks, periodStart);
+    for (const recipient of responsible.filter((id) => !already.has(id))) {
+      const names = responsible.filter((id) => id !== recipient).map((id) => state.users.find((u) => u.id === id)?.name ?? "");
+      notifyAll(ctx, state, [recipient], null, houseID, "cycleTurned", date, { roomID: room.id, subjectName: room.name, dueAt, names });
+    }
     created += state.notifications.length - before;
   }
   return created;

@@ -131,6 +131,13 @@ export interface NotificationDTO {
   readonly actorUserID: string | null;
   /** Nome da tarefa, do cômodo ou do morador como era na hora do aviso. */
   readonly subjectName: string | null;
+  /** Segunda linha do aviso (todos opcionais; BACKEND.md §6.1). */
+  readonly roomName: string | null;
+  readonly taskName: string | null;
+  readonly dueAt: IsoInstant | null;
+  readonly effortFrom: number | null;
+  readonly effortTo: number | null;
+  readonly names: readonly string[];
   readonly createdAt: IsoInstant;
   /** `null` = não lida. */
   readonly readAt: IsoInstant | null;
@@ -227,6 +234,8 @@ export function notificationDTO(notification: AppNotification): NotificationDTO 
     id: notification.id, kind: notification.kind, swapRequestID: notification.swapRequestID,
     taskDefinitionID: notification.taskDefinitionID, roomID: notification.roomID,
     actorUserID: notification.actorUserID, subjectName: notification.subjectName,
+    roomName: notification.roomName, taskName: notification.taskName, dueAt: isoOrNull(notification.dueAt),
+    effortFrom: notification.effortFrom, effortTo: notification.effortTo, names: [...notification.names],
     createdAt: iso(notification.createdAt), readAt: isoOrNull(notification.readAt),
   };
 }

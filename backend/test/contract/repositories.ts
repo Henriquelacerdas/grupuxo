@@ -256,7 +256,8 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
       s.notifications.push({
         id: notificationID(world.newID()), recipientUserID: users.bia.id, houseID: house.id,
         kind: "taskSwapRequested", swapRequestID: swap.id, taskDefinitionID: null, roomID: null, actorUserID: users.leo.id,
-        subjectName: null, createdAt: world.now, readAt: null,
+        subjectName: null, roomName: null, taskName: null, dueAt: null, effortFrom: null, effortTo: null, names: [],
+        createdAt: world.now, readAt: null,
       });
     });
 

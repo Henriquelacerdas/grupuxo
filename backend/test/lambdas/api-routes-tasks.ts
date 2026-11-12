@@ -307,6 +307,9 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     const [edited] = (await inbox("bia")).filter((notice) => notice["kind"] === "taskEdited");
     assert.ok(edited !== undefined);
     assert.deepEqual([edited["subjectName"], edited["taskDefinitionID"], edited["roomID"]], ["Trocar a lâmpada", sporadic["id"], house.wholeHouseRoomID]);
+    assert.equal(edited["roomName"], "Casa toda", "a segunda linha traz o cômodo");
+    const [effort] = (await inbox("bia")).filter((notice) => notice["kind"] === "effortChanged");
+    assert.deepEqual([effort?.["effortFrom"], effort?.["effortTo"]], [1, 3], "e o esforço de antes e de depois");
     assert.deepEqual(await kinds("ana"), [], "quem editou não é avisado");
     assert.deepEqual(await kinds("caio"), [], "morador de outra casa não é avisado");
 
@@ -314,6 +317,7 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     const afterDelete = await inbox("bia");
     assert.deepEqual(afterDelete.map((notice) => notice["kind"]), ["taskDeleted"], "avisos da tarefa apagada saem; fica só o de exclusão");
     assert.deepEqual([afterDelete[0]?.["subjectName"], afterDelete[0]?.["taskDefinitionID"]], ["Trocar a lâmpada", null]);
+    assert.equal(afterDelete[0]?.["roomName"], "Casa toda");
 
     const recurring = expectStatus(await env.call("ana", "POST", roomPath, { body: JSON.stringify(WEEKLY_TASK) }), 201);
     assert.equal((await env.call("ana", "POST", `${roomPath}/${text(recurring["id"])}/end`)).statusCode, 204);

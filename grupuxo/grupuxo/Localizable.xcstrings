@@ -8097,6 +8097,126 @@
           }
         }
       }
+    },
+    "%@ aceitou a troca" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ accepted the swap"
+          }
+        }
+      }
+    },
+    "%@ recusou a troca" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ declined the swap"
+          }
+        }
+      }
+    },
+    "%@ editou uma tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ edited a task"
+          }
+        }
+      }
+    },
+    "%@ apagou uma tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ deleted a task"
+          }
+        }
+      }
+    },
+    "%@ mudou o esforço" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ changed the effort"
+          }
+        }
+      }
+    },
+    "%@ quer entrar em %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ wants to join %@"
+          }
+        }
+      }
+    },
+    "Novo ciclo: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New cycle: %@"
+          }
+        }
+      }
+    },
+    "Resumo da semana pronto" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weekly summary ready"
+          }
+        }
+      }
+    },
+    "Veja como ficaram os cômodos." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See how the rooms turned out."
+          }
+        }
+      }
+    },
+    "Você faz %@ até %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You do %@ until %@."
+          }
+        }
+      }
+    },
+    "Você faz %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You do %@."
+          }
+        }
+      }
+    },
+    "%@ até %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ until %@"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

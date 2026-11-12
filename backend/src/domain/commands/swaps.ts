@@ -177,7 +177,8 @@ export function acceptSwapRequest(
   const updated: TaskSwapRequest = { ...request, status: "accepted", resolvedAt: date };
   state.taskSwapRequests[index] = updated;
   state.notifications.push(buildNotification(ctx, request.requesterID, offeredRoom.houseID, "taskSwapAccepted", date, {
-    swapRequestID: request.id, actorUserID: userID,
+    swapRequestID: request.id, actorUserID: userID, taskName: requestedItem.definition.name,
+    dueAt: requestedItem.occurrence.dueAt,
   }));
   return updated;
 }

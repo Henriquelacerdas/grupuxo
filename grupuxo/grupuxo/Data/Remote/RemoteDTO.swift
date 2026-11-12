@@ -256,6 +256,13 @@ struct NotificationDTO: Decodable, Sendable {
     let roomID: UUID?
     let actorUserID: UUID?
     let subjectName: String?
+    // Segunda linha do aviso; um servidor mais antigo não manda estes campos.
+    let roomName: String?
+    let taskName: String?
+    let dueAt: Date?
+    let effortFrom: Int?
+    let effortTo: Int?
+    let names: [String]?
     let createdAt: Date
     let readAt: Date?
 
@@ -264,7 +271,8 @@ struct NotificationDTO: Decodable, Sendable {
         AppNotification(
             id: id, recipientUserID: recipientUserID, kind: kind, swapRequestID: swapRequestID,
             taskDefinitionID: taskDefinitionID, roomID: roomID, actorUserID: actorUserID,
-            subjectName: subjectName, createdAt: createdAt, readAt: readAt
+            subjectName: subjectName, roomName: roomName, taskName: taskName, dueAt: dueAt, effortFrom: effortFrom,
+            effortTo: effortTo, names: names ?? [], createdAt: createdAt, readAt: readAt
         )
     }
 }

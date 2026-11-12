@@ -74,6 +74,60 @@ enum NotificationText {
         }
     }
 
+    /// As duas linhas do aviso (Figma "Notificações"): o que aconteceu e o detalhe. Os avisos que o Figma não detalha
+    /// ficam numa linha só (a frase de `message`).
+    static func lines(for notification: AppNotification, memberNames: [User.ID: String]) -> (title: String, detail: String?) {
+
+        if notification.message != nil { return (message(for: notification, memberNames: memberNames), nil) }
+
+        let actor = actorName(notification, memberNames: memberNames)
+        let subject = notification.subjectName ?? ""
+        let taskAndRoom = [subject, notification.roomName ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
+
+        switch notification.kind {
+        case .taskSwapAccepted:
+            let detail = notification.taskName.map { task in
+                notification.dueAt.map { String(localized: "Você faz \(task) até \(untilWeekday($0)).") }
+                    ?? String(localized: "Você faz \(task).")
+            }
+            return (String(localized: "\(actor) aceitou a troca"), detail)
+        case .taskSwapRejected:
+            return (String(localized: "\(actor) recusou a troca"), nil)
+        case .taskEdited where !subject.isEmpty:
+            return (String(localized: "\(actor) editou uma tarefa"), taskAndRoom)
+        case .taskDeleted where !subject.isEmpty:
+            return (String(localized: "\(actor) apagou uma tarefa"), taskAndRoom)
+        case .effortChanged where !subject.isEmpty:
+            let detail: String
+            if let from = notification.effortFrom, let to = notification.effortTo {
+                detail = "\(subject): \(effortName(from)) → \(effortName(to))"
+            } else {
+                detail = taskAndRoom
+            }
+            return (String(localized: "\(actor) mudou o esforço"), detail)
+        case .roomAccessRequested where !subject.isEmpty:
+            return (String(localized: "\(actor) quer entrar em \(subject)"), String(localized: "Cômodo privado"))
+        case .cycleTurned where !subject.isEmpty:
+            let others = notification.names.map(ResidentNameFormatting.shortName)
+            let who = ListFormatter.localizedString(byJoining: [String(localized: "Você")] + others)
+            let detail = notification.dueAt.map { String(localized: "\(who) até \(untilWeekday($0))") }
+            return (String(localized: "Novo ciclo: \(subject)"), detail)
+        case .weeklySummaryReady:
+            return (String(localized: "Resumo da semana pronto"), String(localized: "Veja como ficaram os cômodos."))
+        default:
+            return (message(for: notification, memberNames: memberNames), nil)
+        }
+    }
+
+    /// "domingo": o último dia que vale (o prazo do ciclo é a meia-noite da segunda, então volta um segundo).
+    private static func untilWeekday(_ due: Date) -> String {
+        due.addingTimeInterval(-1).formatted(.dateTime.weekday(.wide).locale(HouseOverviewText.appLocale))
+    }
+
+    private static func effortName(_ points: Int) -> String {
+        RoomDetailText.effort(TaskEffort(points: points))
+    }
+
     static func iconName(for kind: AppNotificationKind) -> String {
         switch kind {
         case .taskEdited: "pencil"

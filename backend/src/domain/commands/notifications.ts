@@ -14,6 +14,12 @@ export interface NotificationRefs {
   readonly roomID?: RoomID;
   readonly actorUserID?: UserID;
   readonly subjectName?: string;
+  readonly roomName?: string;
+  readonly taskName?: string;
+  readonly dueAt?: Instant | null;
+  readonly effortFrom?: number;
+  readonly effortTo?: number;
+  readonly names?: readonly string[];
 }
 
 export function buildNotification(
@@ -24,6 +30,8 @@ export function buildNotification(
     id: notificationID(ctx.newID()), recipientUserID, houseID, kind,
     swapRequestID: refs.swapRequestID ?? null, taskDefinitionID: refs.taskDefinitionID ?? null,
     roomID: refs.roomID ?? null, actorUserID: refs.actorUserID ?? null, subjectName: refs.subjectName ?? null,
+    roomName: refs.roomName ?? null, taskName: refs.taskName ?? null, dueAt: refs.dueAt ?? null,
+    effortFrom: refs.effortFrom ?? null, effortTo: refs.effortTo ?? null, names: refs.names ?? [],
     createdAt: date, readAt: null,
   };
 }

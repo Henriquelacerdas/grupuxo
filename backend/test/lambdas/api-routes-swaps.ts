@@ -109,6 +109,8 @@ export function swapAndSporadicRoutes(name: string, make: ApiEnvFactory): void {
     const [answer] = list(bodyOf(await env.call("ana", "GET", "/v1/me/notifications"))["notifications"]).map(rec);
     assert.ok(answer !== undefined);
     assert.equal(answer["kind"], "taskSwapAccepted");
+    assert.equal(typeof answer["taskName"], "string", "a segunda linha traz a tarefa que quem pediu passa a fazer");
+    assert.ok(answer["dueAt"] === null || typeof answer["dueAt"] === "string");
     const notificationID = text(answer["id"]);
     expectError(await env.call("bia", "POST", `/v1/notifications/${notificationID}/read`), 404, "not_found");
     assert.equal((await env.call("ana", "POST", `/v1/notifications/${notificationID}/read`)).statusCode, 204);

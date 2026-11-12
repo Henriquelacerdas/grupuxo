@@ -40,6 +40,15 @@ public struct AppNotification: Identifiable, Hashable, Codable, Sendable {
     public let subjectName: String?
     /// Texto pronto (só o Mock usa); o servidor manda dados e o app monta o texto.
     public let message: String?
+    /// Detalhes da segunda linha (todos opcionais): cômodo da tarefa editada ou apagada; tarefa que quem pediu a troca passa
+    /// a fazer e até quando (`dueAt`, também o fim do ciclo na virada de ciclo); esforço de antes e de depois (1 a 3); e os
+    /// outros responsáveis do cômodo.
+    public let roomName: String?
+    public let taskName: String?
+    public let dueAt: Date?
+    public let effortFrom: Int?
+    public let effortTo: Int?
+    public let names: [String]
 
     public let createdAt: Date
     public var readAt: Date?
@@ -54,6 +63,12 @@ public struct AppNotification: Identifiable, Hashable, Codable, Sendable {
         actorUserID: User.ID? = nil,
         subjectName: String? = nil,
         message: String? = nil,
+        roomName: String? = nil,
+        taskName: String? = nil,
+        dueAt: Date? = nil,
+        effortFrom: Int? = nil,
+        effortTo: Int? = nil,
+        names: [String] = [],
         createdAt: Date,
         readAt: Date? = nil
     ) {
@@ -66,6 +81,12 @@ public struct AppNotification: Identifiable, Hashable, Codable, Sendable {
         self.actorUserID = actorUserID
         self.subjectName = subjectName
         self.message = message
+        self.roomName = roomName
+        self.taskName = taskName
+        self.dueAt = dueAt
+        self.effortFrom = effortFrom
+        self.effortTo = effortTo
+        self.names = names
         self.createdAt = createdAt
         self.readAt = readAt
     }

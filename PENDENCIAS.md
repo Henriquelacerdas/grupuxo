@@ -30,8 +30,9 @@ Comparei os textos de todas as telas com o catálogo do app e vi por imagem Aval
 
 **Falta construir**
 - **Widgets** (página "Widgets"): pequeno (lista, "o que falta", vazio) e médio (lista com prazo, cômodo + tarefas). O app não tem extensão de widget.
-- **Notificações em duas linhas:** o Figma mostra título e detalhe por aviso ("Julia C. aceitou a troca / Você faz Limpar a pia até domingo", "Novo ciclo na Cozinha / Você e Henrique L. até domingo", "Henrique L. mudou o esforço / Varrer o chão: Leve → Médio"). O app mostra uma frase só.
 - **Saída da casa "até o fim do ciclo":** o texto do Figma já existe, o comportamento não (a saída da casa vale na hora).
+
+**Notificações em duas linhas (12/11/2026):** título e detalhe como no Figma para troca aceita ("Você faz X até domingo"), tarefa editada ou apagada ("tarefa · cômodo"), esforço ("Leve → Médio"), virada de ciclo ("Você e Fulano até domingo") e resumo pronto; os demais ficam numa linha. O servidor manda os dados novos (`roomName`, `taskName`, `dueAt`, `effortFrom`, `effortTo`, `names`) e o app monta o texto. Diferença de texto: a virada de ciclo diz "Novo ciclo: Cozinha" e não "Novo ciclo na Cozinha", para não pôr artigo antes do nome do cômodo (regra do guia; "no Banheiro" e "na Cozinha" exigiriam o gênero).
 
 **Resumo da semana (12/11/2026):** a tela traz o período, "N de M tarefas feitas na casa", "Seu cômodo" (nível, avaliações e tags em "O que foi bom" e "O que pode melhorar") e "Casa" (demais cômodos, "Poucas avaliações para mostrar" quando ninguém avaliou, e a nota dos cômodos ainda no primeiro ciclo). O servidor devolve esses campos em `GET /v1/me/ratings/summary` (BACKEND.md §6.1).
 

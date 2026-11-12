@@ -245,6 +245,11 @@ export function encodeDefinition(houseId: HouseID, definition: TaskDefinition): 
 }
 
 /** `followsRoom` não existe nos itens antigos: ausente ou nulo → definição antiga, vale a periodicidade. */
+/** Atributo numérico que pode faltar (item gravado antes de existir) ou ser nulo: `null`. */
+function optionalNum(item: DynamoItem, name: string): number | null {
+  return item[name] === undefined ? null : nullableNum(item, name);
+}
+
 function optionalFollowsRoom(item: DynamoItem): { readonly followsRoom?: boolean } {
   if (!Object.hasOwn(item, "followsRoom")) return {};
   const value = nullableBool(item, "followsRoom");
@@ -347,7 +352,9 @@ export function encodeNotification(houseId: HouseID, notification: AppNotificati
     ...base(houseId, `${SK_PREFIX.notification}${notification.id}`, {
       recipientUserID: notification.recipientUserID, kind: notification.kind, swapRequestID: notification.swapRequestID,
       taskDefinitionID: notification.taskDefinitionID, roomID: notification.roomID, actorUserID: notification.actorUserID,
-      subjectName: notification.subjectName, createdAt: notification.createdAt, readAt: notification.readAt,
+      subjectName: notification.subjectName, roomName: notification.roomName, taskName: notification.taskName,
+      dueAt: notification.dueAt, effortFrom: notification.effortFrom, effortTo: notification.effortTo,
+      names: [...notification.names], createdAt: notification.createdAt, readAt: notification.readAt,
     }),
     GSI1PK: userPK(notification.recipientUserID), GSI1SK: notificationGSISK(notification.createdAt, notification.id),
   };
@@ -363,6 +370,9 @@ export function decodeNotification(item: DynamoItem): AppNotification {
     taskDefinitionID: optionalStr(item, "taskDefinitionID", taskDefinitionID),
     roomID: optionalStr(item, "roomID", roomID), actorUserID: optionalStr(item, "actorUserID", userID),
     subjectName: optionalStr(item, "subjectName", (value) => value),
+    roomName: optionalStr(item, "roomName", (value) => value), taskName: optionalStr(item, "taskName", (value) => value),
+    dueAt: optionalNum(item, "dueAt"), effortFrom: optionalNum(item, "effortFrom"), effortTo: optionalNum(item, "effortTo"),
+    names: item["names"] === undefined ? [] : list(item, "names").map((value) => (typeof value === "string" ? value : invalid())),
     createdAt: num(item, "createdAt"), readAt: nullableNum(item, "readAt"),
   }));
 }

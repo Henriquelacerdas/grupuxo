@@ -261,13 +261,27 @@ struct NotificationsView: View {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
-                    Text(message(for: notification))
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.leading)
+                    let lines = NotificationText.lines(for: notification, memberNames: viewModel.memberNames)
 
-                    Text(notification.createdAt, format: .dateTime.hour().minute())
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(lines.title)
+                            .font(lines.detail == nil ? .body : .body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.leading)
+
+                        Spacer(minLength: DesignSystem.Spacing.small)
+
+                        Text(notification.createdAt, format: .dateTime.hour().minute())
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let detail = lines.detail {
+                        Text(detail)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                    }
 
                     if notification.kind == .roomAccessRequested, viewModel.canAnswerRoomAccess {
                         accessButtons(for: notification)

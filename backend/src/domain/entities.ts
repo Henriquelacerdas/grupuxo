@@ -238,6 +238,18 @@ export interface AppNotification {
   /** Quem fez a ação (nunca o destinatário). */
   readonly actorUserID: UserID | null;
   readonly subjectName: string | null;
+  /**
+   * Detalhes da segunda linha do aviso (todos opcionais; o texto é montado no app, no idioma do aparelho):
+   * `roomName` (cômodo da tarefa editada ou apagada), `taskName` e `dueAt` (troca aceita: a tarefa que quem pediu passa a
+   * fazer e até quando; virada de ciclo: até quando vale), `effortFrom`/`effortTo` (1 a 3, esforço que mudou) e `names`
+   * (virada de ciclo: os outros responsáveis).
+   */
+  readonly roomName: string | null;
+  readonly taskName: string | null;
+  readonly dueAt: Instant | null;
+  readonly effortFrom: number | null;
+  readonly effortTo: number | null;
+  readonly names: readonly string[];
   readonly createdAt: Instant;
   readonly readAt: Instant | null;
 }
