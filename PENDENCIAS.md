@@ -39,8 +39,7 @@ Comparei os textos de todas as telas com o catálogo do app e vi por imagem Aval
 
 **Também aplicados em 12/11/2026:** a regra de senha do app agora segue a política real do Cognito ("Pelo menos 6 caracteres, com uma letra minúscula."), em Criar conta, Nova senha, Alterar senha e nas mensagens de erro; e os textos de WhatsApp do Figma ("No WhatsApp, o Reveza te responde…" e "Você pode conectar de novo quando quiser.").
 
-**Atenção**
-- **Onboarding "uma vez por dia, suas tarefas":** o texto do Figma já está no app, mas o resumo diário e o aviso de ciclo são locais e só valem depois de ligados em Ajustes › Notificações.
+**Decidido pelo dono (12/11/2026):** o texto do onboarding "uma vez por dia, suas tarefas" fica como no Figma, mesmo com o resumo diário local só valendo depois de ligado em Ajustes › Notificações.
 
 **Decisão da designer**
 - **Ajustes › Notificações:** o Figma tem "Lembrar das minhas tarefas" com "Horário" e, abaixo, "Quando o ciclo virar", "Atividade da casa" e "Resumo da semana". Por escolha do dono, o app usa os lembretes locais do ramo Shortcuts ("Resumo diário das minhas tarefas", "Avisar quando o ciclo virar", ambos com horário próprio), e ainda tem "Chegada em casa", "Sincronizar com o Lembretes" e os atalhos do Siri, que **não existem no Figma**. Falta a designer desenhar essas telas ou aprovar os rótulos atuais.
