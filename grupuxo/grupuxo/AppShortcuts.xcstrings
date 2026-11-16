@@ -1,0 +1,72 @@
+{
+  "sourceLanguage" : "pt-BR",
+  "strings" : {
+    "Concluir ${task} no ${applicationName}" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete ${task} in ${applicationName}"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Concluir ${task} no ${applicationName}"
+          }
+        }
+      }
+    },
+    "Concluir tarefa no ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete a task in ${applicationName}"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Concluir tarefa no ${applicationName}"
+          }
+        }
+      }
+    },
+    "Minhas tarefas no ${applicationName}" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My tasks in ${applicationName}"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minhas tarefas no ${applicationName}"
+          }
+        }
+      }
+    },
+    "Quais são minhas tarefas no ${applicationName}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What are my tasks in ${applicationName}"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quais são minhas tarefas no ${applicationName}"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -40,5 +40,24 @@ struct GrupuxoShortcuts: AppShortcutsProvider {
             shortTitle: "Criar Tarefa",
             systemImageName: "plus.circle"
         )
+
+        AppShortcut(
+            intent: ListMyTasksIntent(),
+            phrases: [
+                "Quais são minhas tarefas no \(.applicationName)"
+            ],
+            shortTitle: "Ler Minhas Tarefas",
+            systemImageName: "checklist"
+        )
+
+        AppShortcut(
+            intent: CompleteTaskIntent(),
+            phrases: [
+                "Concluir tarefa no \(.applicationName)",
+                "Concluir \(\.$task) no \(.applicationName)"
+            ],
+            shortTitle: "Concluir Tarefa",
+            systemImageName: "checkmark.circle"
+        )
     }
 }

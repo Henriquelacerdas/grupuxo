@@ -9,7 +9,12 @@ struct AmplifyAccessTokenProvider: AccessTokenProvider {
             let session = try await Amplify.Auth.fetchAuthSession(options: .init(forceRefresh: forceRefresh))
             guard session.isSignedIn else { throw APIError.unauthorized }
             guard let provider = session as? AuthCognitoTokensProvider else { throw APIError.invalidResponse }
-            return try provider.getCognitoTokens().get().accessToken
+            let token = try provider.getCognitoTokens().get().accessToken
+            // O widget busca as tarefas sozinho: guarda o endereço e o token no Keychain compartilhado.
+            if let configuration = try? APIConfiguration() {
+                WidgetTaskStore.shared.saveCredentials(baseURL: configuration.baseURL, accessToken: token)
+            }
+            return token
         } catch let error as AuthError {
             switch error {
             case .sessionExpired, .signedOut, .notAuthorized:
