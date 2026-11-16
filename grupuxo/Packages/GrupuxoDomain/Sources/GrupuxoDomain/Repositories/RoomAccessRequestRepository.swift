@@ -11,4 +11,7 @@ public protocol RoomAccessRequestRepository: Sendable {
 
     /// Idempotente: cancelar sem pedido aberto não faz nada.
     func cancel(roomID: Room.ID, requesting userID: User.ID) async throws
+
+    /// Um participante do cômodo aprova (o morador entra no cômodo) ou recusa o pedido de `requesterID`.
+    func answer(roomID: Room.ID, requesterID: User.ID, answeredBy userID: User.ID, approve: Bool, at date: Date) async throws
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseCognitoSub, type CognitoSub } from "../../src/auth/token-verifier.ts";
 import { UserDirectoryError, type UserDirectory } from "../../src/auth/user-directory.ts";
+import { userID } from "../../src/domain/ids.ts";
 
 // Contrato do `UserDirectory`: o adaptador DynamoDB (`Put` condicional em `COGNITO#<sub>`) deve passar nos
 // mesmos testes, inclusive os concorrentes. Cada teste usa uma instância nova.
@@ -84,5 +85,17 @@ export function userDirectoryContract(name: string, make: () => UserDirectory): 
     assert.equal(await directory.userForSub(bia), other);
     const again = await directory.ensureUser(ana, { name: "Ana" });
     assert.notEqual(again, first);
+  });
+
+  test(`${name}: updateName recusa nome inválido e ignora morador sem perfil`, async () => {
+    const directory = make();
+    const id = await directory.ensureUser(ana, { name: "Ana" });
+    for (const invalid of ["", "   ", " Ana", "Ana ", "A\nna", "x".repeat(81)]) {
+      await assert.rejects(directory.updateName(id, invalid), invalidProfile);
+    }
+    await directory.updateName(id, "Ana Maria");
+    await directory.updateName(id, "Ana Maria");
+    await directory.updateName(userID("33333333-3333-4333-8333-333333333333"), "Ninguém");
+    assert.equal(await directory.userForSub(ana), id);
   });
 }

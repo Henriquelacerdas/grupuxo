@@ -112,6 +112,8 @@ public struct RoomParticipation: Equatable, Sendable {
     public let responsibleNames: [String]
     /// Mesma ordem e tamanho de `responsibleNames`.
     public let responsibleUserIDs: [User.ID]
+    /// Previsão pela fila atual: quem assume no próximo ciclo (muda se alguém entrar ou sair). Vazio sem previsão.
+    public let nextResponsibleNames: [String]
     public let periodStart: Date
     public let periodEnd: Date
 
@@ -121,6 +123,7 @@ public struct RoomParticipation: Equatable, Sendable {
         memberCount: Int,
         responsibleNames: [String],
         responsibleUserIDs: [User.ID] = [],
+        nextResponsibleNames: [String] = [],
         periodStart: Date,
         periodEnd: Date
     ) {
@@ -129,6 +132,7 @@ public struct RoomParticipation: Equatable, Sendable {
         self.memberCount = memberCount
         self.responsibleNames = responsibleNames
         self.responsibleUserIDs = responsibleUserIDs
+        self.nextResponsibleNames = nextResponsibleNames
         self.periodStart = periodStart
         self.periodEnd = periodEnd
     }

@@ -14,6 +14,14 @@ final class RoomEditorViewModel: ObservableObject {
     private let creatorUserID: User.ID
     private let getMembers: GetHouseMembersUseCase?
     private let onCreated: (@MainActor (Room) async throws -> Void)?
+    /// Cômodo sendo editado (nome, aparência e ciclo); `nil` = criando um novo.
+    private let editing: Room?
+    private let updateRoom: UpdateRoomUseCase?
+
+    var isEditing: Bool { editing != nil }
+
+    /// O formulário como abriu: a sheet só avisa de descarte se algo mudou.
+    let initialDraft: RoomDraft
 
     var maximumResponsibleCount: Int { max(1, residents.count) }
 
@@ -27,6 +35,8 @@ final class RoomEditorViewModel: ObservableObject {
         creatorUserID: User.ID,
         draft: RoomDraft = RoomDraft(),
         getMembers: GetHouseMembersUseCase? = nil,
+        editing: Room? = nil,
+        updateRoom: UpdateRoomUseCase? = nil,
         onCreated: (@MainActor (Room) async throws -> Void)? = nil
     ) {
         self.createRoom = createRoom
@@ -34,9 +44,20 @@ final class RoomEditorViewModel: ObservableObject {
         self.creatorUserID = creatorUserID
         self.getMembers = getMembers
         self.onCreated = onCreated
+        self.editing = editing
+        self.updateRoom = updateRoom
         var draft = draft
+        if let editing {
+            draft = RoomDraft(
+                name: editing.name, category: editing.category, icon: editing.icon, color: editing.color,
+                periodicity: editing.periodicity, responsibleCount: editing.responsibleCount,
+                visibility: editing.visibility
+            )
+        } else {
+            draft.responsibleCount = 1
+        }
         draft.selectedParticipantIDs.insert(creatorUserID)
-        draft.responsibleCount = 1
+        initialDraft = draft
         state = .editing(draft)
     }
 
@@ -66,12 +87,44 @@ final class RoomEditorViewModel: ObservableObject {
         state = .editing(draft)
     }
 
+    /// O que mudou em relação ao cômodo aberto; vazio = nada a gravar.
+    private func patch(for draft: RoomDraft, from room: Room) -> RoomPatch {
+        RoomPatch(
+            name: draft.name == room.name ? nil : draft.name,
+            category: draft.category == room.category ? nil : draft.category,
+            icon: draft.icon == room.icon ? nil : draft.icon,
+            color: draft.color == room.color ? nil : draft.color,
+            periodicity: draft.periodicity == room.periodicity ? nil : draft.periodicity,
+            responsibleCount: draft.responsibleCount == room.responsibleCount ? nil : draft.responsibleCount
+        )
+    }
+
+    private func saveEdit(_ room: Room, draft: RoomDraft) async {
+        state = .saving(draft)
+        let patch = patch(for: draft, from: room)
+        guard !patch.isEmpty else {
+            state = .saved(room)
+            return
+        }
+        do {
+            guard let updateRoom else { throw APIError.unsupported }
+            let updated = try await updateRoom(roomID: room.id, patch: patch, userID: creatorUserID)
+            state = .saved(updated)
+        } catch {
+            state = .failure(draft, error.localizedDescription)
+        }
+    }
+
     func save() async {
         switch state {
         case .saving, .saved: return
         case .editing, .failure: break
         }
         let draft = state.draft
+        if let editing {
+            await saveEdit(editing, draft: draft)
+            return
+        }
         state = .saving(draft)
         do {
             let room = try await createRoom(

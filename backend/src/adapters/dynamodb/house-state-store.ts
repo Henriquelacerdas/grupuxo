@@ -9,9 +9,9 @@ import {
 } from "./client.ts";
 import {
   decodeAbsence, decodeAssignment, decodeDefinition, decodeHouse, decodeHouseMembership, decodeNotification,
-  decodeOccurrence, decodeRoom, decodeRoomMembership, decodeSwap, decodeUser, encodeAbsence, encodeAssignment,
-  encodeDefinition, encodeHouse, encodeHouseMembership, encodeNotification, encodeOccurrence, encodeRoom,
-  encodeRoomMembership, encodeSwap, encodeUser, houseIDFromGSISK,
+  decodeOccurrence, decodeRoom, decodeRoomAccessRequest, decodeRoomMembership, decodeRoomRating, decodeSwap, decodeUser, encodeAbsence,
+  encodeAssignment, encodeDefinition, encodeHouse, encodeHouseMembership, encodeNotification, encodeOccurrence,
+  encodeRoom, encodeRoomAccessRequest, encodeRoomMembership, encodeRoomRating, encodeSwap, encodeUser, houseIDFromGSISK,
 } from "./codec.ts";
 import { DynamoStoreError } from "./errors.ts";
 import {
@@ -80,6 +80,8 @@ function referencedUserIDs(state: StoreState): Set<UserID> {
   for (const a of state.assignments) ids.add(a.userID);
   for (const s of state.taskSwapRequests) { ids.add(s.requesterID); ids.add(s.receiverID); }
   for (const n of state.notifications) ids.add(n.recipientUserID);
+  for (const r of state.roomAccessRequests) ids.add(r.userID);
+  for (const r of state.roomRatings) ids.add(r.raterID);
   for (const o of state.occurrences) {
     if (o.completedByUserID !== null) ids.add(o.completedByUserID);
     for (const key of Object.keys(o.completionDebtImpacts ?? {})) ids.add(userID(key));
@@ -113,6 +115,8 @@ function encodePartition(houseID: HouseID, state: StoreState): Map<string, Dynam
   for (const s of state.taskSwapRequests) add(encodeSwap(houseID, s));
   for (const n of state.notifications) add(encodeNotification(houseID, n));
   for (const a of state.absences) add(encodeAbsence(houseID, a));
+  for (const r of state.roomAccessRequests) add(encodeRoomAccessRequest(houseID, r));
+  for (const r of state.roomRatings) add(encodeRoomRating(houseID, r));
   return items;
 }
 
@@ -337,17 +341,20 @@ export class HouseStateStore {
     }
     const before = loaded.state.houses[0];
     const after = draft.houses[0];
+    let renamed = false;
     if (loaded.exists) {
-      // Os comandos não alteram a casa em si; se um dia alterarem, o modelo precisa saber persisti-lo.
+      // Só o nome da casa pode mudar (`renameHouse`); código, fuso e criação são imutáveis, e o `ACCESSCODE#` não
+      // repete o nome. Qualquer outra alteração precisa de suporte no modelo antes.
       if (before === undefined || after === undefined || draft.houses.length !== 1 ||
-        !equalValues(encodeHouse(before, 0), encodeHouse(after, 0))) {
+        !equalValues(encodeHouse({ ...before, name: after.name }, 0), encodeHouse(after, 0))) {
         throw new DynamoStoreError("unsupportedChange");
       }
+      renamed = before.name !== after.name;
     }
-    if (changes.length === 0 || before === undefined) return changes;
+    if ((changes.length === 0 && !renamed) || before === undefined) return changes;
     // `META` primeiro: o motivo da ação 0 diferencia conflito de `version` de qualquer outra condição.
     const meta: DynamoTransactAction = {
-      kind: "put", item: encodeHouse(before, loaded.version + 1), condition: "#version = :read",
+      kind: "put", item: encodeHouse(after ?? before, loaded.version + 1), condition: "#version = :read",
       names: { "#version": "version" }, values: { ":read": loaded.version },
     };
     return [meta, ...changes];
@@ -384,6 +391,8 @@ export class HouseStateStore {
         else if (sk.startsWith(SK_PREFIX.swap)) state.taskSwapRequests.push(decodeSwap(item));
         else if (sk.startsWith(SK_PREFIX.notification)) state.notifications.push(decodeNotification(item));
         else if (sk.startsWith(SK_PREFIX.absence)) state.absences.push(decodeAbsence(item));
+        else if (sk.startsWith(SK_PREFIX.roomAccessRequest)) state.roomAccessRequests.push(decodeRoomAccessRequest(item));
+        else if (sk.startsWith(SK_PREFIX.roomRating)) state.roomRatings.push(decodeRoomRating(item));
       }
     } finally { stopDecode(); }
     const wanted = [...new Set([...referencedUserIDs(state), ...extraProfileIDs])].sort();

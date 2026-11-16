@@ -1,7 +1,7 @@
 import {
   DynamoConditionFailedError, DynamoTransactionCanceledError, MAX_BATCH_GET_KEYS, MAX_TRANSACT_ACTIONS,
   type DynamoCancellationReason, type DynamoClient, type DynamoDeleteInput, type DynamoGetInput, type DynamoItem,
-  type DynamoKey, type DynamoPutInput, type DynamoQueryInput, type DynamoQueryOutput, type DynamoTransactAction,
+  type DynamoKey, type DynamoPutInput, type DynamoQueryInput, type DynamoQueryOutput, type DynamoScanInput, type DynamoTransactAction,
   type DynamoUpdateInput, type DynamoValue, type ExpressionAttributes,
 } from "../../src/adapters/dynamodb/client.ts";
 
@@ -283,6 +283,22 @@ export class FakeDynamoClient implements DynamoClient {
     await this.turn("get");
     this.reads.get += 1;
     return this.peek(input.key);
+  }
+
+  async scan(input: DynamoScanInput): Promise<DynamoQueryOutput> {
+    await this.turn("scan");
+    const matches = [...this.table.values()]
+      .filter((item) => evaluate(input.filter, item, input))
+      .sort((a, b) => keyOf({ PK: String(a["PK"]), SK: String(a["SK"]) }).localeCompare(keyOf({ PK: String(b["PK"]), SK: String(b["SK"]) }), "en"));
+    const start = input.startKey === undefined
+      ? 0
+      : matches.findIndex((item) => item["PK"] === input.startKey?.["PK"] && item["SK"] === input.startKey?.["SK"]) + 1;
+    const page = matches.slice(start, start + this.pageSize);
+    const last = page[page.length - 1];
+    const items = page.map((item) => structuredClone(item));
+    return start + this.pageSize < matches.length && last !== undefined
+      ? { items, lastKey: { PK: String(last["PK"]), SK: String(last["SK"]) } }
+      : { items };
   }
 
   async query(input: DynamoQueryInput): Promise<DynamoQueryOutput> {

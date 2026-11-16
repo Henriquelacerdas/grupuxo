@@ -1,151 +1,438 @@
+import PhotosUI
 import SwiftUI
 @preconcurrency import Amplify
+import GrupuxoDomain
 
-/// Tela para quem ainda não tem casa: criar uma nova ou entrar por código.
+/// Primeiros passos de quem ainda não tem casa: seu nome → entrar com código ou criar a casa → (criou) convidar.
+/// Com `isFinishing` verdadeiro, o `HouseGateView` continua mostrando esta tela depois de a casa existir, para o
+/// passo "Convidar"; ao terminar, o app abre na aba Casa.
 struct OnboardingView: View {
-    private enum Mode: CaseIterable, Identifiable {
-        case create
-        case join
-        var id: Self { self }
 
-        var title: LocalizedStringKey {
-            switch self {
-            case .create: "Criar casa"
-            case .join: "Entrar com código"
-            }
-        }
+    @ScaledMetric(relativeTo: .body) private var starterIconSide: CGFloat = 32
+
+    private enum Step: Hashable {
+        case house
+        case join
+        case houseName
+        case rooms
+        case invite
+        case notifications
     }
+
+    /// O código de convite tem 6 letras ou números (BACKEND.md §6.1).
+    private static let inviteCodeLength = 6
+
+    @Binding var isFinishing: Bool
 
     @EnvironmentObject private var houses: RemoteHouseSession
     @EnvironmentObject private var authService: AuthService
+    @EnvironmentObject private var push: PushRegistration
 
-    @State private var mode: Mode = .create
+    @State private var path: [Step] = []
     @State private var myName = ""
     @State private var houseName = ""
     @State private var inviteCode = ""
     @State private var confirmSignOut = false
-    @FocusState private var focused: Bool
-
-    private var canSubmit: Bool {
-        guard !houses.isLoading, !myName.isBlank else { return false }
-        switch mode {
-        case .create: return !houseName.isBlank
-        case .join: return inviteCode.trimmingCharacters(in: .whitespaces).count >= 6
-        }
-    }
+    @State private var selectedStarters: Set<StarterRoom.ID> = []
+    @State private var isCreatingRooms = false
+    /// Foto escolhida no 1º passo; sobe depois que a casa existe, porque o servidor só conhece a conta nesse momento.
+    @State private var photoSelection: PhotosPickerItem?
+    @State private var photoJPEG: Data?
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    VStack(spacing: 12) {
-                        Image(systemName: "house.and.flag.fill")
-                            .font(.system(size: 52))
-                            .foregroundStyle(.tint)
-                        Text("Bem-vindo!")
-                            .font(.title2.bold())
-                        Text("Crie a casa e convide os moradores, ou entre em uma casa existente com o código de convite.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
+        NavigationStack(path: $path) {
+            profileStep
+                .navigationDestination(for: Step.self) { step in
+                    switch step {
+                    case .house: houseStep
+                    case .join: joinStep
+                    case .houseName: houseNameStep
+                    case .rooms: roomsStep
+                    case .invite: inviteStep
+                    case .notifications: notificationsStep
                     }
+                }
+        }
+        .confirmationDialog("Sair da conta?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
+        }
+        .onChange(of: path) { houses.errorMessage = nil }
+        .onChange(of: photoSelection) { _, item in
+            guard let item else { return }
+            Task {
+                defer { photoSelection = nil }
+                guard let data = try? await item.loadTransferable(type: Data.self),
+                      let jpeg = ProfilePhoto.jpegData(from: data) else { return }
+                photoJPEG = jpeg
+            }
+        }
+        .task { await prefillName() }
+    }
+
+    /// Foto opcional: se o envio falhar, a casa segue e a foto se troca em Ajustes › Conta.
+    private func uploadPendingPhoto() async {
+        guard let photoJPEG else { return }
+        _ = await houses.updatePhoto(jpeg: photoJPEG)
+        self.photoJPEG = nil
+        houses.errorMessage = nil
+    }
+
+    // MARK: - Seu perfil
+
+    private var profileStep: some View {
+        OnboardingStepScreen {
+            Section {
+                OnboardingHeader(
+                    title: "Como a casa vai te chamar?",
+                    subtitle: "Seu nome e sua foto aparecem nas tarefas e no rodízio."
+                )
+                InitialAvatar(name: myName, photo: photoJPEG.flatMap { UIImage(data: $0) })
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.top, DesignSystem.Spacing.large)
+                PhotosPicker(selection: $photoSelection, matching: .images) {
+                    Text(photoJPEG == nil ? "Adicionar foto" : "Trocar foto")
+                        .frame(maxWidth: .infinity, minHeight: DesignSystem.minimumTouchTarget)
                 }
-                .listRowBackground(Color.clear)
+                .accessibilityIdentifier("onboardingPickPhoto")
+            }
+            .onboardingHeaderRow()
 
-                Section {
-                    Picker("Opção", selection: $mode) {
-                        ForEach(Mode.allCases) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                }
-                .listRowBackground(Color.clear)
+            Section {
+                TextField("Seu nome", text: $myName)
+                    .textContentType(.name)
+                    .textInputAutocapitalization(.words)
+                    .submitLabel(.continue)
+                    .onSubmit { if !myName.isBlank { path.append(.house) } }
+            } footer: {
+                Text("Se você entrou com a Apple, o nome já vem preenchido.")
+            }
 
-                Section("Você") {
-                    TextField("Seu nome", text: $myName)
-                        .textContentType(.name)
-                        .textInputAutocapitalization(.words)
-                }
-
-                switch mode {
-                case .create:
-                    Section {
-                        TextField("Nome da casa (ex.: Rep. Central)", text: $houseName)
-                            .textInputAutocapitalization(.words)
-                            .focused($focused)
-                    } header: {
-                        Text("Nova casa")
-                    } footer: {
-                        Text("Você será o administrador e receberá um código para convidar os moradores.")
-                    }
-                case .join:
-                    Section {
-                        TextField("Código (6 caracteres)", text: $inviteCode)
-                            .textInputAutocapitalization(.characters)
-                            .autocorrectionDisabled()
-                            .font(.body.monospaced())
-                            .focused($focused)
-                            .onChange(of: inviteCode) { _, new in
-                                inviteCode = String(new.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(6))
-                            }
-                    } header: {
-                        Text("Casa existente")
-                    } footer: {
-                        Text("Peça o código para quem administra a casa.")
-                    }
-                }
-
-                if let message = houses.errorMessage {
-                    Section {
-                        Label(message, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                    }
-                }
-
-                Section {
-                    Button(action: submit) {
-                        HStack {
-                            Spacer()
-                            if houses.isLoading {
-                                ProgressView()
-                            } else {
-                                Text(mode == .create ? "Criar casa" : "Entrar na casa").bold()
-                            }
-                            Spacer()
-                        }
-                    }
-                    .disabled(!canSubmit)
-                }
-
-                Section {
-                    DeleteAccountButton()
+            Section {
+                DeleteAccountButton(systemImage: nil)
+            }
+        } footer: {
+            Button("Continuar") { path.append(.house) }
+                .buttonStyle(.authPrimary)
+                .disabled(myName.isBlank)
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Sair da conta", systemImage: "rectangle.portrait.and.arrow.right") {
+                    confirmSignOut = true
                 }
             }
-            .navigationTitle("Sua casa")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Sair", systemImage: "rectangle.portrait.and.arrow.right") {
-                        confirmSignOut = true
-                    }
-                }
-            }
-            .confirmationDialog("Sair da conta?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-                Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
-            }
-            .onChange(of: mode) { houses.errorMessage = nil }
-            .task { await prefillName() }
         }
     }
 
-    private func submit() {
-        focused = false
+    // MARK: - Sua casa
+
+    private var houseStep: some View {
+        OnboardingStepScreen {
+            Section {
+                OnboardingHeader(
+                    title: "Você já tem uma casa no Reveza?",
+                    subtitle: "Se alguém da sua casa já usa o app, peça o código para entrar."
+                )
+            }
+            .onboardingHeaderRow()
+
+            Section {
+                choiceRow(
+                    title: "Entrar com código",
+                    subtitle: "Alguém da casa já te mandou o código.",
+                    step: .join
+                )
+                choiceRow(
+                    title: "Criar uma casa",
+                    subtitle: "Monte os cômodos e chame a casa.",
+                    step: .houseName
+                )
+            }
+        } footer: {
+            EmptyView()
+        }
+    }
+
+    private func choiceRow(title: LocalizedStringKey, subtitle: LocalizedStringKey, step: Step) -> some View {
+        NavigationLink(value: step) {
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
+                Text(title)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, DesignSystem.Spacing.extraSmall)
+        }
+    }
+
+    // MARK: - Entrar com código
+
+    private var joinStep: some View {
+        OnboardingStepScreen {
+            Section {
+                OnboardingHeader(
+                    title: "Qual é o código da casa?",
+                    subtitle: "Peça para quem criou a casa. Ele aparece em Ajustes, na seção Casa."
+                )
+            }
+            .onboardingHeaderRow()
+
+            Section {
+                TextField("Código de 6 letras", text: $inviteCode)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .font(.body.monospaced())
+                    .submitLabel(.join)
+                    .onSubmit(join)
+                    .onChange(of: inviteCode) { _, new in
+                        inviteCode = String(new.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(Self.inviteCodeLength))
+                        houses.errorMessage = nil
+                    }
+            } footer: {
+                if let message = houses.errorMessage {
+                    Text(message).foregroundStyle(.red)
+                }
+            }
+        } footer: {
+            Button(action: join) {
+                AuthButtonLabel(title: "Entrar na casa", isWorking: houses.isLoading)
+            }
+            .buttonStyle(.authPrimary)
+            .disabled(houses.isLoading || inviteCode.count < Self.inviteCodeLength)
+        }
+    }
+
+    private func join() {
+        guard !houses.isLoading, inviteCode.count == Self.inviteCodeLength else { return }
         Task {
-            switch mode {
-            case .create: await houses.createHouse(name: houseName, myName: myName)
-            case .join: await houses.joinHouse(code: inviteCode, myName: myName)
+            await houses.joinHouse(code: inviteCode, myName: myName)
+            if houses.house != nil {
+                await uploadPendingPhoto()
+                finish()
             }
         }
+    }
+
+    // MARK: - Nome da casa
+
+    private var houseNameStep: some View {
+        OnboardingStepScreen {
+            Section {
+                OnboardingHeader(
+                    title: "Como se chama a casa?",
+                    subtitle: "Todo mundo que entrar vai ver esse nome."
+                )
+            }
+            .onboardingHeaderRow()
+
+            Section {
+                TextField("Nome da casa", text: $houseName)
+                    .textInputAutocapitalization(.words)
+                    .submitLabel(.continue)
+                    .onSubmit(create)
+            } footer: {
+                if let message = houses.errorMessage {
+                    Text(message).foregroundStyle(.red)
+                } else {
+                    Text("Ex.: Rep da Unicamp, Apê da Augusta.")
+                }
+            }
+        } footer: {
+            Button(action: create) {
+                AuthButtonLabel(title: "Continuar", isWorking: houses.isLoading)
+            }
+            .buttonStyle(.authPrimary)
+            .disabled(houses.isLoading || houseName.isBlank)
+        }
+    }
+
+    private func create() {
+        guard !houses.isLoading, !houseName.isBlank, !myName.isBlank else { return }
+        // Mantém esta tela à frente do app até o passo "Convidar" terminar.
+        isFinishing = true
+        Task {
+            await houses.createHouse(name: houseName, myName: myName)
+            if houses.house != nil {
+                await uploadPendingPhoto()
+                path.append(.rooms)
+            } else {
+                isFinishing = false
+            }
+        }
+    }
+
+    // MARK: - Primeiros cômodos
+
+    private var roomsStep: some View {
+        OnboardingStepScreen {
+            Section {
+                OnboardingHeader(
+                    title: "Quais cômodos tem na casa?",
+                    subtitle: "Marque os que entram no rodízio."
+                )
+            }
+            .onboardingHeaderRow()
+
+            Section {
+                ForEach(StarterRoom.all) { starter in
+                    Button {
+                        if selectedStarters.contains(starter.id) {
+                            selectedStarters.remove(starter.id)
+                        } else {
+                            selectedStarters.insert(starter.id)
+                        }
+                    } label: {
+                        HStack(spacing: DesignSystem.Spacing.medium) {
+                            Image(systemName: starter.icon)
+                                .foregroundStyle(.white)
+                                .frame(width: starterIconSide, height: starterIconSide)
+                                .background(starter.color.tint, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .accessibilityHidden(true)
+                            Text(starter.name)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: selectedStarters.contains(starter.id) ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(selectedStarters.contains(starter.id) ? Color.accentColor : .secondary)
+                                .accessibilityHidden(true)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedStarters.contains(starter.id) ? .isSelected : [])
+                    .accessibilityIdentifier("starterRoom.\(starter.id)")
+                }
+            } footer: {
+                if let message = houses.errorMessage {
+                    Text(message).foregroundStyle(.red)
+                } else {
+                    Text("Todos começam com rodízio toda semana e algumas tarefas sugeridas. Você pode alterar depois em cada cômodo.")
+                }
+            }
+        } footer: {
+            Button(action: createRooms) {
+                AuthButtonLabel(
+                    title: selectedStarters.isEmpty ? "Continuar sem cômodos" : "Criar cômodos",
+                    isWorking: isCreatingRooms
+                )
+            }
+            .buttonStyle(.authPrimary)
+            .disabled(isCreatingRooms)
+        }
+        .navigationBarBackButtonHidden()
+    }
+
+    private func createRooms() {
+        guard !isCreatingRooms else { return }
+        let chosen = StarterRoom.all.filter { selectedStarters.contains($0.id) }
+        isCreatingRooms = true
+        Task {
+            if !chosen.isEmpty { _ = await houses.createStarterRooms(chosen) }
+            isCreatingRooms = false
+            // Falha parcial: segue para o convite; o erro já ficou em `houses.errorMessage` e some no próximo passo.
+            path.append(.invite)
+        }
+    }
+
+    // MARK: - Convidar
+
+    private var inviteStep: some View {
+        OnboardingStepScreen {
+            Section {
+                OnboardingHeader(
+                    title: "Chame quem mora com você",
+                    subtitle: inviteSubtitle
+                )
+            }
+            .onboardingHeaderRow()
+
+            if let code = houses.inviteCode {
+                Section {
+                    VStack(spacing: DesignSystem.Spacing.small) {
+                        Text(code)
+                            .font(.largeTitle.monospaced().bold())
+                            .tracking(DesignSystem.Spacing.small)
+                            .textSelection(.enabled)
+                        Text("Código da casa")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, DesignSystem.Spacing.large)
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        } footer: {
+            if let code = houses.inviteCode {
+                ShareLink(item: inviteMessage(code: code)) {
+                    Text("Compartilhar convite")
+                }
+                .buttonStyle(.authPrimary)
+
+                Button("Copiar código") {
+                    UIPasteboard.general.string = code
+                    Haptics.success()
+                }
+                .buttonStyle(AuthCapsuleButtonStyle(
+                    fill: Color.accentColor.opacity(DesignSystem.tintedFillOpacity),
+                    foreground: .accentColor
+                ))
+            }
+
+            Button("Fazer isso depois") { path.append(.notifications) }
+                .frame(minHeight: DesignSystem.minimumTouchTarget)
+        }
+        .navigationBarBackButtonHidden()
+    }
+
+    // MARK: - Ativar notificações
+
+    private var notificationsStep: some View {
+        OnboardingStepScreen {
+            Section {
+                OnboardingHeader(
+                    title: "Quer que o Reveza te lembre?",
+                    subtitle: "Avisaremos quando chegar a sua vez em um cômodo, quando alguém pedir uma troca de tarefa e, uma vez por dia, suas tarefas."
+                )
+            }
+            .onboardingHeaderRow()
+        } footer: {
+            Button {
+                Task {
+                    if await push.requestAuthorization() { await push.resendToken() }
+                    finish()
+                }
+            } label: {
+                Text("Ativar notificações")
+            }
+            .buttonStyle(.authPrimary)
+
+            Button("Agora não", action: finish)
+                .frame(minHeight: DesignSystem.minimumTouchTarget)
+
+            Text("Você pode alterar o horário e o conteúdo das notificações em Ajustes.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .navigationBarBackButtonHidden()
+    }
+
+    private var inviteSubtitle: LocalizedStringKey {
+        if let name = houses.house?.name {
+            "Quem entrar com este código participa do rodízio da \(name)."
+        } else {
+            "Quem entrar com este código participa do rodízio da casa."
+        }
+    }
+
+    private func inviteMessage(code: String) -> String {
+        String(localized: "Entre na casa \(houses.house?.name ?? "") no Reveza com o código \(code).")
+    }
+
+    /// Fecha o onboarding e abre o app na aba Casa.
+    private func finish() {
+        ShortcutNavigationManager.shared.navigate(to: .house)
+        isFinishing = false
     }
 
     /// Preenche o nome com o atributo do Cognito (Apple manda "name" só no 1º login e o
@@ -165,6 +452,76 @@ struct OnboardingView: View {
         }
         let name = value(.name) ?? value(.givenName) ?? emailPrefix ?? String(localized: "Morador")
         if myName.isEmpty { myName = name }
+    }
+}
+
+// MARK: - Peças
+
+/// Esqueleto de cada passo: lista agrupada rolável e as ações presas ao rodapé (sobem com o teclado).
+private struct OnboardingStepScreen<Content: View, Footer: View>: View {
+    @ViewBuilder var content: Content
+    @ViewBuilder var footer: Footer
+
+    var body: some View {
+        Form {
+            content
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: DesignSystem.Spacing.medium) {
+                footer
+            }
+            .padding(.horizontal, AuthLayout.horizontalPadding)
+            .padding(.vertical, DesignSystem.Spacing.small)
+            .background(Color(uiColor: .systemGroupedBackground))
+        }
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Título grande à esquerda com o texto de apoio, no topo da lista.
+private struct OnboardingHeader: View {
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
+
+    var body: some View {
+        AuthHeader(title: title, subtitle: subtitle)
+    }
+}
+
+/// Círculo com as iniciais do nome digitado (o mesmo visual do `ResidentAvatar` grande).
+private struct InitialAvatar: View {
+    let name: String
+    var photo: UIImage?
+
+    @ScaledMetric(relativeTo: .largeTitle) private var diameter: CGFloat = 96
+
+    var body: some View {
+        Group {
+            if let photo {
+                Image(uiImage: photo)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: diameter, height: diameter)
+                    .clipShape(Circle())
+            } else {
+                Text(name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined())
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(.tint)
+                    .frame(width: diameter, height: diameter)
+                    .background(Color.accentColor.opacity(DesignSystem.tintedFillOpacity), in: Circle())
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private extension View {
+    /// Linha do cabeçalho sem fundo de célula, alinhada com as seções.
+    func onboardingHeaderRow() -> some View {
+        listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+            .listSectionSpacing(.compact)
     }
 }
 

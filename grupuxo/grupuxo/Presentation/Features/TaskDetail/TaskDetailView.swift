@@ -26,22 +26,46 @@ struct TaskDetailView: View {
 
     @State private var isShowingFullQueue = false
 
-    /// `false` esconde "Editar" (a `api` ainda não tem rota de edição de tarefa).
+    @State private var swapOffer: SwapOffer?
+
+    private struct SwapOffer: Identifiable {
+        let id: TaskOccurrence.ID
+    }
+
+    /// Abre "Pedir troca" por cima do detalhe; sem ele, o botão não aparece.
+    private let makeSwapViewModel: ((TaskOccurrence.ID) -> TaskSwapViewModel)?
+
+    /// `false` esconde "Editar".
     private let allowsEditing: Bool
+
+    /// Editor completo ("Editar Tarefa"); sem ele, a edição cai na folha simples de nome e descrição.
+    private let makeEditorViewModel: ((TaskDefinition) -> TaskEditorViewModel)?
 
     /// Quantas linhas do rodízio aparecem recolhidas: a vez atual e a próxima.
     private static let collapsedQueueCount = 2
 
     init(
         viewModel: TaskDetailViewModel,
-        allowsEditing: Bool = true
+        allowsEditing: Bool = true,
+        makeEditorViewModel: ((TaskDefinition) -> TaskEditorViewModel)? = nil,
+        makeSwapViewModel: ((TaskOccurrence.ID) -> TaskSwapViewModel)? = nil
     ) {
 
         _viewModel = StateObject(
             wrappedValue: viewModel
         )
         self.allowsEditing = allowsEditing
+        self.makeEditorViewModel = makeEditorViewModel
+        self.makeSwapViewModel = makeSwapViewModel
 
+    }
+
+    /// A única é de quem criou; a recorrente ativa, de quem participa do cômodo (o servidor confere o resto).
+    private func canEdit(_ definition: TaskDefinition) -> Bool {
+        switch definition.kind {
+        case .sporadic: definition.createdByUserID == viewModel.currentUserID
+        case .recurring: definition.endedAt == nil && viewModel.isRoomMember
+        }
     }
 
     var body: some View {
@@ -107,8 +131,10 @@ struct TaskDetailView: View {
                     placement: .confirmationAction
                 ) {
 
+                    // A única é de quem criou; a recorrente ativa é de quem participa do cômodo (a `api` confere).
                     if allowsEditing, case let .content(definition) =
-                        viewModel.state {
+                        viewModel.state,
+                       canEdit(definition) {
 
                         Button("Editar") {
 
@@ -125,13 +151,31 @@ struct TaskDetailView: View {
 
         }
         .sheet(
-            item: $editingDefinition
+            item: $editingDefinition,
+            onDismiss: { Task { await viewModel.load() } }
         ) { definition in
 
-            TaskDetailsEditSheet(
-                viewModel: viewModel,
-                definition: definition
-            )
+            if let makeEditorViewModel {
+                TaskCreationSheetView(viewModel: makeEditorViewModel(definition))
+                    .presentationDragIndicator(.visible)
+            } else {
+                TaskDetailsEditSheet(
+                    viewModel: viewModel,
+                    definition: definition
+                )
+            }
+
+        }
+        .sheet(
+            item: $swapOffer,
+            onDismiss: { Task { await viewModel.load() } }
+        ) { offer in
+
+            if let makeSwapViewModel {
+                NavigationStack {
+                    TaskSwapView(viewModel: makeSwapViewModel(offer.id))
+                }
+            }
 
         }
         .alert(
@@ -197,7 +241,7 @@ struct TaskDetailView: View {
         ) { _, wasEnded in
 
             if wasEnded {
-                showToast(.deleted(String(localized: "Tarefa encerrada")))
+                showToast(.deleted(String(localized: "Tarefa apagada")))
                 dismiss()
             }
 
@@ -500,24 +544,39 @@ struct TaskDetailView: View {
 
             if viewModel.canComplete {
 
-                Button {
+                if viewModel.isCurrentCompleted {
 
-                    Task {
-
-                        await viewModel.complete()
-
+                    Button {
+                        Task { await viewModel.complete() }
+                    } label: {
+                        Text("Desmarcar como feita")
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.bordered)
 
-                } label: {
+                } else {
 
-                    Text("Marcar como concluída")
-                        .frame(
-                            maxWidth: .infinity,
-                            minHeight: DesignSystem.minimumTouchTarget
-                        )
-
+                    Button {
+                        Task { await viewModel.complete() }
+                    } label: {
+                        Text("Marcar como feita")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.borderedProminent)
+
+            }
+
+            if makeSwapViewModel != nil,
+               let occurrenceID = viewModel.swapOccurrenceID {
+
+                Button {
+                    swapOffer = SwapOffer(id: occurrenceID)
+                } label: {
+                    Text("Pedir troca")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
 
             }
 
@@ -532,18 +591,15 @@ struct TaskDetailView: View {
                 } label: {
 
                     Text("Apagar tarefa")
-                        .frame(
-                            maxWidth: .infinity,
-                            minHeight: DesignSystem.minimumTouchTarget
-                        )
+                        .frame(maxWidth: .infinity)
 
                 }
                 .buttonStyle(.bordered)
-                .tint(.red)
 
             }
 
         }
+        .controlSize(.large)
         .buttonBorderShape(.capsule)
         .disabled(
             viewModel.isPerformingAction
@@ -904,6 +960,9 @@ private struct TaskDetailsEditSheet: View {
 
 private struct UpcomingAssignmentRow: View {
 
+    @ScaledMetric(relativeTo: .title2)
+    private var placeholderSide: CGFloat = 36
+
     enum Position {
         case current
         case next
@@ -935,7 +994,7 @@ private struct UpcomingAssignmentRow: View {
                 Image(systemName: "person.crop.circle.badge.questionmark")
                     .font(.title2)
                     .foregroundStyle(.secondary)
-                    .frame(width: 36, height: 36)
+                    .frame(width: placeholderSide, height: placeholderSide)
 
             }
 
@@ -1042,10 +1101,10 @@ enum TaskDetailText {
             }
 
             switch frequency {
-            case .daily: return String(localized: "Diária")
-            case .weekly: return String(localized: "Semanal")
-            case .monthly: return String(localized: "Mensal")
-            case .yearly: return String(localized: "Anual")
+            case .daily: return String(localized: "Diariamente")
+            case .weekly: return String(localized: "Semanalmente")
+            case .monthly: return String(localized: "Mensalmente")
+            case .yearly: return String(localized: "Anualmente")
             }
 
         case let .weekly(periodicity):

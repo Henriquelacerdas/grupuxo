@@ -2,18 +2,20 @@ import GrupuxoDomain
 import SwiftUI
 
 /// Decide o que mostrar para o usuário logado:
-/// carregando → erro → Onboarding (sem casa) → conteúdo do app (com casa).
+/// carregando → erro → Onboarding (sem casa, ou terminando o passo "Convidar") → conteúdo do app (com casa).
 struct HouseGateView<Content: View>: View {
     @EnvironmentObject private var houses: RemoteHouseSession
     @EnvironmentObject private var authService: AuthService
     @ViewBuilder var content: () -> Content
     @State private var confirmSignOut = false
+    /// Verdadeiro enquanto o onboarding mostra o passo "Convidar", depois de a casa já existir.
+    @State private var isFinishingOnboarding = false
 
     var body: some View {
         Group {
             if !houses.hasLoaded {
                 ProgressView("Carregando sua casa…")
-            } else if houses.house != nil {
+            } else if houses.house != nil, !isFinishingOnboarding {
                 content()
             } else if let error = houses.loadError {
                 ContentUnavailableView {
@@ -27,7 +29,7 @@ struct HouseGateView<Content: View>: View {
                     DeleteAccountButton()
                 }
             } else {
-                OnboardingView()
+                OnboardingView(isFinishing: $isFinishingOnboarding)
             }
         }
         .confirmationDialog("Sair da conta?", isPresented: $confirmSignOut, titleVisibility: .visible) {

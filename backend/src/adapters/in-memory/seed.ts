@@ -60,11 +60,11 @@ export function createSeed(options: SeedOptions): Seed {
   const roomMemberships = [
     ...rooms.filter((r) => r.visibility === "common").flatMap((r) =>
       users.map((u) => ({
-        id: roomMembershipID(newID()), roomID: r.id, userID: u.id, fairnessDebt: 0, leftAt: null, rotationChanges: null,
+        id: roomMembershipID(newID()), roomID: r.id, userID: u.id, fairnessDebt: 0, leftAt: null, rotationChanges: null, skipsNextOwnTurn: false,
       }))
     ),
     ...[marina, bia].map((u) => ({
-      id: roomMembershipID(newID()), roomID: privateOffice.id, userID: u.id, fairnessDebt: 0, leftAt: null, rotationChanges: null,
+      id: roomMembershipID(newID()), roomID: privateOffice.id, userID: u.id, fairnessDebt: 0, leftAt: null, rotationChanges: null, skipsNextOwnTurn: false,
     })),
   ];
 
@@ -92,7 +92,7 @@ export function createSeed(options: SeedOptions): Seed {
     users, houses: [house],
     houseMemberships: users.map((u) => ({ id: houseMembershipID(newID()), houseID: house.id, userID: u.id })),
     rooms, roomMemberships, definitions: [], occurrences: [], assignments: [], absences: [],
-    taskSwapRequests: [], notifications: [],
+    taskSwapRequests: [], notifications: [], roomAccessRequests: [], roomRatings: [],
   };
   const scheduling = new TaskSchedulingService({ calendar: createCalendar(house.timezone), newID });
   const start = scheduling.weekStart(options.now);

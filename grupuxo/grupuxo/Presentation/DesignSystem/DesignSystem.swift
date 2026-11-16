@@ -15,6 +15,97 @@ enum DesignSystem {
     static let minimumTouchTarget: CGFloat = 44
     static let cornerRadius: CGFloat = 12
     static let cardCornerRadius: CGFloat = 24
+
+    /// Quadrado colorido com glifo branco no início de uma linha de configurações (padrão do app Ajustes do iOS).
+    static let settingsIconSize: CGFloat = 30
+    static let settingsIconCornerRadius: CGFloat = 8
+
+    /// Opacidade do fundo translúcido na cor de destaque (avatar, botão "Copiar") e na cor destrutiva
+    /// (sair da casa, apagar conta).
+    static let tintedFillOpacity: Double = 0.12
+    static let destructiveFillOpacity: Double = 0.12
+
+    /// Espaçamento entre os caracteres do código de convite, para ele ler como um código e não como uma palavra.
+    static let inviteCodeTracking: CGFloat = 3
+
+    /// Quanto tempo "Copiado" fica na tela antes de voltar a "Copiar".
+    static let copyFeedbackDuration: Duration = .seconds(1.5)
+}
+
+/// Quadrado arredondado colorido com um símbolo, como nas linhas do app Ajustes do iOS.
+/// Acompanha o Dynamic Type; é decorativo, o texto da linha já diz tudo.
+struct SettingsIcon: View {
+
+    let systemName: String
+    let tint: Color
+
+    @ScaledMetric(relativeTo: .body) private var side: CGFloat = DesignSystem.settingsIconSize
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: side, height: side)
+            .background(
+                tint,
+                in: RoundedRectangle(
+                    cornerRadius: DesignSystem.settingsIconCornerRadius,
+                    style: .continuous
+                )
+            )
+            .accessibilityHidden(true)
+    }
+}
+
+/// Conteúdo de uma linha de configurações: ícone opcional, título e valor secundário à direita.
+/// Dentro de `NavigationLink` o chevron vem do sistema; em `Link`/`Button`, use `showsDisclosure`.
+struct SettingsRowLabel: View {
+
+    let title: Text
+    var systemImage: String?
+    var tint: Color = .accentColor
+    var value: Text?
+    var showsDisclosure = false
+
+    var body: some View {
+
+        HStack(spacing: DesignSystem.Spacing.medium) {
+
+            if let systemImage {
+                SettingsIcon(systemName: systemImage, tint: tint)
+            }
+
+            title
+
+            Spacer(minLength: DesignSystem.Spacing.small)
+
+            if let value {
+                value.foregroundStyle(.secondary)
+            }
+
+            if showsDisclosure {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension ToolbarContent {
+
+    /// Tira o fundo de vidro que o iOS 26 põe em volta de cada item da barra. Para conteúdo que já é uma forma própria
+    /// (o avatar redondo), o vidro viraria um segundo círculo em volta dele.
+    @ToolbarContentBuilder
+    func withoutSharedBackground() -> some ToolbarContent {
+        if #available(iOS 26, *) {
+            sharedBackgroundVisibility(.hidden)
+        } else {
+            self
+        }
+    }
 }
 
 /// Barra de progresso do ciclo: trilho neutro e preenchimento na cor do cômodo.
@@ -101,9 +192,14 @@ extension View {
 struct EmptyStateView: View {
     let title: LocalizedStringKey
     let systemImage: String
+    var description: LocalizedStringKey? = nil
 
     var body: some View {
-        ContentUnavailableView(title, systemImage: systemImage)
+        ContentUnavailableView(
+            title,
+            systemImage: systemImage,
+            description: description.map { Text($0) }
+        )
     }
 }
 
@@ -111,15 +207,23 @@ struct ResidentAvatar: View {
 
     /// `regular` acompanha o texto ao redor; `toolbar` ocupa o lugar de um botão da barra de navegação,
     /// com o mesmo tamanho dos botões vizinhos (a barra não cresce com o Dynamic Type).
+    /// `profile` e `hero` são as versões grandes dos Ajustes: o cartão do perfil e o topo da tela Conta.
     enum Size {
         case regular
+        /// Linhas de tarefa do cômodo (40 pt no design).
+        case row
         case toolbar
+        case profile
+        case hero
     }
 
     let user: User
     let size: Size
 
     @ScaledMetric(relativeTo: .caption) private var regularDiameter: CGFloat = 36
+    @ScaledMetric(relativeTo: .body) private var rowDiameter: CGFloat = 40
+    @ScaledMetric(relativeTo: .title3) private var profileDiameter: CGFloat = 56
+    @ScaledMetric(relativeTo: .largeTitle) private var heroDiameter: CGFloat = 96
 
     init(user: User, size: Size = .regular) {
         self.user = user
@@ -129,25 +233,54 @@ struct ResidentAvatar: View {
     private var diameter: CGFloat {
         switch size {
         case .regular: regularDiameter
+        case .row: rowDiameter
         case .toolbar: DesignSystem.minimumTouchTarget
+        case .profile: profileDiameter
+        case .hero: heroDiameter
         }
     }
 
     private var font: Font {
         switch size {
         case .regular: .caption.bold()
+        case .row: .subheadline.bold()
         case .toolbar: .headline
+        case .profile: .title3.bold()
+        case .hero: .largeTitle.bold()
         }
     }
 
-    var body: some View {
+    private var fillOpacity: Double {
+        size == .toolbar ? 0 : DesignSystem.tintedFillOpacity
+    }
+
+    private var initials: some View {
         Text(user.name.split(separator: " ").prefix(2).compactMap { $0.first }.map(String.init).joined())
             .font(font)
             .foregroundStyle(.tint)
             .frame(width: diameter, height: diameter)
-            .background(size == .regular ? Color.accentColor.opacity(0.12) : .clear, in: Circle())
-            .contentShape(Circle())
-            .accessibilityHidden(true)
+            .background(Color.accentColor.opacity(fillOpacity), in: Circle())
+    }
+
+    var body: some View {
+        Group {
+            if let url = user.photoURL {
+                // Enquanto carrega (ou se falhar), as iniciais ocupam o lugar.
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    } else {
+                        initials
+                    }
+                }
+                .frame(width: diameter, height: diameter)
+                .clipShape(Circle())
+            } else {
+                initials
+            }
+        }
+        .contentShape(Circle())
+        .accessibilityHidden(true)
     }
 }
 

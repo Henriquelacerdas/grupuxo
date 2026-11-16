@@ -7,6 +7,11 @@ import Combine
 @MainActor
 class AuthService: ObservableObject {
     @Published var isSignedIn = false
+    @Published private(set) var hasCheckedSession = false
+    @Published private(set) var sessionCheckFailed = false
+
+    /// Roda antes do logout, com a sessão ainda válida (tirar o aparelho do servidor precisa do token). Falhas não travam a saída.
+    var beforeSignOut: (@MainActor @Sendable () async -> Void)?
     
     enum SignInStatus {
         case success
@@ -40,13 +45,22 @@ class AuthService: ObservableObject {
         case failed(String)
     }
 
+    /// Resultado de trocar a senha de quem já está logado (Ajustes › Conta).
+    enum PasswordChangeOutcome: Equatable {
+        case done
+        case offline
+        /// A senha atual não confere.
+        case wrongPassword
+        case failed(String)
+    }
+
     enum ConfirmSignUpOutcome: Equatable {
         case confirmed
         case failed(String)
     }
 
     /// Regras de senha do user pool (`amplify_outputs.json`), mostradas no cadastro.
-    static let passwordRules = String(localized: "Mínimo de 8 caracteres, com letra maiúscula, minúscula, número e símbolo.")
+    static let passwordRules = String(localized: "Pelo menos 6 caracteres, com uma letra minúscula.")
 
     /// O e-mail é o nome de usuário no Cognito: sem espaços nas pontas (o teclado e o preenchimento automático
     /// costumam deixar um no fim) e em minúsculas, para o cadastro e o login sempre baterem.
@@ -68,12 +82,16 @@ class AuthService: ObservableObject {
     // Verifica se o usuário já está logado ao abrir o app
     func checkSession() async {
         startObservingSession()
+        if !isSignedIn { hasCheckedSession = false }
+        sessionCheckFailed = false
+        defer { hasCheckedSession = true }
         do {
             let session = try await client.fetchSession()
             // Sessão vencida ou encerrada desloga; sem rede (.unavailable) quem já está logado continua.
             self.isSignedIn = session.isActive
         } catch {
             // Não sabemos o estado: não derruba nem promove ninguém.
+            sessionCheckFailed = !isSignedIn
             print("Erro ao verificar sessão: \(error)")
         }
     }
@@ -131,8 +149,20 @@ class AuthService: ObservableObject {
     // Faz o logout. Mesmo se o Cognito falhar (ex.: sem rede), o estado local é limpo.
     func signOut() async {
         // Os lembretes ficam no aparelho, não na conta: sem isto, a próxima conta veria as tarefas desta no Lembretes.
+        if let beforeSignOut {
+            // Sem rede, o logout não espera mais que alguns segundos por isso.
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { await beforeSignOut() }
+                group.addTask { try? await Task.sleep(for: .seconds(3)) }
+                await group.next()
+                group.cancelAll()
+            }
+        }
         await ReminderLinkCleaner().removeAll()
         ReminderSyncPreference().setEnabled(false)
+        PendingTasksBadge.clear()
+        DailyTasksNoticeManager.shared.disable()
+        CycleNoticeManager.shared.disable()
         let outcome = await client.signOut()
         if outcome == .failed {
             print("Logout remoto falhou; limpando o estado local.")
@@ -249,6 +279,31 @@ class AuthService: ObservableObject {
             }
         } catch {
             print("Erro ao confirmar redefinição: \(error)")
+            return .failed(Self.message(for: error))
+        }
+    }
+
+    /// Troca a senha de quem entrou com e-mail e senha. A senha atual é conferida pelo Cognito.
+    func changePassword(oldPassword: String, newPassword: String) async -> PasswordChangeOutcome {
+        guard !oldPassword.isEmpty else { return .failed(String(localized: "Informe a senha atual.")) }
+        guard !newPassword.isEmpty else { return .failed(String(localized: "Informe a senha nova.")) }
+        guard newPassword != oldPassword else {
+            return .failed(String(localized: "A senha nova precisa ser diferente da atual."))
+        }
+        do {
+            try await client.updatePassword(oldPassword: oldPassword, newPassword: newPassword)
+            return .done
+        } catch let error as AuthError {
+            print("Erro ao trocar a senha: \(error)")
+            if case .notAuthorized = error { return .wrongPassword }
+            switch Self.cognitoError(error) {
+            case .network: return .offline
+            case .invalidPassword: return .failed(String(localized: "Senha fraca. \(Self.passwordRules)"))
+            case .invalidParameter: return .failed(String(localized: "Senha fraca. \(Self.passwordRules)"))
+            default: return .failed(Self.message(for: error))
+            }
+        } catch {
+            print("Erro ao trocar a senha: \(error)")
             return .failed(Self.message(for: error))
         }
     }

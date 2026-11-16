@@ -2,7 +2,7 @@
 
 App iOS em SwiftUI para organizar tarefas domésticas em casas compartilhadas e repúblicas. Objetivo: reduzir a carga mental de criar, distribuir, lembrar e acompanhar tarefas, com divisão clara e justa.
 
-**Estado atual:** login com Amazon Cognito (e-mail/senha e Sign in with Apple); criar casa ou entrar por código, cômodos, tarefas e conclusão pelo app falam com o backend em Node.js + TypeScript (algoritmo de distribuição no servidor, persistência em DynamoDB) e o canal WhatsApp (ver e concluir as próprias tarefas) roda no ambiente `dev` da AWS, já com o número real do bot (app da Meta publicado em 2026-10-26; falta o teste ponta a ponta com um celular de fora da lista de teste; ver [BACKEND.md](BACKEND.md) e [PLANO.md](PLANO.md)). Tarefas avulsas (criar, assumir, devolver), trocas e notificações também passam pelo servidor. Edição de tarefa e exclusão de avulsa ainda não têm rota e estão escondidas no app.
+**Estado atual:** login com Amazon Cognito (e-mail/senha e Sign in with Apple); criar casa ou entrar por código, cômodos, tarefas e conclusão pelo app falam com o backend em Node.js + TypeScript (algoritmo de distribuição no servidor, persistência em DynamoDB) e o canal WhatsApp (ver e concluir as próprias tarefas) roda no ambiente `dev` da AWS, já com o número real do bot (app da Meta publicado em 2026-10-26; falta o teste ponta a ponta com um celular de fora da lista de teste; ver [BACKEND.md](BACKEND.md) e [PLANO.md](PLANO.md)). Tarefas avulsas (criar, assumir, devolver), trocas e notificações também passam pelo servidor. Editar e excluir tarefa única (só quem criou) têm rota própria (`PATCH`/`DELETE`); editar tarefa recorrente ainda não.
 
 ## Estrutura da casa
 
@@ -33,8 +33,8 @@ A barra principal tem duas abas. Sino (notificações) e perfil (configurações
 
 Responsabilidades do usuário, em três seções recolhíveis:
 
-- **Seu ciclo**: os cômodos de que o morador é responsável neste ciclo, cada um com o prazo ("Termina domingo"), o progresso do cômodo ("2 de 5") e as tarefas de mesma periodicidade do cômodo.
-- **Tarefas gerais**: tarefas recorrentes de um cômodo com periodicidade diferente da do cômodo, com o nome do cômodo e o dia do prazo.
+- **Repetição do cômodo** (antes "Seu ciclo"): os cômodos de que o morador é responsável neste ciclo, cada um com o prazo ("Termina domingo"), o progresso do cômodo ("2 de 5") e as tarefas de mesma periodicidade do cômodo.
+- **Repetição própria** (antes "Tarefas gerais"): tarefas recorrentes de um cômodo com periodicidade diferente da do cômodo, com o nome do cômodo e o dia do prazo.
 - **Tarefas únicas**: as esporádicas que o morador assumiu na aba Casa, com o nome do cômodo.
 
 Permite consultar prazo, responsável e estado; concluir (e desmarcar); e, deslizando a linha, **Pedir troca** com outro morador, **Editar** (abre o detalhe da tarefa; só leitura enquanto a `api` não tiver edição) e **Excluir** (só em recorrentes: encerra a tarefa, com confirmação; o histórico fica e a vez atual continua até ser concluída). Tarefas concluídas ficam marcadas até o fim do ciclo (seu ciclo) ou da semana (gerais e únicas). O botão "+" da barra abre a mesma sheet de criação de tarefa da aba Casa; o avatar abre as configurações e o sino, as notificações.
@@ -53,7 +53,7 @@ Organização coletiva:
 
 - Configurações: moradores da casa (adicionar/remover). Modo férias e saída da casa pela interface ainda dependem de definição.
 - Notificações: hoje cobrem o ciclo de troca de tarefas (solicitada, aceita, rejeitada). Tarefas atrasadas, alterações de cômodos e entradas/saídas são evoluções previstas.
-- A foto de perfil não é escolhida pelo usuário; usar iniciais/avatar padrão.
+- A foto de perfil é escolhida pelo morador (Ajustes › Conta; sem foto, o avatar mostra as iniciais).
 
 ## Tarefas
 
@@ -66,12 +66,12 @@ O esforço é carga interna usada para equilibrar responsabilidades; não deve v
 O responsável muda conforme o calendário, mesmo que o anterior não tenha concluído.
 
 - Períodos de cômodo ancorados na segunda-feira, com n, x > 0 e n ≤ 7x (no máximo uma execução por dia). A execução i ocorre no dia `floor(i × 7x / n)` do período. Criar no meio da semana já gera a execução desta semana ainda aberta (por exemplo, a de segunda-feira para uma tarefa semanal criada na quarta), com prazo até a execução seguinte; execuções de semanas anteriores não são geradas.
-- Opções de periodicidade da tarefa: "Mesma periodicidade do cômodo", outra semanal, diária, mensal ou anual. O semanal antigo com intervalo x equivale a 1 execução a cada x semanas (frações não são reduzidas).
+- Opções de periodicidade da tarefa: "Repetir com o cômodo" (toggle), outra semanal, diária, mensal ou anual. O semanal antigo com intervalo x equivale a 1 execução a cada x semanas (frações não são reduzidas).
 - Tarefas com a mesma periodicidade do cômodo compartilham seus responsáveis: com um responsável, todas são dele; com vários, um guloso distribui da mais trabalhosa para a menos, antes de associar nomes pelo Húngaro. As demais têm filas independentes.
 
 ### Rotação após conclusão
 
-Tarefa sem calendário só troca de responsável quando o atual conclui. A fila inicial considera carga semanal e saldo dos elegíveis; cada conclusão passa ao próximo slot da fila estática. Há uma única ocorrência ativa e nenhuma data futura inventada.
+Tarefa de repetição própria só troca de responsável quando o atual conclui, e a próxima janela (2 dias) abre um intervalo depois da conclusão ([ALGORITMO.md](ALGORITMO.md)). A fila inicial considera carga semanal e saldo dos elegíveis; cada conclusão passa ao próximo slot da fila estática. Há uma única ocorrência ativa e nenhuma data futura inventada.
 
 ### Distribuição automática e justiça
 
@@ -89,7 +89,7 @@ Sem recorrência previsível (ex.: trocar uma resistência); fora do fluxo algor
 
 - Concluir aplica o ajuste de justiça pelo esforço, no cômodo da tarefa.
 - Assumir ou devolver sem concluir não altera o saldo.
-- Não há "pulo" automático da próxima tarefa de mesmo esforço: isso conflitaria com atribuições publicadas e compensaria o mesmo trabalho duas vezes.
+- **Pular a vez (decidido em 06/11, o guia da designer vence):** quem conclui uma tarefa única pula a vez na próxima tarefa de **repetição própria** do mesmo cômodo, uma vez só. Não há "pulo" entre tarefas da escala do cômodo (isso compensaria o mesmo trabalho duas vezes), e atribuições já publicadas não mudam. Regra completa em [ALGORITMO.md](ALGORITMO.md).
 
 ## Troca de tarefas
 
@@ -97,13 +97,19 @@ Um morador oferece uma ocorrência sua e escolhe entre candidatas elegíveis de 
 
 ## Modo férias
 
-Ausências registradas impedem novas atribuições ao morador no período `[startsAt, endsAt)`. A vez dele nesse período é pulada (não aparece para ninguém) e a próxima dele é a seguinte fora da ausência; filas e atribuições já publicadas não são recalculadas. Pendências por conclusão são preservadas e sua fila sucessora muda na próxima segunda-feira. Interface, redistribuição e retorno de férias ainda não existem.
+Ausências registradas impedem novas atribuições ao morador no período `[startsAt, endsAt)`. A vez dele nesse período é pulada (não aparece para ninguém) e a próxima dele é a seguinte fora da ausência. Pendências por conclusão são preservadas e sua fila sucessora muda na próxima segunda-feira. **Modo férias (Ajustes › Você):** liga uma ausência sem data de volta (`GET/PUT/DELETE /v1/me/vacation`) **a partir da próxima segunda** ("do próximo ciclo": as atribuições desta semana não mudam) e a escala é replanejada dali em diante; desligar antes de começar apaga a ausência, e depois de começar fecha em "agora" e a escala volta a incluir a pessoa a partir da próxima segunda.
 
-## Avaliação da casa (planejado)
+## Avaliação da casa: Avaliar a semana e Resumo da semana (decidido em 06/11: o guia da designer vence)
 
-Moradores avaliam cômodos comuns; privados não participam. Resumo a cada 3 semanas para casas de 2–3 moradores e semanal para 4 ou mais. Sem promessa de anonimato absoluto.
+- **A cada ciclo de cada cômodo** (não mais "a cada 3 semanas"): quando o ciclo acaba, cada morador avalia, **uma vez**, os cômodos que enxerga (comuns e os privados de que participa) **menos os de que cuidou** naquele ciclo. A janela é de **2 dias** depois do fim do ciclo ("Avaliar a semana / Termina terça" no topo de Minhas tarefas). Refazer dentro da janela substitui.
+- **Três níveis** (Precisa melhorar, Bom, Ótimo), sem estrelas, e **tags opcionais e genéricas** de um catálogo fixo em dois grupos conforme o nível: o que foi bom, para Bom e Ótimo (Bem limpo, Organizado, No prazo, Caprichado), e o que pode melhorar, para Precisa melhorar (Faltou limpar, Ficou bagunçado, Ficou pela metade, Demorou para ficar pronto); **sem texto livre**. Fechar a folha sem enviar não grava nada.
+- **Resumo da semana (tela):** o período da última semana de calendário e quantas tarefas recorrentes da casa foram feitas nela; "Seu cômodo" (cômodos de que a pessoa cuidou, com o nível, a contagem de avaliações e as tags em "O que foi bom" e "O que pode melhorar") e "Casa" (os demais cômodos, só com nível e contagem, ou "Poucas avaliações para mostrar" quando ninguém avaliou); cômodos ainda no primeiro ciclo aparecem numa nota ("A Garagem entra no resumo quando o ciclo dela terminar").
+- **Resultado (Resumo da semana):** as tags só vão para quem cuidou do cômodo no ciclo, e o resultado só sai quando liberado: **2 ou mais avaliações** ou a **janela fechada** com ao menos uma. É só o agregado: o nível é a média arredondada e uma tag só aparece se **2 ou mais pessoas** a marcaram (sem nomes, sem contagem, sem a distribuição). O servidor guarda quem avaliou (para impedir voto duplo) e **nunca** o devolve; sem promessa de anonimato absoluto contra quem tem acesso ao banco.
+- Rotas e modelo: [BACKEND.md](BACKEND.md) §4 (`RATING#`) e §6.1 (`/me/ratings/pending`, `POST /rooms/{id}/ratings`, `/me/ratings/summary`). O aviso "resumo da semana pronto" (`weeklySummaryReady`) depende do agendador (Fase de push, `docs/BACKEND.md`).
 
 ## Roadmap e decisões abertas
+
+As decisões de design, de texto e de interface (vocabulário, cores, menus, Resumo da semana) estão em [DESIGN.md](DESIGN.md).
 
 **WhatsApp:** integração com o WhatsApp dos moradores para consultar tarefas, receber lembretes e, depois, registrar conclusões sem abrir o app. Decidido: API oficial da Meta (Cloud API), v1 de consulta e, com confirmação ("Marcar X como feita? sim/não"), conclusão de tarefas (implementada; ver [BACKEND.md](BACKEND.md) seção 7.4), vínculo do número por link `wa.me` com token e consentimento registrado no vínculo. Exige backend (ver [BACKEND.md](BACKEND.md)). Em aberto: custo de mensagens iniciadas pelo bot (lembretes) e um número de bot por ambiente.
 

@@ -25,6 +25,8 @@ export const SK_PREFIX = {
   swap: "SWAP#",
   notification: "NOTIF#",
   absence: "ABSENCE#",
+  roomAccessRequest: "ROOMREQ#",
+  roomRating: "RATING#",
 } as const;
 
 export const housePK = (houseID: string): string => `HOUSE#${houseID}`;

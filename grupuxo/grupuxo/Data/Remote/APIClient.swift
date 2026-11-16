@@ -2,7 +2,7 @@ import Foundation
 
 /// Fornece o access token do Cognito para o `Authorization: Bearer`. O servidor só aceita access token (não ID token).
 protocol AccessTokenProvider: Sendable {
-    func accessToken() async throws -> String
+    func accessToken(forceRefresh: Bool) async throws -> String
 }
 
 /// Fronteira com a rede, para os testes trocarem o `URLSession` por um falso.
@@ -26,7 +26,7 @@ struct URLSessionTransport: HTTPTransport {
 
 /// Erros da `api` (BACKEND.md seção 6.1): `{ "error": "<código>" }` com o status HTTP.
 enum APIError: Error, Equatable, LocalizedError, Sendable {
-    /// 401: o token não vale mais. O app volta ao login.
+    /// Sessão encerrada ou 401 persistente após renovar o token. O app volta ao login.
     case unauthorized
     case http(status: Int, code: String)
     /// Sem rede ou servidor fora do ar.
@@ -56,7 +56,7 @@ enum APIError: Error, Equatable, LocalizedError, Sendable {
         case "invalid_name": String(localized: "Informe um nome válido.")
         case "invalid_house_name": String(localized: "Informe um nome para a casa.")
         case "invalid_timezone": String(localized: "Fuso horário inválido.")
-        case "invalid_code": String(localized: "Código de convite inválido.")
+        case "invalid_code": String(localized: "Não achamos uma casa com esse código. Confira com quem te mandou.")
         case "already_in_house": String(localized: "Você já faz parte de uma casa.")
         case "no_house": String(localized: "Você ainda não faz parte de uma casa.")
         case "house_deletion_confirmation_required":
@@ -132,24 +132,15 @@ struct APIClient: Sendable {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
-        let token: String
-        do {
-            token = try await tokens.accessToken()
-        } catch {
-            if Self.isCancellation(error) { throw CancellationError() }
-            throw APIError.unauthorized
-        }
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(try await accessToken(forceRefresh: false))", forHTTPHeaderField: "Authorization")
 
-        let data: Data
-        let response: HTTPURLResponse
-        do {
-            (data, response) = try await transport.data(for: request)
-        } catch let error as APIError {
-            throw error
-        } catch {
-            if Self.isCancellation(error) { throw CancellationError() }
-            throw APIError.network
+        var (data, response) = try await perform(request)
+        // O token pode vencer entre a leitura do cache do Amplify e a validação no servidor.
+        // Só repete uma vez, após um 401 (requisição recusada antes de executar a operação).
+        if response.statusCode == 401 {
+            try Task.checkCancellation()
+            request.setValue("Bearer \(try await accessToken(forceRefresh: true))", forHTTPHeaderField: "Authorization")
+            (data, response) = try await perform(request)
         }
 
         switch response.statusCode {
@@ -157,10 +148,36 @@ struct APIClient: Sendable {
             return data
         case 401:
             throw APIError.unauthorized
+        case 405:
+            // O servidor publicado ainda não tem essa rota (a `api` é mais antiga que o app).
+            throw APIError.unsupported
         default:
             struct Failure: Decodable { let error: String }
             let code = (try? JSONDecoder().decode(Failure.self, from: data))?.error ?? ""
             throw APIError.http(status: response.statusCode, code: code)
+        }
+    }
+
+    private func accessToken(forceRefresh: Bool) async throws -> String {
+        do {
+            return try await tokens.accessToken(forceRefresh: forceRefresh)
+        } catch {
+            if Self.isCancellation(error) { throw CancellationError() }
+            // Só o provedor sabe se a sessão acabou. Falha ao renovar por falta de rede
+            // não pode virar logout, que também apagaria o refresh token salvo no aparelho.
+            if let error = error as? APIError { throw error }
+            throw APIError.network
+        }
+    }
+
+    private func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        do {
+            return try await transport.data(for: request)
+        } catch let error as APIError {
+            throw error
+        } catch {
+            if Self.isCancellation(error) { throw CancellationError() }
+            throw APIError.network
         }
     }
 
@@ -172,6 +189,12 @@ struct APIClient: Sendable {
         _ type: T.Type, _ path: String, query: [String: String] = [:], body: (any Encodable & Sendable)? = nil
     ) async throws -> T {
         try decode(type, from: try await send("POST", path, query: query, body: body))
+    }
+
+    func patch<T: Decodable>(
+        _ type: T.Type, _ path: String, query: [String: String] = [:], body: (any Encodable & Sendable)? = nil
+    ) async throws -> T {
+        try decode(type, from: try await send("PATCH", path, query: query, body: body))
     }
 
     /// A tela que sai cancela a tarefa do `.task`, e o `URLSession` cancelado lança `URLError(.cancelled)`,

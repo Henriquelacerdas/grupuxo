@@ -1,5 +1,5 @@
 {
-  "originHash" : "f58db562fd5ec18ebcc14ed35ca50bc1900f9fa6e4c5c960f0b3e716ad0da4e6",
+  "originHash" : "b069f444eaa57234d7c13e1ac604493c93df0920126b6a638d93cbd53e6619f9",
   "pins" : [
     {
       "identity" : "amplify-swift",
@@ -114,8 +114,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-certificates.git",
       "state" : {
-        "revision" : "84f03fafeca28c19f5fc4b528df3d22ce8896bd7",
-        "version" : "1.21.1"
+        "revision" : "ff86b924ead66f853b8baf91f3c41926a8f36177",
+        "version" : "1.21.0"
       }
     },
     {
@@ -132,8 +132,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-configuration.git",
       "state" : {
-        "revision" : "5aa8bdb1ddd11de51cb30b0ba575f4b05a9a169d",
-        "version" : "1.4.0"
+        "revision" : "8bae88f79dbddec793390c5bf3e2abb4ac2ece42",
+        "version" : "1.2.2"
       }
     },
     {

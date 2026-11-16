@@ -45,9 +45,11 @@ function isMidnight(instant: Instant, timezone: string): boolean {
  * (a semana que termina na segunda 00:00 vence no domingo). Com horário, mostra o horário.
  */
 function deadlineLabel(dueAt: Instant, ctx: FormatContext): string {
-  if (isMidnight(dueAt, ctx.timezone)) return `até ${dayLabel(createCalendar(ctx.timezone).addDays(dueAt, -1), ctx)}`;
+  // Prazo vencido: "terminou …", nunca "atrasada" (guia da designer, docs/DESIGN.md).
+  const lead = dueAt <= ctx.now ? "terminou" : "até";
+  if (isMidnight(dueAt, ctx.timezone)) return `${lead} ${dayLabel(createCalendar(ctx.timezone).addDays(dueAt, -1), ctx)}`;
   const { hour, minute } = localDateTime(ctx.timezone, dueAt);
-  return `até ${dayLabel(dueAt, ctx)} ${two(hour)}:${two(minute)}`;
+  return `${lead} ${dayLabel(dueAt, ctx)} ${two(hour)}:${two(minute)}`;
 }
 
 interface LineOptions {
@@ -63,7 +65,7 @@ function line(item: TaskItem, ctx: FormatContext, options: LineOptions): string 
     parts.push(completedAt === null ? "concluída" : `concluída em ${dayLabel(completedAt, ctx)}`);
   } else {
     const { dueAt } = item.occurrence;
-    if (dueAt !== null) parts.push(deadlineLabel(dueAt, ctx) + (dueAt <= ctx.now ? " (atrasada)" : ""));
+    if (dueAt !== null) parts.push(deadlineLabel(dueAt, ctx));
     if (options.showAssignee) parts.push(item.assignee === null ? "sem responsável" : `com ${displayText(item.assignee.name)}`);
   }
   return parts.join(" — ");

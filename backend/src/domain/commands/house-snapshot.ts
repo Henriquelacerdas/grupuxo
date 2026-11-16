@@ -1,11 +1,11 @@
 import type { Instant } from "../dates.ts";
 import type { House, Room, RoomParticipation, TaskItem, User } from "../entities.ts";
 import { DomainError } from "../errors.ts";
-import type { HouseID, UserID } from "../ids.ts";
+import type { HouseID, RoomID, UserID } from "../ids.ts";
 import type { StoreState } from "../store-state.ts";
 import type { CommandContext } from "./context.ts";
 import { houseMembers } from "./houses.ts";
-import { roomParticipation, roomsFor } from "./rooms.ts";
+import { pendingRoomAccessIDs, roomParticipation, roomsFor } from "./rooms.ts";
 import { roomTasks, sporadicTasks, taskItems, userTasks } from "./tasks.ts";
 
 /** Uma leitura da casa alimenta as telas, preservando as mesmas políticas das consultas individuais. */
@@ -18,6 +18,8 @@ export interface HouseSnapshot {
   readonly roomTasks: readonly TaskItem[];
   readonly myTasks: readonly TaskItem[];
   readonly sporadicTasks: readonly TaskItem[];
+  /** Cômodos privados para os quais o morador tem pedido de entrada aberto. */
+  readonly pendingRoomAccessIDs: readonly RoomID[];
 }
 
 export interface HouseSnapshotRepository {
@@ -38,5 +40,6 @@ export function houseSnapshot(
     roomTasks: rooms.flatMap((room) => roomTasks(state, room.id, userID, items)),
     myTasks: userTasks(state, userID, houseID, at, items),
     sporadicTasks: sporadicTasks(ctx, state, houseID, userID, at, items),
+    pendingRoomAccessIDs: pendingRoomAccessIDs(state, houseID, userID),
   };
 }

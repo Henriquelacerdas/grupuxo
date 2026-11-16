@@ -138,7 +138,8 @@ test("a transação desfaz as mutações feitas antes do erro", () => {
 
 test("por conclusão publica apenas uma sucessora", async () => {
   const { world, env, marina, definition, schedule } = fixture();
-  const saved = await env.tasks.create({ ...definition, assignmentPolicy: "afterCompletion" }, marina.id, DATE);
+  // "Após conclusão" antiga: sem intervalo, sem prazo, a sucessora abre na hora da conclusão.
+  const saved = await env.tasks.create({ ...definition, recurrence: NO_RECURRENCE, assignmentPolicy: "afterCompletion" }, marina.id, DATE);
   const initial = schedule();
   assert.equal(initial.occurrences.length, 1);
   assert.deepEqual(saved.recurrence, NO_RECURRENCE);
@@ -152,6 +153,35 @@ test("por conclusão publica apenas uma sucessora", async () => {
   assert.equal(final.occurrences.filter((o) => !isCompleted(o)).length, 1);
   assert.equal(final.assignments.at(-1)?.userID, saved.rotationQueue[1]);
   assert.equal(final.definitions[0]?.currentRotationIndex, 2);
+});
+
+test("repetição própria: janela de 2 dias contada da conclusão, sem fazer antes de abrir", async () => {
+  const { world, env, marina, definition, schedule, calendar } = fixture();
+  const own = { ...definition, recurrence: recurring("weekly", 1), assignmentPolicy: "afterCompletion" } as const;
+  const saved = await env.tasks.create(own, marina.id, DATE);
+  assert.deepEqual(saved.recurrence, recurring("weekly", 1), "o intervalo da repetição própria é mantido");
+  const [opening] = schedule().occurrences;
+  assert.ok(opening !== undefined);
+  assert.equal(opening.availableAt, DATE);
+  assert.equal(opening.dueAt, calendar.addDays(calendar.startOfDay(DATE), 2));
+
+  // Fez com um dia de atraso: a próxima janela abre uma semana depois da conclusão, não do calendário.
+  const completedAt = calendar.addDays(DATE, 1);
+  const first = schedule().assignments[0];
+  assert.ok(first !== undefined);
+  await env.tasks.complete(opening.id, first.userID, completedAt);
+  const next = schedule().occurrences.at(-1);
+  assert.ok(next !== undefined && next.id !== opening.id);
+  const expected = calendar.startOfDay(calendar.addWeeks(completedAt, 1));
+  assert.equal(next.availableAt, expected);
+  assert.equal(next.dueAt, calendar.addDays(expected, 2));
+  const successor = schedule().assignments.at(-1);
+  assert.equal(successor?.userID, saved.rotationQueue[1], "a janela passa para a próxima pessoa da fila");
+  // Não dá para fazer antes de abrir; depois de aberta, sim.
+  await assert.rejects(env.tasks.complete(next.id, successor?.userID ?? first.userID, completedAt), code("taskUnavailable"));
+  await env.tasks.complete(next.id, successor?.userID ?? first.userID, expected);
+  assert.equal(schedule().occurrences.length, 3);
+  assert.ok(world.now > 0);
 });
 
 test("esporádica usa o saldo de justiça sem recorrência", async () => {
@@ -264,7 +294,7 @@ test("vínculo duplicado desfaz a conclusão", async () => {
   assert.ok(first !== undefined);
   const duplicate: RoomMembership = {
     id: roomMembershipID(world.newID()), roomID: definition.roomID, userID: first.userID, fairnessDebt: 0,
-    leftAt: null, rotationChanges: null,
+    leftAt: null, rotationChanges: null, skipsNextOwnTurn: false,
   };
   env.store.update((s) => {
     s.roomMemberships.push(duplicate);

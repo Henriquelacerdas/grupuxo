@@ -7,7 +7,10 @@ locals {
     webhook = { memory = 256, timeout = 10 }
     worker  = { memory = 512, timeout = local.worker_timeout_seconds }
     # 1769 MB = 1 vCPU: o tempo da `api` é CPU (carga e cópia da partição da casa), ver docs/LATENCIA.md.
-    api     = { memory = 1769, timeout = 15 }
+    api  = { memory = 1769, timeout = 15 }
+    push = { memory = 256, timeout = 30 }
+    # Avisos que dependem do tempo ("o ciclo virou", "o resumo da semana"): roda de hora em hora, uma casa por vez.
+    scheduled = { memory = 512, timeout = 120 }
   }
 
   environment = {
@@ -24,11 +27,19 @@ locals {
       RATE_LIMIT_WINDOW_SECONDS = tostring(var.rate_limit_window_seconds)
       BOT_PHONE_NUMBER          = var.bot_phone_number
     }
+    scheduled = {
+      TABLE_NAME = aws_dynamodb_table.main.name
+    }
+    push = {
+      SECRET_ID  = aws_secretsmanager_secret.apns.arn
+      TABLE_NAME = aws_dynamodb_table.main.name
+    }
     api = {
       TABLE_NAME           = aws_dynamodb_table.main.name
       COGNITO_USER_POOL_ID = var.cognito_user_pool_id
       COGNITO_CLIENT_ID    = var.cognito_client_id
       BOT_PHONE_NUMBER     = var.bot_phone_number
+      PHOTOS_BUCKET        = aws_s3_bucket.photos.bucket
     }
   }
 }
@@ -70,6 +81,42 @@ resource "aws_lambda_function" "lambda" {
   }
 
   depends_on = [aws_iam_role_policy.logs]
+}
+
+resource "aws_cloudwatch_event_rule" "scheduled" {
+  name                = "${local.name}-scheduled"
+  description         = "Avisos que dependem do tempo (ciclo virou, resumo da semana)"
+  schedule_expression = "rate(1 hour)"
+}
+
+resource "aws_cloudwatch_event_target" "scheduled" {
+  rule = aws_cloudwatch_event_rule.scheduled.name
+  arn  = aws_lambda_function.lambda["scheduled"].arn
+}
+
+resource "aws_lambda_permission" "scheduled" {
+  statement_id  = "AllowEventBridge"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lambda["scheduled"].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.scheduled.arn
+}
+
+# Pushes: cada aviso novo (`NOTIF#`) na tabela vira um push. Só INSERT; falha de um registro repete só ele.
+resource "aws_lambda_event_source_mapping" "push" {
+  event_source_arn                   = aws_dynamodb_table.main.stream_arn
+  function_name                      = aws_lambda_function.lambda["push"].arn
+  starting_position                  = "LATEST"
+  batch_size                         = 10
+  maximum_retry_attempts             = 3
+  function_response_types            = ["ReportBatchItemFailures"]
+  maximum_batching_window_in_seconds = 1
+
+  filter_criteria {
+    filter {
+      pattern = jsonencode({ eventName = ["INSERT"], dynamodb = { Keys = { SK = { S = [{ prefix = "NOTIF#" }] } } } })
+    }
+  }
 }
 
 resource "aws_lambda_event_source_mapping" "worker" {

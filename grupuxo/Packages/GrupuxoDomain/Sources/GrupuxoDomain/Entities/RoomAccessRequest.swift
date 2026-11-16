@@ -1,7 +1,7 @@
 import Foundation
 
 /// Pedido de um morador para entrar em um cômodo privado de que não participa.
-/// Ainda não há aprovação: o pedido só existe até ser cancelado.
+/// Quem participa do cômodo aprova ou recusa; quem pediu pode cancelar.
 public struct RoomAccessRequest: Identifiable, Hashable, Codable, Sendable {
     public let id: UUID
     public let roomID: Room.ID

@@ -2,14 +2,14 @@ import { AdminDeleteUserCommand, type CognitoIdentityProviderClient } from "@aws
 import { GetSecretValueCommand, type SecretsManagerClient as SdkSecretsManager } from "@aws-sdk/client-secrets-manager";
 import { SendMessageCommand, type SQSClient } from "@aws-sdk/client-sqs";
 import {
-  BatchGetCommand, DeleteCommand, GetCommand, PutCommand, QueryCommand, TransactWriteCommand, UpdateCommand,
+  BatchGetCommand, DeleteCommand, GetCommand, PutCommand, QueryCommand, ScanCommand, TransactWriteCommand, UpdateCommand,
   type DynamoDBDocumentClient,
 } from "@aws-sdk/lib-dynamodb";
 import type { CognitoIdentityClient, SecretsManagerClient, SqsClient, SqsSendMessageInput } from "../adapters/aws/clients.ts";
 import {
   DynamoConditionFailedError, DynamoTransactionCanceledError, MAX_BATCH_GET_KEYS, MAX_TRANSACT_ACTIONS,
   type DynamoCancellationReason, type DynamoClient, type DynamoDeleteInput, type DynamoGetInput, type DynamoItem,
-  type DynamoKey, type DynamoPutInput, type DynamoQueryInput, type DynamoQueryOutput, type DynamoTransactAction,
+  type DynamoKey, type DynamoPutInput, type DynamoQueryInput, type DynamoQueryOutput, type DynamoScanInput, type DynamoTransactAction,
   type DynamoUpdateInput, type DynamoValue, type ExpressionAttributes,
 } from "../adapters/dynamodb/client.ts";
 
@@ -122,6 +122,16 @@ export class SdkDynamoClient implements DynamoClient {
       KeyConditionExpression: input.keyCondition,
       ConsistentRead: input.consistentRead,
       ScanIndexForward: input.scanForward,
+      ...(input.startKey === undefined ? {} : { ExclusiveStartKey: { ...input.startKey } }),
+      ...expressionAttributes(input),
+    }));
+    const items = toItems(output.Items);
+    return output.LastEvaluatedKey === undefined ? { items } : { items, lastKey: toItem(output.LastEvaluatedKey) };
+  }
+
+  async scan(input: DynamoScanInput): Promise<DynamoQueryOutput> {
+    const output = await this.document.send(new ScanCommand({
+      TableName: this.tableName, FilterExpression: input.filter, ConsistentRead: true,
       ...(input.startKey === undefined ? {} : { ExclusiveStartKey: { ...input.startKey } }),
       ...expressionAttributes(input),
     }));

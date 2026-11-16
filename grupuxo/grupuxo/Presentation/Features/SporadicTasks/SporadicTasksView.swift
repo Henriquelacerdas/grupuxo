@@ -4,6 +4,8 @@ import GrupuxoDomain
 
 struct SporadicTasksView: View {
 
+    @ScaledMetric(relativeTo: .title) private var roomIconSide: CGFloat = 60
+
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
 
@@ -90,7 +92,8 @@ struct SporadicTasksView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
+        // Em sheet, arrastar para baixo não pode pular o aviso de alterações pendentes.
+        .interactiveDismissDisabled(viewModel.hasPendingChanges)
         .toolbar {
 
             ToolbarItem(
@@ -177,7 +180,7 @@ struct SporadicTasksView: View {
             )
         }
         .alert(
-            "Excluir Tarefa Única?",
+            "Apagar Tarefa Única?",
             isPresented: Binding(
                 get: {
                     itemPendingDeletion != nil
@@ -201,7 +204,7 @@ struct SporadicTasksView: View {
             }
 
             Button(
-                "Excluir",
+                "Apagar",
                 role: .destructive
             ) {
 
@@ -215,7 +218,7 @@ struct SporadicTasksView: View {
                     if await viewModel.delete(
                         taskDefinitionID
                     ) {
-                        showToast(.deleted(String(localized: "Tarefa Única excluída")))
+                        showToast(.deleted(String(localized: "Tarefa Única apagada")))
                     }
                 }
             }
@@ -223,7 +226,7 @@ struct SporadicTasksView: View {
         } message: { item in
 
             Text(
-                "A tarefa \"\(item.task.definition.name)\" será excluída para todos os moradores."
+                "A tarefa \"\(item.task.definition.name)\" será apagada para todos os moradores."
             )
         }
         .alert(
@@ -489,7 +492,7 @@ struct SporadicTasksView: View {
         Label {
 
             Text(
-                "Cada Tarefa Única realizada pula sua vez na próxima Tarefa Extra."
+                "Quem faz uma tarefa única pula a vez na próxima tarefa de repetição própria."
             )
 
         } icon: {
@@ -634,25 +637,20 @@ struct SporadicTasksView: View {
                     )
                 )
                 .frame(
-                    width: 60,
-                    height: 60
+                    width: roomIconSide,
+                    height: roomIconSide
                 )
 
             Image(
                 systemName: room.icon
             )
-            .font(
-                .system(
-                    size: 24,
-                    weight: .semibold
-                )
-            )
+            .font(.title2.weight(.semibold))
             .foregroundStyle(.white)
             .accessibilityHidden(true)
         }
         .frame(
-            width: 60,
-            height: 60
+            width: roomIconSide,
+            height: roomIconSide
         )
     }
 
@@ -824,7 +822,7 @@ struct SporadicTasksView: View {
 
         } label: {
 
-            Text("Excluir")
+            Text("Apagar")
                 .font(
                     .callout.weight(
                         .semibold
@@ -838,7 +836,7 @@ struct SporadicTasksView: View {
         .controlSize(.regular)
         .tint(.red)
         .accessibilityLabel(
-            "Excluir \(item.task.definition.name)"
+            "Apagar \(item.task.definition.name)"
         )
     }
 
@@ -863,7 +861,7 @@ struct SporadicTasksView: View {
             return String(localized: "Desfazer")
         }
 
-        return String(localized: "Adicionar a \"Minhas Tarefas\"")
+        return String(localized: "Adicionar às minhas tarefas")
     }
 
     private func color(

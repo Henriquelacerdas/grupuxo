@@ -4,25 +4,40 @@ import GrupuxoDomain
 
 @MainActor
 struct RootView: View {
-
+    
     @StateObject private var model: RootModel
     
-    @StateObject private var shortcutManager = ShortcutNavigationManager.shared
-
+    @ObservedObject private var shortcutManager = ShortcutNavigationManager.shared
+    
     @State private var selectedTab: AppTab = .myTasks
     @State private var tasksActivations = 0
     @State private var houseActivations = 0
-
+    
     @State private var tasksPath: [AppRoute] = []
-
+    
     @State private var housePath: [AppRoute] = []
-
+    
     /// Tarefa aberta na sheet de detalhes.
     @State private var presentedTask: PresentedTask?
 
+    /// Ajustes (o perfil), abertos em sheet a partir do avatar de Minhas tarefas.
+    @State private var isPresentingProfile = false
+
+    /// "Pedir troca" em sheet, a partir de uma tarefa de Minhas tarefas.
+    @State private var swapOffer: SwapOffer?
+
+    /// Ajustes da casa, abertos pelo menu "⋯" da aba Casa.
+    @State private var isPresentingHouseSettings = false
+
+    /// Tarefas únicas da casa, em sheet a partir da aba Casa (e do atalho do Siri).
+    @State private var isPresentingSporadicTasks = false
+
+    /// Tarefa aberta, em sheet, a partir da sheet das tarefas únicas (uma sheet não abre outra no mesmo nível).
+    @State private var sporadicEditedTask: PresentedTask?
+
     /// Atualiza as listas quando a sheet de detalhes é fechada.
     @State private var taskChanges = 0
-
+    
     init(api: APIClient, user: User, house: House, myHouse: MyHouseCache? = nil) {
         _model = StateObject(
             wrappedValue: RootModel(
@@ -34,57 +49,62 @@ struct RootView: View {
         )
     }
 
+    /// Raiz sobre um modelo já montado (a casa de demonstração do Debug usa o container do `MockStore`).
+    init(model: @autoclosure @escaping () -> RootModel) {
+        _model = StateObject(wrappedValue: model())
+    }
+
     private var container: AppContainer {
         model.container
     }
-
+    
     private var session: AppSession {
         model.session
     }
-
+    
     var body: some View {
         tabs
             .toastHost()
-            .onChange(of: shortcutManager.pendingDestination) { _, _ in
-                applyPendingShortcut()
+            .onChange(
+                of: shortcutManager.pendingDestination,
+                initial: true
+            ) { _, destination in
+                
+                guard let destination else { return }
+                
+                switch destination {
+                    
+                case .myTasks:
+                    selectedTab = .myTasks
+                    tasksPath = []
+                    
+                case .house:
+                    selectedTab = .house
+                    housePath = []
+                    
+                case .sporadicTasks:
+                    selectedTab = .house
+                    housePath = []
+                    isPresentingSporadicTasks = true
+                }
+                
+                shortcutManager.pendingDestination = nil
             }
-            // Lançamento a frio: o atalho pode ter definido o destino antes de esta tela existir.
-            .onAppear { applyPendingShortcut() }
-    }
-
-    private func applyPendingShortcut() {
-        guard let destination = shortcutManager.pendingDestination else { return }
-
-        switch destination {
-        case .myTasks:
-            selectedTab = .myTasks
-            tasksPath = []
-
-        case .house:
-            selectedTab = .house
-            housePath = []
-
-        case .sporadicTasks:
-            selectedTab = .house
-            housePath = [.sporadicTasks]
-        }
-
-        shortcutManager.pendingDestination = nil
     }
 
     private var tabs: some View {
-
+        
         TabView(selection: $selectedTab) {
-
+            
             // MARK: - Minhas tarefas
-
+            
             NavigationStack(path: $tasksPath) {
-
+                
                 MyTasksView(
                     viewModel: container.makeMyTasksViewModel(
                         session: session
                     ),
-
+                    
                     makeTaskEditorViewModel: {
                         container.makeTaskEditorViewModel(
                             roomID: nil,
@@ -92,28 +112,26 @@ struct RootView: View {
                         )
                     },
 
-                    onRequestSwap: { occurrenceID in
-                        tasksPath.append(
-                            .taskSwap(
-                                offeredOccurrenceID: occurrenceID
-                            )
-                        )
-                    },
+                    weekRatingViewModel: model.weekRating,
 
+                    onRequestSwap: { occurrenceID in
+                        swapOffer = SwapOffer(id: occurrenceID)
+                    },
+                    
                     onSelectTask: { taskDefinitionID in
                         presentedTask = PresentedTask(
                             id: taskDefinitionID
                         )
                     },
-
+                    
                     onSelectNotifications: {
                         tasksPath.append(.notifications)
                     },
-
+                    
                     onSelectProfile: {
-                        tasksPath.append(.settings)
+                        isPresentingProfile = true
                     },
-
+                    
                     reloadTrigger: ReloadKey(
                         activation: tasksActivations,
                         taskChanges: taskChanges
@@ -126,44 +144,50 @@ struct RootView: View {
             .tabItem {
                 Label(
                     "Tarefas",
-                    systemImage: "checkmark.circle"
+                    systemImage: "checkmark.circle.fill"
                 )
             }
             .tag(AppTab.myTasks)
-
+            
             // MARK: - Gerenciamento da casa
-
+            
             NavigationStack(path: $housePath) {
-
+                
                 HouseManagementView(
                     viewModel: container.makeHouseManagementViewModel(
                         session: session
                     ),
-
+                    
                     houseName: session.currentHouse.name,
-
+                    
                     makeTaskEditorViewModel: {
                         container.makeTaskEditorViewModel(
                             roomID: nil,
                             session: session
                         )
                     },
-
+                    
                     makeRoomEditorViewModel: {
                         container.makeRoomEditorViewModel(
                             session: session
                         )
                     },
-
+                    
                     onSelectRoom: { roomID in
                         housePath.append(
                             .roomDetail(roomID)
                         )
                     },
-
+                    
                     onSelectSporadicTasks: {
-                        housePath.append(.sporadicTasks)
+                        isPresentingSporadicTasks = true
                     },
+                    onOpenHouseSettings: {
+                        isPresentingHouseSettings = true
+                    },
+                    inviteMessage: String(
+                        localized: "Entre na casa \"\(session.currentHouse.name)\" no app usando o código: \(session.currentHouse.accessCode)"
+                    ),
                     reloadTrigger: ReloadKey(activation: houseActivations, taskChanges: taskChanges)
                 )
                 .navigationDestination(for: AppRoute.self) { route in
@@ -173,7 +197,7 @@ struct RootView: View {
             .tabItem {
                 Label(
                     "Casa",
-                    systemImage: "house"
+                    systemImage: "house.fill"
                 )
             }
             .tag(AppTab.house)
@@ -183,56 +207,129 @@ struct RootView: View {
             if tab == .myTasks { tasksActivations += 1 }
             else { houseActivations += 1 }
         }
+        .task { await CycleNoticeManager.shared.reschedule() }
+        .task(id: taskChanges) { await DailyTasksNoticeManager.shared.reschedule() }
         .sheet(
             item: $presentedTask,
             onDismiss: {
                 taskChanges += 1
             }
         ) { task in
+            taskDetail(for: task)
+        }
+        .sheet(
+            isPresented: $isPresentingSporadicTasks,
+            onDismiss: { taskChanges += 1 }
+        ) {
+            NavigationStack {
+                SporadicTasksView(
+                    viewModel: container.makeSporadicTasksViewModel(
+                        session: session
+                    ),
+                    onEditTask: { taskDefinitionID in
+                        sporadicEditedTask = PresentedTask(
+                            id: taskDefinitionID
+                        )
+                    },
+                    reloadTrigger: taskChanges
+                )
+            }
+            .toastHost()
+            .presentationDragIndicator(.visible)
+            .sheet(
+                item: $sporadicEditedTask,
+                onDismiss: { taskChanges += 1 }
+            ) { task in
+                taskDetail(for: task)
+            }
+        }
+        .sheet(isPresented: $isPresentingProfile) {
 
-            TaskDetailView(
-                viewModel: container.makeTaskDetailViewModel(
-                    taskDefinitionID: task.id,
-                    session: session
-                ),
-
-                // A API ainda não disponibiliza PATCH para edição.
-                allowsEditing: false
+            ProfileView(
+                whatsAppViewModel: container.makeWhatsAppConnectionViewModel(),
+                accountViewModel: container.makeAccountViewModel(),
+                vacationViewModel: container.makeVacationViewModel(session: session),
+                appInfo: container.appInfo
             )
         }
+        .sheet(isPresented: $isPresentingHouseSettings) {
+            HouseSettingsSheet()
+        }
+        .sheet(
+            item: $swapOffer,
+            onDismiss: { taskChanges += 1 }
+        ) { offer in
+            NavigationStack {
+                TaskSwapView(
+                    viewModel: container.makeTaskSwapViewModel(
+                        offeredOccurrenceID: offer.id,
+                        session: session
+                    )
+                )
+            }
+        }
+    }
+    
+    private func taskDetail(for task: PresentedTask) -> some View {
+
+        TaskDetailView(
+            viewModel: container.makeTaskDetailViewModel(
+                taskDefinitionID: task.id,
+                session: session
+            ),
+            makeEditorViewModel: { definition in
+                container.makeTaskEditorViewModel(
+                    editing: definition,
+                    session: session
+                )
+            },
+            makeSwapViewModel: { occurrenceID in
+                container.makeTaskSwapViewModel(
+                    offeredOccurrenceID: occurrenceID,
+                    session: session
+                )
+            }
+        )
     }
 
     // MARK: - Destinations
-
+    
     @ViewBuilder
     private func destination(
         for route: AppRoute
     ) -> some View {
-
+        
         switch route {
-
-        // MARK: Room Detail
-
-       
+            
+            // MARK: Room Detail
+            
+            
         case let .roomDetail(roomID):
-
+            
             RoomDetailView(
                 viewModel: container.makeRoomDetailViewModel(
                     roomID: roomID,
                     session: session
                 ),
-
+                
                 makeTaskEditorViewModel: {
                     container.makeTaskEditorViewModel(
                         roomID: roomID,
                         session: session
                     )
                 },
-
+                
                 makeSuggestionEditorViewModel: { suggestion in
                     container.makeTaskEditorViewModel(
                         roomID: roomID,
                         suggestion: suggestion,
+                        session: session
+                    )
+                },
+
+                makeRoomEditorViewModel: { room in
+                    container.makeRoomEditorViewModel(
+                        editing: room,
                         session: session
                     )
                 },
@@ -244,68 +341,79 @@ struct RootView: View {
                 },
                 reloadTrigger: taskChanges
             )
-
-
-        // MARK: Sporadic Tasks
-
-        case .sporadicTasks:
-
-            SporadicTasksView(
-                viewModel: container.makeSporadicTasksViewModel(
-                    session: session
-                ),
-
-                onEditTask: { taskDefinitionID in
-                    presentedTask = PresentedTask(
-                        id: taskDefinitionID
-                    )
-                },
-
-                reloadTrigger: taskChanges
-            )
-
-        // MARK: Task Editor
-
+            
+            
+            // MARK: Task Editor
+            
         case let .taskEditor(roomID):
-
+            
             TaskEditorView(
                 viewModel: container.makeTaskEditorViewModel(
                     roomID: roomID,
                     session: session
                 )
             )
-
-        // MARK: Task Swap
-
+            
+            // MARK: Task Swap
+            
         case let .taskSwap(offeredOccurrenceID):
-
+            
             TaskSwapView(
                 viewModel: container.makeTaskSwapViewModel(
                     offeredOccurrenceID: offeredOccurrenceID,
                     session: session
                 )
             )
-
-        // MARK: Notifications
-
+            
+            // MARK: Notifications
+            
         case .notifications:
-
+            
             NotificationsView(
                 viewModel: container.makeNotificationsViewModel(
                     session: session
-                )
+                ),
+                onOpenTask: { taskDefinitionID in
+                    presentedTask = PresentedTask(id: taskDefinitionID)
+                },
+                onOpenRoom: { roomID in
+                    if selectedTab == .house {
+                        housePath.append(.roomDetail(roomID))
+                    } else {
+                        tasksPath.append(.roomDetail(roomID))
+                    }
+                }
             )
 
-        // MARK: Settings
-
-        case .settings:
-
-            HouseView(
-                whatsAppViewModel:
-                    container.makeWhatsAppConnectionViewModel()
-            )
         }
     }
+}
+
+// MARK: - House Settings
+
+/// Os mesmos Ajustes da casa da tela de Ajustes, em sheet própria a partir da aba Casa.
+private struct HouseSettingsSheet: View {
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            HouseSettingsView()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Fechar", systemImage: "xmark") { dismiss() }
+                            .labelStyle(.iconOnly)
+                    }
+                }
+        }
+    }
+}
+
+// MARK: - Swap Offer
+
+/// Tarefa oferecida no pedido de troca aberto em sheet.
+private struct SwapOffer: Identifiable {
+    let id: TaskOccurrence.ID
 }
 
 // MARK: - Presented Task

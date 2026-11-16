@@ -5,11 +5,14 @@ import {
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
 import {
-  notificationID, taskAssignmentID, type HouseID, type RoomID, type TaskDefinitionID, type TaskOccurrenceID, type UserID,
+  taskAssignmentID, type HouseID, type RoomID, type TaskDefinitionID, type TaskOccurrenceID, type UserID,
 } from "../ids.ts";
+import { hasValidInterval, isRepeating, sameRecurrence, type RecurrencePolicy, type TaskEffort } from "../value-objects.ts";
 import { TaskEligibilityPolicy } from "../services/eligibility.ts";
 import type { StoreState } from "../store-state.ts";
 import { schedulingFor, type CommandContext } from "./context.ts";
+import { buildNotification, notifyAll, roomAudienceIDs } from "./notifications.ts";
+import { pruneDanglingReferences } from "./references.ts";
 
 const eligibility = new TaskEligibilityPolicy();
 
@@ -30,6 +33,11 @@ function houseOfOccurrence(state: StoreState, occurrenceID: TaskOccurrenceID): H
  * Definição de uma tarefa do cômodo (inclusive encerrada). Quem não é da casa, ou não pode ver a tarefa, recebe o
  * mesmo `entityNotFound` de uma tarefa que não existe.
  */
+/** Nome do cômodo como está agora (para a segunda linha dos avisos); vazio se não existe mais. */
+function roomNameOf(state: StoreState, roomID: RoomID): string {
+  return state.rooms.find((r) => r.id === roomID)?.name ?? "";
+}
+
 export function taskDefinitionFor(state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, userID: UserID): TaskDefinition {
   const room = state.rooms.find((r) => r.id === roomID);
   const definition = state.definitions.find((d) => d.id === taskID && d.roomID === roomID);
@@ -180,15 +188,173 @@ export function endTask(
 ): void {
   const definition = state.definitions.find((d) => d.id === taskID && d.roomID === roomID);
   if (definition === undefined) throw new DomainError("entityNotFound");
-  const removed = new Set(schedulingFor(ctx, state, houseOfRoom(state, definition.roomID)).endTask(taskID, requestedBy, date, state));
+  const houseID = houseOfRoom(state, definition.roomID);
+  const wasActive = definition.endedAt === null;
+  const removed = new Set(schedulingFor(ctx, state, houseID).endTask(taskID, requestedBy, date, state));
+  if (wasActive) {
+    notifyAll(ctx, state, roomAudienceIDs(state, roomID), requestedBy, houseID, "taskDeleted", date, {
+      taskDefinitionID: taskID, roomID, actorUserID: requestedBy, subjectName: definition.name, roomName: roomNameOf(state, roomID),
+    });
+  }
+  rejectSwapsOfRemoved(ctx, state, removed, houseID, requestedBy, date);
+}
+
+/** As trocas pendentes que citam uma ocorrência removida viram recusadas e avisam quem pediu. */
+function rejectSwapsOfRemoved(
+  ctx: CommandContext, state: StoreState, removed: ReadonlySet<TaskOccurrenceID>, houseID: HouseID, actor: UserID, date: Instant,
+): void {
   if (removed.size === 0) return;
   state.taskSwapRequests.forEach((request, index) => {
     if (request.status !== "pending" || !(removed.has(request.offeredOccurrenceID) || removed.has(request.requestedOccurrenceID))) return;
     state.taskSwapRequests[index] = { ...request, status: "rejected", resolvedAt: date };
-    state.notifications.push({
-      id: notificationID(ctx.newID()), recipientUserID: request.requesterID, kind: "taskSwapRejected",
-      swapRequestID: request.id, createdAt: date, readAt: null,
+    state.notifications.push(buildNotification(ctx, request.requesterID, houseID, "taskSwapRejected", date, {
+      swapRequestID: request.id, actorUserID: actor,
+    }));
+  });
+}
+
+/** Campos já validados de `UpdateTaskDetailsUseCase`; o que não vem fica como está. */
+export interface TaskDetailsPatch {
+  readonly name?: string;
+  readonly details?: string;
+  readonly effort?: TaskEffort;
+  /** Só tarefa de repetição própria muda o intervalo (ver `updateTaskDetails`); ao sair do cômodo, é o novo intervalo. */
+  readonly recurrence?: RecurrencePolicy;
+  /** Passa a tarefa recorrente para "Repetir com o cômodo" (`true`) ou para repetição própria (`false`, com `recurrence`). */
+  readonly followsRoom?: boolean;
+}
+
+/**
+ * A tarefa que o morador pode editar: a **avulsa** é de quem a criou; a **recorrente** (ativa) é de qualquer participante
+ * atual do cômodo, como encerrar. Em ambos, quem edita ainda é da casa; senão `taskUnavailable`.
+ */
+function editableDefinition(
+  state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, userID: UserID,
+): { readonly definition: TaskDefinition; readonly index: number } {
+  const index = state.definitions.findIndex((d) => d.id === taskID && d.roomID === roomID);
+  const definition = state.definitions[index];
+  const room = state.rooms.find((r) => r.id === roomID);
+  if (definition === undefined || room === undefined) throw new DomainError("entityNotFound");
+  const participates = state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === userID) &&
+    state.roomMemberships.some((m) => m.roomID === roomID && m.userID === userID && isCurrentMember(m));
+  const allowed = definition.kind === "sporadic"
+    ? definition.createdByUserID === userID
+    : definition.endedAt === null;
+  if (!allowed || !participates) throw new DomainError("taskUnavailable");
+  return { definition, index };
+}
+
+/** Só a avulsa do próprio morador pode ser excluída. */
+function ownSporadicDefinition(
+  state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, userID: UserID,
+): { readonly definition: TaskDefinition; readonly index: number } {
+  const found = editableDefinition(state, roomID, taskID, userID);
+  if (found.definition.kind !== "sporadic") throw new DomainError("taskUnavailable");
+  return found;
+}
+
+/**
+ * Edita a tarefa. Nome e descrição valem na hora, inclusive para o histórico (a definição é separada das ocorrências).
+ * Mudar o esforço reescreve o `effortSnapshot` das ocorrências ainda não concluídas (as concluídas já geraram seu impacto
+ * no saldo e não mudam); numa tarefa que acompanha o cômodo, a escala do cômodo é replanejada a partir da próxima
+ * segunda, porque a divisão de papéis depende do esforço. Só a tarefa de **repetição própria** (`afterCompletion`)
+ * muda o intervalo (vale a partir da próxima janela). `followsRoom` passa a tarefa entre "Repetir com o cômodo" e
+ * repetição própria (`TaskSchedulingService.convertRepetition`): a vez aberta e as futuras saem, a tarefa é reagendada
+ * no novo modo e as trocas pendentes que citam essas ocorrências são recusadas; só tarefa recorrente (`invalidSchedule`
+ * para avulsa) e, ao ir para repetição própria, com um intervalo válido. Avisa quem acompanha o cômodo (menos quem
+ * editou).
+ */
+export function updateTaskDetails(
+  ctx: CommandContext, state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, patch: TaskDetailsPatch,
+  requestedBy: UserID, date: Instant,
+): TaskDefinition {
+  const { definition, index } = editableDefinition(state, roomID, taskID, requestedBy);
+  const scheduling = schedulingFor(ctx, state, houseOfRoom(state, roomID));
+  const linked = scheduling.isRoomLinked(definition, state);
+  if (patch.followsRoom !== undefined && definition.kind !== "recurring") throw new DomainError("invalidSchedule");
+  const switching = patch.followsRoom !== undefined && patch.followsRoom !== linked;
+  // Ao trocar de modo, o intervalo novo (se houver) é validado pela conversão; senão só a repetição própria o muda.
+  const changesInterval = patch.recurrence !== undefined && !switching && !sameRecurrence(patch.recurrence, definition.recurrence);
+  if (changesInterval && patch.recurrence !== undefined) {
+    const own = definition.kind === "recurring" && definition.assignmentPolicy === "afterCompletion";
+    if (!own || !isRepeating(patch.recurrence) || !hasValidInterval(patch.recurrence)) throw new DomainError("invalidSchedule");
+  }
+  const updated: TaskDefinition = {
+    ...definition,
+    ...(patch.name === undefined ? {} : { name: patch.name }),
+    ...(patch.details === undefined ? {} : { details: patch.details }),
+    ...(patch.effort === undefined ? {} : { effort: patch.effort }),
+    ...(patch.recurrence === undefined || switching ? {} : { recurrence: patch.recurrence }),
+  };
+  state.definitions[index] = updated;
+  const effort = patch.effort;
+  const effortChanged = effort !== undefined && effort.points !== definition.effort.points;
+  if (effort !== undefined && effortChanged) {
+    state.occurrences = state.occurrences.map((o) =>
+      o.taskDefinitionID === taskID && !isCompleted(o) ? { ...o, effortSnapshot: effort } : o
+    );
+    if (linked) scheduling.rebalance(houseOfRoom(state, roomID), scheduling.addingWeeks(1, scheduling.weekStart(date)), date, state);
+  }
+  if (switching && patch.followsRoom !== undefined) {
+    const houseID = houseOfRoom(state, roomID);
+    const removed = scheduling.convertRepetition(
+      taskID, patch.followsRoom, patch.recurrence ?? null, requestedBy, date, state,
+    );
+    rejectSwapsOfRemoved(ctx, state, new Set(removed), houseID, requestedBy, date);
+  }
+  const result = state.definitions.find((d) => d.id === taskID) ?? updated;
+  notifyTaskEdited(ctx, state, definition, result, requestedBy, date, effortChanged);
+  return result;
+}
+
+/**
+ * Avisa a quem acompanha o cômodo (menos quem editou) que a tarefa mudou: "editada" se o nome ou a descrição mudaram,
+ * "esforço mudou" se o esforço mudou. A designer quer o histórico notificado para evitar edição silenciosa.
+ */
+export function notifyTaskEdited(
+  ctx: CommandContext, state: StoreState, before: TaskDefinition, after: TaskDefinition, actor: UserID, date: Instant,
+  effortChanged: boolean,
+): void {
+  const houseID = houseOfRoom(state, after.roomID);
+  const audience = roomAudienceIDs(state, after.roomID);
+  const refs = {
+    taskDefinitionID: after.id, roomID: after.roomID, actorUserID: actor, subjectName: after.name,
+    roomName: roomNameOf(state, after.roomID),
+  };
+  if (before.name !== after.name || before.details !== after.details) {
+    notifyAll(ctx, state, audience, actor, houseID, "taskEdited", date, refs);
+  }
+  if (effortChanged) {
+    notifyAll(ctx, state, audience, actor, houseID, "effortChanged", date, {
+      ...refs, effortFrom: before.effort.points, effortTo: after.effort.points,
     });
+  }
+}
+
+/**
+ * Exclusão física da avulsa. As trocas que citam suas ocorrências, de qualquer status, somem junto com as
+ * notificações delas (notificação sempre carrega o `swapRequestID`).
+ */
+export function deleteSporadicTask(
+  ctx: CommandContext, state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, requestedBy: UserID, date: Instant,
+): void {
+  const { definition } = ownSporadicDefinition(state, roomID, taskID, requestedBy);
+  const occurrences = new Set(state.occurrences.filter((o) => o.taskDefinitionID === taskID).map((o) => o.id));
+  const swaps = new Set(
+    state.taskSwapRequests
+      .filter((r) => occurrences.has(r.offeredOccurrenceID) || occurrences.has(r.requestedOccurrenceID))
+      .map((r) => r.id),
+  );
+  // Avisos que citam a tarefa (ou as trocas dela) apontariam para nada: saem junto, e o aviso de exclusão guarda só o nome.
+  state.notifications = state.notifications.filter((n) =>
+    !(n.swapRequestID !== null && swaps.has(n.swapRequestID)) && n.taskDefinitionID !== taskID
+  );
+  state.taskSwapRequests = state.taskSwapRequests.filter((r) => !swaps.has(r.id));
+  state.assignments = state.assignments.filter((a) => !occurrences.has(a.occurrenceID));
+  state.occurrences = state.occurrences.filter((o) => o.taskDefinitionID !== taskID);
+  state.definitions = state.definitions.filter((d) => d.id !== taskID);
+  notifyAll(ctx, state, roomAudienceIDs(state, roomID), requestedBy, houseOfRoom(state, roomID), "taskDeleted", date, {
+    roomID, actorUserID: requestedBy, subjectName: definition.name, roomName: roomNameOf(state, roomID),
   });
 }
 
@@ -220,6 +386,8 @@ export function removeRoomMember(
   ctx: CommandContext, state: StoreState, userID: UserID, roomID: RoomID, date: Instant, confirmDeletion: boolean,
 ): void {
   schedulingFor(ctx, state, houseOfRoom(state, roomID)).removeMember(userID, roomID, date, state, { confirmDeletion });
+  // O último participante que sai apaga o cômodo: trocas e avisos dele não podem ficar pendurados.
+  pruneDanglingReferences(state);
 }
 
 export function claimTask(ctx: CommandContext, state: StoreState, occurrenceID: TaskOccurrenceID, userID: UserID, date: Instant): void {

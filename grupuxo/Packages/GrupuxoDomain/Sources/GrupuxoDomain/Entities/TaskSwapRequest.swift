@@ -11,6 +11,8 @@ public enum TaskSwapRequestStatus: String, Codable, Sendable {
     case pending
     case accepted
     case rejected
+    /// Quem pediu desistiu enquanto estava pendente.
+    case cancelled
 }
 
 public struct TaskSwapRequest: Identifiable, Hashable, Codable, Sendable {

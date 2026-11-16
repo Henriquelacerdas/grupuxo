@@ -1,15 +1,17 @@
 import { isBlank, trimmed } from "../arrays.ts";
 import { compareText } from "../arrays.ts";
-import { createCalendar, type Instant } from "../dates.ts";
-import type { House, Room, User } from "../entities.ts";
+import { createCalendar, DISTANT_FUTURE, type Instant } from "../dates.ts";
+import { createAbsence, type House, type Room, type User } from "../entities.ts";
 import { DomainError } from "../errors.ts";
 import {
-  houseID as toHouseID, houseMembershipID, roomID as toRoomID, roomMembershipID, sortedIDs, userID as toUserID,
+  absenceID, houseID as toHouseID, houseMembershipID, roomID as toRoomID, roomMembershipID, sortedIDs, userID as toUserID,
   type HouseID, type HouseMembershipID, type UserID,
 } from "../ids.ts";
 import type { StoreState } from "../store-state.ts";
 import { weeklyPeriodicity } from "../value-objects.ts";
 import { schedulingFor, type CommandContext } from "./context.ts";
+import { houseResidentIDs, notifyAll } from "./notifications.ts";
+import { pruneDanglingReferences } from "./references.ts";
 
 const MAX_HOUSE_NAME_LENGTH = 80;
 const ACCESS_CODE_PATTERN = /^[A-Z0-9]{4,16}$/;
@@ -40,6 +42,9 @@ export function addExistingUserToHouse(
   ctx: CommandContext, state: StoreState, userID: UserID, houseID: HouseID, date: Instant,
 ): void {
   state.houseMemberships.push({ id: houseMembershipID(ctx.newID()), houseID, userID });
+  notifyAll(ctx, state, houseResidentIDs(state, houseID), userID, houseID, "memberJoined", date, {
+    actorUserID: userID, subjectName: state.users.find((u) => u.id === userID)?.name ?? "",
+  });
   const scheduling = schedulingFor(ctx, state, houseID);
   // `rooms` é copiado: o serviço substitui elementos do array enquanto percorremos.
   for (const room of [...state.rooms]) {
@@ -77,6 +82,13 @@ function removeMembershipFromHouse(
   }
   state.houseMemberships = state.houseMemberships.filter((m) => m.id !== membershipID);
   state.absences = state.absences.filter((a) => a.membershipID !== membershipID);
+  state.roomAccessRequests = state.roomAccessRequests.filter((r) => r.userID !== userID);
+  pruneDanglingReferences(state);
+  // Quem saiu não vê mais os avisos da casa; os outros moradores sabem que saiu (com o nome de então).
+  state.notifications = state.notifications.filter((n) => !(n.recipientUserID === userID && n.houseID === houseID));
+  notifyAll(ctx, state, houseResidentIDs(state, houseID), userID, houseID, "memberLeft", date, {
+    actorUserID: userID, subjectName: state.users.find((u) => u.id === userID)?.name ?? "",
+  });
   scheduling.rebalance(houseID, scheduling.addingWeeks(1, scheduling.weekStart(date)), date, state);
 }
 
@@ -84,6 +96,29 @@ function removeMembershipFromHouse(
 export function normalizeAccessCode(code: string): string | null {
   const normalized = trimmed(code).toUpperCase();
   return ACCESS_CODE_PATTERN.test(normalized) ? normalized : null;
+}
+
+/** Nome da casa sem espaços nas pontas, de 1 a 80 caracteres e sem caracteres de controle (`invalidHouseName`). */
+function validHouseName(rawName: string): string {
+  const name = trimmed(rawName);
+  if (Array.from(name).length === 0 || Array.from(name).length > MAX_HOUSE_NAME_LENGTH || /\p{Cc}/u.test(name)) {
+    throw new DomainError("invalidHouseName");
+  }
+  return name;
+}
+
+/**
+ * Muda o nome da casa. Qualquer morador pode: a casa não tem dono (docs/DESIGN.md). Quem não é da casa recebe
+ * `entityNotFound`, o mesmo de uma casa que não existe, para não revelar nada.
+ */
+export function renameHouse(state: StoreState, houseID: HouseID, requestedBy: UserID, rawName: string): House {
+  const house = state.houses.find((h) => h.id === houseID);
+  if (house === undefined || !state.houseMemberships.some((m) => m.houseID === houseID && m.userID === requestedBy)) {
+    throw new DomainError("entityNotFound");
+  }
+  const renamed: House = { ...house, name: validHouseName(rawName) };
+  state.houses = state.houses.map((h) => (h.id === houseID ? renamed : h));
+  return renamed;
 }
 
 /**
@@ -94,10 +129,7 @@ export function createHouse(
   ctx: CommandContext, state: StoreState, founderID: UserID, rawName: string, timezone: string,
   newAccessCode: () => string, date: Instant,
 ): House {
-  const name = trimmed(rawName);
-  if (Array.from(name).length === 0 || Array.from(name).length > MAX_HOUSE_NAME_LENGTH || /\p{Cc}/u.test(name)) {
-    throw new DomainError("invalidHouseName");
-  }
+  const name = validHouseName(rawName);
   try {
     createCalendar(timezone);
   } catch {
@@ -117,7 +149,7 @@ export function createHouse(
   state.rooms.push(wholeHouse);
   state.roomMemberships.push({
     id: roomMembershipID(ctx.newID()), roomID: wholeHouse.id, userID: founderID, fairnessDebt: 0, leftAt: null,
-    rotationChanges: null,
+    rotationChanges: null, skipsNextOwnTurn: false,
   });
   scheduling.initializeRooms(house.id, date, state);
   return house;
@@ -185,7 +217,9 @@ function deleteHouse(state: StoreState, houseID: HouseID): void {
   state.occurrences = state.occurrences.filter((o) => !occurrenceIDs.has(o.id));
   state.assignments = state.assignments.filter((a) => !occurrenceIDs.has(a.occurrenceID));
   state.taskSwapRequests = state.taskSwapRequests.filter((s) => !swapIDs.has(s.id));
-  state.notifications = state.notifications.filter((n) => !swapIDs.has(n.swapRequestID));
+  state.notifications = state.notifications.filter((n) => n.houseID !== houseID);
+  state.roomAccessRequests = state.roomAccessRequests.filter((r) => !roomIDs.has(r.roomID));
+  state.roomRatings = state.roomRatings.filter((r) => !roomIDs.has(r.roomID));
 }
 
 export function houseMembers(state: StoreState, houseID: HouseID): User[] {
@@ -197,4 +231,55 @@ export function houseMembers(state: StoreState, houseID: HouseID): User[] {
 export function houseMemberIDs(state: StoreState, houseID: HouseID): UserID[] {
   if (!state.houses.some((h) => h.id === houseID)) throw new DomainError("entityNotFound");
   return state.houseMemberships.filter((m) => m.houseID === houseID).map((m) => m.userID);
+}
+
+// ---------- Modo férias ----------
+
+/** Estado do modo férias do morador: ligado desde `startsAt` (que pode ser futuro: "a partir do próximo ciclo"). */
+export interface VacationStatus {
+  readonly onVacation: boolean;
+  readonly startsAt: Instant | null;
+}
+
+function membershipOf(state: StoreState, houseID: HouseID, userID: UserID) {
+  const membership = state.houseMemberships.find((m) => m.houseID === houseID && m.userID === userID);
+  if (membership === undefined) throw new DomainError("entityNotFound");
+  return membership;
+}
+
+/** A ausência aberta (sem data de volta) do morador: o modo férias ligado. */
+function openAbsence(state: StoreState, membershipID: HouseMembershipID) {
+  return state.absences.find((a) => a.membershipID === membershipID && a.endsAt === DISTANT_FUTURE);
+}
+
+export function vacationStatus(state: StoreState, houseID: HouseID, userID: UserID): VacationStatus {
+  const absence = openAbsence(state, membershipOf(state, houseID, userID).id);
+  return absence === undefined ? { onVacation: false, startsAt: null } : { onVacation: true, startsAt: absence.startsAt };
+}
+
+/**
+ * Liga ou desliga o modo férias (ausência sem data de volta). Ligar vale a partir da próxima segunda ("do próximo
+ * ciclo"): as atribuições desta semana não mudam, e a escala é replanejada dali em diante (a vez do ausente é pulada e
+ * consome a posição da fila, ALGORITMO.md). Desligar antes de começar apaga a ausência; depois de começar, fecha em
+ * `date`, e a escala volta a incluí-lo a partir da próxima segunda. Idempotente nos dois sentidos.
+ */
+export function setVacation(
+  ctx: CommandContext, state: StoreState, houseID: HouseID, userID: UserID, on: boolean, date: Instant,
+): VacationStatus {
+  const membership = membershipOf(state, houseID, userID);
+  const scheduling = schedulingFor(ctx, state, houseID);
+  const boundary = scheduling.addingWeeks(1, scheduling.weekStart(date));
+  const open = openAbsence(state, membership.id);
+  if (on) {
+    if (open !== undefined) return { onVacation: true, startsAt: open.startsAt };
+    state.absences.push(createAbsence({ id: absenceID(ctx.newID()), membershipID: membership.id, startsAt: boundary, endsAt: DISTANT_FUTURE }));
+    scheduling.rebalance(houseID, boundary, date, state);
+    return { onVacation: true, startsAt: boundary };
+  }
+  if (open === undefined) return { onVacation: false, startsAt: null };
+  state.absences = open.startsAt > date
+    ? state.absences.filter((a) => a.id !== open.id)
+    : state.absences.map((a) => (a.id === open.id ? { ...a, endsAt: date } : a));
+  scheduling.rebalance(houseID, boundary, date, state);
+  return { onVacation: false, startsAt: null };
 }

@@ -14,6 +14,9 @@ struct MyTasksView: View {
 
     let makeTaskEditorViewModel: () -> TaskEditorViewModel
 
+    /// "Avaliar a semana" e "Resumo da semana" no topo; sem ele (testes), a linha não aparece.
+    let weekRatingViewModel: WeekRatingViewModel?
+
     let onRequestSwap: (TaskOccurrence.ID) -> Void
     let onSelectTask: (TaskDefinition.ID) -> Void
     let onSelectNotifications: () -> Void
@@ -24,6 +27,7 @@ struct MyTasksView: View {
     init(
         viewModel: MyTasksViewModel,
         makeTaskEditorViewModel: @escaping () -> TaskEditorViewModel,
+        weekRatingViewModel: WeekRatingViewModel? = nil,
         onRequestSwap: @escaping (TaskOccurrence.ID) -> Void,
         onSelectTask: @escaping (TaskDefinition.ID) -> Void,
         onSelectNotifications: @escaping () -> Void,
@@ -32,6 +36,7 @@ struct MyTasksView: View {
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.makeTaskEditorViewModel = makeTaskEditorViewModel
+        self.weekRatingViewModel = weekRatingViewModel
         self.onRequestSwap = onRequestSwap
         self.onSelectTask = onSelectTask
         self.onSelectNotifications = onSelectNotifications
@@ -42,6 +47,10 @@ struct MyTasksView: View {
     var body: some View {
 
         List {
+
+            if let weekRatingViewModel {
+                WeekRatingSection(viewModel: weekRatingViewModel)
+            }
 
             switch viewModel.state {
 
@@ -59,8 +68,9 @@ struct MyTasksView: View {
 
                 statusRow {
                     EmptyStateView(
-                        title: "Nenhuma tarefa",
-                        systemImage: "checklist"
+                        title: "Tudo em dia",
+                        systemImage: "checkmark.circle.fill",
+                        description: "Você não tem tarefas agora. Quando começar o próximo ciclo, elas aparecem aqui."
                     )
                 }
 
@@ -91,6 +101,7 @@ struct MyTasksView: View {
                 .accessibilityLabel("Perfil")
                 .accessibilityIdentifier("profile")
             }
+            .withoutSharedBackground()
 
             ToolbarItemGroup(placement: .topBarTrailing) {
 
@@ -134,10 +145,11 @@ struct MyTasksView: View {
             } else {
                 await viewModel.load(showLoading: false)
             }
+            await viewModel.refreshPendingSwaps()
         }
 
         .alert(
-            "Excluir tarefa?",
+            "Apagar tarefa?",
             isPresented: Binding(
                 get: { taskToEnd != nil },
                 set: { if !$0 { taskToEnd = nil } }
@@ -145,10 +157,10 @@ struct MyTasksView: View {
             presenting: taskToEnd
         ) { task in
             Button("Cancelar", role: .cancel) {}
-            Button("Excluir", role: .destructive) {
+            Button("Apagar", role: .destructive) {
                 Task {
                     if await viewModel.end(taskID: task.id) {
-                        showToast(.deleted(String(localized: "Tarefa excluída")))
+                        showToast(.deleted(String(localized: "Tarefa apagada")))
                     }
                 }
             }
@@ -175,6 +187,7 @@ struct MyTasksView: View {
 
         .refreshable {
             await viewModel.load(forceRefresh: true)
+            await viewModel.refreshPendingSwaps()
         }
     }
 
@@ -268,12 +281,16 @@ struct MyTasksView: View {
 
         MyTaskRow(
             row: row,
-            canComplete: viewModel.canComplete(row.item)
-        ) {
-            Task {
-                await viewModel.complete(row.id)
+            canComplete: viewModel.canComplete(row.item),
+            onComplete: {
+                Task {
+                    await viewModel.complete(row.id)
+                }
+            },
+            onSelect: {
+                onSelectTask(row.item.definition.id)
             }
-        }
+        )
         .plainCardRow()
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
 
@@ -283,7 +300,7 @@ struct MyTasksView: View {
                     taskToEnd = row.item.definition
                 } label: {
                     Label(
-                        "Excluir",
+                        "Apagar",
                         systemImage: "trash"
                     )
                 }
@@ -297,7 +314,7 @@ struct MyTasksView: View {
                     systemImage: "pencil"
                 )
             }
-            .tint(.gray)
+            .tint(.accentColor)
 
             if viewModel.canRequestSwap(row.item) {
 
@@ -309,7 +326,7 @@ struct MyTasksView: View {
                         systemImage: "arrow.left.arrow.right"
                     )
                 }
-                .tint(.accentColor)
+                .tint(.gray)
             }
         }
     }

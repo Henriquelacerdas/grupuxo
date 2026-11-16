@@ -7,6 +7,8 @@ import {
   InMemoryHouseRepository, InMemoryNotificationRepository, InMemoryRoomRepository, InMemoryTaskRepository,
   InMemoryTaskSwapRepository,
 } from "../../src/adapters/in-memory/repositories.ts";
+import { InMemoryPhotoStore } from "../../src/adapters/in-memory/photo-store.ts";
+import { InMemoryPushDirectory } from "../../src/adapters/in-memory/push-directory.ts";
 import { InMemoryStore } from "../../src/adapters/in-memory/store.ts";
 import { InMemoryUserDirectory } from "../../src/adapters/in-memory/user-directory.ts";
 import { InMemoryLinkTokenStore, InMemoryWhatsAppLinkStore } from "../../src/adapters/in-memory/whatsapp.ts";
@@ -15,6 +17,7 @@ import type { IdentityRemover } from "../../src/auth/identity-remover.ts";
 import type { UserDirectory } from "../../src/auth/user-directory.ts";
 import type { CommandContext } from "../../src/domain/commands/context.ts";
 import type { Instant } from "../../src/domain/dates.ts";
+import type { HouseID } from "../../src/domain/ids.ts";
 import { emptyStoreState } from "../../src/domain/store-state.ts";
 import { createApiHandler, type ApiDependencies } from "../../src/lambdas/api.ts";
 import type { HttpApiResult } from "../../src/lambdas/events.ts";
@@ -77,6 +80,10 @@ export interface CallOptions {
 export interface ApiEnv {
   readonly users: UserDirectory;
   readonly identities: FakeIdentityRemover;
+  readonly photos: InMemoryPhotoStore;
+  readonly push: InMemoryPushDirectory;
+  /** Roda o que a tarefa agendada roda numa casa, no instante `at`. */
+  emitScheduled(houseID: HouseID, at: Instant): Promise<number>;
   /** Relógio do servidor (mutável). */
   clock: Instant;
   call(who: Who | null, method: string, path: string, options?: CallOptions): Promise<HttpApiResult>;
@@ -96,9 +103,13 @@ function assemble(
 ): ApiEnv {
   const links = new InMemoryWhatsAppLinkStore();
   const identities = new FakeIdentityRemover();
+  const photos = new InMemoryPhotoStore();
+  const push = new InMemoryPushDirectory();
   const handler = createApiHandler({
     ...base,
     identities,
+    photos,
+    push,
     verifier: new CognitoJwtVerifier({ userPoolID: USER_POOL_ID, clientID: CLIENT_ID }, { jwks: new FakeJwksSource([key]), now: () => NOW }),
     linker: new WhatsAppLinker(createLinkConfig("5511900000000"), new InMemoryLinkTokenStore(), links, () => NOW),
     links,
@@ -107,6 +118,9 @@ function assemble(
   return {
     users: base.users,
     identities,
+    photos,
+    push,
+    emitScheduled: (houseID, at) => base.houses.emitScheduledNotifications(houseID, at),
     get clock() { return clock.value; },
     set clock(value: Instant) { clock.value = value; },
     snapshot,

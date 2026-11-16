@@ -79,6 +79,27 @@ export function parseApiSettings(env: Environment): ApiSettings {
   return { cognito: { userPoolID, clientID }, link, tableName: required(env, "TABLE_NAME") };
 }
 
+/** Ambiente da Lambda `push`. */
+export interface PushSettings {
+  readonly tableName: string;
+}
+
+export function parsePushSettings(env: Environment): PushSettings {
+  required(env, "SECRET_ID");
+  return { tableName: required(env, "TABLE_NAME") };
+}
+
+/** Segredo do APNs (`grupuxo/<ambiente>/apns`): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID` e `APNS_PRIVATE_KEY` (o .p8). */
+export function parseApnsSecret(secretString: string) {
+  const fields = secretFields(secretString);
+  return {
+    keyID: secretValue(fields, "APNS_KEY_ID"),
+    teamID: secretValue(fields, "APNS_TEAM_ID"),
+    bundleID: secretValue(fields, "APNS_BUNDLE_ID"),
+    privateKey: secretValue(fields, "APNS_PRIVATE_KEY"),
+  };
+}
+
 /** Segredos da Lambda `webhook` (`VERIFY_TOKEN` e `WHATSAPP_APP_SECRET` do Secrets Manager). */
 export interface WebhookSecrets {
   readonly verifyToken: string;

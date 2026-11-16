@@ -38,6 +38,8 @@ protocol AuthSessionClient: Sendable {
     /// Se o Amplify ainda guarda uma sessão que o app já descartou (tokens vencidos, evento do Hub),
     /// sai só localmente: sem isso qualquer `signIn*` falha com "already a user in signedIn state".
     func clearStaleSession() async
+    /// Troca a senha de quem está logado com e-mail e senha (`Amplify.Auth.update(oldPassword:to:)`).
+    func updatePassword(oldPassword: String, newPassword: String) async throws
     /// Eventos do Hub; terminar o stream remove o listener.
     func events() -> AsyncStream<AuthSessionEvent>
 }

@@ -6,6 +6,45 @@ struct MockHouseRepository: HouseRepository {
     let store: MockStore
     var scheduling = TaskSchedulingService(calendar: Calendar(identifier: .gregorian))
 
+    func vacation(for userID: User.ID, in houseID: House.ID) async throws -> VacationStatus {
+        try await store.read { state in
+            guard let membership = state.houseMemberships.first(where: { $0.houseID == houseID && $0.userID == userID }) else {
+                throw DomainError.entityNotFound
+            }
+            let open = state.absences.first { $0.membershipID == membership.id && $0.endsAt == .distantFuture }
+            return VacationStatus(isOn: open != nil, startsAt: open?.startsAt)
+        }
+    }
+
+    func setVacation(_ isOn: Bool, for userID: User.ID, in houseID: House.ID, at date: Date) async throws -> VacationStatus {
+        try await store.update { state in
+            guard let membership = state.houseMemberships.first(where: { $0.houseID == houseID && $0.userID == userID }) else {
+                throw DomainError.entityNotFound
+            }
+            let boundary = try scheduling.addingWeeks(1, to: try scheduling.weekStart(date))
+            let open = state.absences.firstIndex { $0.membershipID == membership.id && $0.endsAt == .distantFuture }
+            if isOn {
+                if let open { return VacationStatus(isOn: true, startsAt: state.absences[open].startsAt) }
+                state.absences.append(
+                    try Absence(id: UUID(), membershipID: membership.id, startsAt: boundary, endsAt: .distantFuture)
+                )
+                return VacationStatus(isOn: true, startsAt: boundary)
+            }
+            if let open {
+                if state.absences[open].startsAt > date {
+                    state.absences.remove(at: open)
+                } else {
+                    let current = state.absences[open]
+                    state.absences[open] = try Absence(
+                        id: current.id, membershipID: current.membershipID, startsAt: current.startsAt, endsAt: date,
+                        reason: current.reason
+                    )
+                }
+            }
+            return .off
+        }
+    }
+
     func addMember(name: String, to houseID: House.ID, requestedBy: User.ID, at date: Date) async throws -> User {
         try await store.update { state in
             let name = name.trimmingCharacters(in: .whitespacesAndNewlines)

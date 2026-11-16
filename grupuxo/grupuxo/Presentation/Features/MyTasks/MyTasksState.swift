@@ -27,8 +27,8 @@ enum MyTasksSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .cycle: String(localized: "Seu ciclo")
-        case .extras: String(localized: "Tarefas gerais")
+        case .cycle: String(localized: "Repetição do cômodo")
+        case .extras: String(localized: "Repetição própria")
         case .sporadic: String(localized: "Tarefas únicas")
         }
     }
@@ -39,10 +39,12 @@ struct MyTasksContent: Equatable {
     /// Uma tarefa já com os textos que a linha mostra.
     struct Row: Equatable, Identifiable {
         let item: TaskItem
-        /// Cômodo da tarefa; vazio dentro de "Seu ciclo", onde o cômodo é o cabeçalho do grupo.
+        /// Cômodo da tarefa; vazio em "Repetição do cômodo", onde o cômodo é o cabeçalho do grupo.
         let roomName: String?
-        /// Dia do prazo ("Hoje", "Terça"), destacado ao lado do cômodo.
-        let dueDay: String?
+        /// Início ou prazo ("Termina hoje", "Começa terça", "Terminou ontem"), ao lado do cômodo.
+        let timing: TaskTiming?
+        /// Troca pedida por você e ainda sem resposta: "Troca pedida · aguardando Henrique L.".
+        var pendingSwap: String? = nil
         /// Cor do cômodo, usada no círculo de conclusão.
         let color: RoomColor
 

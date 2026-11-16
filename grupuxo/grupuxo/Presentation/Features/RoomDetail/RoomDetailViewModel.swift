@@ -27,9 +27,11 @@ final class RoomDetailViewModel: ObservableObject {
     private let completeTask: CompleteTaskUseCase
     private let endTask: EndTaskUseCase
     private let claimTask: ClaimSporadicTaskUseCase
+    private let deleteRoom: DeleteRoomUseCase?
     private let roomID: Room.ID
     private let userID: User.ID
     private let text: HouseOverviewText
+    private let taskText: MyTasksText
 
     /// Quantas sugestões aparecem de uma vez; "Outras sugestões" avança para o próximo grupo.
     static let suggestionPageSize = 3
@@ -47,6 +49,7 @@ final class RoomDetailViewModel: ObservableObject {
         completeTask: CompleteTaskUseCase,
         endTask: EndTaskUseCase,
         claimTask: ClaimSporadicTaskUseCase,
+        deleteRoom: DeleteRoomUseCase? = nil,
         roomID: Room.ID,
         userID: User.ID,
         calendar: Calendar
@@ -61,9 +64,11 @@ final class RoomDetailViewModel: ObservableObject {
         self.completeTask = completeTask
         self.endTask = endTask
         self.claimTask = claimTask
+        self.deleteRoom = deleteRoom
         self.roomID = roomID
         self.userID = userID
         self.text = HouseOverviewText(calendar: calendar)
+        self.taskText = MyTasksText(calendar: calendar, locale: HouseOverviewText.appLocale)
     }
 
     var currentUserID: User.ID { userID }
@@ -86,6 +91,17 @@ final class RoomDetailViewModel: ObservableObject {
         return text.responsibles(
             names: participation.responsibleNames,
             userIDs: participation.responsibleUserIDs,
+            currentUserID: userID
+        )
+    }
+
+    /// "Julia C. e Bia": quem assume no próximo ciclo. Sem fila ou sem previsão, `nil`.
+    var nextResponsiblesSummary: String? {
+        guard let participation else { return nil }
+
+        return text.responsibles(
+            names: participation.nextResponsibleNames,
+            userIDs: [],
             currentUserID: userID
         )
     }
@@ -114,6 +130,29 @@ final class RoomDetailViewModel: ObservableObject {
         return Dictionary(grouping: assignees, by: \.id)
             .compactMap { $0.value.first }
             .sorted { $0.id.uuidString.lowercased() < $1.id.uuidString.lowercased() }
+    }
+
+    /// Prazo de uma tarefa de repetição própria: "Termina sexta", "Começa sábado", "Terminou ontem".
+    func timing(of item: TaskItem, now: Date = .now) -> String? {
+        guard !item.occurrence.isCompleted else { return nil }
+        return taskText.timing(
+            availableAt: item.occurrence.availableAt,
+            dueAt: item.occurrence.dueAt,
+            now: now
+        )?.text
+    }
+
+    /// "Começa sábado": só quando a vez ainda não abriu. Nas tarefas do ciclo o prazo já está no cartão do ciclo.
+    func startTiming(of item: TaskItem, now: Date = .now) -> String? {
+        guard !item.occurrence.isCompleted,
+              let timing = taskText.timing(
+                availableAt: item.occurrence.availableAt,
+                dueAt: item.occurrence.dueAt,
+                now: now
+              ),
+              timing.style == .upcoming
+        else { return nil }
+        return timing.text
     }
 
     /// "Termina domingo".
@@ -224,6 +263,22 @@ final class RoomDetailViewModel: ObservableObject {
             await load()
         } catch DomainError.deletionConfirmationRequired {
             confirmsDeletion = true
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+
+    var canDeleteRoom: Bool { deleteRoom != nil }
+
+    /// Exclui o cômodo com tudo o que é dele (a tela já confirmou). Em sucesso, `wasDeleted` fecha a tela.
+    func deleteWholeRoom() async {
+        guard let deleteRoom, !isChangingMembership else { return }
+        isChangingMembership = true
+        defer { isChangingMembership = false }
+        do {
+            try await deleteRoom(roomID: roomID, userID: userID, confirmDeletion: true)
+            await refreshData()
+            wasDeleted = true
         } catch {
             actionError = error.localizedDescription
         }

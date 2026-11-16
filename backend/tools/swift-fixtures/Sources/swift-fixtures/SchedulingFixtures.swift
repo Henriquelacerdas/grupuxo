@@ -36,11 +36,12 @@ func enc(_ room: Room) -> [String: Any] {
 
 func enc(_ m: RoomMembership) -> [String: Any] {
     ["id": id(m.id), "roomID": id(m.roomID), "userID": id(m.userID), "fairnessDebt": num(m.fairnessDebt), "leftAt": d(m.leftAt),
-     "rotationChanges": opt(m.rotationChanges) { $0.map { ["effectiveAt": d($0.effectiveAt), "participates": $0.participates] as [String: Any] } }]
+     "rotationChanges": opt(m.rotationChanges) { $0.map { ["effectiveAt": d($0.effectiveAt), "participates": $0.participates] as [String: Any] } },
+     "skipsNextOwnTurn": m.skipsNextOwnTurn]
 }
 
 func enc(_ t: TaskDefinition) -> [String: Any] {
-    [
+    var result: [String: Any] = [
         "id": id(t.id), "roomID": id(t.roomID), "name": t.name, "details": t.details, "effort": ["points": t.effort.points],
         "kind": t.kind.rawValue, "recurrence": enc(t.recurrence), "assignmentPolicy": t.assignmentPolicy.rawValue,
         "sourceSuggestionID": opt(t.sourceSuggestionID) { $0 }, "rotationQueue": ids(t.rotationQueue),
@@ -48,6 +49,9 @@ func enc(_ t: TaskDefinition) -> [String: Any] {
         "pendingRotation": opt(t.pendingRotation) { ["effectiveAt": d($0.effectiveAt), "queue": ids($0.queue)] as [String: Any] },
         "calendarAnchor": d(t.calendarAnchor), "endedAt": d(t.endedAt),
     ]
+    // Ausente = definição antiga (vale a periodicidade); `null` no JSON seria outro valor.
+    if let followsRoom = t.followsRoom { result["followsRoom"] = followsRoom }
+    return result
 }
 
 func enc(_ o: TaskOccurrence) -> [String: Any] {
@@ -122,6 +126,7 @@ enum Step {
     case addAbsence(Absence)
     case suggestedResident(room: UUID, at: Date)
     case endTask(UUID, requestedBy: UUID, at: Date)
+    case convertRepetition(UUID, followsRoom: Bool, recurrence: RecurrencePolicy?, requestedBy: UUID, at: Date)
 }
 
 func enc(_ ref: Ref) -> [String: Any] { ["def": id(ref.def), "n": ref.n] }
@@ -145,6 +150,9 @@ func enc(_ step: Step, house: UUID) -> [String: Any] {
     case let .addAbsence(a): ["op": "addAbsence", "absence": enc(a)]
     case let .suggestedResident(room, at): ["op": "suggestedResident", "roomID": id(room), "at": d(at)]
     case let .endTask(definition, user, at): ["op": "endTask", "definitionID": id(definition), "requestedBy": id(user), "at": d(at)]
+    case let .convertRepetition(definition, followsRoom, recurrence, user, at):
+        ["op": "convertRepetition", "definitionID": id(definition), "followsRoom": followsRoom,
+         "recurrence": opt(recurrence) { enc($0) } as Any, "requestedBy": id(user), "at": d(at)]
     }
 }
 
@@ -194,9 +202,9 @@ func world(users userCount: Int = 4, kitchen: WeeklyPeriodicity = WeeklyPeriodic
 
 func task(_ n: Int, room: UUID, effort: Int = 2, kind: TaskKind = .recurring,
           recurrence: RecurrencePolicy = .recurring(frequency: .weekly, interval: 1),
-          policy: TaskAssignmentPolicy = .calendarRotation, name: String? = nil) -> TaskDefinition {
+          policy: TaskAssignmentPolicy = .calendarRotation, name: String? = nil, followsRoom: Bool? = nil) -> TaskDefinition {
     TaskDefinition(id: W.def(n), roomID: room, name: name ?? "Tarefa \(n)", details: "", effort: TaskEffort(points: effort),
-                   kind: kind, recurrence: recurrence, assignmentPolicy: policy)
+                   kind: kind, recurrence: recurrence, assignmentPolicy: policy, followsRoom: followsRoom)
 }
 
 let wed = parse("2026-09-16T15:00:00Z")   // quarta-feira
@@ -235,6 +243,9 @@ func apply(_ step: Step, service: TaskSchedulingService, state: inout TaskSchedu
     case let .endTask(definition, user, at):
         // O valor é só a quantidade: os IDs das ocorrências removidas são aleatórios.
         return try service.endTask(definition, requestedBy: user, at: at, state: &state).count
+    case let .convertRepetition(definition, followsRoom, recurrence, user, at):
+        return try service.convertRepetition(definition, followsRoom: followsRoom, recurrence: recurrence,
+                                             requestedBy: user, at: at, state: &state).count
     }
     return nil
 }
@@ -277,6 +288,7 @@ func generateScheduling(outDir: String) {
         ("scheduling-membership", membershipScenarios()),
         ("scheduling-calendar", calendarScenarios()),
         ("scheduling-end", endScenarios()),
+        ("scheduling-convert", convertScenarios()),
     ]
     for (name, scenarios) in groups {
         writeFixture(name: name, command: "scheduling", cases: scenarios.map(run), outDir: outDir)

@@ -2,7 +2,7 @@ import { parseProfileName, UserDirectoryError, type UserDirectory, type UserProf
 import type { CognitoSub } from "../../auth/token-verifier.ts";
 import type { Instant } from "../../domain/dates.ts";
 import { userID, type IDGenerator, type UserID } from "../../domain/ids.ts";
-import { DynamoTransactionCanceledError, type DynamoClient } from "./client.ts";
+import { DynamoConditionFailedError, DynamoTransactionCanceledError, type DynamoClient } from "./client.ts";
 import { COGNITO_SK, PROFILE_SK, cognitoPK, userPK } from "./keys.ts";
 import { decoding, str } from "./reader.ts";
 
@@ -36,6 +36,30 @@ export class DynamoUserDirectory implements UserDirectory {
       { kind: "delete", key: { PK: cognitoPK(cognitoSub), SK: COGNITO_SK } },
       { kind: "delete", key: { PK: userPK(id), SK: PROFILE_SK } },
     ]);
+  }
+
+  async updateName(id: UserID, name: string): Promise<void> {
+    if (parseProfileName(name) !== name) throw new UserDirectoryError("invalidProfile");
+    try {
+      await this.client.update({
+        key: { PK: userPK(id), SK: PROFILE_SK }, update: "SET #name = :name", condition: "attribute_exists(PK)",
+        names: { "#name": "name" }, values: { ":name": name }, returnValues: "UPDATED_NEW",
+      });
+    } catch (error) {
+      // Perfil que não existe (conta já apagada): nada a fazer, como em `deleteUser`.
+      if (!(error instanceof DynamoConditionFailedError)) throw error;
+    }
+  }
+
+  async updatePhoto(id: UserID, key: string | null): Promise<void> {
+    try {
+      await this.client.update({
+        key: { PK: userPK(id), SK: PROFILE_SK }, update: "SET #photo = :photo", condition: "attribute_exists(PK)",
+        names: { "#photo": "photoKey" }, values: { ":photo": key }, returnValues: "UPDATED_NEW",
+      });
+    } catch (error) {
+      if (!(error instanceof DynamoConditionFailedError)) throw error;
+    }
   }
 
   async ensureUser(cognitoSub: CognitoSub, profile: UserProfile): Promise<UserID> {

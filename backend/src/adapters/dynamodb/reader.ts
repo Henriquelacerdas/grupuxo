@@ -50,6 +50,12 @@ export function nullableStr(item: DynamoItem, name: string): string | null {
   return field(item, name) === null ? null : str(item, name);
 }
 
+/** Atributo que pode faltar (item antigo) ou ser nulo: `null`; senão o texto passa por `convert`. */
+export function optionalStr<T>(item: DynamoItem, name: string, convert: (value: string) => T): T | null {
+  if (!Object.hasOwn(item, name) || item[name] === null) return null;
+  return convert(str(item, name));
+}
+
 export function nullableBool(item: DynamoItem, name: string): boolean | null {
   return field(item, name) === null ? null : bool(item, name);
 }

@@ -205,6 +205,51 @@ func completeScenarios() -> [Scenario] {
         .removeMember(W.user(4), room: W.kitchen, at: days(1)),
         .refresh(at: days(20)),
     ]))
+    // Repetição própria: janela de 2 dias, contada da conclusão, e não dá para fazer antes de abrir.
+    list.append(Scenario(name: "repetição própria: janela de 2 dias contada da conclusão", zone: "UTC", state: world(), steps: [
+        .create(task(1, room: W.kitchen, effort: 1, recurrence: weekly1, policy: .afterCompletion), at: wed),
+        .complete(Ref(def: W.def(1), n: 0), by: .assigneeOf(Ref(def: W.def(1), n: 0)), at: days(1)),
+        .complete(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1)), at: days(3)),
+        .complete(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1)), at: days(9)),
+        .refresh(at: days(25)),
+    ]))
+    list.append(Scenario(name: "repetição própria: intervalos diário, mensal e por periodicidade", zone: "America/Sao_Paulo", state: world(), steps: [
+        .create(task(1, room: W.kitchen, effort: 1, recurrence: .recurring(frequency: .daily, interval: 3), policy: .afterCompletion), at: wed),
+        .create(task(2, room: W.bathroom, effort: 2, recurrence: .recurring(frequency: .monthly, interval: 1), policy: .afterCompletion), at: wed),
+        .create(task(3, room: W.whole, effort: 2, recurrence: .weekly(WeeklyPeriodicity(executionsPerPeriod: 1, intervalWeeks: 2)), policy: .afterCompletion), at: wed),
+        .complete(Ref(def: W.def(1), n: 0), by: .assigneeOf(Ref(def: W.def(1), n: 0)), at: days(1)),
+        .complete(Ref(def: W.def(2), n: 0), by: .assigneeOf(Ref(def: W.def(2), n: 0)), at: days(2)),
+        .complete(Ref(def: W.def(3), n: 0), by: .assigneeOf(Ref(def: W.def(3), n: 0)), at: days(2)),
+        .refresh(at: days(40)),
+    ]))
+    // Tarefas únicas já assumidas por três moradores: ao concluí-las, eles pulam a vez na repetição própria.
+    var skipping = world()
+    let sporadicUsers = [1, 2, 3]
+    skipping.definitions = sporadicUsers.map { task(10 + $0, room: W.kitchen, effort: 1, kind: .sporadic, recurrence: .none, policy: .selfAssigned) }
+    skipping.occurrences = sporadicUsers.map {
+        TaskOccurrence(id: uid(610 + $0), taskDefinitionID: W.def(10 + $0), availableAt: wed, dueAt: nil, status: .assigned,
+                       completedAt: nil, completedByUserID: nil, effortSnapshot: TaskEffort(points: 1))
+    }
+    skipping.assignments = sporadicUsers.map {
+        TaskAssignment(id: uid(710 + $0), occurrenceID: uid(610 + $0), userID: uid($0), assignedAt: wed, endedAt: nil)
+    }
+    list.append(Scenario(name: "tarefa única faz pular a vez na repetição própria (uma vez só)", zone: "UTC", state: skipping, steps: [
+        .create(task(1, room: W.kitchen, effort: 1, recurrence: weekly1, policy: .afterCompletion), at: wed),
+        .complete(Ref(def: W.def(11), n: 0), by: .user(uid(1)), at: days(1)),
+        .complete(Ref(def: W.def(12), n: 0), by: .user(uid(2)), at: days(1)),
+        .complete(Ref(def: W.def(13), n: 0), by: .user(uid(3)), at: days(1)),
+        .complete(Ref(def: W.def(1), n: 0), by: .assigneeOf(Ref(def: W.def(1), n: 0)), at: days(2)),
+        .complete(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1)), at: days(10)),
+        .reopen(Ref(def: W.def(13), n: 0), by: .user(uid(3))),
+    ]))
+    // "Repetir com o cômodo" explícito: o campo manda, não a periodicidade guardada.
+    list.append(Scenario(name: "repetir com o cômodo explícito: acompanha o cômodo ou segue a própria escala", zone: "UTC",
+        state: world(kitchen: WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 1), responsible: 2), steps: [
+        .create(task(1, room: W.kitchen, effort: 3, recurrence: .recurring(frequency: .daily, interval: 1), followsRoom: true), at: wed),
+        .create(task(2, room: W.kitchen, effort: 2, recurrence: .weekly(WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 1)), followsRoom: false), at: wed),
+        .create(task(3, room: W.kitchen, effort: 1, recurrence: .weekly(WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 1))), at: wed),
+        .refresh(at: days(20)),
+    ]))
     // Esporádica já assumida.
     var sporadic = world()
     sporadic.definitions = [task(1, room: W.kitchen, effort: 3, kind: .sporadic, recurrence: .none, policy: .selfAssigned)]
@@ -382,6 +427,58 @@ func endScenarios() -> [Scenario] {
         .removeMember(W.user(2), room: W.kitchen, at: days(10)),
         .rebalance(boundary: days(14), at: days(10)),
         .refresh(at: days(70)),
+    ]))
+    return list
+}
+
+func convertScenarios() -> [Scenario] {
+    var list: [Scenario] = []
+    let ref0 = Ref(def: W.def(1), n: 0)
+    let kitchenWeekly = WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 1)
+    let linked = RecurrencePolicy.weekly(kitchenWeekly)
+    let monthly = RecurrencePolicy.recurring(frequency: .monthly, interval: 1)
+    func following(_ n: Int, effort: Int) -> TaskDefinition {
+        task(n, room: W.kitchen, effort: effort, recurrence: linked, policy: .balancedAutomatically, followsRoom: true)
+    }
+    list.append(Scenario(name: "do cômodo para repetição própria: sai da escala, vira por conclusão e o cômodo replaneja", zone: "UTC",
+        state: world(kitchen: kitchenWeekly, responsible: 2), steps: [
+        .create(following(1, effort: 3), at: wed),
+        .create(following(2, effort: 2), at: wed),
+        .create(following(3, effort: 2), at: wed),
+        .complete(ref0, by: .assigneeOf(ref0), at: days(1)),
+        .convertRepetition(W.def(1), followsRoom: false, recurrence: monthly, requestedBy: W.user(1), at: days(8)),
+        .refresh(at: days(30)),
+        .complete(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1)), at: days(9)),
+        .refresh(at: days(90)),
+    ]))
+    list.append(Scenario(name: "da repetição própria para o cômodo: entra na escala e a vez aberta some", zone: "UTC",
+        state: world(kitchen: kitchenWeekly, responsible: 2), steps: [
+        .create(following(2, effort: 2), at: wed),
+        .create(task(1, room: W.kitchen, effort: 2, recurrence: .recurring(frequency: .weekly, interval: 2),
+                     policy: .afterCompletion, followsRoom: false), at: wed),
+        .complete(ref0, by: .assigneeOf(ref0), at: days(1)),
+        .convertRepetition(W.def(1), followsRoom: true, recurrence: nil, requestedBy: W.user(1), at: days(10)),
+        .refresh(at: days(40)),
+        .complete(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1)), at: days(12)),
+        .refresh(at: days(90)),
+    ]))
+    list.append(Scenario(name: "converter: já no modo, permissão, desconhecida, avulsa, intervalo inválido e encerrada", zone: "UTC",
+        state: world(kitchenMembers: 3), steps: [
+        .create(task(1, room: W.kitchen, effort: 2, recurrence: .recurring(frequency: .weekly, interval: 2),
+                     policy: .afterCompletion, followsRoom: false), at: wed),
+        .create(task(2, room: W.kitchen, effort: 1, kind: .sporadic, recurrence: .none, policy: .selfAssigned), at: wed),
+        .create(following(3, effort: 1), at: wed),
+        .convertRepetition(W.def(1), followsRoom: false, recurrence: monthly, requestedBy: W.user(1), at: days(1)),
+        .convertRepetition(W.def(3), followsRoom: true, recurrence: nil, requestedBy: W.user(1), at: days(1)),
+        .convertRepetition(W.def(1), followsRoom: true, recurrence: nil, requestedBy: uid(77), at: days(1)),
+        .convertRepetition(W.def(1), followsRoom: true, recurrence: nil, requestedBy: W.user(4), at: days(1)),
+        .convertRepetition(W.def(9), followsRoom: true, recurrence: nil, requestedBy: W.user(1), at: days(1)),
+        .convertRepetition(W.def(2), followsRoom: false, recurrence: monthly, requestedBy: W.user(1), at: days(1)),
+        .convertRepetition(W.def(3), followsRoom: false, recurrence: nil, requestedBy: W.user(1), at: days(1)),
+        .convertRepetition(W.def(3), followsRoom: false, recurrence: RecurrencePolicy.none, requestedBy: W.user(1), at: days(1)),
+        .endTask(W.def(3), requestedBy: W.user(1), at: days(2)),
+        .convertRepetition(W.def(3), followsRoom: false, recurrence: monthly, requestedBy: W.user(1), at: days(3)),
+        .refresh(at: days(40)),
     ]))
     return list
 }

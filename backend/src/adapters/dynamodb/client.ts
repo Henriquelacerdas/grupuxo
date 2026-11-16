@@ -55,6 +55,12 @@ export interface DynamoQueryOutput {
   readonly lastKey?: DynamoItem;
 }
 
+/** Varredura da tabela com filtro. Só para tarefas agendadas que precisam enumerar casas (`META`); nunca no caminho do app. */
+export interface DynamoScanInput extends ExpressionAttributes {
+  readonly filter: string;
+  readonly startKey?: DynamoItem;
+}
+
 export interface DynamoPutInput extends ExpressionAttributes {
   readonly item: DynamoItem;
   readonly condition?: string;
@@ -84,6 +90,7 @@ export interface DynamoClient {
   /** `undefined` se o item não existir. */
   get(input: DynamoGetInput): Promise<DynamoItem | undefined>;
   query(input: DynamoQueryInput): Promise<DynamoQueryOutput>;
+  scan(input: DynamoScanInput): Promise<DynamoQueryOutput>;
   put(input: DynamoPutInput): Promise<void>;
   /** Devolve o item novo (`ALL_NEW`) ou só os atributos alterados (`UPDATED_NEW`). */
   update(input: DynamoUpdateInput): Promise<DynamoItem>;

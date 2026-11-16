@@ -1,5 +1,6 @@
+import { RATING_LEVELS, RATING_TAGS } from "../../domain/entities.ts";
 import type {
-  Absence, AppNotification, House, HouseMembership, PendingRotation, Room, RoomMembership, RoomScheduleVersion,
+  Absence, AppNotification, House, RoomAccessRequest, RoomRating, HouseMembership, PendingRotation, Room, RoomMembership, RoomScheduleVersion,
   RotationParticipationChange, TaskAssignment, TaskDefinition, TaskOccurrence, TaskSwapRequest, User,
 } from "../../domain/entities.ts";
 import {
@@ -11,13 +12,14 @@ import {
   type TaskAssignmentPolicy, type TaskEffort, type TaskKind, type TaskOccurrenceStatus, type WeeklyPeriodicity,
 } from "../../domain/value-objects.ts";
 import type { AppNotificationKind, TaskSwapRequestStatus } from "../../domain/entities.ts";
+import type { Instant } from "../../domain/dates.ts";
 import type { DynamoItem, DynamoValue } from "./client.ts";
 import {
   META_SK, PROFILE_SK, SK_PREFIX, housePK, idFromSK, lookupPK, notificationGSISK, userPK,
 } from "./keys.ts";
 import {
   asRecord, asString, bool, decoding, integer, invalid, list, nullableBool, nullableList, nullableNum,
-  nullableRecord, nullableStr, num, numberMap, oneOf, record, str,
+  nullableRecord, nullableStr, num, numberMap, oneOf, optionalStr, record, str,
 } from "./reader.ts";
 
 // Conversão entre as entidades do domínio e os itens da seção 4 do BACKEND.md. Entidades da casa não repetem o
@@ -34,8 +36,12 @@ const ASSIGNMENT_POLICIES: readonly TaskAssignmentPolicy[] = [
   "balancedAutomatically", "calendarRotation", "afterCompletion", "selfAssigned",
 ];
 const OCCURRENCE_STATUSES: readonly TaskOccurrenceStatus[] = ["available", "assigned", "completed"];
-const SWAP_STATUSES: readonly TaskSwapRequestStatus[] = ["pending", "accepted", "rejected"];
-const NOTIFICATION_KINDS: readonly AppNotificationKind[] = ["taskSwapRequested", "taskSwapAccepted", "taskSwapRejected"];
+const SWAP_STATUSES: readonly TaskSwapRequestStatus[] = ["pending", "accepted", "rejected", "cancelled"];
+const NOTIFICATION_KINDS: readonly AppNotificationKind[] = [
+  "taskSwapRequested", "taskSwapAccepted", "taskSwapRejected", "taskEdited", "taskDeleted", "effortChanged",
+  "memberJoined", "memberLeft", "roomDeleted", "roomAccessRequested", "roomAccessApproved", "roomAccessDenied",
+  "cycleTurned", "weeklySummaryReady",
+];
 const FREQUENCIES = ["daily", "weekly", "monthly", "yearly"] as const;
 
 /** Itens de entidades da casa carregam a `PK` da partição e o `SK` próprio. */
@@ -86,12 +92,14 @@ export function decodeAccessCode(item: DynamoItem): HouseID {
 }
 
 export function encodeUser(user: User): DynamoItem {
-  return { PK: userPK(user.id), SK: PROFILE_SK, name: user.name, email: user.email };
+  return { PK: userPK(user.id), SK: PROFILE_SK, name: user.name, email: user.email, photoKey: user.photoKey ?? null };
 }
 
 export function decodeUser(item: DynamoItem): User {
   return decoding(() => ({
     id: userID(idFromPK(str(item, "PK"), "USER#")), name: str(item, "name"), email: nullableStr(item, "email"),
+    // Perfis antigos não têm o atributo: sem foto.
+    ...(Object.hasOwn(item, "photoKey") && item["photoKey"] !== null ? { photoKey: str(item, "photoKey") } : {}),
   }));
 }
 
@@ -167,6 +175,7 @@ export function encodeRoomMembership(houseId: HouseID, membership: RoomMembershi
   return base(houseId, `${SK_PREFIX.roomMembership}${membership.id}`, {
     roomID: membership.roomID, userID: membership.userID, fairnessDebt: membership.fairnessDebt,
     leftAt: membership.leftAt, rotationChanges: membership.rotationChanges?.map(encodeRotationChange) ?? null,
+    skipsNextOwnTurn: membership.skipsNextOwnTurn,
   });
 }
 
@@ -175,6 +184,8 @@ export function decodeRoomMembership(item: DynamoItem): RoomMembership {
     id: roomMembershipID(idFromSK(str(item, "SK"), SK_PREFIX.roomMembership)), roomID: roomID(str(item, "roomID")),
     userID: userID(str(item, "userID")), fairnessDebt: num(item, "fairnessDebt"), leftAt: nullableNum(item, "leftAt"),
     rotationChanges: nullableList(item, "rotationChanges")?.map(decodeRotationChange) ?? null,
+    // Itens antigos não têm o atributo: não pula a vez.
+    skipsNextOwnTurn: Object.hasOwn(item, "skipsNextOwnTurn") ? bool(item, "skipsNextOwnTurn") : false,
   }));
 }
 
@@ -228,8 +239,28 @@ export function encodeDefinition(houseId: HouseID, definition: TaskDefinition): 
     sourceSuggestionID: definition.sourceSuggestionID, rotationQueue: definition.rotationQueue,
     currentRotationIndex: definition.currentRotationIndex, nextScheduledAt: definition.nextScheduledAt,
     pendingRotation: encodePendingRotation(definition.pendingRotation), calendarAnchor: definition.calendarAnchor,
-    endedAt: definition.endedAt,
+    endedAt: definition.endedAt, createdByUserID: definition.createdByUserID ?? null,
+    followsRoom: definition.followsRoom ?? null,
   });
+}
+
+/** `followsRoom` não existe nos itens antigos: ausente ou nulo → definição antiga, vale a periodicidade. */
+/** Atributo numérico que pode faltar (item gravado antes de existir) ou ser nulo: `null`. */
+function optionalNum(item: DynamoItem, name: string): number | null {
+  return item[name] === undefined ? null : nullableNum(item, name);
+}
+
+function optionalFollowsRoom(item: DynamoItem): { readonly followsRoom?: boolean } {
+  if (!Object.hasOwn(item, "followsRoom")) return {};
+  const value = nullableBool(item, "followsRoom");
+  return value === null ? {} : { followsRoom: value };
+}
+
+/** `createdByUserID` não existe nos itens gravados antes do atributo: ausente ou nulo → sem criador. */
+function optionalCreator(item: DynamoItem): { readonly createdByUserID?: UserID } {
+  if (!Object.hasOwn(item, "createdByUserID")) return {};
+  const creator = nullableStr(item, "createdByUserID");
+  return creator === null ? {} : { createdByUserID: userID(creator) };
 }
 
 export function decodeDefinition(item: DynamoItem): TaskDefinition {
@@ -242,6 +273,8 @@ export function decodeDefinition(item: DynamoItem): TaskDefinition {
     currentRotationIndex: integer(item, "currentRotationIndex"), nextScheduledAt: nullableNum(item, "nextScheduledAt"),
     pendingRotation: decodePendingRotation(nullableRecord(item, "pendingRotation")),
     calendarAnchor: nullableNum(item, "calendarAnchor"), endedAt: nullableNum(item, "endedAt"),
+    // Ausente ou nulo: tarefa anterior ao atributo (ninguém a edita nem exclui).
+    ...optionalCreator(item), ...optionalFollowsRoom(item),
   }));
 }
 
@@ -318,7 +351,10 @@ export function encodeNotification(houseId: HouseID, notification: AppNotificati
   return {
     ...base(houseId, `${SK_PREFIX.notification}${notification.id}`, {
       recipientUserID: notification.recipientUserID, kind: notification.kind, swapRequestID: notification.swapRequestID,
-      createdAt: notification.createdAt, readAt: notification.readAt,
+      taskDefinitionID: notification.taskDefinitionID, roomID: notification.roomID, actorUserID: notification.actorUserID,
+      subjectName: notification.subjectName, roomName: notification.roomName, taskName: notification.taskName,
+      dueAt: notification.dueAt, effortFrom: notification.effortFrom, effortTo: notification.effortTo,
+      names: [...notification.names], createdAt: notification.createdAt, readAt: notification.readAt,
     }),
     GSI1PK: userPK(notification.recipientUserID), GSI1SK: notificationGSISK(notification.createdAt, notification.id),
   };
@@ -327,15 +363,66 @@ export function encodeNotification(houseId: HouseID, notification: AppNotificati
 export function decodeNotification(item: DynamoItem): AppNotification {
   return decoding(() => ({
     id: notificationID(idFromSK(str(item, "SK"), SK_PREFIX.notification)),
-    recipientUserID: userID(str(item, "recipientUserID")), kind: oneOf(item, "kind", NOTIFICATION_KINDS),
-    swapRequestID: taskSwapRequestID(str(item, "swapRequestID")), createdAt: num(item, "createdAt"),
-    readAt: nullableNum(item, "readAt"),
+    recipientUserID: userID(str(item, "recipientUserID")), houseID: houseIDFromPK(str(item, "PK")),
+    kind: oneOf(item, "kind", NOTIFICATION_KINDS),
+    // Itens gravados antes dos avisos gerais não têm estes atributos: ausente é `null`.
+    swapRequestID: optionalStr(item, "swapRequestID", taskSwapRequestID),
+    taskDefinitionID: optionalStr(item, "taskDefinitionID", taskDefinitionID),
+    roomID: optionalStr(item, "roomID", roomID), actorUserID: optionalStr(item, "actorUserID", userID),
+    subjectName: optionalStr(item, "subjectName", (value) => value),
+    roomName: optionalStr(item, "roomName", (value) => value), taskName: optionalStr(item, "taskName", (value) => value),
+    dueAt: optionalNum(item, "dueAt"), effortFrom: optionalNum(item, "effortFrom"), effortTo: optionalNum(item, "effortTo"),
+    names: item["names"] === undefined ? [] : list(item, "names").map((value) => (typeof value === "string" ? value : invalid())),
+    createdAt: num(item, "createdAt"), readAt: nullableNum(item, "readAt"),
   }));
 }
 
 /** Notificação a partir do item do `GSI1` (a `PK` é a partição da casa, o `SK` é o próprio). */
 export function houseOfNotificationItem(item: DynamoItem): HouseID {
   return houseIDFromPK(str(item, "PK"));
+}
+
+// ---------- Pedido de entrada em cômodo privado ----------
+
+/** O `SK` é `ROOMREQ#<roomID>#<userID>`: a chave natural garante um pedido aberto por par. */
+export function roomAccessRequestSK(roomId: string, user: string): string {
+  return `${SK_PREFIX.roomAccessRequest}${roomId}#${user}`;
+}
+
+export function encodeRoomAccessRequest(houseId: HouseID, request: RoomAccessRequest): DynamoItem {
+  return base(houseId, roomAccessRequestSK(request.roomID, request.userID), {
+    roomID: request.roomID, userID: request.userID, requestedAt: request.requestedAt,
+  });
+}
+
+export function decodeRoomAccessRequest(item: DynamoItem): RoomAccessRequest {
+  return decoding(() => ({
+    roomID: roomID(str(item, "roomID")), userID: userID(str(item, "userID")), requestedAt: num(item, "requestedAt"),
+  }));
+}
+
+// ---------- Avaliação do cômodo ----------
+
+/** O `SK` é `RATING#<roomID>#<periodStart, 16 dígitos>#<raterID>`: um voto por morador, cômodo e ciclo. */
+export function roomRatingSK(roomId: string, periodStart: Instant, rater: string): string {
+  return `${SK_PREFIX.roomRating}${roomId}#${String(periodStart).padStart(16, "0")}#${rater}`;
+}
+
+export function encodeRoomRating(houseId: HouseID, rating: RoomRating): DynamoItem {
+  return base(houseId, roomRatingSK(rating.roomID, rating.periodStart, rating.raterID), {
+    roomID: rating.roomID, periodStart: rating.periodStart, raterID: rating.raterID, level: rating.level,
+    tags: [...rating.tags], ratedAt: rating.ratedAt,
+  });
+}
+
+export function decodeRoomRating(item: DynamoItem): RoomRating {
+  return decoding(() => ({
+    roomID: roomID(str(item, "roomID")), periodStart: num(item, "periodStart"), raterID: userID(str(item, "raterID")),
+    level: oneOf(item, "level", RATING_LEVELS),
+    // Tag que saiu do catálogo (avaliações gravadas antes de 12/11/2026) é descartada, não derruba a leitura.
+    tags: list(item, "tags").flatMap((value) => RATING_TAGS.filter((candidate) => candidate === value)),
+    ratedAt: num(item, "ratedAt"),
+  }));
 }
 
 // ---------- Ausência ----------

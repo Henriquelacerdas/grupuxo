@@ -60,21 +60,24 @@ final class TaskDetailViewModel: ObservableObject {
 
     var room: Room? { participation?.room }
 
-    /// "Tarefa de ciclo" segue a escala do cômodo; as demais recorrentes são "extras".
+    /// O morador participa do cômodo da tarefa (quem pode editar e encerrar a tarefa recorrente).
+    var isRoomMember: Bool { participation?.isMember == true }
+
+    /// "Repetição do cômodo" segue a escala do cômodo; as demais recorrentes têm "Repetição própria".
     func kindSummary(of definition: TaskDefinition) -> String {
 
         switch definition.kind {
 
         case .sporadic:
-            return String(localized: "Tarefa avulsa")
+            return String(localized: "Tarefa única")
 
         case .recurring:
 
             guard let room, definition.isLinked(to: room) else {
-                return String(localized: "Tarefa extra")
+                return String(localized: "Repetição própria")
             }
 
-            return String(localized: "Tarefa de ciclo")
+            return String(localized: "Repetição do cômodo")
 
         }
 
@@ -101,12 +104,35 @@ final class TaskDetailViewModel: ObservableObject {
     }
 
     /// Só quem está com a vez atual conclui por aqui.
+    /// Marcar ou desmarcar como feita: só a sua vez, e só depois que ela começou.
     var canComplete: Bool {
 
-        !isPerformingAction
-            && current?.assignment?.userID == userID
-            && current?.occurrence.isCompleted == false
+        guard let current else { return false }
 
+        return !isPerformingAction
+            && current.assignment?.userID == userID
+            && current.occurrence.availableAt <= .now
+
+    }
+
+    /// Pedir troca: só da sua vez, já aberta e ainda não feita (a mesma regra de Minhas tarefas).
+    var swapOccurrenceID: TaskOccurrence.ID? {
+
+        guard let current,
+              !isPerformingAction,
+              !current.occurrence.isCompleted,
+              let assignment = current.assignment,
+              assignment.isActive,
+              assignment.userID == userID,
+              current.occurrence.availableAt <= .now
+        else { return nil }
+
+        return current.id
+
+    }
+
+    var isCurrentCompleted: Bool {
+        current?.occurrence.isCompleted == true
     }
 
     /// Encerrar vale para tarefa recorrente ainda ativa; a `api` não apaga avulsa.
@@ -183,7 +209,8 @@ final class TaskDetailViewModel: ObservableObject {
 
             try await completeTask(
                 occurrenceID: occurrenceID,
-                userID: userID
+                userID: userID,
+                isCompleted: !previous.occurrence.isCompleted
             )
 
             revision += 1

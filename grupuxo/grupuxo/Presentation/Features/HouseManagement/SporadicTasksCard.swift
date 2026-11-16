@@ -99,7 +99,7 @@ struct SporadicTasksCard: View {
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                     .frame(width: iconSize, height: iconSize)
-                    .background(RoomColor.gray.tint.gradient, in: Circle())
+                    .background(RoomColor.gray.tint, in: Circle())
                     .accessibilityHidden(true)
 
                 Text(HouseOverviewText.overflowTitle)

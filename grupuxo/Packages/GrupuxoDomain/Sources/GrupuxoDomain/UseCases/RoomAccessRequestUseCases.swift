@@ -23,3 +23,18 @@ public struct CancelRoomAccessRequestUseCase: Sendable {
         try await repository.cancel(roomID: roomID, requesting: userID)
     }
 }
+
+/// Um participante do cômodo privado aprova ou recusa o pedido de entrada de outro morador.
+public struct AnswerRoomAccessRequestUseCase: Sendable {
+    public let repository: any RoomAccessRequestRepository
+
+    public init(repository: any RoomAccessRequestRepository) {
+        self.repository = repository
+    }
+
+    public func callAsFunction(
+        roomID: Room.ID, requesterID: User.ID, answeredBy userID: User.ID, approve: Bool, at date: Date = .now
+    ) async throws {
+        try await repository.answer(roomID: roomID, requesterID: requesterID, answeredBy: userID, approve: approve, at: date)
+    }
+}

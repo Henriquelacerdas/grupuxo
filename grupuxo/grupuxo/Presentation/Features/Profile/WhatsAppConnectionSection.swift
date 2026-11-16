@@ -18,7 +18,7 @@ struct WhatsAppConnectionSection: View {
         } header: {
             Text("WhatsApp")
         } footer: {
-            Text("Ao conectar, você envia uma mensagem pelo WhatsApp e autoriza o Reveza a consultar suas tarefas e a marcar como feitas as que você confirmar por lá. Você pode desconectar quando quiser.")
+            Text("No WhatsApp, o Reveza te responde quais são suas tarefas e marca como feitas. Ele só responde quando você escreve.")
         }
         .task { await viewModel.load() }
         .onChange(of: scenePhase) { _, phase in
@@ -30,7 +30,7 @@ struct WhatsAppConnectionSection: View {
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text("O Reveza deixa de responder a este número. Você pode conectar de novo depois.")
+            Text("Você pode conectar de novo quando quiser.")
         }
     }
 

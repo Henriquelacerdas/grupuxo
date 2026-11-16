@@ -11,7 +11,7 @@ import { uuid } from "../support/world.ts";
 function emptyState(): StoreState {
   return {
     users: [], houses: [], taskSwapRequests: [], notifications: [],
-    rooms: [], houseMemberships: [], roomMemberships: [], definitions: [], occurrences: [], assignments: [], absences: [],
+    rooms: [], houseMemberships: [], roomMemberships: [], definitions: [], occurrences: [], assignments: [], absences: [], roomAccessRequests: [], roomRatings: [],
   };
 }
 
@@ -30,4 +30,12 @@ test("em memória: contas conhecidas já resolvem para o morador do seed", async
   const directory = new InMemoryUserDirectory(new InMemoryStore(emptyState()), sequentialIDs(), [[cognitoSub("conta-marina"), marina]]);
   assert.equal(await directory.userForSub(cognitoSub("conta-marina")), marina);
   assert.equal(await directory.ensureUser(cognitoSub("conta-marina"), { name: "Marina" }), marina);
+});
+
+test("em memória: updateName muda só o nome do morador na lista de usuários", async () => {
+  const store = new InMemoryStore(emptyState());
+  const directory = new InMemoryUserDirectory(store, sequentialIDs());
+  const id = await directory.ensureUser(cognitoSub("conta-1"), { name: "Ana" });
+  await directory.updateName(id, "Ana Maria");
+  assert.deepEqual(store.read((state) => state.users), [{ id, name: "Ana Maria", email: null }]);
 });

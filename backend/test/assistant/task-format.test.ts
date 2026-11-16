@@ -34,12 +34,13 @@ test("as datas usam o fuso da casa, não UTC", () => {
   assert.match(formatMyTasks(task, "all", ctx(Date.UTC(2026, 8, 16, 3), "Asia/Tokyo")), /até seg 21\/09 11:30/);
 });
 
-test("sem prazo, sem data; com prazo vencido, avisa que está atrasada", () => {
+test("sem prazo, sem data; com prazo vencido, diz que terminou (nunca 'atrasada')", () => {
   const text = formatMyTasks([
     item("Sem prazo"),
     item("Venceu", { dueAt: local(9, 15) }),
   ], "week", ctx());
-  assert.equal(text, "Suas tarefas da semana:\n• Sem prazo (Cozinha)\n• Venceu (Cozinha) — até seg 14/09 (atrasada)");
+  assert.equal(text, "Suas tarefas da semana:\n• Sem prazo (Cozinha)\n• Venceu (Cozinha) — terminou seg 14/09");
+  assert.ok(!/atrasad/i.test(text), text);
 });
 
 test("o ano só aparece quando não é o corrente", () => {

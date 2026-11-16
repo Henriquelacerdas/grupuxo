@@ -1,7 +1,7 @@
 import SwiftUI
 import GrupuxoDomain
 
-/// Cabeçalho de um cômodo em "Seu ciclo": nome na cor do cômodo e, abaixo, prazo e progresso.
+/// Cabeçalho de um cômodo em "Repetição do cômodo": nome na cor do cômodo e, abaixo, prazo e progresso.
 struct CycleRoomHeader: View {
 
     let cycle: MyTasksContent.Cycle
@@ -30,12 +30,14 @@ struct CycleRoomHeader: View {
     }
 }
 
-/// Uma tarefa do morador: círculo de conclusão na cor do cômodo, nome e, quando há, cômodo e dia do prazo.
+/// Uma tarefa do morador: círculo de conclusão na cor do cômodo, nome e, quando há, cômodo, prazo e troca pedida.
 struct MyTaskRow: View {
 
     let row: MyTasksContent.Row
     let canComplete: Bool
     let onComplete: () -> Void
+    /// Tocar no texto da linha abre o detalhe da tarefa.
+    let onSelect: () -> Void
 
     private var item: TaskItem { row.item }
 
@@ -69,6 +71,18 @@ struct MyTaskRow: View {
             )
             .accessibilityValue(isCompleted ? "Concluída" : "Pendente")
 
+            Button(action: onSelect) {
+                taskText
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Abre os detalhes da tarefa")
+        }
+    }
+
+    private var taskText: some View {
+
+        HStack(spacing: DesignSystem.Spacing.small) {
+
             VStack(
                 alignment: .leading,
                 spacing: DesignSystem.Spacing.extraSmall
@@ -82,27 +96,44 @@ struct MyTaskRow: View {
                 subtitle
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+
+                if let pendingSwap = row.pendingSwap {
+                    // Ícone colado ao texto: o `Label` padrão da lista reserva a coluna larga de ícone.
+                    Text("\(Image(systemName: "arrow.left.arrow.right")) \(pendingSwap)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .contentShape(Rectangle())
     }
 
     @ViewBuilder
     private var subtitle: some View {
 
-        switch (row.roomName, row.dueDay) {
+        switch (row.roomName, row.timing) {
 
-        case let (room?, day?):
-            Text("\(room) · \(Text(day).bold())")
+        case let (room?, timing?):
+            Text("\(room) · \(styled(timing))")
 
         case let (room?, nil):
             Text(room)
 
-        case let (nil, day?):
-            Text(day).bold()
+        case let (nil, timing?):
+            styled(timing)
 
         case (nil, nil):
             EmptyView()
+        }
+    }
+
+    /// "Termina hoje" e "Termina amanhã" em negrito, prazo vencido em vermelho e início futuro sem destaque.
+    private func styled(_ timing: TaskTiming) -> Text {
+        switch timing.style {
+        case .upcoming, .open: Text(timing.text)
+        case .due: Text(timing.text).bold()
+        case .overdue: Text(timing.text).foregroundStyle(.red)
         }
     }
 }

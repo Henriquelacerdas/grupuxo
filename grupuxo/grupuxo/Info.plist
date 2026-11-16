@@ -25,6 +25,14 @@
 	</array>
 	<key>GrupuxoAPIBaseURL</key>
 	<string>$(GRUPUXO_API_BASE_URL)</string>
+	<key>GrupuxoFeedbackURL</key>
+	<string>$(GRUPUXO_FEEDBACK_URL)</string>
+	<key>GrupuxoHelpURL</key>
+	<string>$(GRUPUXO_HELP_URL)</string>
+	<key>GrupuxoPrivacyPolicyURL</key>
+	<string>$(GRUPUXO_PRIVACY_POLICY_URL)</string>
+	<key>GrupuxoTermsURL</key>
+	<string>$(GRUPUXO_TERMS_URL)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

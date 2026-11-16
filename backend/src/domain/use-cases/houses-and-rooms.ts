@@ -138,6 +138,7 @@ export class CreateRoomUseCase {
     };
     const memberships = participantIDs.map((userID) => ({
       id: roomMembershipID(this.newID()), roomID: room.id, userID, fairnessDebt: 0, leftAt: null, rotationChanges: null,
+      skipsNextOwnTurn: false,
     }));
     return this.roomRepository.create(room, memberships);
   }

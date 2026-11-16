@@ -16,7 +16,13 @@ export type IsoInstant = string;
 export interface UserDTO {
   readonly id: string;
   readonly name: string;
+  /** URL de leitura da foto (estável por dia); `null` = sem foto, o avatar mostra as iniciais. */
+  readonly photoURL: string | null;
 }
+
+/** Resolve a URL da foto de um morador (assinada por quem monta a resposta); sem armazenamento, nunca há foto. */
+export type PhotoURL = (user: User) => string | null;
+export const noPhotos: PhotoURL = () => null;
 
 export interface HouseDTO {
   readonly id: string;
@@ -50,6 +56,7 @@ export interface RoomParticipationDTO {
   readonly isMember: boolean;
   readonly memberCount: number;
   readonly responsibleNames: readonly string[];
+  readonly nextResponsibleNames: readonly string[];
   readonly periodStart: IsoInstant;
   readonly periodEnd: IsoInstant;
 }
@@ -72,6 +79,10 @@ export interface TaskDefinitionDTO {
   readonly calendarAnchor: IsoInstant | null;
   /** `null` = tarefa ativa. */
   readonly endedAt: IsoInstant | null;
+  /** Quem criou a tarefa; `null` em tarefas anteriores ao atributo. Só a avulsa criada por quem pede tem Editar e Excluir. */
+  readonly createdByUserID: string | null;
+  /** "Repetir com o cômodo"; `null` = definição antiga (vale a periodicidade igual à do cômodo). */
+  readonly followsRoom: boolean | null;
 }
 
 export interface TaskOccurrenceDTO {
@@ -114,7 +125,19 @@ export interface TaskSwapRequestDTO {
 export interface NotificationDTO {
   readonly id: string;
   readonly kind: AppNotificationKind;
-  readonly swapRequestID: string;
+  readonly swapRequestID: string | null;
+  readonly taskDefinitionID: string | null;
+  readonly roomID: string | null;
+  readonly actorUserID: string | null;
+  /** Nome da tarefa, do cômodo ou do morador como era na hora do aviso. */
+  readonly subjectName: string | null;
+  /** Segunda linha do aviso (todos opcionais; BACKEND.md §6.1). */
+  readonly roomName: string | null;
+  readonly taskName: string | null;
+  readonly dueAt: IsoInstant | null;
+  readonly effortFrom: number | null;
+  readonly effortTo: number | null;
+  readonly names: readonly string[];
   readonly createdAt: IsoInstant;
   /** `null` = não lida. */
   readonly readAt: IsoInstant | null;
@@ -129,8 +152,8 @@ export interface MyHouseDTO {
 const iso = (instant: Instant): IsoInstant => formatInstant(instant);
 const isoOrNull = (instant: Instant | null): IsoInstant | null => (instant === null ? null : iso(instant));
 
-export function userDTO(user: User): UserDTO {
-  return { id: user.id, name: user.name };
+export function userDTO(user: User, photoURL: PhotoURL = noPhotos): UserDTO {
+  return { id: user.id, name: user.name, photoURL: photoURL(user) };
 }
 
 export function houseDTO(house: House): HouseDTO {
@@ -152,7 +175,8 @@ export function roomDTO(room: Room): RoomDTO {
 export function roomParticipationDTO(participation: RoomParticipation): RoomParticipationDTO {
   return {
     room: roomDTO(participation.room), isMember: participation.isMember, memberCount: participation.memberCount,
-    responsibleNames: [...participation.responsibleNames], periodStart: iso(participation.periodStart),
+    responsibleNames: [...participation.responsibleNames],
+    nextResponsibleNames: [...participation.nextResponsibleNames], periodStart: iso(participation.periodStart),
     periodEnd: iso(participation.periodEnd),
   };
 }
@@ -171,7 +195,8 @@ export function taskDefinitionDTO(definition: TaskDefinition): TaskDefinitionDTO
     id: definition.id, roomID: definition.roomID, name: definition.name, details: definition.details,
     effort: definition.effort.points, kind: definition.kind, recurrence: recurrenceDTO(definition.recurrence),
     assignmentPolicy: definition.assignmentPolicy, calendarAnchor: isoOrNull(definition.calendarAnchor),
-    endedAt: isoOrNull(definition.endedAt),
+    endedAt: isoOrNull(definition.endedAt), createdByUserID: definition.createdByUserID ?? null,
+    followsRoom: definition.followsRoom ?? null,
   };
 }
 
@@ -187,12 +212,12 @@ function assignmentDTO(assignment: TaskAssignment): TaskAssignmentDTO {
   return { id: assignment.id, userID: assignment.userID, assignedAt: iso(assignment.assignedAt), endedAt: isoOrNull(assignment.endedAt) };
 }
 
-export function taskItemDTO(item: TaskItem): TaskItemDTO {
+export function taskItemDTO(item: TaskItem, photoURL: PhotoURL = noPhotos): TaskItemDTO {
   return {
     definition: taskDefinitionDTO(item.definition), occurrence: occurrenceDTO(item.occurrence),
     assignment: item.assignment === null ? null : assignmentDTO(item.assignment),
-    assignee: item.assignee === null ? null : userDTO(item.assignee),
-    suggestedAssignee: item.suggestedAssignee === null ? null : userDTO(item.suggestedAssignee),
+    assignee: item.assignee === null ? null : userDTO(item.assignee, photoURL),
+    suggestedAssignee: item.suggestedAssignee === null ? null : userDTO(item.suggestedAssignee, photoURL),
   };
 }
 
@@ -207,22 +232,27 @@ export function taskSwapRequestDTO(request: TaskSwapRequest): TaskSwapRequestDTO
 export function notificationDTO(notification: AppNotification): NotificationDTO {
   return {
     id: notification.id, kind: notification.kind, swapRequestID: notification.swapRequestID,
+    taskDefinitionID: notification.taskDefinitionID, roomID: notification.roomID,
+    actorUserID: notification.actorUserID, subjectName: notification.subjectName,
+    roomName: notification.roomName, taskName: notification.taskName, dueAt: isoOrNull(notification.dueAt),
+    effortFrom: notification.effortFrom, effortTo: notification.effortTo, names: [...notification.names],
     createdAt: iso(notification.createdAt), readAt: isoOrNull(notification.readAt),
   };
 }
 
-export function myHouseDTO(house: House, members: readonly User[], rooms: readonly Room[]): MyHouseDTO {
-  return { house: houseDTO(house), members: members.map(userDTO), rooms: rooms.map(roomDTO) };
+export function myHouseDTO(house: House, members: readonly User[], rooms: readonly Room[], photoURL: PhotoURL = noPhotos): MyHouseDTO {
+  return { house: houseDTO(house), members: members.map((member) => userDTO(member, photoURL)), rooms: rooms.map(roomDTO) };
 }
 
 /** Snapshot agregado para as telas do app. Os DTOs continuam sem detalhes internos do agendamento. */
-export function houseSnapshotDTO(snapshot: HouseSnapshot) {
+export function houseSnapshotDTO(snapshot: HouseSnapshot, photoURL: PhotoURL = noPhotos) {
   return {
     userID: snapshot.userID,
-    home: myHouseDTO(snapshot.house, snapshot.members, snapshot.rooms),
+    home: myHouseDTO(snapshot.house, snapshot.members, snapshot.rooms, photoURL),
     participations: snapshot.participations.map(roomParticipationDTO),
-    roomTasks: snapshot.roomTasks.map(taskItemDTO),
-    myTasks: snapshot.myTasks.map(taskItemDTO),
-    sporadicTasks: snapshot.sporadicTasks.map(taskItemDTO),
+    roomTasks: snapshot.roomTasks.map((item) => taskItemDTO(item, photoURL)),
+    myTasks: snapshot.myTasks.map((item) => taskItemDTO(item, photoURL)),
+    sporadicTasks: snapshot.sporadicTasks.map((item) => taskItemDTO(item, photoURL)),
+    pendingRoomAccessIDs: [...snapshot.pendingRoomAccessIDs],
   };
 }

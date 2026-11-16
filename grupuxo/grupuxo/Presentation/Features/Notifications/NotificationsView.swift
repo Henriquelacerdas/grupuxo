@@ -9,19 +9,26 @@ import Foundation
 import SwiftUI
 import GrupuxoDomain
 
+/// Notificações: pedidos de troca recebidos ("Pedidos"), os que você fez ("Seus pedidos") e as novidades por dia.
 struct NotificationsView: View {
 
     @StateObject
     private var viewModel: NotificationsViewModel
 
-    init(
-        viewModel: NotificationsViewModel
-    ) {
+    /// Tocar num aviso que aponta para uma tarefa ou um cômodo abre o destino.
+    private let onOpenTask: (TaskDefinition.ID) -> Void
+    private let onOpenRoom: (Room.ID) -> Void
 
+    init(
+        viewModel: NotificationsViewModel,
+        onOpenTask: @escaping (TaskDefinition.ID) -> Void = { _ in },
+        onOpenRoom: @escaping (Room.ID) -> Void = { _ in }
+    ) {
         _viewModel = StateObject(
             wrappedValue: viewModel
         )
-
+        self.onOpenTask = onOpenTask
+        self.onOpenRoom = onOpenRoom
     }
 
     var body: some View {
@@ -39,166 +46,66 @@ struct NotificationsView: View {
             case .empty:
 
                 ContentUnavailableView(
-                    "Nenhuma notificação",
+                    "Nada por aqui",
                     systemImage: "bell",
                     description: Text(
-                        "As novidades da casa aparecerão aqui."
+                        "Pedidos de troca e mudanças nas tarefas da casa aparecem aqui."
                     )
                 )
 
-            case let .content(notifications, pendingSwaps):
+            case let .content(notifications, pendingSwaps, outgoingSwaps):
 
                 List {
 
                     if !pendingSwaps.isEmpty {
-
-                        Section("Trocas pendentes") {
-
-                            ForEach(pendingSwaps) {
-                                swap in
-
-                                swapRow(swap)
-
+                        Section {
+                            ForEach(pendingSwaps) { swap in
+                                incomingRow(swap)
                             }
-
+                        } header: {
+                            Text("Pedidos")
                         }
-
                     }
 
-                    if !notifications.isEmpty {
-
-                        Section("Notificações") {
-
-                            ForEach(notifications) {
-                                notification in
-
-                                Button {
-
-                                    Task {
-
-                                        await viewModel.markAsRead(
-                                            notification
-                                        )
-
-                                    }
-
-                                } label: {
-
-                                    HStack(
-                                        alignment: .top,
-                                        spacing:
-                                            DesignSystem.Spacing.small
-                                    ) {
-
-                                        Image(
-                                            systemName:
-                                                iconName(
-                                                    for:
-                                                        notification
-                                                )
-                                        )
-                                        .font(.title3)
-                                        .frame(
-                                            width: 32,
-                                            height: 32
-                                        )
-
-                                        VStack(
-                                            alignment: .leading,
-                                            spacing:
-                                                DesignSystem
-                                                .Spacing
-                                                .extraSmall
-                                        ) {
-
-                                            Text(
-                                                message(
-                                                    for:
-                                                        notification
-                                                )
-                                            )
-                                            .foregroundStyle(
-                                                .primary
-                                            )
-                                            .multilineTextAlignment(
-                                                .leading
-                                            )
-
-                                            Text(
-                                                notification
-                                                    .createdAt
-                                                    .formatted(
-                                                        date:
-                                                            .abbreviated,
-                                                        time:
-                                                            .shortened
-                                                    )
-                                            )
-                                            .font(.caption)
-                                            .foregroundStyle(
-                                                .secondary
-                                            )
-
-                                        }
-
-                                        Spacer()
-
-                                        if !notification.isRead {
-
-                                            Circle()
-                                                .fill(.tint)
-                                                .frame(
-                                                    width: 8,
-                                                    height: 8
-                                                )
-
-                                        }
-
-                                    }
-                                    .padding(
-                                        .vertical,
-                                        DesignSystem
-                                            .Spacing
-                                            .extraSmall
-                                    )
-
-                                }
-                                .buttonStyle(.plain)
-
+                    if !outgoingSwaps.isEmpty {
+                        Section {
+                            ForEach(outgoingSwaps) { swap in
+                                outgoingRow(swap)
                             }
-
+                        } header: {
+                            Text("Seus pedidos")
                         }
-
                     }
 
+                    ForEach(viewModel.days(of: notifications)) { day in
+                        Section {
+                            ForEach(day.notifications) { notification in
+                                notificationRow(notification)
+                            }
+                        } header: {
+                            Text(day.title)
+                        }
+                    }
                 }
 
             case let .failure(message):
 
                 ContentUnavailableView(
                     "Não foi possível carregar",
-                    systemImage:
-                        "exclamationmark.triangle",
-                    description: Text(
-                        message
-                    )
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(message)
                 )
-
             }
-
         }
-        .navigationTitle(
-            "Notificações"
-        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle("Notificações")
+        .navigationBarTitleDisplayMode(.large)
         .task {
-
             await viewModel.load()
-
         }
         .refreshable {
-
             await viewModel.load()
-
         }
         .onChange(of: viewModel.actionError) { _, error in
             if error != nil { Haptics.error() }
@@ -206,152 +113,229 @@ struct NotificationsView: View {
         .alert(
             "Não foi possível atualizar",
             isPresented: Binding(
-                get: {
-                    viewModel.actionError != nil
-                },
-                set: {
-                    if !$0 {
-                        viewModel.actionError = nil
-                    }
-                }
+                get: { viewModel.actionError != nil },
+                set: { if !$0 { viewModel.actionError = nil } }
             )
         ) {
-
-            Button("OK") {
-
-                viewModel.actionError = nil
-
-            }
-
+            Button("OK") { viewModel.actionError = nil }
         } message: {
-
-            Text(
-                viewModel.actionError ?? ""
-            )
-
+            Text(viewModel.actionError ?? "")
         }
-
     }
 
-    private func swapRow(
-        _ swap: IncomingSwapRequest
-    ) -> some View {
+    // MARK: - Pedidos
 
-        VStack(
-            alignment: .leading,
-            spacing: DesignSystem.Spacing.small
-        ) {
+    /// "Henrique L. quer trocar": o que você dá, o que recebe e Recusar/Aceitar.
+    private func incomingRow(_ swap: IncomingSwapRequest) -> some View {
 
-            Text(
-                "\(swap.requesterName ?? String(localized: "Um morador")) quer trocar de tarefa com você."
-            )
+        let requester = swap.requesterName.map(ResidentNameFormatting.shortName)
 
-            Label(
-                "Você recebe: \(swap.offeredTaskName ?? String(localized: "uma tarefa de quem pediu"))",
-                systemImage: "arrow.down.circle"
-            )
-            .font(.subheadline)
+        return VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
 
-            Label(
-                "Você passa: \(swap.requestedTaskName ?? String(localized: "uma das suas tarefas"))",
-                systemImage: "arrow.up.circle"
-            )
-            .font(.subheadline)
+            HStack(alignment: .firstTextBaseline) {
+                Text("\(Text(requester ?? String(localized: "Um morador")).bold()) quer trocar")
+                Spacer(minLength: DesignSystem.Spacing.small)
+                elapsed(swap.request.createdAt)
+            }
 
-            HStack {
+            HStack(spacing: DesignSystem.Spacing.small) {
+                swapTask(owner: String(localized: "Você"), name: swap.requestedTaskName)
+                Image(systemName: "arrow.left.arrow.right")
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                swapTask(owner: requester, name: swap.offeredTaskName)
+            }
 
-                Button("Recusar", role: .destructive) {
-
-                    Task {
-
-                        await viewModel.reject(swap)
-
-                    }
-
+            HStack(spacing: DesignSystem.Spacing.small) {
+                Button {
+                    Task { await viewModel.reject(swap) }
+                } label: {
+                    Text("Recusar").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
 
-                Button("Aceitar") {
-
-                    Task {
-
-                        await viewModel.accept(swap)
-
-                    }
-
+                Button {
+                    Task { await viewModel.accept(swap) }
+                } label: {
+                    Text("Aceitar").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-
             }
-            .disabled(
-                viewModel.respondingSwapID != nil
-            )
-
+            .buttonBorderShape(.capsule)
+            .disabled(viewModel.respondingSwapID != nil)
         }
-        .padding(
-            .vertical,
-            DesignSystem.Spacing.extraSmall
+        .padding(.vertical, DesignSystem.Spacing.small)
+    }
+
+    /// "Aguardando Vidal": o que você dá e o que recebe.
+    private func outgoingRow(_ swap: OutgoingSwapRequest) -> some View {
+
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
+
+            HStack(alignment: .firstTextBaseline) {
+                Text(
+                    "Aguardando \(Text(swap.receiverName.map(ResidentNameFormatting.shortName) ?? String(localized: "resposta")).bold())"
+                )
+                Spacer(minLength: DesignSystem.Spacing.small)
+                elapsed(swap.request.createdAt)
+            }
+
+            if let offered = swap.offeredTaskName {
+                Text("Você dá \(Text(offered).bold())")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let requested = swap.requestedTaskName {
+                Text("Você recebe \(Text(requested).bold())")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            if viewModel.canCancelSwaps {
+                Button(role: .destructive) {
+                    Task { await viewModel.cancel(swap) }
+                } label: {
+                    Text("Cancelar pedido")
+                }
+                .buttonStyle(.bordered)
+                .buttonBorderShape(.capsule)
+                .controlSize(.small)
+                .disabled(viewModel.cancellingSwapID != nil)
+                .padding(.top, DesignSystem.Spacing.extraSmall)
+            }
+        }
+        .padding(.vertical, DesignSystem.Spacing.extraSmall)
+    }
+
+    private func swapTask(owner: String?, name: String?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if let owner {
+                Text(owner)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(name ?? String(localized: "Uma tarefa"))
+                .font(.subheadline.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(DesignSystem.Spacing.small)
+        .background(
+            Color(uiColor: .tertiarySystemFill),
+            in: RoundedRectangle(cornerRadius: DesignSystem.Spacing.medium, style: .continuous)
         )
-
     }
 
-    private func message(
-        for notification: AppNotification
-    ) -> String {
-
-        if let message =
-            notification.message {
-
-            return message
-
-        }
-
-        switch notification.kind {
-
-        case .taskEdited:
-
-            return String(localized: "Uma tarefa foi editada.")
-
-        case .taskSwapRequested:
-
-            return String(localized: "Você recebeu uma solicitação de troca de tarefa.")
-
-        case .taskSwapAccepted:
-
-            return String(localized: "Sua solicitação de troca de tarefa foi aceita.")
-
-        case .taskSwapRejected:
-
-            return String(localized: "Sua solicitação de troca de tarefa foi recusada.")
-
-        }
-
+    private func elapsed(_ date: Date) -> some View {
+        Text(date, format: .relative(presentation: .named))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
     }
 
-    private func iconName(
-        for notification: AppNotification
-    ) -> String {
+    // MARK: - Novidades
 
-        switch notification.kind {
+    private func notificationRow(_ notification: AppNotification) -> some View {
 
-        case .taskEdited:
+        Button {
+            Task { await viewModel.markAsRead(notification) }
+            switch NotificationText.target(for: notification) {
+            case let .task(id): onOpenTask(id)
+            case let .room(id): onOpenRoom(id)
+            case nil: break
+            }
+        } label: {
+            HStack(alignment: .center, spacing: DesignSystem.Spacing.medium) {
 
-            return "pencil"
+                Image(systemName: iconName(for: notification))
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: DesignSystem.minimumTouchTarget - 4, height: DesignSystem.minimumTouchTarget - 4)
+                    .background(Circle().fill(iconColor(for: notification)))
+                    .accessibilityHidden(true)
 
-        case .taskSwapRequested:
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
+                    let lines = NotificationText.lines(for: notification, memberNames: viewModel.memberNames)
 
-            return "arrow.left.arrow.right"
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(lines.title)
+                            .font(lines.detail == nil ? .body : .body.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.leading)
 
-        case .taskSwapAccepted:
+                        Spacer(minLength: DesignSystem.Spacing.small)
 
-            return "checkmark.circle"
+                        Text(notification.createdAt, format: .dateTime.hour().minute())
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
 
-        case .taskSwapRejected:
+                    if let detail = lines.detail {
+                        Text(detail)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                    }
 
-            return "xmark.circle"
+                    if notification.kind == .roomAccessRequested, viewModel.canAnswerRoomAccess {
+                        accessButtons(for: notification)
+                    }
+                }
 
+                Spacer(minLength: 0)
+
+                if !notification.isRead {
+                    Circle()
+                        .fill(.tint)
+                        .frame(width: 10, height: 10)
+                        .accessibilityLabel("Não lida")
+                }
+            }
+            .padding(.vertical, DesignSystem.Spacing.extraSmall)
+            .contentShape(Rectangle())
         }
-
+        .buttonStyle(.plain)
     }
 
+    /// Pedido de entrada em cômodo privado: qualquer participante recusa ou aceita.
+    private func accessButtons(for notification: AppNotification) -> some View {
+
+        HStack(spacing: DesignSystem.Spacing.small) {
+            Button {
+                Task { await viewModel.answerAccess(notification, approve: false) }
+            } label: {
+                Text("Recusar")
+            }
+            .buttonStyle(.bordered)
+
+            Button {
+                Task { await viewModel.answerAccess(notification, approve: true) }
+            } label: {
+                Text("Aceitar")
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .buttonBorderShape(.capsule)
+        .controlSize(.small)
+        .disabled(viewModel.answeringNotificationID != nil)
+        .padding(.top, DesignSystem.Spacing.extraSmall)
+    }
+
+    private func message(for notification: AppNotification) -> String {
+        NotificationText.message(for: notification, memberNames: viewModel.memberNames)
+    }
+
+    private func iconName(for notification: AppNotification) -> String {
+        NotificationText.iconName(for: notification.kind)
+    }
+
+    private func iconColor(for notification: AppNotification) -> Color {
+        switch NotificationText.tint(for: notification.kind) {
+        case .accent: .accentColor
+        case .orange: .orange
+        case .green: .green
+        case .gray: .gray
+        case .red: .red
+        case .blue: .blue
+        }
+    }
 }

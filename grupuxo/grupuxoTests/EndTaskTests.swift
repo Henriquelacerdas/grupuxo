@@ -215,4 +215,37 @@ struct EndTaskTests {
         #expect(otherBefore.allSatisfy { otherAfter.contains($0) })
         #expect(otherAfter.count > otherBefore.count)
     }
+
+    @Test func switchesBetweenTheRoomRepetitionAndAnOwnOne() async throws {
+        let (store, repository, _) = fixture()
+        let followed = recurring(
+            "Panelas", policy: .balancedAutomatically,
+            recurrence: .weekly(WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 1))
+        )
+        var task = followed
+        task.followsRoom = true
+        _ = try await repository.create(task, requestedBy: me, at: date)
+        #expect(await occurrences(of: task, in: store).contains { !$0.isCompleted })
+
+        // Para repetição própria: sem intervalo válido recusa; com ele, uma janela aberta, por conclusão.
+        await #expect(throws: DomainError.invalidSchedule) {
+            _ = try await repository.updateTaskDetails(
+                id: task.id, name: "Panelas", details: "", effort: nil, recurrence: nil, followsRoom: false, requestedBy: me
+            )
+        }
+        let monthly = RecurrencePolicy.recurring(frequency: .monthly, interval: 1)
+        let own = try await repository.updateTaskDetails(
+            id: task.id, name: "Panelas", details: "", effort: nil, recurrence: monthly, followsRoom: false, requestedBy: me
+        )
+        #expect(own.followsRoom == false && own.assignmentPolicy == .afterCompletion && own.recurrence == monthly)
+        #expect(await occurrences(of: task, in: store).filter { !$0.isCompleted }.count == 1)
+
+        // De volta ao cômodo: volta para a escala dele e a janela da repetição própria sai.
+        let ownOccurrence = try #require(await occurrences(of: task, in: store).first)
+        let back = try await repository.updateTaskDetails(
+            id: task.id, name: "Panelas", details: "", effort: nil, recurrence: nil, followsRoom: true, requestedBy: me
+        )
+        #expect(back.followsRoom == true && back.assignmentPolicy == .balancedAutomatically)
+        #expect(!(await occurrences(of: task, in: store)).contains { $0.id == ownOccurrence.id })
+    }
 }

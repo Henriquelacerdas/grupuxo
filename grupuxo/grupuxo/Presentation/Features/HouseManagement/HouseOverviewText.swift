@@ -25,7 +25,16 @@ struct HouseOverviewText {
         currentUserID: User.ID
     ) -> String? {
 
-        guard !names.isEmpty, names.count == userIDs.count else { return nil }
+        guard !names.isEmpty else { return nil }
+
+        // A `api` só manda os nomes dos responsáveis: sem os IDs não dá para saber quem é "Você".
+        if userIDs.isEmpty {
+            let formatter = ListFormatter()
+            formatter.locale = locale
+            return formatter.string(from: names.map(ResidentNameFormatting.shortName))
+        }
+
+        guard names.count == userIDs.count else { return nil }
 
         let pairs = zip(userIDs, names)
 
@@ -81,9 +90,10 @@ struct HouseOverviewText {
     static var privateRoom: String { String(localized: "Cômodo Privado") }
     static var overflowTitle: String { String(localized: "Outras") }
 
-    private func weekday(of date: Date) -> String {
+    /// "domingo", "segunda": em português, sem o "-feira" (o design usa "Termina segunda").
+    func weekday(of date: Date) -> String {
 
-        date.formatted(
+        let name = date.formatted(
             Date.FormatStyle(
                 locale: locale,
                 calendar: calendar,
@@ -91,6 +101,10 @@ struct HouseOverviewText {
             )
             .weekday(.wide)
         )
+
+        guard locale.language.languageCode?.identifier == "pt" else { return name }
+
+        return name.replacingOccurrences(of: "-feira", with: "")
     }
 }
 

@@ -17,6 +17,11 @@ final class AppContainer {
     let taskSwapRepository: any TaskSwapRepository
     let notificationRepository: any NotificationRepository
     let whatsAppConnectionRepository: any WhatsAppConnectionRepository
+    let ratingRepository: any RatingRepository
+
+    /// Versão e destinos de Ajuda e Sobre (Info.plist) e a leitura do login para a tela Conta.
+    let appInfo: AppInfo
+    private let accountIdentityReader: any AccountIdentityReading
 
     private init(
         store: MockStore,
@@ -28,8 +33,13 @@ final class AppContainer {
         taskSwapRepository: any TaskSwapRepository,
         notificationRepository: any NotificationRepository,
         whatsAppConnectionRepository: any WhatsAppConnectionRepository,
+        ratingRepository: any RatingRepository,
+        accountIdentityReader: any AccountIdentityReading,
+        appInfo: AppInfo = AppInfo(),
         invalidateReads: @escaping @Sendable () async -> Void = {}
     ) {
+        self.accountIdentityReader = accountIdentityReader
+        self.appInfo = appInfo
         self.invalidateReads = invalidateReads
         self.store = store
         self.calendar = calendar
@@ -40,6 +50,7 @@ final class AppContainer {
         self.taskSwapRepository = taskSwapRepository
         self.notificationRepository = notificationRepository
         self.whatsAppConnectionRepository = whatsAppConnectionRepository
+        self.ratingRepository = ratingRepository
     }
 
     /// Container sobre a `api` do servidor: casa, cômodos, tarefas, trocas, notificações e WhatsApp são reais.
@@ -52,10 +63,13 @@ final class AppContainer {
             houseRepository: RemoteHouseRepository(api: api, myHouse: myHouse),
             roomRepository: RemoteRoomRepository(api: api, myHouse: myHouse),
             taskRepository: RemoteTaskRepository(api: api, myHouse: myHouse),
-            roomAccessRequestRepository: RemoteRoomAccessRequestRepository(),
+            roomAccessRequestRepository: RemoteRoomAccessRequestRepository(api: api, myHouse: myHouse),
             taskSwapRepository: RemoteTaskSwapRepository(api: api, myHouse: myHouse),
             notificationRepository: RemoteNotificationRepository(api: api),
             whatsAppConnectionRepository: RemoteWhatsAppConnectionRepository(api: api),
+            ratingRepository: RemoteRatingRepository(api: api),
+            accountIdentityReader: AmplifyAccountIdentityReader(),
+            appInfo: AppInfo(bundle: .main),
             invalidateReads: { await myHouse.invalidate() }
         )
     }
@@ -82,7 +96,9 @@ final class AppContainer {
             roomAccessRequestRepository: MockRoomAccessRequestRepository(store: store),
             taskSwapRepository: MockTaskSwapRepository(store: store),
             notificationRepository: MockNotificationRepository(store: store),
-            whatsAppConnectionRepository: MockWhatsAppConnectionRepository()
+            whatsAppConnectionRepository: MockWhatsAppConnectionRepository(),
+            ratingRepository: MockRatingRepository(),
+            accountIdentityReader: UnavailableAccountIdentityReader()
         )
     }
 
@@ -100,6 +116,29 @@ final class AppContainer {
         )
     }
 
+    func makeWeekRatingViewModel(session: AppSession) -> WeekRatingViewModel {
+        WeekRatingViewModel(
+            getPending: GetPendingRatingsUseCase(repository: ratingRepository),
+            rate: RateRoomsUseCase(repository: ratingRepository),
+            getSummary: GetRatingSummaryUseCase(repository: ratingRepository),
+            userID: session.currentUser.id,
+            houseID: session.currentHouse.id
+        )
+    }
+
+    func makeVacationViewModel(session: AppSession) -> VacationViewModel {
+        VacationViewModel(
+            getVacation: GetVacationUseCase(repository: houseRepository),
+            setVacation: SetVacationUseCase(repository: houseRepository),
+            userID: session.currentUser.id,
+            houseID: session.currentHouse.id
+        )
+    }
+
+    func makeAccountViewModel() -> AccountViewModel {
+        AccountViewModel(reader: accountIdentityReader)
+    }
+
     func makeAddRoomMemberUseCase() -> AddRoomMemberUseCase {
         AddRoomMemberUseCase(
             repository: taskRepository
@@ -112,12 +151,16 @@ final class AppContainer {
         )
     }
 
+    func makeGetHouseRoomsUseCase() -> GetHouseRoomsUseCase {
+        GetHouseRoomsUseCase(repository: roomRepository)
+    }
+
     func makeRefreshTaskScheduleUseCase() -> RefreshTaskScheduleUseCase {
         RefreshTaskScheduleUseCase(
             repository: taskRepository
         )
     }
-
+    
     func makeMyTasksViewModel(
         session: AppSession
     ) -> MyTasksViewModel {
@@ -133,6 +176,12 @@ final class AppContainer {
             endTask: EndTaskUseCase(
                 repository: taskRepository
             ),
+            getOutgoingSwaps: GetOutgoingTaskSwapRequestsUseCase(
+                repository: taskSwapRepository
+            ),
+            getMembers: GetHouseMembersUseCase(
+                repository: houseRepository
+            ),
             user: session.currentUser,
             houseName: session.currentHouse.name,
             houseID: session.currentHouse.id,
@@ -140,6 +189,14 @@ final class AppContainer {
         )
     }
 
+    func makeGetHouseOverviewUseCase() -> GetHouseOverviewUseCase {
+           GetHouseOverviewUseCase(
+               roomRepository: roomRepository,
+               taskRepository: taskRepository,
+               accessRequestRepository: roomAccessRequestRepository
+           )
+       }
+    
     func makeHouseManagementViewModel(
         session: AppSession
     ) -> HouseManagementViewModel {
@@ -191,6 +248,9 @@ final class AppContainer {
             ),
             claimTask: ClaimSporadicTaskUseCase(
                 repository: taskRepository
+            ),
+            deleteRoom: DeleteRoomUseCase(
+                repository: roomRepository
             ),
             roomID: roomID,
             userID: session.currentUser.id,
@@ -271,7 +331,28 @@ final class AppContainer {
         )
     }
 
-    private func makeTaskEditorViewModel(
+    /// Editor em modo edição: nome, descrição, esforço e, na repetição própria, o intervalo.
+    func makeTaskEditorViewModel(
+        editing definition: TaskDefinition,
+        session: AppSession
+    ) -> TaskEditorViewModel {
+        TaskEditorViewModel(
+            createTask: CreateTaskUseCase(
+                repository: taskRepository,
+                roomRepository: roomRepository
+            ),
+            getHouseRooms: GetHouseRoomsUseCase(
+                repository: roomRepository
+            ),
+            houseID: session.currentHouse.id,
+            requestingUserID: session.currentUser.id,
+            draft: TaskDraft(),
+            editing: definition,
+            updateTask: UpdateTaskDetailsUseCase(repository: taskRepository)
+        )
+    }
+
+    func makeTaskEditorViewModel(
         draft: TaskDraft,
         session: AppSession
     ) -> TaskEditorViewModel {
@@ -315,6 +396,27 @@ final class AppContainer {
             calendar: calendar
         )
 
+    }
+
+    /// Editor em modo edição: nome, aparência, ciclo e responsáveis de um cômodo que já existe.
+    func makeRoomEditorViewModel(
+        editing room: Room,
+        session: AppSession
+    ) -> RoomEditorViewModel {
+        RoomEditorViewModel(
+            createRoom: CreateRoomUseCase(
+                roomRepository: roomRepository,
+                houseRepository: houseRepository,
+                calendar: calendar
+            ),
+            houseID: session.currentHouse.id,
+            creatorUserID: session.currentUser.id,
+            getMembers: GetHouseMembersUseCase(
+                repository: houseRepository
+            ),
+            editing: room,
+            updateRoom: UpdateRoomUseCase(repository: roomRepository)
+        )
     }
 
     func makeRoomEditorViewModel(
@@ -374,10 +476,23 @@ final class AppContainer {
                 GetHouseMembersUseCase(
                     repository: houseRepository
                 ),
+            getOutgoingSwaps:
+                GetOutgoingTaskSwapRequestsUseCase(
+                    repository: taskSwapRepository
+                ),
+            cancelSwap:
+                CancelTaskSwapRequestUseCase(
+                    repository: taskSwapRepository
+                ),
+            answerRoomAccess:
+                AnswerRoomAccessRequestUseCase(
+                    repository: roomAccessRequestRepository
+                ),
             userID:
                 session.currentUser.id,
             houseID:
-                session.currentHouse.id
+                session.currentHouse.id,
+            calendar: calendar
         )
 
     }
@@ -397,9 +512,13 @@ final class AppContainer {
             createRequest: CreateTaskSwapRequestUseCase(
                 repository: taskSwapRepository
             ),
+            getRooms: GetHouseRoomsUseCase(
+                repository: roomRepository
+            ),
             userID: session.currentUser.id,
             houseID: session.currentHouse.id,
-            offeredOccurrenceID: offeredOccurrenceID
+            offeredOccurrenceID: offeredOccurrenceID,
+            calendar: calendar
         )
     }
 }

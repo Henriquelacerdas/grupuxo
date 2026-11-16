@@ -17,6 +17,10 @@ final class NotificationsViewModel: ObservableObject {
 
     @Published var actionError: String?
 
+    /// Nomes dos moradores, para dizer quem fez cada coisa ("Henrique L. editou a tarefa…").
+    @Published private(set)
+    var memberNames: [User.ID: String] = [:]
+
     /// Pedido de troca sendo respondido agora (desabilita os botões dele).
     @Published private(set)
     var respondingSwapID: TaskSwapRequest.ID?
@@ -39,6 +43,25 @@ final class NotificationsViewModel: ObservableObject {
 
     private let getMembers: GetHouseMembersUseCase
 
+    /// Pedidos que eu fiz; sem ele, "Seus pedidos" não aparece.
+    private let getOutgoingSwaps: GetOutgoingTaskSwapRequestsUseCase?
+
+    /// Desistir de um pedido de troca pendente; sem ele, "Cancelar pedido" não aparece.
+    private let cancelSwap: CancelTaskSwapRequestUseCase?
+
+    /// Aprovar ou recusar pedido de entrada em cômodo privado; sem ele, os botões não aparecem.
+    private let answerRoomAccess: AnswerRoomAccessRequestUseCase?
+
+    /// Pedido de troca sendo cancelado agora.
+    @Published private(set)
+    var cancellingSwapID: TaskSwapRequest.ID?
+
+    /// Aviso de pedido de entrada sendo respondido agora.
+    @Published private(set)
+    var answeringNotificationID: AppNotification.ID?
+
+    private let calendar: Calendar
+
     private let userID: User.ID
 
     private let houseID: House.ID
@@ -52,9 +75,25 @@ final class NotificationsViewModel: ObservableObject {
         getMyTasks: GetMyTasksUseCase,
         getSwapCandidates: GetTaskSwapCandidatesUseCase,
         getMembers: GetHouseMembersUseCase,
+        getOutgoingSwaps: GetOutgoingTaskSwapRequestsUseCase? = nil,
+        cancelSwap: CancelTaskSwapRequestUseCase? = nil,
+        answerRoomAccess: AnswerRoomAccessRequestUseCase? = nil,
         userID: User.ID,
-        houseID: House.ID
+        houseID: House.ID,
+        calendar: Calendar = .current
     ) {
+
+        self.getOutgoingSwaps =
+            getOutgoingSwaps
+
+        self.cancelSwap =
+            cancelSwap
+
+        self.answerRoomAccess =
+            answerRoomAccess
+
+        self.calendar =
+            calendar
 
         self.getNotifications =
             getNotifications
@@ -99,15 +138,25 @@ final class NotificationsViewModel: ObservableObject {
                     userID: userID
                 )
 
+            memberNames = Dictionary(
+                ((try? await getMembers(houseID: houseID, userID: userID)) ?? []).map { ($0.id, $0.name) },
+                uniquingKeysWith: { first, _ in first }
+            )
+
             let pendingSwaps =
                 try await loadPendingSwaps()
 
+            let outgoingSwaps =
+                await loadOutgoingSwaps()
+
             state = notifications.isEmpty
                 && pendingSwaps.isEmpty
+                && outgoingSwaps.isEmpty
                 ? .empty
                 : .content(
                     notifications: notifications,
-                    pendingSwaps: pendingSwaps
+                    pendingSwaps: pendingSwaps,
+                    outgoingSwaps: outgoingSwaps
                 )
 
         } catch is CancellationError {
@@ -179,6 +228,49 @@ final class NotificationsViewModel: ObservableObject {
 
         }
 
+    }
+
+    var canCancelSwaps: Bool { cancelSwap != nil }
+
+    var canAnswerRoomAccess: Bool { answerRoomAccess != nil }
+
+    /// Quem pediu desiste do pedido pendente; a outra pessoa deixa de vê-lo.
+    func cancel(_ swap: OutgoingSwapRequest) async {
+
+        guard let cancelSwap, cancellingSwapID == nil else { return }
+
+        cancellingSwapID = swap.id
+        defer { cancellingSwapID = nil }
+
+        do {
+            _ = try await cancelSwap(requestID: swap.id, userID: userID)
+        } catch {
+            actionError = error.localizedDescription
+        }
+
+        // Recarrega também na falha: o pedido pode já ter sido respondido.
+        await load()
+    }
+
+    /// Um participante do cômodo aprova ou recusa o pedido de entrada de quem aparece no aviso.
+    func answerAccess(_ notification: AppNotification, approve: Bool) async {
+
+        guard let answerRoomAccess, answeringNotificationID == nil,
+              let roomID = notification.roomID, let requesterID = notification.actorUserID
+        else { return }
+
+        answeringNotificationID = notification.id
+        defer { answeringNotificationID = nil }
+
+        do {
+            try await answerRoomAccess(
+                roomID: roomID, requesterID: requesterID, answeredBy: userID, approve: approve
+            )
+        } catch {
+            actionError = error.localizedDescription
+        }
+
+        await load()
     }
 
     private func respond(
@@ -267,6 +359,71 @@ final class NotificationsViewModel: ObservableObject {
 
         return result
 
+    }
+
+    /// "Hoje", "Ontem" e depois a data, do mais recente ao mais antigo.
+    func days(of notifications: [AppNotification], now: Date = .now) -> [NotificationDay] {
+
+        let sorted = notifications.sorted {
+            ($0.createdAt, $0.id.uuidString.lowercased()) > ($1.createdAt, $1.id.uuidString.lowercased())
+        }
+
+        var days: [NotificationDay] = []
+
+        for notification in sorted {
+            let title = dayTitle(notification.createdAt, now: now)
+            if let last = days.last, last.title == title {
+                days[days.count - 1] = NotificationDay(title: title, notifications: last.notifications + [notification])
+            } else {
+                days.append(NotificationDay(title: title, notifications: [notification]))
+            }
+        }
+
+        return days
+    }
+
+    private func dayTitle(_ date: Date, now: Date) -> String {
+        if calendar.isDate(date, inSameDayAs: now) { return String(localized: "Hoje") }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(date, inSameDayAs: yesterday) {
+            return String(localized: "Ontem")
+        }
+        return date.formatted(.dateTime.day().month(.wide).locale(HouseOverviewText.appLocale))
+    }
+
+    /// Falha aqui não esconde o resto: só some "Seus pedidos".
+    private func loadOutgoingSwaps() async -> [OutgoingSwapRequest] {
+
+        guard let getOutgoingSwaps,
+              let requests = try? await getOutgoingSwaps(userID: userID, houseID: houseID)
+                .filter(\.isPending),
+              !requests.isEmpty
+        else { return [] }
+
+        let myTasks = (try? await getMyTasks(userID: userID, houseID: houseID)) ?? []
+        let members = (try? await getMembers(houseID: houseID, userID: userID)) ?? []
+
+        var result: [OutgoingSwapRequest] = []
+
+        for request in requests {
+            // A tarefa pedida é da outra pessoa: aparece entre as candidatas para a tarefa que ofereci.
+            let candidates = (try? await getSwapCandidates(
+                requesterID: userID,
+                offeredOccurrenceID: request.offeredOccurrenceID,
+                houseID: houseID
+            )) ?? []
+
+            result.append(
+                OutgoingSwapRequest(
+                    request: request,
+                    receiverName: members.first { $0.id == request.receiverID }?.name,
+                    offeredTaskName: myTasks.first { $0.id == request.offeredOccurrenceID }?.definition.name,
+                    requestedTaskName: candidates.first { $0.id == request.requestedOccurrenceID }?.definition.name
+                )
+            )
+        }
+
+        return result
     }
 
     /// A tarefa oferecida é de quem pediu e não está em "minhas tarefas". A elegibilidade da troca

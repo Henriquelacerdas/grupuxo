@@ -13,6 +13,10 @@ resource "aws_dynamodb_table" "main" {
     name = "PK"
     type = "S"
   }
+  # Fluxo de mudanças: a Lambda `push` lê só INSERT de `NOTIF#` (filtro no mapeamento) e manda o push.
+  stream_enabled   = true
+  stream_view_type = "NEW_IMAGE"
+
   attribute {
     name = "SK"
     type = "S"
@@ -70,6 +74,12 @@ resource "aws_sqs_queue" "whatsapp" {
   })
 }
 
+# Segredo do APNs, também **sem valor**: APNS_KEY_ID, APNS_TEAM_ID, APNS_BUNDLE_ID, APNS_PRIVATE_KEY (o .p8).
+resource "aws_secretsmanager_secret" "apns" {
+  name        = "grupuxo/${var.environment}/apns"
+  description = "Chave do APNs para os pushes (BACKEND.md seção 10)"
+}
+
 # Segredo **sem valor**: o dono grava o JSON pelo console, e o valor nunca entra no estado do Terraform.
 resource "aws_secretsmanager_secret" "whatsapp" {
   name        = "grupuxo/${var.environment}/whatsapp"
@@ -79,3 +89,38 @@ resource "aws_secretsmanager_secret" "whatsapp" {
 # Sem alarme da DLQ no Terraform: o usuário de deploy não tem cloudwatch:ListTagsForResource, que o provider exige.
 # O alarme grupuxo-dev-whatsapp-dlq-not-empty criado antes continua na conta, fora do Terraform. Fila com
 # mensagens: ver `dlq_url` (README, Diagnóstico).
+
+# Fotos de perfil: bucket privado; o app envia e lê direto por URLs pré-assinadas pela `api` (uma chave por morador,
+# `photos/<userId>`). Sem acesso público, criptografado, versões antigas expiram. NÃO aplicado sem autorização do dono.
+resource "aws_s3_bucket" "photos" {
+  bucket = "${local.name}-photos"
+}
+
+resource "aws_s3_bucket_public_access_block" "photos" {
+  bucket                  = aws_s3_bucket.photos.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "photos" {
+  bucket = aws_s3_bucket.photos.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "photos" {
+  bucket = aws_s3_bucket.photos.id
+  rule {
+    id     = "abort-incomplete-uploads"
+    status = "Enabled"
+    filter {}
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
+}

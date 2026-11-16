@@ -42,6 +42,10 @@ struct AmplifyAuthSessionClient: AuthSessionClient {
         _ = await Amplify.Auth.signOut(options: .init(globalSignOut: false))
     }
 
+    func updatePassword(oldPassword: String, newPassword: String) async throws {
+        try await Amplify.Auth.update(oldPassword: oldPassword, to: newPassword)
+    }
+
     func events() -> AsyncStream<AuthSessionEvent> {
         AsyncStream { continuation in
             let token = Amplify.Hub.listen(to: .auth) { payload in

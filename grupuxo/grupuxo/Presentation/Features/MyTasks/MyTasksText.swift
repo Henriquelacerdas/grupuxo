@@ -30,34 +30,88 @@ struct MyTasksText {
         locale.localized("\(houseText.deadline(cycleEnd: periodEnd, now: now)), \(HouseOverviewText.progress(progress, locale: locale))")
     }
 
-    /// "Hoje", "Amanhã", dia da semana (até uma semana) ou dia e mês; prazo vencido vira "Atrasada".
-    func dueDay(_ due: Date, now: Date) -> String {
+    /// Quando a vez ainda não começou: "Começa terça". Senão, o prazo: "Termina hoje", "Termina sexta-feira";
+    /// prazo vencido vira "Terminou ontem" e é destacado. Sem prazo nem início futuro, nada.
+    func timing(availableAt: Date, dueAt: Date?, now: Date) -> TaskTiming? {
 
-        let days = calendar.dateComponents(
+        let startDays = days(from: now, to: availableAt)
+
+        if startDays > 0 {
+            return TaskTiming(
+                text: locale.localized("Começa \(relativeDay(availableAt, days: startDays))"),
+                style: .upcoming
+            )
+        }
+
+        guard let dueAt else { return nil }
+
+        let dueDays = days(from: now, to: dueAt)
+
+        switch dueDays {
+        case ..<0:
+            return TaskTiming(
+                text: locale.localized("Terminou \(relativeDay(dueAt, days: dueDays))"),
+                style: .overdue
+            )
+        case 0:
+            return TaskTiming(text: locale.localized("Termina hoje"), style: .due)
+        default:
+            return TaskTiming(
+                text: locale.localized("Termina \(relativeDay(dueAt, days: dueDays))"),
+                style: dueDays == 1 ? .due : .open
+            )
+        }
+    }
+
+    /// "Troca pedida · aguardando Henrique L."; sem o nome de quem recebe, só "Troca pedida".
+    func pendingSwap(receiverName: String?) -> String {
+        guard let receiverName, !receiverName.isEmpty else { return locale.localized("Troca pedida") }
+        return locale.localized("Troca pedida · aguardando \(receiverName)")
+    }
+
+    /// Dias de calendário entre o dia de `now` e o de `date` (negativo no passado).
+    private func days(from now: Date, to date: Date) -> Int {
+        calendar.dateComponents(
             [.day],
             from: calendar.startOfDay(for: now),
-            to: calendar.startOfDay(for: due)
+            to: calendar.startOfDay(for: date)
         ).day ?? 0
+    }
+
+    /// "amanhã", "ontem", dia da semana (até uma semana) ou dia e mês, para compor com "Começa"/"Termina"/"Terminou".
+    private func relativeDay(_ date: Date, days: Int) -> String {
 
         switch days {
-        case ..<0:
-            return locale.localized("Atrasada")
-        case 0:
-            return locale.localized("Hoje")
         case 1:
-            return locale.localized("Amanhã")
-        case 2..<HouseOverviewText.weekdayHorizonInDays:
-            return due.formatted(
-                Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
-                    .weekday(.wide)
-            )
-            .localizedCapitalized
+            return locale.localized("amanhã")
+        case -1:
+            return locale.localized("ontem")
+        case -(HouseOverviewText.weekdayHorizonInDays - 1)...(HouseOverviewText.weekdayHorizonInDays - 1):
+            return houseText.weekday(of: date)
         default:
-            return due.formatted(
+            return date.formatted(
                 Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
                     .day()
                     .month(.abbreviated)
             )
         }
     }
+}
+
+/// Início ou prazo de uma tarefa, como aparece na linha: o estilo decide o destaque.
+struct TaskTiming: Equatable {
+
+    enum Style: Equatable {
+        /// Ainda não começou: texto discreto.
+        case upcoming
+        /// Prazo em aberto com mais de um dia pela frente: texto normal.
+        case open
+        /// Falta um dia ou menos: em negrito ao lado do cômodo.
+        case due
+        /// Prazo vencido: em vermelho.
+        case overdue
+    }
+
+    let text: String
+    let style: Style
 }

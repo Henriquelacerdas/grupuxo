@@ -79,4 +79,45 @@ struct MockRoomAccessRequestRepository: RoomAccessRequestRepository {
             }
         }
     }
+
+    func answer(
+        roomID: Room.ID,
+        requesterID: User.ID,
+        answeredBy userID: User.ID,
+        approve: Bool,
+        at date: Date
+    ) async throws {
+
+        try await store.update { state in
+
+            guard
+                let room = state.rooms.first(where: { $0.id == roomID }),
+                state.roomMemberships.contains(where: { $0.roomID == roomID && $0.userID == userID && $0.isCurrent }),
+                state.roomAccessRequests.contains(where: { $0.roomID == roomID && $0.userID == requesterID })
+            else {
+                throw DomainError.entityNotFound
+            }
+
+            state.roomAccessRequests.removeAll { $0.roomID == roomID && $0.userID == requesterID }
+
+            if approve {
+                var schedule = state.schedule
+                try TaskSchedulingService(calendar: Calendar(identifier: .gregorian))
+                    .addMember(userID: requesterID, roomID: roomID, at: date, state: &schedule)
+                state.schedule = schedule
+            }
+
+            state.notifications.append(
+                AppNotification(
+                    id: UUID(),
+                    recipientUserID: requesterID,
+                    kind: approve ? .roomAccessApproved : .roomAccessDenied,
+                    roomID: roomID,
+                    actorUserID: userID,
+                    subjectName: room.name,
+                    createdAt: date
+                )
+            )
+        }
+    }
 }
