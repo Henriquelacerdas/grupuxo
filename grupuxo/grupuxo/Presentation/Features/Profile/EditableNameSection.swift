@@ -33,7 +33,7 @@ struct EditableNameSection: View {
                     .disabled(isSaving)
             }
         } header: {
-            Text(header).formSectionHeader()
+            Text(header)
         } footer: {
             if let errorMessage {
                 Text(errorMessage).foregroundStyle(.red)

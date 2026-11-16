@@ -101,6 +101,7 @@ struct MyTasksView: View {
                 .accessibilityLabel("Perfil")
                 .accessibilityIdentifier("profile")
             }
+            .withoutSharedBackground()
 
             ToolbarItemGroup(placement: .topBarTrailing) {
 

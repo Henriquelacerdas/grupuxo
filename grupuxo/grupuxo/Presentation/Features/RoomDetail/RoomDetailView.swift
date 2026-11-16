@@ -386,7 +386,6 @@ struct RoomDetailView: View {
             }
         } header: {
             Text(title)
-                .roomSectionHeader()
         }
     }
 
@@ -472,7 +471,6 @@ struct RoomDetailView: View {
             }
         } header: {
             Text("Sugestões de tarefas")
-                .roomSectionHeader()
         }
     }
 
@@ -536,15 +534,6 @@ struct RoomDetailView: View {
 }
 
 private extension View {
-
-    /// Títulos das seções do cômodo, no tamanho dos títulos de seção de Minhas tarefas.
-    func roomSectionHeader() -> some View {
-        font(.title2.bold())
-            .foregroundStyle(Color.primary)
-            .textCase(nil)
-            // Alinha o título à borda do cartão, como no design (o cabeçalho da lista vem recuado).
-            .padding(.leading, -DesignSystem.Spacing.large)
-    }
 
     /// Subtítulo do título grande (iOS 26): "Rodízio semanal"; antes disso a tela fica só com o título.
     @ViewBuilder

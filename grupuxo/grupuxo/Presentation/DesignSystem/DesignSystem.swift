@@ -94,20 +94,17 @@ struct SettingsRowLabel: View {
     }
 }
 
-extension Text {
+extension ToolbarContent {
 
-    /// Cabeçalho de seção da tela de Ajustes: discreto, em caixa de frase.
-    func settingsSectionHeader() -> some View {
-        font(.footnote.weight(.semibold))
-            .textCase(nil)
-    }
-
-    /// Cabeçalho de seção das telas de formulário (Conta, Casa): título do campo ou do grupo.
-    func formSectionHeader() -> some View {
-        font(.subheadline.weight(.semibold))
-            // `Color.primary`: o `.primary` hierárquico herdaria o cinza do cabeçalho da lista.
-            .foregroundStyle(Color.primary)
-            .textCase(nil)
+    /// Tira o fundo de vidro que o iOS 26 põe em volta de cada item da barra. Para conteúdo que já é uma forma própria
+    /// (o avatar redondo), o vidro viraria um segundo círculo em volta dele.
+    @ToolbarContentBuilder
+    func withoutSharedBackground() -> some ToolbarContent {
+        if #available(iOS 26, *) {
+            sharedBackgroundVisibility(.hidden)
+        } else {
+            self
+        }
     }
 }
 

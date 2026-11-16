@@ -121,7 +121,7 @@ struct HouseSettingsView: View {
                 .accessibilityLabel("Compartilhar código")
             }
         } header: {
-            Text("Convite").formSectionHeader()
+            Text("Convite")
         } footer: {
             Text("Quem tiver o código pode entrar na casa pelo app.")
         }
@@ -134,7 +134,7 @@ struct HouseSettingsView: View {
                 MemberRow(member: member, isMe: member.id == houses.me?.id)
             }
         } header: {
-            Text("Moradores").formSectionHeader()
+            Text("Moradores")
         } footer: {
             if isLastMember {
                 Text("Ninguém entrou ainda. Mande o código acima para quem mora com você.")

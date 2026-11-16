@@ -163,7 +163,7 @@ struct ProfileView: View {
                 CopyCodeButton(code: house.accessCode)
             }
         } header: {
-            Text("Casa").settingsSectionHeader()
+            Text("Casa")
         }
     }
 
@@ -188,7 +188,7 @@ struct ProfileView: View {
                 )
             }
         } header: {
-            Text("Você").settingsSectionHeader()
+            Text("Você")
         }
     }
 
@@ -204,7 +204,7 @@ struct ProfileView: View {
                 linkRow(Text("Enviar sugestão"), systemImage: "star.fill", tint: .purple, url: url)
             }
         } header: {
-            Text("Ajuda").settingsSectionHeader()
+            Text("Ajuda")
         }
     }
 
@@ -224,7 +224,7 @@ struct ProfileView: View {
                 SettingsRowLabel(title: Text("Versão"), value: Text(version))
             }
         } header: {
-            Text("Sobre").settingsSectionHeader()
+            Text("Sobre")
         }
     }
 

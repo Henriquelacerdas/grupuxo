@@ -71,7 +71,7 @@ O bot **só responde, nunca manda mensagem primeiro**. Conectar abre o WhatsApp 
 - Ícone do "Resumo da semana pronto" (`list.bullet.clipboard.fill` ou `calendar.badge.checkmark`).
 - Tag marcada por uma só pessoa aparece para quem cuidou? Dia em que a avaliação abre. Tarefa única pega por outra pessoa: some ou mostra "Para <nome>"?
 - Quem aceita o pedido de entrada em cômodo privado; pedido pendente pode ser cancelado/refeito?
-- "Depois" no cartão do ciclo é previsão: escrever "(previsão)"? "Participantes ›" também entra e sai do rodízio? Ordem dos cômodos é pessoal ou da casa (assumido pessoal)? Modo férias vale só a partir do próximo ciclo? Excluir o último cômodo privado: na hora ou no fim do ciclo?
+- "Participantes ›" também entra e sai do rodízio? Ordem dos cômodos é pessoal ou da casa (assumido pessoal)? Modo férias vale só a partir do próximo ciclo? Excluir o último cômodo privado: na hora ou no fim do ciclo?
 - Comandos exatos do bot do WhatsApp.
 
 ## Backlog de telas (designer)

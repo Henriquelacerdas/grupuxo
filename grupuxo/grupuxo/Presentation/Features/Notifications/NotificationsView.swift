@@ -63,7 +63,7 @@ struct NotificationsView: View {
                                 incomingRow(swap)
                             }
                         } header: {
-                            sectionHeader(Text("Pedidos"))
+                            Text("Pedidos")
                         }
                     }
 
@@ -73,7 +73,7 @@ struct NotificationsView: View {
                                 outgoingRow(swap)
                             }
                         } header: {
-                            sectionHeader(Text("Seus pedidos"))
+                            Text("Seus pedidos")
                         }
                     }
 
@@ -83,7 +83,7 @@ struct NotificationsView: View {
                                 notificationRow(notification)
                             }
                         } header: {
-                            sectionHeader(Text(day.title))
+                            Text(day.title)
                         }
                     }
                 }
@@ -121,13 +121,6 @@ struct NotificationsView: View {
         } message: {
             Text(viewModel.actionError ?? "")
         }
-    }
-
-    private func sectionHeader(_ title: Text) -> some View {
-        title
-            .font(.title3.bold())
-            .foregroundStyle(Color.primary)
-            .textCase(nil)
     }
 
     // MARK: - Pedidos

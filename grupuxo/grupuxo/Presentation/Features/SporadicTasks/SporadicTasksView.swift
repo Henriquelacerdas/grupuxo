@@ -92,7 +92,8 @@ struct SporadicTasksView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
+        // Em sheet, arrastar para baixo não pode pular o aviso de alterações pendentes.
+        .interactiveDismissDisabled(viewModel.hasPendingChanges)
         .toolbar {
 
             ToolbarItem(

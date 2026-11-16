@@ -29,6 +29,12 @@ struct RootView: View {
     /// Ajustes da casa, abertos pelo menu "⋯" da aba Casa.
     @State private var isPresentingHouseSettings = false
 
+    /// Tarefas únicas da casa, em sheet a partir da aba Casa (e do atalho do Siri).
+    @State private var isPresentingSporadicTasks = false
+
+    /// Tarefa aberta, em sheet, a partir da sheet das tarefas únicas (uma sheet não abre outra no mesmo nível).
+    @State private var sporadicEditedTask: PresentedTask?
+
     /// Atualiza as listas quando a sheet de detalhes é fechada.
     @State private var taskChanges = 0
     
@@ -78,7 +84,8 @@ struct RootView: View {
                     
                 case .sporadicTasks:
                     selectedTab = .house
-                    housePath = [.sporadicTasks]
+                    housePath = []
+                    isPresentingSporadicTasks = true
                 }
                 
                 shortcutManager.pendingDestination = nil
@@ -173,7 +180,7 @@ struct RootView: View {
                     },
                     
                     onSelectSporadicTasks: {
-                        housePath.append(.sporadicTasks)
+                        isPresentingSporadicTasks = true
                     },
                     onOpenHouseSettings: {
                         isPresentingHouseSettings = true
@@ -208,25 +215,33 @@ struct RootView: View {
                 taskChanges += 1
             }
         ) { task in
-            
-            TaskDetailView(
-                viewModel: container.makeTaskDetailViewModel(
-                    taskDefinitionID: task.id,
-                    session: session
-                ),
-                makeEditorViewModel: { definition in
-                    container.makeTaskEditorViewModel(
-                        editing: definition,
+            taskDetail(for: task)
+        }
+        .sheet(
+            isPresented: $isPresentingSporadicTasks,
+            onDismiss: { taskChanges += 1 }
+        ) {
+            NavigationStack {
+                SporadicTasksView(
+                    viewModel: container.makeSporadicTasksViewModel(
                         session: session
-                    )
-                },
-                makeSwapViewModel: { occurrenceID in
-                    container.makeTaskSwapViewModel(
-                        offeredOccurrenceID: occurrenceID,
-                        session: session
-                    )
-                }
-            )
+                    ),
+                    onEditTask: { taskDefinitionID in
+                        sporadicEditedTask = PresentedTask(
+                            id: taskDefinitionID
+                        )
+                    },
+                    reloadTrigger: taskChanges
+                )
+            }
+            .toastHost()
+            .presentationDragIndicator(.visible)
+            .sheet(
+                item: $sporadicEditedTask,
+                onDismiss: { taskChanges += 1 }
+            ) { task in
+                taskDetail(for: task)
+            }
         }
         .sheet(isPresented: $isPresentingProfile) {
 
@@ -255,6 +270,28 @@ struct RootView: View {
         }
     }
     
+    private func taskDetail(for task: PresentedTask) -> some View {
+
+        TaskDetailView(
+            viewModel: container.makeTaskDetailViewModel(
+                taskDefinitionID: task.id,
+                session: session
+            ),
+            makeEditorViewModel: { definition in
+                container.makeTaskEditorViewModel(
+                    editing: definition,
+                    session: session
+                )
+            },
+            makeSwapViewModel: { occurrenceID in
+                container.makeTaskSwapViewModel(
+                    offeredOccurrenceID: occurrenceID,
+                    session: session
+                )
+            }
+        )
+    }
+
     // MARK: - Destinations
     
     @ViewBuilder
@@ -305,24 +342,6 @@ struct RootView: View {
                 reloadTrigger: taskChanges
             )
             
-            
-            // MARK: Sporadic Tasks
-            
-        case .sporadicTasks:
-            
-            SporadicTasksView(
-                viewModel: container.makeSporadicTasksViewModel(
-                    session: session
-                ),
-                
-                onEditTask: { taskDefinitionID in
-                    presentedTask = PresentedTask(
-                        id: taskDefinitionID
-                    )
-                },
-                
-                reloadTrigger: taskChanges
-            )
             
             // MARK: Task Editor
             
