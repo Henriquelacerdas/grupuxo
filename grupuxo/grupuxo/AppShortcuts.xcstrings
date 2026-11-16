@@ -1,6 +1,34 @@
 {
   "sourceLanguage" : "pt-BR",
   "strings" : {
+    "Abrir minhas tarefas no ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Abrir minhas tarefas no ${applicationName}",
+              "Minhas tarefas no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Abrir tarefas únicas no ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Abrir tarefas únicas no ${applicationName}",
+              "Minhas tarefas únicas no ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
     "Concluir ${task} no ${applicationName}" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -30,6 +58,20 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Concluir tarefa no ${applicationName}"
+          }
+        }
+      }
+    },
+    "Criar tarefa no ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "pt-BR" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Criar tarefa no ${applicationName}",
+              "Adicionar tarefa no ${applicationName}"
+            ]
           }
         }
       }

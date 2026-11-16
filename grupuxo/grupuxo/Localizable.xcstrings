@@ -410,6 +410,9 @@
         }
       }
     },
+    "%lld" : {
+
+    },
     "%lld %@" : {
       "localizations" : {
         "en" : {
@@ -554,6 +557,17 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "%lld pendentes" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld pending"
           }
         }
       }
@@ -713,6 +727,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "+%lld"
+          }
+        }
+      }
+    },
+    "+%lld pendentes no app" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld pending in the app"
           }
         }
       }
@@ -1184,8 +1209,38 @@
         }
       }
     },
+    "Abra o app e entre na sua conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the app and sign in"
+          }
+        }
+      }
+    },
+    "Abra o app e entre na sua conta para usar a Siri." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the app and sign in to use Siri."
+          }
+        }
+      }
+    },
     "Abra o app e entre na sua conta." : {
 
+    },
+    "Abra o Reveza para ver suas tarefas." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Reveza to view your tasks."
+          }
+        }
+      }
     },
     "Abre a tela de Minhas Tarefas do Grupuxo." : {
 
@@ -1249,6 +1304,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Accept"
+          }
+        }
+      }
+    },
+    "Acompanhe o ciclo de um cômodo e conclua as tarefas dele." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Track a room's cycle and complete its tasks."
           }
         }
       }
@@ -1720,6 +1785,17 @@
         }
       }
     },
+    "Área de serviço" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Laundry room"
+          }
+        }
+      }
+    },
     "Área externa" : {
       "localizations" : {
         "en" : {
@@ -1877,7 +1953,6 @@
       }
     },
     "Atrasada" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2557,12 +2632,55 @@
         }
       }
     },
+    "Concluir %@?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete %@?"
+          }
+        }
+      }
+    },
+    "Concluir ${task}" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete ${task}"
+          }
+        }
+      }
+    },
     "Concluir recorrência personalizada" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finish custom repeat"
+          }
+        }
+      }
+    },
+    "Concluir tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete task"
+          }
+        }
+      }
+    },
+    "Concluir Tarefa" : {
+
+    },
+    "Concluir tarefa pelo widget" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete task from widget"
           }
         }
       }
@@ -2908,6 +3026,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Create the first room to start the house rotation."
+          }
+        }
+      }
+    },
+    "Crie ou entre em uma casa no Reveza." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create or join a house in Reveza."
           }
         }
       }
@@ -3304,6 +3432,16 @@
         }
       }
     },
+    "Entre em uma casa no app" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Join a house in the app"
+          }
+        }
+      }
+    },
     "Entre na casa \"%@\" no app usando o código: %@" : {
       "localizations" : {
         "en" : {
@@ -3332,6 +3470,36 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "Entre na casa %1$@ no Reveza com o código %2$@."
+          }
+        }
+      }
+    },
+    "Entre na conta" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in"
+          }
+        }
+      }
+    },
+    "Entre na sua conta no app" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to your account in the app"
+          }
+        }
+      }
+    },
+    "Entre ou crie uma casa no Reveza." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Join or create a house in Reveza."
           }
         }
       }
@@ -3459,6 +3627,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choose a task to receive"
+          }
+        }
+      }
+    },
+    "Escolhe qual cômodo exibir no widget." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chooses which room to display in the widget."
+          }
+        }
+      }
+    },
+    "Escolher cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose room"
           }
         }
       }
@@ -3824,6 +4012,16 @@
         }
       }
     },
+    "ID da ocorrência" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Occurrence ID"
+          }
+        }
+      }
+    },
     "Índigo" : {
       "localizations" : {
         "en" : {
@@ -4019,6 +4217,17 @@
         }
       }
     },
+    "Lavar a louça" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wash the dishes"
+          }
+        }
+      }
+    },
     "Lavar o box" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4060,6 +4269,9 @@
           }
         }
       }
+    },
+    "Ler Minhas Tarefas" : {
+
     },
     "Leve" : {
       "localizations" : {
@@ -4137,6 +4349,16 @@
         }
       }
     },
+    "Lista as suas tarefas pendentes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lists your pending tasks."
+          }
+        }
+      }
+    },
     "Localização da casa definida neste aparelho" : {
       "localizations" : {
         "en" : {
@@ -4173,6 +4395,26 @@
     },
     "Mandamos um código para %@. Se não chegar, olhe o spam." : {
 
+    },
+    "Marca uma das suas tarefas como concluída." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marks one of your tasks as completed."
+          }
+        }
+      }
+    },
+    "Marca uma tarefa pendente como concluída diretamente pelo widget." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marks a pending task as completed directly from the widget."
+          }
+        }
+      }
     },
     "Marcar como concluída" : {
       "extractionState" : "stale",
@@ -4470,6 +4712,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "We couldn't find an account with this email. Sign up again."
+          }
+        }
+      }
+    },
+    "Não encontrei essa tarefa entre as suas pendentes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I couldn't find that task among your pending ones."
           }
         }
       }
@@ -4830,6 +5082,16 @@
         }
       }
     },
+    "Neste ciclo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In this cycle"
+          }
+        }
+      }
+    },
     "Ninguém entrou ainda. Mande o código acima para quem mora com você." : {
       "localizations" : {
         "en" : {
@@ -4943,6 +5205,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Room name"
+          }
+        }
+      }
+    },
+    "Nossa Casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Our House"
           }
         }
       }
@@ -5228,6 +5500,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reveza lets you know when something changes in the house. You choose which alerts below."
+          }
+        }
+      }
+    },
+    "O servidor do app não está configurado neste build." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app's server is not configured in this build."
           }
         }
       }
@@ -5692,6 +5974,16 @@
         }
       }
     },
+    "Pronto, %@ está concluída." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done, %@ is completed."
+          }
+        }
+      }
+    },
     "Próximo" : {
       "localizations" : {
         "en" : {
@@ -6045,6 +6337,16 @@
         }
       }
     },
+    "Qual tarefa você concluiu?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which task did you complete?"
+          }
+        }
+      }
+    },
     "Quando o ciclo virar" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6247,6 +6549,17 @@
         }
       }
     },
+    "Regar as plantas" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Water the plants"
+          }
+        }
+      }
+    },
     "Remover foto" : {
       "localizations" : {
         "en" : {
@@ -6353,6 +6666,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "a reply"
+          }
+        }
+      }
+    },
+    "restante" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "remaining"
+          }
+        }
+      }
+    },
+    "restantes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "remaining"
           }
         }
       }
@@ -6801,6 +7134,16 @@
         }
       }
     },
+    "Sem casa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No house"
+          }
+        }
+      }
+    },
     "Sem conexão" : {
 
     },
@@ -7206,6 +7549,26 @@
         }
       }
     },
+    "Suas tarefas aparecerão aqui automaticamente." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your tasks will appear here automatically."
+          }
+        }
+      }
+    },
+    "Suas tarefas estão em dia." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your tasks are up to date."
+          }
+        }
+      }
+    },
     "Sugestão: %@" : {
       "localizations" : {
         "en" : {
@@ -7335,6 +7698,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "One-off task deleted"
+          }
+        }
+      }
+    },
+    "tarefas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "tasks"
           }
         }
       }
@@ -7501,6 +7874,16 @@
         }
       }
     },
+    "Terminou ontem" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ended yesterday"
+          }
+        }
+      }
+    },
     "Termos de Uso" : {
       "localizations" : {
         "en" : {
@@ -7517,6 +7900,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Type"
+          }
+        }
+      }
+    },
+    "Tirar o lixo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take out the trash"
           }
         }
       }
@@ -7714,6 +8107,27 @@
         }
       }
     },
+    "Tudo em dia!" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All caught up!"
+          }
+        }
+      }
+    },
+    "Tudo feito" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All done"
+          }
+        }
+      }
+    },
     "Última vez" : {
       "localizations" : {
         "en" : {
@@ -7850,6 +8264,16 @@
         }
       }
     },
+    "Veja e conclua suas tarefas pendentes da casa." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View and complete your pending household tasks."
+          }
+        }
+      }
+    },
     "Ver mais" : {
       "localizations" : {
         "en" : {
@@ -7866,6 +8290,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show less"
+          }
+        }
+      }
+    },
+    "Ver minhas tarefas" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View my tasks"
           }
         }
       }
@@ -7930,6 +8364,9 @@
           }
         }
       }
+    },
+    "Você ainda não faz parte de uma casa" : {
+
     },
     "Você ainda não faz parte de uma casa." : {
       "localizations" : {
@@ -8168,6 +8605,27 @@
         }
       }
     },
+    "Você não tem tarefas pendentes agora." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have no pending tasks right now."
+          }
+        }
+      }
+    },
+    "Você não tem tarefas pendentes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have no pending tasks."
+          }
+        }
+      }
+    },
     "Você participa automaticamente. Os outros moradores podem pedir para entrar depois." : {
       "localizations" : {
         "en" : {
@@ -8281,12 +8739,32 @@
         }
       }
     },
+    "Você tem %lld tarefas pendentes: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have %lld pending tasks: %@."
+          }
+        }
+      }
+    },
     "Você tem 1 tarefa pendente" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "You have 1 pending task"
+          }
+        }
+      }
+    },
+    "Você tem uma tarefa pendente: %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have one pending task: %@."
           }
         }
       }
@@ -8321,479 +8799,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "WhatsApp connected"
-          }
-        }
-      }
-    },
-    "%lld" : {
-
-    },
-    "%lld pendentes" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld pending"
-          }
-        }
-      }
-    },
-    "+%lld pendentes no app" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+%lld pending in the app"
-          }
-        }
-      }
-    },
-    "Abra o app e entre na sua conta" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open the app and sign in"
-          }
-        }
-      }
-    },
-    "Abra o app e entre na sua conta para usar a Siri." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open the app and sign in to use Siri."
-          }
-        }
-      }
-    },
-    "Abra o Reveza para ver suas tarefas." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open Reveza to view your tasks."
-          }
-        }
-      }
-    },
-    "Acompanhe o ciclo de um cômodo e conclua as tarefas dele." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Track a room's cycle and complete its tasks."
-          }
-        }
-      }
-    },
-    "Área de serviço" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Laundry room"
-          }
-        }
-      }
-    },
-    "Concluir %@?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Complete %@?"
-          }
-        }
-      }
-    },
-    "Concluir ${task}" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Complete ${task}"
-          }
-        }
-      }
-    },
-    "Concluir tarefa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Complete task"
-          }
-        }
-      }
-    },
-    "Concluir tarefa pelo widget" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Complete task from widget"
-          }
-        }
-      }
-    },
-    "Crie ou entre em uma casa no Reveza." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Create or join a house in Reveza."
-          }
-        }
-      }
-    },
-    "Entre em uma casa no app" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Join a house in the app"
-          }
-        }
-      }
-    },
-    "Entre na conta" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign in"
-          }
-        }
-      }
-    },
-    "Entre na sua conta no app" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign in to your account in the app"
-          }
-        }
-      }
-    },
-    "Entre ou crie uma casa no Reveza." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Join or create a house in Reveza."
-          }
-        }
-      }
-    },
-    "Escolhe qual cômodo exibir no widget." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Chooses which room to display in the widget."
-          }
-        }
-      }
-    },
-    "Escolher cômodo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose room"
-          }
-        }
-      }
-    },
-    "ID da ocorrência" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Occurrence ID"
-          }
-        }
-      }
-    },
-    "Lavar a louça" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wash the dishes"
-          }
-        }
-      }
-    },
-    "Lista as suas tarefas pendentes." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lists your pending tasks."
-          }
-        }
-      }
-    },
-    "Marca uma das suas tarefas como concluída." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Marks one of your tasks as completed."
-          }
-        }
-      }
-    },
-    "Marca uma tarefa pendente como concluída diretamente pelo widget." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Marks a pending task as completed directly from the widget."
-          }
-        }
-      }
-    },
-    "Não encontrei essa tarefa entre as suas pendentes." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "I couldn't find that task among your pending ones."
-          }
-        }
-      }
-    },
-    "Neste ciclo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In this cycle"
-          }
-        }
-      }
-    },
-    "Nossa Casa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Our House"
-          }
-        }
-      }
-    },
-    "O servidor do app não está configurado neste build." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The app's server is not configured in this build."
-          }
-        }
-      }
-    },
-    "Pronto, %@ está concluída." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Done, %@ is completed."
-          }
-        }
-      }
-    },
-    "Qual tarefa você concluiu?" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Which task did you complete?"
-          }
-        }
-      }
-    },
-    "Regar as plantas" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Water the plants"
-          }
-        }
-      }
-    },
-    "restante" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "remaining"
-          }
-        }
-      }
-    },
-    "restantes" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "remaining"
-          }
-        }
-      }
-    },
-    "Sem casa" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No house"
-          }
-        }
-      }
-    },
-    "Suas tarefas aparecerão aqui automaticamente." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your tasks will appear here automatically."
-          }
-        }
-      }
-    },
-    "Suas tarefas estão em dia." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your tasks are up to date."
-          }
-        }
-      }
-    },
-    "tarefas" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "tasks"
-          }
-        }
-      }
-    },
-    "Terminou ontem" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ended yesterday"
-          }
-        }
-      }
-    },
-    "Tirar o lixo" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Take out the trash"
-          }
-        }
-      }
-    },
-    "Tudo em dia!" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All caught up!"
-          }
-        }
-      }
-    },
-    "Tudo feito" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All done"
-          }
-        }
-      }
-    },
-    "Veja e conclua suas tarefas pendentes da casa." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "View and complete your pending household tasks."
-          }
-        }
-      }
-    },
-    "Ver minhas tarefas" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "View my tasks"
-          }
-        }
-      }
-    },
-    "Você ainda não faz parte de uma casa" : {
-
-    },
-    "Você não tem tarefas pendentes agora." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You have no pending tasks right now."
-          }
-        }
-      }
-    },
-    "Você não tem tarefas pendentes." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You have no pending tasks."
-          }
-        }
-      }
-    },
-    "Você tem %lld tarefas pendentes: %@." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You have %lld pending tasks: %@."
-          }
-        }
-      }
-    },
-    "Você tem uma tarefa pendente: %@." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You have one pending task: %@."
           }
         }
       }
