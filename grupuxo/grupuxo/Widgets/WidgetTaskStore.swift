@@ -7,15 +7,41 @@ import WidgetKit
 struct WidgetTaskItem: Codable, Hashable, Identifiable, Sendable {
     let occurrenceID: UUID
     let taskDefinitionID: UUID
+    let roomID: UUID?
     let name: String
     let roomName: String?
+    let roomIcon: String
     let dueAt: Date?
     let colorRawValue: String
 
     var id: UUID { occurrenceID }
 
+    init(
+        occurrenceID: UUID,
+        taskDefinitionID: UUID,
+        roomID: UUID? = nil,
+        name: String,
+        roomName: String?,
+        roomIcon: String = "house.fill",
+        dueAt: Date?,
+        colorRawValue: String
+    ) {
+        self.occurrenceID = occurrenceID
+        self.taskDefinitionID = taskDefinitionID
+        self.roomID = roomID
+        self.name = name
+        self.roomName = roomName
+        self.roomIcon = roomIcon
+        self.dueAt = dueAt
+        self.colorRawValue = colorRawValue
+    }
+
     var tintColor: Color {
-        switch colorRawValue {
+        Self.color(for: colorRawValue)
+    }
+
+    static func color(for rawValue: String) -> Color {
+        switch rawValue {
         case "red": .red
         case "orange": .orange
         case "yellow": .yellow
@@ -28,7 +54,7 @@ struct WidgetTaskItem: Codable, Hashable, Identifiable, Sendable {
         case "teal": .teal
         case "indigo": .indigo
         case "cyan": .cyan
-        default: .accentColor
+        default: .orange
         }
     }
 
@@ -38,7 +64,99 @@ struct WidgetTaskItem: Codable, Hashable, Identifiable, Sendable {
     }
 }
 
-/// Fotografia do estado das tarefas do morador compartilhada entre o app e a extensão de widgets.
+/// Resumo de um cômodo para os widgets C1c (pequeno) e M5 (médio com lista de tarefas do cômodo).
+struct WidgetRoomSummary: Codable, Hashable, Identifiable, Sendable {
+    let id: UUID
+    let name: String
+    let icon: String
+    let colorRawValue: String
+    /// Fim exclusivo do ciclo atual do cômodo.
+    let periodEnd: Date?
+    let completedCount: Int
+    let totalCount: Int
+    let pendingTasks: [WidgetTaskItem]
+
+    var tintColor: Color {
+        WidgetTaskItem.color(for: colorRawValue)
+    }
+
+    var progressFraction: Double {
+        guard totalCount > 0 else {
+            return pendingTasks.isEmpty ? 1.0 : 0.25
+        }
+        return min(max(Double(completedCount) / Double(totalCount), 0), 1)
+    }
+
+    var deepLinkURL: URL {
+        WidgetSnapshot.defaultURL
+    }
+}
+
+/// Formatação dos prazos exibidos nos widgets ("Terminou ontem", "Termina hoje", "Termina domingo").
+enum WidgetDeadlineFormatter {
+    struct FormattedDeadline: Equatable, Sendable {
+        let text: String
+        /// `true` quando vence hoje ou já venceu (exibido em negrito primário no M2).
+        let isUrgent: Bool
+    }
+
+    static func format(dueAt: Date?, now: Date = .now, calendar: Calendar = .current, locale: Locale = .current) -> FormattedDeadline? {
+        guard let dueAt else { return nil }
+        let days = calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: now),
+            to: calendar.startOfDay(for: dueAt)
+        ).day ?? 0
+
+        switch days {
+        case ..<(-1):
+            return FormattedDeadline(text: String(localized: "Atrasada"), isUrgent: true)
+        case -1:
+            return FormattedDeadline(text: String(localized: "Terminou ontem"), isUrgent: true)
+        case 0:
+            return FormattedDeadline(text: String(localized: "Termina hoje"), isUrgent: true)
+        case 1:
+            return FormattedDeadline(text: String(localized: "Termina amanhã"), isUrgent: false)
+        case 2..<7:
+            let weekday = dueAt.formatted(
+                Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+                    .weekday(.wide)
+            )
+            return FormattedDeadline(text: String(localized: "Termina \(weekday)"), isUrgent: false)
+        default:
+            return FormattedDeadline(text: String(localized: "Termina em \(days) dias"), isUrgent: false)
+        }
+    }
+
+    static func formatCycleEnd(_ periodEnd: Date?, now: Date = .now, calendar: Calendar = .current, locale: Locale = .current) -> String {
+        guard let periodEnd else { return String(localized: "Neste ciclo") }
+        let lastDay = calendar.date(byAdding: .day, value: -1, to: periodEnd) ?? periodEnd
+        let days = max(
+            0,
+            calendar.dateComponents(
+                [.day],
+                from: calendar.startOfDay(for: now),
+                to: calendar.startOfDay(for: lastDay)
+            ).day ?? 0
+        )
+        switch days {
+        case 0:
+            return String(localized: "Termina hoje")
+        case 1:
+            return String(localized: "Termina amanhã")
+        case 2..<7:
+            let weekday = lastDay.formatted(
+                Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
+                    .weekday(.wide)
+            )
+            return String(localized: "Termina \(weekday)")
+        default:
+            return String(localized: "Termina em \(days) dias")
+        }
+    }
+}
+
+/// Fotografia do estado das tarefas e cômodos do morador compartilhada entre o app e a extensão de widgets.
 struct WidgetSnapshot: Codable, Equatable, Sendable {
     enum Status: String, Codable, Equatable, Sendable {
         case notSignedIn
@@ -49,53 +167,131 @@ struct WidgetSnapshot: Codable, Equatable, Sendable {
     let status: Status
     let houseName: String
     let tasks: [WidgetTaskItem]
+    let rooms: [WidgetRoomSummary]
     let updatedAt: Date
 
     static let defaultURL = URL(string: "grupuxo://tasks")!
 
+    init(
+        status: Status,
+        houseName: String,
+        tasks: [WidgetTaskItem],
+        rooms: [WidgetRoomSummary] = [],
+        updatedAt: Date
+    ) {
+        self.status = status
+        self.houseName = houseName
+        self.tasks = tasks
+        self.rooms = rooms
+        self.updatedAt = updatedAt
+    }
+
     static func notSignedIn(at date: Date = .now) -> WidgetSnapshot {
-        WidgetSnapshot(status: .notSignedIn, houseName: "", tasks: [], updatedAt: date)
+        WidgetSnapshot(status: .notSignedIn, houseName: "", tasks: [], rooms: [], updatedAt: date)
     }
 
     static func noHouse(at date: Date = .now) -> WidgetSnapshot {
-        WidgetSnapshot(status: .noHouse, houseName: "", tasks: [], updatedAt: date)
+        WidgetSnapshot(status: .noHouse, houseName: "", tasks: [], rooms: [], updatedAt: date)
     }
 
-    static func ready(houseName: String, tasks: [WidgetTaskItem], at date: Date = .now) -> WidgetSnapshot {
-        WidgetSnapshot(status: .ready, houseName: houseName, tasks: tasks, updatedAt: date)
+    static func ready(
+        houseName: String,
+        tasks: [WidgetTaskItem],
+        rooms: [WidgetRoomSummary] = [],
+        at date: Date = .now
+    ) -> WidgetSnapshot {
+        WidgetSnapshot(status: .ready, houseName: houseName, tasks: tasks, rooms: rooms, updatedAt: date)
     }
 
     static var placeholder: WidgetSnapshot {
-        WidgetSnapshot(
+        let now = Date.now
+        let cal = Calendar.current
+        let yesterday = cal.date(byAdding: .day, value: -1, to: now) ?? now
+        let inThreeDays = cal.date(byAdding: .day, value: 3, to: now) ?? now
+        let cycleEnd = cal.date(byAdding: .day, value: 4, to: now) ?? now
+
+        let kitchenID = UUID(uuidString: "00000000-0000-0000-0000-000000000101")!
+        let livingRoomID = UUID(uuidString: "00000000-0000-0000-0000-000000000102")!
+        let bathroomID = UUID(uuidString: "00000000-0000-0000-0000-000000000103")!
+
+        let trashTask = WidgetTaskItem(
+            occurrenceID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            taskDefinitionID: UUID(uuidString: "00000000-0000-0000-0000-000000000011")!,
+            roomID: livingRoomID,
+            name: String(localized: "Tirar o lixo"),
+            roomName: String(localized: "Sala"),
+            roomIcon: "sofa.fill",
+            dueAt: yesterday,
+            colorRawValue: "brown"
+        )
+        let sinkTask = WidgetTaskItem(
+            occurrenceID: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            taskDefinitionID: UUID(uuidString: "00000000-0000-0000-0000-000000000012")!,
+            roomID: kitchenID,
+            name: String(localized: "Limpar a pia"),
+            roomName: String(localized: "Cozinha"),
+            roomIcon: "frying.pan.fill",
+            dueAt: now,
+            colorRawValue: "orange"
+        )
+        let showerTask = WidgetTaskItem(
+            occurrenceID: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
+            taskDefinitionID: UUID(uuidString: "00000000-0000-0000-0000-000000000013")!,
+            roomID: bathroomID,
+            name: String(localized: "Lavar o box"),
+            roomName: String(localized: "Banheiro"),
+            roomIcon: "shower.fill",
+            dueAt: inThreeDays,
+            colorRawValue: "cyan"
+        )
+        let stoveTask = WidgetTaskItem(
+            occurrenceID: UUID(uuidString: "00000000-0000-0000-0000-000000000004")!,
+            taskDefinitionID: UUID(uuidString: "00000000-0000-0000-0000-000000000014")!,
+            roomID: kitchenID,
+            name: String(localized: "Limpar o fogão"),
+            roomName: String(localized: "Cozinha"),
+            roomIcon: "frying.pan.fill",
+            dueAt: inThreeDays,
+            colorRawValue: "orange"
+        )
+
+        let kitchenRoom = WidgetRoomSummary(
+            id: kitchenID,
+            name: String(localized: "Cozinha"),
+            icon: "frying.pan.fill",
+            colorRawValue: "orange",
+            periodEnd: cycleEnd,
+            completedCount: 1,
+            totalCount: 3,
+            pendingTasks: [sinkTask, stoveTask]
+        )
+        let livingRoom = WidgetRoomSummary(
+            id: livingRoomID,
+            name: String(localized: "Sala"),
+            icon: "sofa.fill",
+            colorRawValue: "brown",
+            periodEnd: cycleEnd,
+            completedCount: 1,
+            totalCount: 2,
+            pendingTasks: [trashTask]
+        )
+        let bathroomRoom = WidgetRoomSummary(
+            id: bathroomID,
+            name: String(localized: "Banheiro"),
+            icon: "shower.fill",
+            colorRawValue: "cyan",
+            periodEnd: cycleEnd,
+            completedCount: 0,
+            totalCount: 1,
+            pendingTasks: [showerTask]
+        )
+
+        return WidgetSnapshot(
             status: .ready,
             houseName: String(localized: "Nossa Casa"),
-            tasks: [
-                WidgetTaskItem(
-                    occurrenceID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
-                    taskDefinitionID: UUID(uuidString: "00000000-0000-0000-0000-000000000011")!,
-                    name: String(localized: "Lavar a louça"),
-                    roomName: String(localized: "Cozinha"),
-                    dueAt: .now,
-                    colorRawValue: "orange"
-                ),
-                WidgetTaskItem(
-                    occurrenceID: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
-                    taskDefinitionID: UUID(uuidString: "00000000-0000-0000-0000-000000000012")!,
-                    name: String(localized: "Tirar o lixo"),
-                    roomName: String(localized: "Área de serviço"),
-                    dueAt: .now,
-                    colorRawValue: "teal"
-                ),
-                WidgetTaskItem(
-                    occurrenceID: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
-                    taskDefinitionID: UUID(uuidString: "00000000-0000-0000-0000-000000000013")!,
-                    name: String(localized: "Regar as plantas"),
-                    roomName: String(localized: "Sala"),
-                    dueAt: nil,
-                    colorRawValue: "green"
-                ),
-            ],
-            updatedAt: .now
+            tasks: [trashTask, sinkTask, showerTask, stoveTask],
+            rooms: [kitchenRoom, livingRoom, bathroomRoom],
+            updatedAt: now
         )
     }
 }
@@ -106,8 +302,7 @@ struct WidgetSessionCredentials: Codable, Equatable, Sendable {
 }
 
 /// Armazenamento compartilhado entre o app principal e `GrupuxoWidgets` via Keychain Sharing
-/// (`ZTK9F54WV3.vidal.grupuxo.shared`), que já é suportado pelos Provisioning Profiles existentes da equipe
-/// sem depender de aprovação de novo App Group no portal da Apple.
+/// (`ZTK9F54WV3.vidal.grupuxo.shared`).
 ///
 /// Respeita a política de isolamento de sessão do projeto: `clear()` apaga imediatamente o snapshot e o token no logout
 /// para que nenhuma informação fique acessível entre contas diferentes.
@@ -115,6 +310,7 @@ struct WidgetTaskStore: Sendable {
     static let keychainAccessGroup = "ZTK9F54WV3.vidal.grupuxo.shared"
     static let keychainService = "vidal.grupuxo.widget"
     static let widgetKind = "MyTasksWidget"
+    static let roomWidgetKind = "RoomTasksWidget"
     static let shared = WidgetTaskStore()
 
     private let directoryURL: URL?
@@ -139,8 +335,13 @@ struct WidgetTaskStore: Sendable {
         return .notSignedIn()
     }
 
-    func saveReady(houseName: String, tasks: [WidgetTaskItem], reloadWidgets: Bool = true) {
-        let snapshot = WidgetSnapshot.ready(houseName: houseName, tasks: tasks)
+    func saveReady(
+        houseName: String,
+        tasks: [WidgetTaskItem],
+        rooms: [WidgetRoomSummary] = [],
+        reloadWidgets: Bool = true
+    ) {
+        let snapshot = WidgetSnapshot.ready(houseName: houseName, tasks: tasks, rooms: rooms)
         saveSnapshot(snapshot, reloadWidgets: reloadWidgets)
     }
 
@@ -167,9 +368,25 @@ struct WidgetTaskStore: Sendable {
               current.tasks.contains(where: { $0.occurrenceID == occurrenceID }) else {
             return nil
         }
+        let updatedRooms = current.rooms.map { room -> WidgetRoomSummary in
+            guard room.pendingTasks.contains(where: { $0.occurrenceID == occurrenceID }) else {
+                return room
+            }
+            return WidgetRoomSummary(
+                id: room.id,
+                name: room.name,
+                icon: room.icon,
+                colorRawValue: room.colorRawValue,
+                periodEnd: room.periodEnd,
+                completedCount: room.completedCount + 1,
+                totalCount: max(room.totalCount, room.completedCount + 1),
+                pendingTasks: room.pendingTasks.filter { $0.occurrenceID != occurrenceID }
+            )
+        }
         let updated = WidgetSnapshot.ready(
             houseName: current.houseName,
-            tasks: current.tasks.filter { $0.occurrenceID != occurrenceID }
+            tasks: current.tasks.filter { $0.occurrenceID != occurrenceID },
+            rooms: updatedRooms
         )
         saveSnapshot(updated, reloadWidgets: reloadWidgets)
         return current
@@ -218,6 +435,7 @@ struct WidgetTaskStore: Sendable {
         let changed = previous.status != snapshot.status
             || previous.houseName != snapshot.houseName
             || previous.tasks != snapshot.tasks
+            || previous.rooms != snapshot.rooms
         guard let data = try? Self.makeEncoder().encode(snapshot) else { return }
         writeData(data, key: Self.snapshotKey)
         if reloadWidgets && changed {

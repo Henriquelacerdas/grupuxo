@@ -335,6 +335,7 @@
       }
     },
     "%lld pendentes" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -504,6 +505,7 @@
       }
     },
     "+%lld pendentes no app" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -936,6 +938,16 @@
         }
       }
     },
+    "Acompanhe o ciclo de um cômodo e conclua as tarefas dele." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Track a room's cycle and complete its tasks."
+          }
+        }
+      }
+    },
     "Adicionado por " : {
       "localizations" : {
         "en" : {
@@ -1160,6 +1172,7 @@
       }
     },
     "Área de serviço" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1262,6 +1275,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Teal"
+          }
+        }
+      }
+    },
+    "Banheiro" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bathroom"
           }
         }
       }
@@ -2387,6 +2410,26 @@
         }
       }
     },
+    "Escolhe qual cômodo exibir no widget." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chooses which room to display in the widget."
+          }
+        }
+      }
+    },
+    "Escolher cômodo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose room"
+          }
+        }
+      }
+    },
     "Esforço" : {
       "localizations" : {
         "en" : {
@@ -2822,6 +2865,7 @@
       }
     },
     "Lavar a louça" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3434,6 +3478,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No swaps available"
+          }
+        }
+      }
+    },
+    "Neste ciclo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In this cycle"
           }
         }
       }
@@ -4095,6 +4149,7 @@
       }
     },
     "Regar as plantas" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4140,6 +4195,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Assigned to: %@"
+          }
+        }
+      }
+    },
+    "restante" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "remaining"
+          }
+        }
+      }
+    },
+    "restantes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "remaining"
           }
         }
       }
@@ -4659,6 +4734,16 @@
         }
       }
     },
+    "Suas tarefas estão em dia." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your tasks are up to date."
+          }
+        }
+      }
+    },
     "Sugestões de tarefas" : {
       "localizations" : {
         "en" : {
@@ -4916,6 +5001,16 @@
         }
       }
     },
+    "Terminou ontem" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ended yesterday"
+          }
+        }
+      }
+    },
     "Tipo" : {
       "localizations" : {
         "en" : {
@@ -5032,11 +5127,22 @@
       }
     },
     "Tudo em dia!" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "All caught up!"
+          }
+        }
+      }
+    },
+    "Tudo feito" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All done"
           }
         }
       }
@@ -5297,6 +5403,7 @@
       }
     },
     "Você não tem tarefas pendentes agora." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

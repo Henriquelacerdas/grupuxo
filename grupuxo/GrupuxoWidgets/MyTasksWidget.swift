@@ -2,6 +2,8 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
+// MARK: - Timeline de Minhas Tarefas (A · Lista, M2 · Lista com prazo, D · Estado vazio)
+
 struct MyTasksEntry: TimelineEntry {
     let date: Date
     let snapshot: WidgetSnapshot
@@ -36,14 +38,13 @@ struct MyTasksWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: MyTasksTimelineProvider()) { entry in
             MyTasksWidgetEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(Color(uiColor: .systemBackground), for: .widget)
         }
         .configurationDisplayName("Minhas tarefas")
         .description("Veja e conclua suas tarefas pendentes da casa.")
         .supportedFamilies([
             .systemSmall,
             .systemMedium,
-            .systemLarge,
             .accessoryRectangular,
             .accessoryCircular,
         ])
@@ -57,196 +58,159 @@ struct MyTasksWidgetEntryView: View {
     var body: some View {
         switch family {
         case .systemSmall:
-            smallView
+            smallListView
         case .systemMedium:
-            listView(maxItems: 3)
-        case .systemLarge:
-            listView(maxItems: 6)
+            mediumListView
         case .accessoryCircular:
             circularLockScreenView
         case .accessoryRectangular:
             rectangularLockScreenView
         default:
-            listView(maxItems: 3)
+            mediumListView
         }
     }
 
-    // MARK: - Pequeno (systemSmall)
+    // MARK: - A · Lista (systemSmall) + D · Estado vazio
 
     @ViewBuilder
-    private var smallView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "house.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if entry.snapshot.status == .ready {
-                    Text("\(entry.snapshot.tasks.count)")
-                        .font(.caption2.weight(.bold))
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(Color.accentColor.opacity(0.18), in: Capsule())
-                }
-            }
+    private var smallListView: some View {
+        switch entry.snapshot.status {
+        case .notSignedIn:
+            WidgetStatusView(
+                icon: "person.crop.circle.badge.exclamationmark",
+                title: String(localized: "Entre na conta"),
+                subtitle: String(localized: "Abra o Reveza para ver suas tarefas.")
+            )
+            .widgetURL(WidgetSnapshot.defaultURL)
 
-            Spacer(minLength: 0)
+        case .noHouse:
+            WidgetStatusView(
+                icon: "house",
+                title: String(localized: "Sem casa"),
+                subtitle: String(localized: "Entre ou crie uma casa no Reveza.")
+            )
+            .widgetURL(WidgetSnapshot.defaultURL)
 
-            switch entry.snapshot.status {
-            case .notSignedIn:
-                statusMessage(
-                    icon: "person.crop.circle.badge.exclamationmark",
-                    title: String(localized: "Entre na conta"),
-                    subtitle: String(localized: "Abra o Reveza para ver suas tarefas.")
-                )
+        case .ready:
+            if entry.snapshot.tasks.isEmpty {
+                WidgetEmptyDoneView()
+                    .widgetURL(WidgetSnapshot.defaultURL)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .center) {
+                        Text("\(entry.snapshot.tasks.count)")
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
 
-            case .noHouse:
-                statusMessage(
-                    icon: "house",
-                    title: String(localized: "Sem casa"),
-                    subtitle: String(localized: "Entre ou crie uma casa no Reveza.")
-                )
+                        Spacer(minLength: 4)
 
-            case .ready:
-                if let first = entry.snapshot.tasks.first {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(first.name)
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(2)
-
-                        if let subtitle = taskSubtitle(for: first) {
-                            Text(subtitle)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-
-                        Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: first.occurrenceID)) {
-                            Label("Concluir", systemImage: "checkmark.circle.fill")
-                                .font(.caption.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(first.tintColor)
+                        RoomBadgeStack(badges: distinctRoomBadges(from: entry.snapshot.tasks, limit: 3))
                     }
-                } else {
-                    statusMessage(
-                        icon: "checkmark.circle.fill",
-                        title: String(localized: "Tudo em dia!"),
-                        subtitle: entry.snapshot.houseName
-                    )
+
+                    Spacer(minLength: 8)
+
+                    VStack(alignment: .leading, spacing: 9) {
+                        ForEach(Array(entry.snapshot.tasks.prefix(3))) { task in
+                            HStack(spacing: 8) {
+                                Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
+                                    Circle()
+                                        .strokeBorder(task.tintColor, lineWidth: 2)
+                                        .frame(width: 18, height: 18)
+                                }
+                                .buttonStyle(.plain)
+
+                                Link(destination: task.deepLinkURL) {
+                                    Text(task.name)
+                                        .font(.system(size: 14, weight: .regular))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                        }
+                    }
                 }
+                .widgetURL(WidgetSnapshot.defaultURL)
             }
         }
-        .widgetURL(WidgetSnapshot.defaultURL)
     }
 
-    // MARK: - Médio e Grande (systemMedium / systemLarge)
+    // MARK: - M2 · Lista com prazo (systemMedium) + D · Estado vazio
 
     @ViewBuilder
-    private func listView(maxItems: Int) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            headerView
+    private var mediumListView: some View {
+        switch entry.snapshot.status {
+        case .notSignedIn:
+            WidgetStatusView(
+                icon: "person.crop.circle.badge.exclamationmark",
+                title: String(localized: "Abra o app e entre na sua conta"),
+                subtitle: String(localized: "Suas tarefas aparecerão aqui automaticamente.")
+            )
+            .widgetURL(WidgetSnapshot.defaultURL)
 
-            switch entry.snapshot.status {
-            case .notSignedIn:
-                Spacer(minLength: 0)
-                statusMessage(
-                    icon: "person.crop.circle.badge.exclamationmark",
-                    title: String(localized: "Abra o app e entre na sua conta"),
-                    subtitle: String(localized: "Suas tarefas aparecerão aqui automaticamente.")
-                )
-                Spacer(minLength: 0)
+        case .noHouse:
+            WidgetStatusView(
+                icon: "house",
+                title: String(localized: "Você ainda não faz parte de uma casa"),
+                subtitle: String(localized: "Crie ou entre em uma casa no Reveza.")
+            )
+            .widgetURL(WidgetSnapshot.defaultURL)
 
-            case .noHouse:
-                Spacer(minLength: 0)
-                statusMessage(
-                    icon: "house",
-                    title: String(localized: "Você ainda não faz parte de uma casa"),
-                    subtitle: String(localized: "Crie ou entre em uma casa no Reveza.")
-                )
-                Spacer(minLength: 0)
+        case .ready:
+            if entry.snapshot.tasks.isEmpty {
+                WidgetEmptyDoneView()
+                    .widgetURL(WidgetSnapshot.defaultURL)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .center, spacing: 8) {
+                        RoomBadgeStack(badges: distinctRoomBadges(from: entry.snapshot.tasks, limit: 3))
 
-            case .ready:
-                if entry.snapshot.tasks.isEmpty {
-                    Spacer(minLength: 0)
-                    HStack(spacing: 10) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.green)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Tudo em dia!")
-                                .font(.subheadline.weight(.semibold))
-                            Text("Você não tem tarefas pendentes agora.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                } else {
-                    let visible = Array(entry.snapshot.tasks.prefix(maxItems))
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(visible) { task in
-                            taskRow(task)
-                        }
-                    }
-                    Spacer(minLength: 0)
-                    let remaining = entry.snapshot.tasks.count - visible.count
-                    if remaining > 0 {
-                        Text("+\(remaining) pendentes no app")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .widgetURL(WidgetSnapshot.defaultURL)
-    }
-
-    private var headerView: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "checklist")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(Color.accentColor)
-            Text(entry.snapshot.houseName.isEmpty ? String(localized: "Minhas tarefas") : entry.snapshot.houseName)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Spacer()
-            if entry.snapshot.status == .ready {
-                Text("\(entry.snapshot.tasks.count) pendentes")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private func taskRow(_ task: WidgetTaskItem) -> some View {
-        HStack(spacing: 10) {
-            Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
-                Image(systemName: "circle")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(task.tintColor)
-            }
-            .buttonStyle(.plain)
-
-            Link(destination: task.deepLinkURL) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(task.name)
-                            .font(.subheadline.weight(.medium))
+                        Text("Minhas tarefas")
+                            .font(.system(size: 17, weight: .bold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
 
-                        if let subtitle = taskSubtitle(for: task) {
-                            Text(subtitle)
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                        Spacer(minLength: 4)
+
+                        Text("\(entry.snapshot.tasks.count)")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
+                    }
+
+                    Spacer(minLength: 10)
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(Array(entry.snapshot.tasks.prefix(3))) { task in
+                            HStack(spacing: 10) {
+                                Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
+                                    Circle()
+                                        .strokeBorder(task.tintColor, lineWidth: 2)
+                                        .frame(width: 19, height: 19)
+                                }
+                                .buttonStyle(.plain)
+
+                                Link(destination: task.deepLinkURL) {
+                                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                        Text(task.name)
+                                            .font(.system(size: 15, weight: .regular))
+                                            .foregroundStyle(.primary)
+                                            .lineLimit(1)
+
+                                        Spacer(minLength: 4)
+
+                                        if let deadline = WidgetDeadlineFormatter.format(dueAt: task.dueAt, now: entry.date) {
+                                            Text(deadline.text)
+                                                .font(.system(size: 13, weight: deadline.isUrgent ? .semibold : .regular))
+                                                .foregroundStyle(deadline.isUrgent ? .primary : .secondary)
+                                                .lineLimit(1)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                    Spacer(minLength: 0)
                 }
+                .widgetURL(WidgetSnapshot.defaultURL)
             }
         }
     }
@@ -299,14 +263,14 @@ struct MyTasksWidgetEntryView: View {
                     Text(first.name)
                         .font(.caption.weight(.medium))
                         .lineLimit(1)
-                    if let subtitle = taskSubtitle(for: first) {
+                    if let subtitle = lockScreenSubtitle(for: first) {
                         Text(subtitle)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
                 } else {
-                    Text("Tudo em dia!")
+                    Text("Tudo feito")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -315,13 +279,456 @@ struct MyTasksWidgetEntryView: View {
         .widgetURL(WidgetSnapshot.defaultURL)
     }
 
-    // MARK: - Auxiliares
+    private func lockScreenSubtitle(for task: WidgetTaskItem) -> String? {
+        var parts: [String] = []
+        if let roomName = task.roomName, !roomName.isEmpty {
+            parts.append(roomName)
+        }
+        if let deadline = WidgetDeadlineFormatter.format(dueAt: task.dueAt, now: entry.date) {
+            parts.append(deadline.text)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
 
-    private func statusMessage(icon: String, title: String, subtitle: String) -> some View {
+// MARK: - Seleção de Cômodo e Widget de Cômodo (C1c · Número no canto e M5 · Cômodo + tarefas)
+
+struct WidgetRoomEntity: AppEntity {
+    static let typeDisplayRepresentation: TypeDisplayRepresentation = "Cômodo"
+    static let defaultQuery = WidgetRoomEntityQuery()
+
+    let id: UUID
+    let name: String
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(name)")
+    }
+}
+
+struct WidgetRoomEntityQuery: EntityQuery {
+    func entities(for identifiers: [UUID]) async throws -> [WidgetRoomEntity] {
+        let rooms = WidgetTaskStore.shared.loadSnapshot().rooms
+        return rooms
+            .filter { identifiers.contains($0.id) }
+            .map { WidgetRoomEntity(id: $0.id, name: $0.name) }
+    }
+
+    func suggestedEntities() async throws -> [WidgetRoomEntity] {
+        let rooms = WidgetTaskStore.shared.loadSnapshot().rooms
+        return rooms.map { WidgetRoomEntity(id: $0.id, name: $0.name) }
+    }
+
+    func defaultResult() async -> WidgetRoomEntity? {
+        guard let first = WidgetTaskStore.shared.loadSnapshot().rooms.first else { return nil }
+        return WidgetRoomEntity(id: first.id, name: first.name)
+    }
+}
+
+struct SelectRoomWidgetIntent: WidgetConfigurationIntent {
+    static let title: LocalizedStringResource = "Escolher cômodo"
+    static let description = IntentDescription("Escolhe qual cômodo exibir no widget.")
+
+    @Parameter(title: "Cômodo")
+    var room: WidgetRoomEntity?
+}
+
+struct RoomTasksEntry: TimelineEntry {
+    let date: Date
+    let snapshot: WidgetSnapshot
+    let selectedRoom: WidgetRoomSummary?
+}
+
+struct RoomTasksTimelineProvider: AppIntentTimelineProvider {
+    func placeholder(in context: Context) -> RoomTasksEntry {
+        let placeholder = WidgetSnapshot.placeholder
+        return RoomTasksEntry(date: .now, snapshot: placeholder, selectedRoom: placeholder.rooms.first)
+    }
+
+    func snapshot(for configuration: SelectRoomWidgetIntent, in context: Context) async -> RoomTasksEntry {
+        if context.isPreview {
+            let placeholder = WidgetSnapshot.placeholder
+            return RoomTasksEntry(date: .now, snapshot: placeholder, selectedRoom: placeholder.rooms.first)
+        }
+        let snapshot = WidgetTaskStore.shared.loadSnapshot()
+        return RoomTasksEntry(
+            date: .now,
+            snapshot: snapshot,
+            selectedRoom: resolveRoom(in: snapshot, configuration: configuration)
+        )
+    }
+
+    func timeline(for configuration: SelectRoomWidgetIntent, in context: Context) async -> Timeline<RoomTasksEntry> {
+        let now = Date.now
+        let snapshot = WidgetTaskStore.shared.loadSnapshot()
+        let entry = RoomTasksEntry(
+            date: now,
+            snapshot: snapshot,
+            selectedRoom: resolveRoom(in: snapshot, configuration: configuration)
+        )
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: now)
+            ?? now.addingTimeInterval(1800)
+        return Timeline(entries: [entry], policy: .after(nextUpdate))
+    }
+
+    private func resolveRoom(in snapshot: WidgetSnapshot, configuration: SelectRoomWidgetIntent) -> WidgetRoomSummary? {
+        if let selectedID = configuration.room?.id,
+           let matched = snapshot.rooms.first(where: { $0.id == selectedID }) {
+            return matched
+        }
+        if let firstWithPending = snapshot.rooms.first(where: { !$0.pendingTasks.isEmpty }) {
+            return firstWithPending
+        }
+        return snapshot.rooms.first
+    }
+}
+
+struct RoomTasksWidget: Widget {
+    let kind: String = WidgetTaskStore.roomWidgetKind
+
+    var body: some WidgetConfiguration {
+        AppIntentConfiguration(
+            kind: kind,
+            intent: SelectRoomWidgetIntent.self,
+            provider: RoomTasksTimelineProvider()
+        ) { entry in
+            RoomTasksWidgetEntryView(entry: entry)
+        }
+        .configurationDisplayName("Cômodo")
+        .description("Acompanhe o ciclo de um cômodo e conclua as tarefas dele.")
+        .supportedFamilies([
+            .systemSmall,
+            .systemMedium,
+        ])
+    }
+}
+
+struct RoomTasksWidgetEntryView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: RoomTasksEntry
+
+    var body: some View {
+        switch family {
+        case .systemSmall:
+            smallRoomView
+                .containerBackground(for: .widget) {
+                    smallBackground
+                }
+        default:
+            mediumRoomView
+                .containerBackground(Color(uiColor: .systemBackground), for: .widget)
+        }
+    }
+
+    @ViewBuilder
+    private var smallBackground: some View {
+        if entry.snapshot.status == .ready, let room = entry.selectedRoom, !room.pendingTasks.isEmpty {
+            LinearGradient(
+                colors: [
+                    room.tintColor.opacity(0.26),
+                    room.tintColor.opacity(0.06),
+                    Color(uiColor: .systemBackground),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else {
+            Color(uiColor: .systemBackground)
+        }
+    }
+
+    // MARK: - C1c · Número no canto (systemSmall)
+
+    @ViewBuilder
+    private var smallRoomView: some View {
+        switch entry.snapshot.status {
+        case .notSignedIn:
+            WidgetStatusView(
+                icon: "person.crop.circle.badge.exclamationmark",
+                title: String(localized: "Entre na conta"),
+                subtitle: String(localized: "Abra o Reveza para ver suas tarefas.")
+            )
+            .widgetURL(WidgetSnapshot.defaultURL)
+
+        case .noHouse:
+            WidgetStatusView(
+                icon: "house",
+                title: String(localized: "Sem casa"),
+                subtitle: String(localized: "Entre ou crie uma casa no Reveza.")
+            )
+            .widgetURL(WidgetSnapshot.defaultURL)
+
+        case .ready:
+            if let room = entry.selectedRoom {
+                if room.pendingTasks.isEmpty {
+                    WidgetEmptyDoneView()
+                        .widgetURL(WidgetSnapshot.defaultURL)
+                } else {
+                    RoomSummaryBlockContent(room: room, now: entry.date)
+                        .widgetURL(WidgetSnapshot.defaultURL)
+                }
+            } else {
+                WidgetEmptyDoneView()
+                    .widgetURL(WidgetSnapshot.defaultURL)
+            }
+        }
+    }
+
+    // MARK: - M5 · Cômodo + tarefas (systemMedium)
+
+    @ViewBuilder
+    private var mediumRoomView: some View {
+        switch entry.snapshot.status {
+        case .notSignedIn:
+            WidgetStatusView(
+                icon: "person.crop.circle.badge.exclamationmark",
+                title: String(localized: "Abra o app e entre na sua conta"),
+                subtitle: String(localized: "Suas tarefas aparecerão aqui automaticamente.")
+            )
+            .widgetURL(WidgetSnapshot.defaultURL)
+
+        case .noHouse:
+            WidgetStatusView(
+                icon: "house",
+                title: String(localized: "Você ainda não faz parte de uma casa"),
+                subtitle: String(localized: "Crie ou entre em uma casa no Reveza.")
+            )
+            .widgetURL(WidgetSnapshot.defaultURL)
+
+        case .ready:
+            if let room = entry.selectedRoom {
+                HStack(spacing: 14) {
+                    RoomSummaryBlockContent(room: room, now: entry.date)
+                        .padding(12)
+                        .frame(width: 142)
+                        .frame(maxHeight: .infinity)
+                        .background(
+                            LinearGradient(
+                                colors: [
+                                    room.tintColor.opacity(0.26),
+                                    room.tintColor.opacity(0.06),
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        )
+
+                    if room.pendingTasks.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Spacer(minLength: 0)
+                            Text("Tudo feito")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(.primary)
+                            Text("Suas tarefas estão em dia.")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(Array(room.pendingTasks.prefix(3))) { task in
+                                HStack(spacing: 8) {
+                                    Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
+                                        Circle()
+                                            .strokeBorder(room.tintColor, lineWidth: 2)
+                                            .frame(width: 19, height: 19)
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Link(destination: task.deepLinkURL) {
+                                        Text(task.name)
+                                            .font(.system(size: 15, weight: .regular))
+                                            .foregroundStyle(.primary)
+                                            .lineLimit(1)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                }
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.top, 6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .widgetURL(WidgetSnapshot.defaultURL)
+            } else {
+                WidgetEmptyDoneView()
+                    .widgetURL(WidgetSnapshot.defaultURL)
+            }
+        }
+    }
+}
+
+// MARK: - Componentes Visuais Compartilhados (Design System do Widget)
+
+private struct RoomBadgeInfo: Identifiable, Hashable {
+    let id: String
+    let icon: String
+    let tint: Color
+}
+
+private func distinctRoomBadges(from tasks: [WidgetTaskItem], limit: Int) -> [RoomBadgeInfo] {
+    var seen = Set<String>()
+    var result: [RoomBadgeInfo] = []
+    for task in tasks {
+        let key = task.roomID?.uuidString ?? "\(task.roomName ?? "")-\(task.colorRawValue)"
+        if seen.insert(key).inserted {
+            result.append(
+                RoomBadgeInfo(
+                    id: key,
+                    icon: task.roomIcon,
+                    tint: task.tintColor
+                )
+            )
+            if result.count == limit { break }
+        }
+    }
+    return result
+}
+
+/// Pilha horizontal de até 3 ícones circulares de cômodo (usada em A · Lista e M2 · Lista com prazo).
+private struct RoomBadgeStack: View {
+    let badges: [RoomBadgeInfo]
+
+    var body: some View {
+        HStack(spacing: -5) {
+            ForEach(badges) { badge in
+                ZStack {
+                    Circle()
+                        .fill(badge.tint)
+                        .frame(width: 24, height: 24)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color(uiColor: .systemBackground), lineWidth: 1.5)
+                        }
+
+                    Image(systemName: badge.icon)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+    }
+}
+
+/// Bloco de resumo do cômodo (topo com anel de progresso + número de restantes; rodapé com nome do cômodo e término do ciclo).
+private struct RoomSummaryBlockContent: View {
+    let room: WidgetRoomSummary
+    let now: Date
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center) {
+                RoomProgressRingIcon(
+                    icon: room.icon,
+                    tint: room.tintColor,
+                    progress: room.progressFraction
+                )
+
+                Spacer(minLength: 4)
+
+                VStack(alignment: .trailing, spacing: -2) {
+                    Text("\(room.pendingTasks.count)")
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+
+                    Text(room.pendingTasks.count == 1 ? String(localized: "restante") : String(localized: "restantes"))
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(room.name)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Text(WidgetDeadlineFormatter.formatCycleEnd(room.periodEnd, now: now))
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+}
+
+/// Anel de progresso circular ao redor do ícone do cômodo (usado em C1c e M5).
+private struct RoomProgressRingIcon: View {
+    let icon: String
+    let tint: Color
+    let progress: Double
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(tint.opacity(0.22), lineWidth: 4)
+                .frame(width: 46, height: 46)
+
+            Circle()
+                .trim(from: 0, to: max(min(progress, 1), 0.12))
+                .stroke(
+                    tint,
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .frame(width: 46, height: 46)
+
+            Circle()
+                .fill(tint)
+                .frame(width: 32, height: 32)
+
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+    }
+}
+
+/// D · Estado vazio ("Tudo feito / Suas tarefas estão em dia.").
+private struct WidgetEmptyDoneView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 32, height: 32)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Tudo feito")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.primary)
+
+                Text("Suas tarefas estão em dia.")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct WidgetStatusView: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Image(systemName: icon)
                 .font(.title3)
                 .foregroundStyle(.secondary)
+            Spacer(minLength: 4)
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(2)
@@ -330,17 +737,6 @@ struct MyTasksWidgetEntryView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
         }
-    }
-
-    private func taskSubtitle(for task: WidgetTaskItem) -> String? {
-        var parts: [String] = []
-        if let roomName = task.roomName, !roomName.isEmpty {
-            parts.append(roomName)
-        }
-        if let dueAt = task.dueAt {
-            parts.append(dueAt.formatted(date: .abbreviated, time: .omitted))
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-

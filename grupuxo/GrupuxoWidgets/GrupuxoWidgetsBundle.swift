@@ -5,6 +5,6 @@ import WidgetKit
 struct GrupuxoWidgetsBundle: WidgetBundle {
     var body: some Widget {
         MyTasksWidget()
+        RoomTasksWidget()
     }
 }
-
