@@ -15,9 +15,9 @@
 		A5W000013070000000C0FFEE /* GrupuxoWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A5W000023070000000C0FFEE /* GrupuxoWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A5W000033070000000C0FFEE /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5W000043070000000C0FFEE /* WidgetKit.framework */; };
 		A5W000053070000000C0FFEE /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5W000063070000000C0FFEE /* SwiftUI.framework */; };
-		A5W000073070000000C0FFEE /* WidgetTaskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5W000083070000000C0FFEE /* WidgetTaskStore.swift */; };
-		A5W000093070000000C0FFEE /* CompleteTaskFromWidgetIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5W0000A3070000000C0FFEE /* CompleteTaskFromWidgetIntent.swift */; };
-		A5W0001B3070000000C0FFEE /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A5W0001C3070000000C0FFEE /* Localizable.xcstrings */; };
+		A5W000073070000000C0FFEE /* grupuxo/Widgets/WidgetTaskStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5W000083070000000C0FFEE /* grupuxo/Widgets/WidgetTaskStore.swift */; };
+		A5W000093070000000C0FFEE /* grupuxo/Widgets/CompleteTaskFromWidgetIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5W0000A3070000000C0FFEE /* grupuxo/Widgets/CompleteTaskFromWidgetIntent.swift */; };
+		A5W0001B3070000000C0FFEE /* grupuxo/Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A5W0001C3070000000C0FFEE /* grupuxo/Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,14 +77,12 @@
 		};
 		A5W000103070000000C0FFEE /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
 			dstPath = "";
-			dstSubfolderSpec = 13;
+			dstSubfolder = PlugIns;
 			files = (
 				A5W000013070000000C0FFEE /* GrupuxoWidgets.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -99,9 +97,9 @@
 		A5W000023070000000C0FFEE /* GrupuxoWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GrupuxoWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5W000043070000000C0FFEE /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		A5W000063070000000C0FFEE /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		A5W000083070000000C0FFEE /* WidgetTaskStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = grupuxo/Widgets/WidgetTaskStore.swift; sourceTree = "<group>"; };
-		A5W0000A3070000000C0FFEE /* CompleteTaskFromWidgetIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = grupuxo/Widgets/CompleteTaskFromWidgetIntent.swift; sourceTree = "<group>"; };
-		A5W0001C3070000000C0FFEE /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = grupuxo/Localizable.xcstrings; sourceTree = "<group>"; };
+		A5W000083070000000C0FFEE /* grupuxo/Widgets/WidgetTaskStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = grupuxo/Widgets/WidgetTaskStore.swift; sourceTree = "<group>"; };
+		A5W0000A3070000000C0FFEE /* grupuxo/Widgets/CompleteTaskFromWidgetIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = grupuxo/Widgets/CompleteTaskFromWidgetIntent.swift; sourceTree = "<group>"; };
+		A5W0001C3070000000C0FFEE /* grupuxo/Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = grupuxo/Localizable.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -122,7 +120,6 @@
 		A5W0000F3070000000C0FFEE /* Exceptions for "GrupuxoWidgets" folder in "GrupuxoWidgets" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				GrupuxoWidgets.entitlements,
 				Info.plist,
 			);
 			target = A5W0000B3070000000C0FFEE /* GrupuxoWidgets */;
@@ -234,6 +231,7 @@
 				A5831E1C309A1B1E003B5F8E /* Reveza-clipUITests */,
 				A5D1AC4F306E9DE700B49919 /* Frameworks */,
 				A5AC27BE3058135C006C8F79 /* Products */,
+				A5D696DB30AB4EF800609A9F /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -258,6 +256,16 @@
 				A5W000063070000000C0FFEE /* SwiftUI.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A5D696DB30AB4EF800609A9F /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				A5W000083070000000C0FFEE /* grupuxo/Widgets/WidgetTaskStore.swift */,
+				A5W0000A3070000000C0FFEE /* grupuxo/Widgets/CompleteTaskFromWidgetIntent.swift */,
+				A5W0001C3070000000C0FFEE /* grupuxo/Localizable.xcstrings */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -352,26 +360,6 @@
 			productReference = A5AC27BD3058135C006C8F79 /* grupuxo.app */;
 			productType = "com.apple.product-type.application";
 		};
-		A5W0000B3070000000C0FFEE /* GrupuxoWidgets */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = A5W000143070000000C0FFEE /* Build configuration list for PBXNativeTarget "GrupuxoWidgets" */;
-			buildPhases = (
-				A5W000123070000000C0FFEE /* Sources */,
-				A5W000113070000000C0FFEE /* Frameworks */,
-				A5W000133070000000C0FFEE /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				A5W0000E3070000000C0FFEE /* GrupuxoWidgets */,
-			);
-			name = GrupuxoWidgets;
-			productName = GrupuxoWidgets;
-			productReference = A5W000023070000000C0FFEE /* GrupuxoWidgets.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 		A5AC27C93058135D006C8F79 /* grupuxoTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A5AC27E13058135D006C8F79 /* Build configuration list for PBXNativeTarget "grupuxoTests" */;
@@ -416,6 +404,24 @@
 			productName = grupuxoUITests;
 			productReference = A5AC27D43058135D006C8F79 /* grupuxoUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		A5W0000B3070000000C0FFEE /* GrupuxoWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A5W000143070000000C0FFEE /* Build configuration list for PBXNativeTarget "GrupuxoWidgets" */;
+			buildPhases = (
+				A5W000123070000000C0FFEE /* Sources */,
+				A5W000113070000000C0FFEE /* Frameworks */,
+				A5W000133070000000C0FFEE /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				A5W0000E3070000000C0FFEE /* GrupuxoWidgets */,
+			);
+			name = GrupuxoWidgets;
+			productName = GrupuxoWidgets;
+			productReference = A5W000023070000000C0FFEE /* GrupuxoWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -518,7 +524,7 @@
 		A5W000133070000000C0FFEE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
-				A5W0001B3070000000C0FFEE /* Localizable.xcstrings in Resources */,
+				A5W0001B3070000000C0FFEE /* grupuxo/Localizable.xcstrings in Resources */,
 			);
 		};
 /* End PBXResourcesBuildPhase section */
@@ -557,8 +563,8 @@
 		A5W000123070000000C0FFEE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
-				A5W000073070000000C0FFEE /* WidgetTaskStore.swift in Sources */,
-				A5W000093070000000C0FFEE /* CompleteTaskFromWidgetIntent.swift in Sources */,
+				A5W000073070000000C0FFEE /* grupuxo/Widgets/WidgetTaskStore.swift in Sources */,
+				A5W000093070000000C0FFEE /* grupuxo/Widgets/CompleteTaskFromWidgetIntent.swift in Sources */,
 			);
 		};
 /* End PBXSourcesBuildPhase section */
@@ -889,7 +895,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 17;
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = ZTK9F54WV3;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = grupuxo/Info.plist;
@@ -908,7 +914,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = vidal.grupuxo;
+				PRODUCT_BUNDLE_IDENTIFIER = henrique.grupuxo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -934,7 +940,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 17;
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = ZTK9F54WV3;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = grupuxo/Info.plist;
@@ -953,7 +959,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = vidal.grupuxo;
+				PRODUCT_BUNDLE_IDENTIFIER = henrique.grupuxo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1062,7 +1068,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = ZTK9F54WV3;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = GrupuxoWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Reveza;
@@ -1074,7 +1080,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = vidal.grupuxo.widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = henrique.grupuxo.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1097,7 +1103,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_LANGUAGE = en;
-				DEVELOPMENT_TEAM = ZTK9F54WV3;
+				DEVELOPMENT_TEAM = 2DK23BZ7KB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = GrupuxoWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Reveza;
@@ -1109,7 +1115,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = vidal.grupuxo.widgets;
+				PRODUCT_BUNDLE_IDENTIFIER = henrique.grupuxo.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

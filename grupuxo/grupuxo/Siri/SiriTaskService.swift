@@ -108,7 +108,7 @@ final class SiriTaskService: Sendable {
         do {
             return try await work()
         } catch let error as APIError {
-            Logger(subsystem: "vidal.grupuxo", category: "Siri").error("API falhou: \(String(describing: error), privacy: .public)")
+            Logger(subsystem: "henrique.grupuxo", category: "Siri").error("API falhou: \(String(describing: error), privacy: .public)")
             switch error {
             case .unauthorized: throw ServiceError.notSignedIn
             case .http where error.code == "no_house" || error.code == "account_not_registered": throw ServiceError.noHouse

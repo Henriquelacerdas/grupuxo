@@ -302,13 +302,13 @@ struct WidgetSessionCredentials: Codable, Equatable, Sendable {
 }
 
 /// Armazenamento compartilhado entre o app principal e `GrupuxoWidgets` via Keychain Sharing
-/// (`ZTK9F54WV3.vidal.grupuxo.shared`).
+/// (`2DK23BZ7KB.henrique.grupuxo.shared`).
 ///
 /// Respeita a política de isolamento de sessão do projeto: `clear()` apaga imediatamente o snapshot e o token no logout
 /// para que nenhuma informação fique acessível entre contas diferentes.
 struct WidgetTaskStore: Sendable {
-    static let keychainAccessGroup = "ZTK9F54WV3.vidal.grupuxo.shared"
-    static let keychainService = "vidal.grupuxo.widget"
+    static let keychainAccessGroup = "2DK23BZ7KB.henrique.grupuxo.shared"
+    static let keychainService = "henrique.grupuxo.widget"
     static let widgetKind = "MyTasksWidget"
     static let roomWidgetKind = "RoomTasksWidget"
     static let shared = WidgetTaskStore()
