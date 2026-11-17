@@ -290,8 +290,8 @@ struct MyTasksView: View {
             onSelect: {
                 onSelectTask(row.item.definition.id)
             }
-        )
-        .plainCardRow()
+)
+        .swipeableCardRow()
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
 
             if viewModel.canEnd(row.item) {

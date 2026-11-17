@@ -166,7 +166,13 @@ extension View {
     /// A linha da lista vira só um espaço: o fundo e o arredondamento ficam no cartão.
     func plainCardRow() -> some View {
         listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+            .swipeableCardRow()
+    }
+
+    /// Como `plainCardRow`, mas mantém o fundo padrão da linha: é ele que o sistema mostra
+    /// como a ponta cinza da linha arrastada ao deslizar (como no Lembretes).
+    func swipeableCardRow() -> some View {
+        listRowSeparator(.hidden)
             .listRowInsets(
                 EdgeInsets(
                     top: 0,

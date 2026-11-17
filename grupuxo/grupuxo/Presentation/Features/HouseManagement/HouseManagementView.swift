@@ -446,6 +446,15 @@ private extension View {
     func houseSubtitle(_ name: String) -> some View {
         if #available(iOS 26, *) {
             navigationSubtitle(name)
+                .toolbar {
+                    ToolbarItem(placement: .largeSubtitle) {
+                        Text(name)
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
         } else {
             self
         }

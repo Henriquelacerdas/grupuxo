@@ -540,6 +540,15 @@ private extension View {
     func roomSubtitle(_ subtitle: String?) -> some View {
         if #available(iOS 26, *), let subtitle {
             navigationSubtitle(subtitle)
+                .toolbar {
+                    ToolbarItem(placement: .largeSubtitle) {
+                        Text(subtitle)
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
         } else {
             self
         }
