@@ -121,13 +121,30 @@ struct AuthServiceSessionTests {
         #expect(!service.isSignedIn)
     }
 
-    @Test(arguments: [AuthSignOutOutcome.complete, .partial, .failed])
-    func signOutAlwaysClearsLocalState(outcome: AuthSignOutOutcome) async {
+    @Test(arguments: [AuthSignOutOutcome.complete, .partial])
+    func signOutClearsLocalState(outcome: AuthSignOutOutcome) async {
         let service = AuthService(client: FakeAuthSessionClient(valid, signOut: outcome))
         await service.checkSession()
         #expect(service.isSignedIn)
-        await service.signOut()
+        let didSignOut = await service.signOut()
+        #expect(didSignOut)
         #expect(!service.isSignedIn)
+    }
+
+    @Test func forcedSignOutLeavesEvenWhenTheRemoteOneFails() async {
+        let service = AuthService(client: FakeAuthSessionClient(valid, signOut: .failed))
+        await service.checkSession()
+        let didSignOut = await service.signOut(force: true)
+        #expect(didSignOut)
+        #expect(!service.isSignedIn)
+    }
+
+    @Test func cancelledSignOutKeepsTheSessionOpen() async {
+        let service = AuthService(client: FakeAuthSessionClient(valid, signOut: .failed))
+        await service.checkSession()
+        let didSignOut = await service.signOut()
+        #expect(!didSignOut)
+        #expect(service.isSignedIn)
     }
 }
 

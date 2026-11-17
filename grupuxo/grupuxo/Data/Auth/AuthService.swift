@@ -146,9 +146,12 @@ class AuthService: ObservableObject {
         }
     }
     
-    // Faz o logout. Mesmo se o Cognito falhar (ex.: sem rede), o estado local é limpo.
-    func signOut() async {
-        // Os lembretes ficam no aparelho, não na conta: sem isto, a próxima conta veria as tarefas desta no Lembretes.
+    // Faz o logout. `.failed` (aviso do iOS cancelado ou sem rede para a página de saída do Apple/Cognito)
+    // deixa os tokens no Keychain: a sessão continua valendo e o app não pode fingir que saiu.
+    // Devolve `false` nesse caso; `.partial` limpa o aparelho e conta como saída.
+    // `force` (sessão vencida, conta apagada) sai de qualquer jeito, só local se preciso.
+    @discardableResult
+    func signOut(force: Bool = false) async -> Bool {
         if let beforeSignOut {
             // Sem rede, o logout não espera mais que alguns segundos por isso.
             await withTaskGroup(of: Void.self) { group in
@@ -158,16 +161,22 @@ class AuthService: ObservableObject {
                 group.cancelAll()
             }
         }
+        let outcome = await client.signOut()
+        if outcome == .failed {
+            guard force else {
+                print("Logout cancelado ou falhou; a sessão continua aberta.")
+                return false
+            }
+            await client.clearStaleSession()
+        }
+        // Os lembretes ficam no aparelho, não na conta: sem isto, a próxima conta veria as tarefas desta no Lembretes.
         await ReminderLinkCleaner().removeAll()
         ReminderSyncPreference().setEnabled(false)
         PendingTasksBadge.clear()
         DailyTasksNoticeManager.shared.disable()
         CycleNoticeManager.shared.disable()
-        let outcome = await client.signOut()
-        if outcome == .failed {
-            print("Logout remoto falhou; limpando o estado local.")
-        }
         isSignedIn = false
+        return true
     }
 
     // Faz o cadastro de um novo usuário (o e-mail é o nome de usuário no Cognito).

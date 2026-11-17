@@ -124,6 +124,28 @@ struct TaskUpcomingAssignmentsTests {
         #expect(queue.first?.isCurrent == true)
     }
 
+    @Test func overviewCurrentIsTheRequestersOwnOpenTurn() async throws {
+        // Periodicidade própria: cada morador tem a sua vez aberta; a de outro, mais antiga, não é a minha.
+        let (container, definitions) = container { first, _ in
+            [occurrence(first, offset: -300), occurrence(first, offset: -100)]
+        }
+        let others = MockSeed.leo
+        try await container.store.update { state in
+            let ids = state.occurrences.filter { $0.taskDefinitionID == definitions[0].id }
+                .sorted { $0.availableAt < $1.availableAt }.map(\.id)
+            let owners = [others.id, MockSeed.currentUser.id]
+            for (id, owner) in zip(ids, owners) {
+                state.assignments.append(TaskAssignment(
+                    id: UUID(), occurrenceID: id, userID: owner,
+                    assignedAt: Date(timeIntervalSince1970: 0), endedAt: nil, supersededAt: nil))
+            }
+        }
+        let overview = try await GetTaskOverviewUseCase(repository: container.taskRepository)(
+            taskDefinitionID: definitions[0].id, requesting: MockSeed.currentUser.id, at: now)
+        #expect(overview.current?.assignment?.userID == MockSeed.currentUser.id)
+        #expect(overview.current?.occurrence.availableAt == now.addingTimeInterval(-100))
+    }
+
     @Test func upcomingQueueNeverRepeatsAPersonInARow() async throws {
         let (container, definitions) = container { first, _ in
             // Two executions in the same period: the overdue one and the next one belong to the same person.

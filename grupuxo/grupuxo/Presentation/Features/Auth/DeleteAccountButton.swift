@@ -46,6 +46,6 @@ struct DeleteAccountButton: View {
             errorMessage = houses.errorMessage ?? String(localized: "Tente de novo em instantes.")
             return
         }
-        await authService.signOut()
+        await authService.signOut(force: true)
     }
 }

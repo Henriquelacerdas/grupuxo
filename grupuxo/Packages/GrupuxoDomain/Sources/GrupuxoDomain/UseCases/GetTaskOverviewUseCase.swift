@@ -39,8 +39,11 @@ public struct GetTaskOverviewUseCase: Sendable {
         // The history is secondary: a failure here must not hide the task itself.
         let items = (try? await repository.occurrences(of: taskDefinitionID, requesting: userID)) ?? []
 
-        let current = items
-            .filter { !$0.occurrence.isCompleted && $0.occurrence.availableAt <= now }
+        // Em tarefa de periodicidade própria cada morador tem a sua vez aberta ao mesmo tempo:
+        // a "atual" é a de quem pergunta; só sem ela vale a mais antiga das abertas.
+        let open = items.filter { !$0.occurrence.isCompleted && $0.occurrence.availableAt <= now }
+        let mine = open.filter { $0.assignment?.userID == userID && $0.assignment?.isActive == true }
+        let current = (mine.isEmpty ? open : mine)
             .min {
                 if $0.occurrence.availableAt != $1.occurrence.availableAt {
                     return $0.occurrence.availableAt < $1.occurrence.availableAt
