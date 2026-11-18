@@ -1602,8 +1602,37 @@
         }
       }
     },
-    "Ao continuar, você concorda com os Termos de Uso e a Política de Privacidade." : {
-
+    "Ao continuar, você concorda com os [Termos de Uso](%@) e a [Política de Privacidade](%@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By continuing, you agree to the [Terms of Use](%1$@) and the [Privacy Policy](%2$@)."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ao continuar, você concorda com os [Termos de Uso](%1$@) e a [Política de Privacidade](%2$@)."
+          }
+        }
+      }
+    },
+    "Ao continuar, você concorda com a Política de Privacidade." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By continuing, you agree to the Privacy Policy."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ao continuar, você concorda com a Política de Privacidade."
+          }
+        }
+      }
     },
     "Ao descartar as alterações nenhuma Tarefa Única será atribuída a você." : {
       "localizations" : {

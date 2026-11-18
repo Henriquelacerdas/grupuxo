@@ -115,12 +115,24 @@ struct LoginView: View {
             .buttonStyle(.authApple)
             .disabled(isWorking)
 
-            Text("Ao continuar, você concorda com os Termos de Uso e a Política de Privacidade.")
+            legalNotice
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, AuthLayout.horizontalPadding)
         }
+    }
+
+    /// "Ao continuar, você concorda com os Termos de Uso e a Política de Privacidade", com os dois links. Sem as duas
+    /// URLs configuradas, não cita documento que não dá para abrir.
+    private var legalNotice: Text {
+        let info = AppInfo(bundle: .main)
+        guard let terms = info.termsOfUseURL, let privacy = info.privacyPolicyURL,
+              let text = try? AttributedString(markdown: String(
+                localized: "Ao continuar, você concorda com os [Termos de Uso](\(terms.absoluteString)) e a [Política de Privacidade](\(privacy.absoluteString))."
+              ))
+        else { return Text("Ao continuar, você concorda com a Política de Privacidade.") }
+        return Text(text)
     }
 
     private func signIn() async {
