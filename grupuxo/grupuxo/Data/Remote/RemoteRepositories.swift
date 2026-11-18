@@ -3,8 +3,8 @@ import GrupuxoDomain
 
 // Repositórios do domínio sobre a `api`. Os parâmetros `requestedBy`/`requesting`/`at` são ignorados de propósito: o
 // servidor usa o usuário do token e o próprio relógio (BACKEND.md seção 6.1). Operações sem rota lançam
-// `APIError.unsupported` (moradores sem conta, edição de tarefa, exclusão de avulsa e pedido de entrada em cômodo
-// privado); as telas que dependem delas ficam escondidas neste build ou mostram o erro.
+// `APIError.unsupported` (morador sem conta e remover outro morador da casa); as telas que dependem delas ficam
+// escondidas neste build ou mostram o erro.
 
 extension UUID {
     /// O servidor só reconhece UUID em minúsculo nos caminhos.
