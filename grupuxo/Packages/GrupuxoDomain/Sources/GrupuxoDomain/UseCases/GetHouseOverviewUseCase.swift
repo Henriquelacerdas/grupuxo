@@ -93,22 +93,25 @@ public struct GetHouseOverviewUseCase: Sendable {
         let taskRepository = taskRepository
         let summaries = try await rooms.concurrentMap(limit: maxConcurrentRoomQueries) { room in
             let participation = try await roomRepository.participation(in: room.id, requesting: userID, at: date)
-            let progress = participation.isMember
-                ? try await taskRepository.cycleProgress(of: participation, requesting: userID)
+            let summary = participation.isMember
+                ? try await taskRepository.cycleSummary(of: participation, requesting: userID)
                 : nil
-            return (participation, progress)
+            return (participation, summary)
         }
 
         let pending = try await pendingRequests
-        let overviews = summaries.map { participation, progress in
-            RoomOverview(
+        let overviews = summaries.map { participation, summary in
+            // Quem está com as tarefas do ciclo de fato (trocas e replanejamentos incluídos), como no cômodo;
+            // sem tarefas atribuídas no ciclo, vale a fila calculada.
+            let assignees = summary?.assignees ?? []
+            return RoomOverview(
                 room: participation.room,
                 isMember: participation.isMember,
-                cycleResponsibleNames: participation.responsibleNames,
-                cycleResponsibleUserIDs: participation.responsibleUserIDs,
+                cycleResponsibleNames: assignees.isEmpty ? participation.responsibleNames : assignees.map(\.name),
+                cycleResponsibleUserIDs: assignees.isEmpty ? participation.responsibleUserIDs : assignees.map(\.id),
                 periodStart: participation.periodStart,
                 periodEnd: participation.periodEnd,
-                cycleProgress: progress,
+                cycleProgress: summary?.progress,
                 accessRequestPending: !participation.isMember && pending.contains(participation.room.id)
             )
         }
@@ -121,19 +124,36 @@ public struct GetHouseOverviewUseCase: Sendable {
     }
 }
 
+/// Andamento e responsáveis do ciclo atual das tarefas que seguem a escala do cômodo.
+struct CycleSummary: Sendable {
+    let progress: CycleProgress
+    /// Moradores com alguma tarefa do ciclo, sem repetir, em ordem estável pelo ID.
+    let assignees: [User]
+}
+
 extension TaskRepository {
 
     /// Conta as ocorrências do ciclo atual das tarefas que seguem a escala do cômodo.
     func cycleProgress(of participation: RoomParticipation, requesting userID: User.ID) async throws -> CycleProgress {
+        try await cycleSummary(of: participation, requesting: userID).progress
+    }
+
+    func cycleSummary(of participation: RoomParticipation, requesting userID: User.ID) async throws -> CycleSummary {
         let room = participation.room
         let cycleTasks = try await tasks(in: room.id, requesting: userID).filter {
             $0.definition.isLinked(to: room)
                 && $0.occurrence.availableAt >= participation.periodStart
                 && $0.occurrence.availableAt < participation.periodEnd
         }
-        return CycleProgress(
-            completed: cycleTasks.filter { $0.occurrence.isCompleted }.count,
-            total: cycleTasks.count
+        let assignees = Dictionary(grouping: cycleTasks.filter { $0.definition.kind == .recurring }.compactMap(\.assignee), by: \.id)
+            .compactMap { $0.value.first }
+            .sorted { $0.id.uuidString.lowercased() < $1.id.uuidString.lowercased() }
+        return CycleSummary(
+            progress: CycleProgress(
+                completed: cycleTasks.filter { $0.occurrence.isCompleted }.count,
+                total: cycleTasks.count
+            ),
+            assignees: assignees
         )
     }
 }

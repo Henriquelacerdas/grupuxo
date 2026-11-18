@@ -205,7 +205,11 @@ final class RoomDetailViewModel: ObservableObject {
         let revision = completions.revision
         do {
             let participation = try await getParticipation(roomID: roomID, userID: userID)
-            async let pendingTasks = getRoomTasks(roomID: roomID, userID: userID)
+            async let pendingTasks = getRoomTasks(
+                roomID: roomID,
+                userID: userID,
+                cycle: RoomCycle(room: participation.room, start: participation.periodStart, end: participation.periodEnd)
+            )
             async let pendingUniqueTasks = getSporadicTasks(
                 houseID: participation.room.houseID,
                 userID: userID

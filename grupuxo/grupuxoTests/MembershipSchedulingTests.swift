@@ -156,6 +156,35 @@ struct MembershipSchedulingTests {
         #expect(state.occurrences.count == 2)
     }
 
+    @Test func leavingTheHouseHandsTheOpenOwnTurnToTheNextInTheQueue() throws {
+        var state = state()
+        let task = try service.create(definition(policy: .afterCompletion), at: date, state: &state)
+        let leaver = state.assignments[0].userID
+        let occurrenceID = state.occurrences[0].id
+        try service.removeMember(userID: leaver, roomID: task.roomID, at: date, houseChange: true, replan: false, state: &state)
+        let owners = state.assignments.filter { $0.occurrenceID == occurrenceID && $0.isActive }
+        #expect(owners.count == 1)
+        #expect(owners[0].userID != leaver)
+        #expect(state.occurrences.count == 1)
+    }
+
+    @Test func leavingTheHouseRemovesTheOpenCalendarTurnAndKeepsCompletedOnes() throws {
+        var state = state()
+        let task = try service.create(definition(policy: .calendarRotation), at: date, state: &state)
+        let open = state.occurrences[0]
+        let leaver = try #require(state.assignments.first { $0.occurrenceID == open.id && $0.isActive }?.userID)
+        try service.complete(occurrenceID: open.id, by: leaver, at: date, state: &state)
+        let done = state.occurrences.filter(\.isCompleted).map(\.id)
+        try service.removeMember(userID: leaver, roomID: task.roomID, at: date, houseChange: true, replan: false, state: &state)
+        #expect(done.allSatisfy { id in state.occurrences.contains { $0.id == id && $0.isCompleted } })
+        let stillOpen = state.occurrences.filter { occurrence in
+            !occurrence.isCompleted && state.assignments.contains {
+                $0.occurrenceID == occurrence.id && $0.userID == leaver && $0.isActive
+            }
+        }
+        #expect(stillOpen.isEmpty)
+    }
+
     @Test @MainActor func privateRoomDepartureExposesOnlyRetainedTasks() async throws {
         var seed = MockSeed.make()
         seed.schedule = state()

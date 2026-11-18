@@ -481,6 +481,7 @@ export class TaskSchedulingService {
       const i = state.rooms.findIndex((r) => r.id === roomID);
       if (i >= 0) state.rooms[i] = { ...at(state.rooms, i), visibility: "privateRoom" };
     }
+    if (!joining && houseChange) this.releaseDepartedTurns(userID, roomID, boundary, date, state);
     if (replan) this.rebalance(room.houseID, boundary, date, state);
   }
 
@@ -1274,6 +1275,38 @@ export class TaskSchedulingService {
       candidate = this.firstWeeklyDate(this.adding("day", 1, candidate), definition);
     }
     return open ?? candidate;
+  }
+
+  /**
+   * Quem sai da casa não conclui mais nada: as vezes abertas dele neste cômodo não podem ficar com ele. Na repetição
+   * própria passam para o próximo da fila (ou ficam sem responsável, se não sobra ninguém), senão a tarefa travaria
+   * esperando uma conclusão que não vem; nas demais, a vez não feita é removida (concluídas e saldo ficam).
+   */
+  releaseDepartedTurns(userID: UserID, roomID: RoomID, boundary: Instant, date: Instant, state: SchedulingState): void {
+    const definitions = new Map(state.definitions.filter((d) => d.roomID === roomID).map((d) => [d.id, d]));
+    const owned = new Set(state.assignments.filter((a) => a.userID === userID && isActiveAssignment(a)).map((a) => a.occurrenceID));
+    const removed = new Set<TaskOccurrence["id"]>();
+    const ordered = state.occurrences
+      .map((occurrence, index) => ({ occurrence, index }))
+      .filter(({ occurrence }) => owned.has(occurrence.id) && occurrence.status !== "completed"
+        && definitions.has(occurrence.taskDefinitionID))
+      .sort((l, r) => compareIDs(l.occurrence.id, r.occurrence.id));
+    for (const { occurrence, index } of ordered) {
+      const definition = definitions.get(occurrence.taskDefinitionID);
+      if (definition === undefined) continue;
+      if (definition.assignmentPolicy !== "afterCompletion") {
+        removed.add(occurrence.id);
+        continue;
+      }
+      const participants = this.members(definition, boundary, state, { includeAbsent: true });
+      const queue = definition.rotationQueue.length === 0 ? participants : this.normalizedQueue(definition);
+      const from = queue.indexOf(userID);
+      const next = from < 0 ? undefined : [...queue.slice(from + 1), ...queue.slice(0, from)].find((u) => participants.includes(u));
+      this.replaceAssignment(index, next ?? participants[0] ?? null, date, state);
+    }
+    if (removed.size === 0) return;
+    state.assignments = state.assignments.filter((a) => !removed.has(a.occurrenceID));
+    state.occurrences = state.occurrences.filter((o) => !removed.has(o.id));
   }
 
   deleteRoom(roomID: RoomID, state: SchedulingState): void {

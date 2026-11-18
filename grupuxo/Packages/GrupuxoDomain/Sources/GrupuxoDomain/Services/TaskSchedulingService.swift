@@ -392,7 +392,40 @@ public struct TaskSchedulingService: Sendable {
         if !joining && !houseChange, let i = state.rooms.firstIndex(where: { $0.id == roomID }) {
             state.rooms[i].visibility = .privateRoom
         }
+        if !joining && houseChange { try releaseDepartedTurns(userID: userID, roomID: roomID, boundary: boundary, at: date, state: &state) }
         if replan { try rebalance(houseID: room.houseID, boundary: boundary, at: date, state: &state) }
+    }
+
+    /// Whoever leaves the house completes nothing anymore: their open turns in this room cannot stay with them.
+    /// In own-repetition tasks they go to the next in the queue (or stay unassigned if nobody is left), otherwise the
+    /// task would wait forever for a completion that never comes; in the others the undone turn is removed
+    /// (completed ones and the balance stay).
+    func releaseDepartedTurns(userID: User.ID, roomID: Room.ID, boundary: Date, at date: Date,
+                              state: inout TaskSchedulingState) throws {
+        let definitions = Dictionary(uniqueKeysWithValues: state.definitions.filter { $0.roomID == roomID }.map { ($0.id, $0) })
+        let owned = Set(state.assignments.filter { $0.userID == userID && $0.isActive }.map(\.occurrenceID))
+        var removed = Set<TaskOccurrence.ID>()
+        let ordered = state.occurrences.indices
+            .filter { owned.contains(state.occurrences[$0].id) && !state.occurrences[$0].isCompleted
+                && definitions[state.occurrences[$0].taskDefinitionID] != nil }
+            .sorted { state.occurrences[$0].id.uuidString.lowercased() < state.occurrences[$1].id.uuidString.lowercased() }
+        for index in ordered {
+            let occurrence = state.occurrences[index]
+            guard let definition = definitions[occurrence.taskDefinitionID] else { continue }
+            guard definition.assignmentPolicy == .afterCompletion else {
+                removed.insert(occurrence.id)
+                continue
+            }
+            let participants = try members(for: definition, at: boundary, state: state, includeAbsent: true)
+            let queue = definition.rotationQueue.isEmpty ? participants : try normalizedQueue(definition)
+            let next = queue.firstIndex(of: userID).flatMap { from in
+                (Array(queue[(from + 1)...]) + Array(queue[..<from])).first { participants.contains($0) }
+            }
+            replaceAssignment(occurrenceIndex: index, userID: next ?? participants.first, at: date, state: &state)
+        }
+        guard !removed.isEmpty else { return }
+        state.assignments.removeAll { removed.contains($0.occurrenceID) }
+        state.occurrences.removeAll { removed.contains($0.id) }
     }
 
     /// Replans the turns from `boundary` on, published or not: the new queues start at the first turn on or after

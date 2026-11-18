@@ -132,6 +132,35 @@ test("a fila por conclusão muda na fronteira", () => {
   assert.equal(state.occurrences.length, 2);
 });
 
+test("sair da casa passa a vez aberta da repetição própria ao próximo da fila", () => {
+  const { service, state, definition } = setup();
+  const task = service.create(definition(undefined, "afterCompletion"), date, state);
+  const leaver = first(state.assignments).userID;
+  const occurrenceID = first(state.occurrences).id;
+  service.removeMember(leaver, task.roomID, date, state, { houseChange: true, replan: false });
+  const owners = state.assignments.filter((a) => a.occurrenceID === occurrenceID && isActiveAssignment(a));
+  assert.equal(owners.length, 1);
+  assert.notEqual(first(owners).userID, leaver);
+  assert.equal(first(state.occurrences).status, "assigned");
+  assert.equal(state.occurrences.length, 1);
+});
+
+test("sair da casa remove a vez aberta do calendário e mantém as concluídas", () => {
+  const { service, state, definition } = setup();
+  service.create(definition(undefined, "calendarRotation"), date, state);
+  const open = first(state.occurrences);
+  const leaver = activeOwner(state, open);
+  assert.ok(leaver !== undefined);
+  service.complete(open.id, leaver, date, state);
+  const done = state.occurrences.filter(isCompleted).map((o) => o.id);
+  const roomID = first(state.definitions).roomID;
+  service.removeMember(leaver, roomID, date, state, { houseChange: true, replan: false });
+  assert.ok(done.every((id) => state.occurrences.some((o) => o.id === id && isCompleted(o))));
+  const stillOpenForLeaver = state.occurrences.filter((o) => !isCompleted(o)
+    && state.assignments.some((a) => a.occurrenceID === o.id && a.userID === leaver && isActiveAssignment(a)));
+  assert.equal(stillOpenForLeaver.length, 0);
+});
+
 test("saída de cômodo privado expõe só as pendências preservadas", async () => {
   const { world, state, users, rooms, house, definition } = setup();
   const env = world.env(state);

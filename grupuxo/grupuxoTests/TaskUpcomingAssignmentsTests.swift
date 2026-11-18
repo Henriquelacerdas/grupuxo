@@ -54,6 +54,27 @@ struct TaskUpcomingAssignmentsTests {
         #expect(byDefinition[definitions[1].id]?.occurrence.isCompleted == true)
     }
 
+    @Test func roomPrefersTheCurrentCycleOverAnOpenLeftoverFromBefore() async throws {
+        let (container, definitions) = container { first, _ in
+            [
+                occurrence(first, offset: -2_000),                  // ciclo anterior, ainda aberta
+                occurrence(first, offset: -100, completed: true),   // ciclo atual, concluída
+            ]
+        }
+        let room = MockSeed.kitchen
+        try #require(definitions[0].isLinked(to: room))
+        let cycle = RoomCycle(room: room, start: now.addingTimeInterval(-500), end: now.addingTimeInterval(500))
+        let useCase = GetRoomTasksUseCase(repository: container.taskRepository)
+
+        let withCycle = try await useCase(roomID: room.id, userID: MockSeed.currentUser.id, at: now, cycle: cycle)
+        let item = withCycle.first { $0.definition.id == definitions[0].id }
+        #expect(item?.occurrence.isCompleted == true)
+
+        // Sem o ciclo, vale a mais antiga aberta (comportamento anterior).
+        let without = try await useCase(roomID: room.id, userID: MockSeed.currentUser.id, at: now)
+        #expect(without.first { $0.definition.id == definitions[0].id }?.occurrence.isCompleted == false)
+    }
+
     @Test func roomShowsNearestFutureWhenNothingIsAvailable() async throws {
         let (container, definitions) = container { first, second in
             [
