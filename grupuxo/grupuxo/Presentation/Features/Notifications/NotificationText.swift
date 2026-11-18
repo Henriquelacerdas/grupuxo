@@ -87,7 +87,7 @@ enum NotificationText {
         switch notification.kind {
         case .taskSwapAccepted:
             let detail = notification.taskName.map { task in
-                notification.dueAt.map { String(localized: "Você faz \(task) até \(untilWeekday($0)).") }
+                notification.dueAt.map { String(localized: "Você faz \(task) até \(untilText($0, since: notification.createdAt)).") }
                     ?? String(localized: "Você faz \(task).")
             }
             return (String(localized: "\(actor) aceitou a troca"), detail)
@@ -110,13 +110,20 @@ enum NotificationText {
         case .cycleTurned where !subject.isEmpty:
             let others = notification.names.map(ResidentNameFormatting.shortName)
             let who = ListFormatter.localizedString(byJoining: [String(localized: "Você")] + others)
-            let detail = notification.dueAt.map { String(localized: "\(who) até \(untilWeekday($0))") }
+            let detail = notification.dueAt.map { String(localized: "\(who) até \(untilText($0, since: notification.createdAt))") }
             return (String(localized: "Novo ciclo: \(subject)"), detail)
         case .weeklySummaryReady:
             return (String(localized: "Resumo da semana pronto"), String(localized: "Veja como ficaram os cômodos."))
         default:
             return (message(for: notification, memberNames: memberNames), nil)
         }
+    }
+
+    /// "domingo" quando o fim cai na semana do aviso; mais longe (ciclo de 2 semanas ou mais), a data inteira, para não
+    /// parecer o domingo mais próximo: "29 de novembro".
+    static func untilText(_ due: Date, since created: Date) -> String {
+        guard due.timeIntervalSince(created) > 7 * 24 * 3600 else { return untilWeekday(due) }
+        return due.addingTimeInterval(-1).formatted(.dateTime.day().month(.wide).locale(HouseOverviewText.appLocale))
     }
 
     /// "domingo": o último dia que vale (o prazo do ciclo é a meia-noite da segunda, então volta um segundo).

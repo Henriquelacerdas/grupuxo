@@ -114,7 +114,7 @@ struct HouseSettingsView: View {
 
                 CopyCodeButton(code: house.accessCode)
 
-                ShareLink(item: String(localized: "Entre na casa \"\(house.name)\" no app usando o código: \(house.accessCode)")) {
+                ShareLink(item: String(localized: "Entre na casa \"\(house.name)\" no Reveza com o código \(house.accessCode).")) {
                     Image(systemName: "square.and.arrow.up")
                 }
                 .buttonStyle(.borderless)

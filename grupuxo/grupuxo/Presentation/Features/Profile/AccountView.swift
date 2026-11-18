@@ -32,6 +32,10 @@ struct AccountView: View {
             Section {
                 Button("Sair da conta") { confirmSignOut = true }
                     .frame(maxWidth: .infinity)
+                    // Preso ao botão, o diálogo abre ao lado dele em vez de no topo da lista.
+                    .confirmationDialog("Sair da conta?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+                        Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
+                    }
             }
 
             Section {
@@ -47,9 +51,6 @@ struct AccountView: View {
         .navigationTitle("Conta")
         .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.load() }
-        .confirmationDialog("Sair da conta?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-            Button("Sair da conta", role: .destructive) { Task { await authService.signOut() } }
-        }
         .sheet(isPresented: $changesPassword) {
             ChangePasswordView { old, new in
                 await authService.changePassword(oldPassword: old, newPassword: new)

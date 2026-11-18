@@ -167,6 +167,22 @@ struct TaskUpcomingAssignmentsTests {
         #expect(overview.current?.occurrence.availableAt == now.addingTimeInterval(-100))
     }
 
+    @Test func creatingASporadicTaskAssignsItToTheCreator() async throws {
+        let container = AppContainer()
+        let creator = MockSeed.currentUser.id
+        let definition = TaskDefinition(
+            id: UUID(), roomID: MockSeed.kitchen.id, name: "Trocar lâmpada", details: "",
+            effort: TaskEffort(points: 1), kind: .sporadic, recurrence: .none, assignmentPolicy: .selfAssigned,
+            createdByUserID: creator
+        )
+        let created = try await CreateTaskUseCase(
+            repository: container.taskRepository, roomRepository: container.roomRepository
+        )(definition: definition, requestedBy: creator)
+        let items = try await container.taskRepository.occurrences(of: created.id, requesting: creator)
+        #expect(items.count == 1)
+        #expect(items.first?.assignment?.userID == creator)
+    }
+
     @Test func upcomingQueueNeverRepeatsAPersonInARow() async throws {
         let (container, definitions) = container { first, _ in
             // Two executions in the same period: the overdue one and the next one belong to the same person.

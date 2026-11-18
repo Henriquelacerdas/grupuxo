@@ -13,7 +13,7 @@
         },
         "pt-BR" : {
           "stringUnit" : {
-            "state" : "new",
+            "state" : "translated",
             "value" : "Reveza"
           }
         }
@@ -26,13 +26,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "grupuxo"
+            "value" : "Reveza"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
-            "state" : "new",
-            "value" : "grupuxo"
+            "state" : "translated",
+            "value" : "Reveza"
           }
         }
       }

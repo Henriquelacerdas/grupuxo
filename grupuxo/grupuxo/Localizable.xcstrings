@@ -3442,34 +3442,18 @@
         }
       }
     },
-    "Entre na casa \"%@\" no app usando o código: %@" : {
+    "Entre na casa \"%@\" no Reveza com o código %@." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Join the house \"%@\" in the app using the code: %@"
+            "value" : "Join the house \"%1$@\" on Reveza with the code %2$@."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Entre na casa \"%1$@\" no app usando o código: %2$@"
-          }
-        }
-      }
-    },
-    "Entre na casa %@ no Reveza com o código %@." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Join %1$@ on Reveza with the code %2$@."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Entre na casa %1$@ no Reveza com o código %2$@."
+            "value" : "Entre na casa \"%1$@\" no Reveza com o código %2$@."
           }
         }
       }

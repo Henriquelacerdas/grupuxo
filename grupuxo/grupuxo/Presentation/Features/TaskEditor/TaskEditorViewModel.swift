@@ -6,6 +6,9 @@ import GrupuxoDomain
 final class TaskEditorViewModel: ObservableObject {
     @Published private(set) var state: TaskEditorState
     @Published private(set) var rooms: [Room] = []
+
+    /// Os cômodos ainda não chegaram: ao editar, o cômodo da tarefa já é conhecido mas ainda não tem nome para mostrar.
+    @Published private(set) var isLoadingRooms = true
     private let createTask: CreateTaskUseCase
     private let getHouseRooms: GetHouseRoomsUseCase
     private let houseID: House.ID
@@ -62,6 +65,7 @@ final class TaskEditorViewModel: ObservableObject {
     }
 
     func loadRooms() async {
+        defer { isLoadingRooms = false }
         do {
             rooms = try await getHouseRooms(
                 houseID: houseID, userID: requestingUserID, participatingOnly: true

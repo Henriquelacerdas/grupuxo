@@ -10,6 +10,9 @@ final class HouseManagementViewModel: ObservableObject {
     /// Falha de uma ação (pedir ou cancelar entrada); a tela mostra um alerta e mantém o conteúdo.
     @Published var actionError: String?
 
+    /// Cômodos com um pedido de entrada em andamento: o botão mostra progresso e não aceita outro toque.
+    @Published private(set) var busyRoomIDs: Set<Room.ID> = []
+
     let houseName: String
 
     private let getHouseOverview: GetHouseOverviewUseCase
@@ -80,7 +83,7 @@ final class HouseManagementViewModel: ObservableObject {
 
     func requestAccess(to roomID: Room.ID) async {
 
-        await perform {
+        await perform(roomID) {
             try await requestRoomAccess(
                 roomID: roomID,
                 userID: userID,
@@ -91,7 +94,7 @@ final class HouseManagementViewModel: ObservableObject {
 
     func cancelAccessRequest(for roomID: Room.ID) async {
 
-        await perform {
+        await perform(roomID) {
             try await cancelRoomAccessRequest(
                 roomID: roomID,
                 userID: userID
@@ -100,8 +103,12 @@ final class HouseManagementViewModel: ObservableObject {
     }
 
     private func perform(
+        _ roomID: Room.ID,
         _ action: () async throws -> Void
     ) async {
+
+        guard busyRoomIDs.insert(roomID).inserted else { return }
+        defer { busyRoomIDs.remove(roomID) }
 
         do {
             try await action()

@@ -90,6 +90,16 @@ struct NotificationTextTests {
         }
     }
 
+    @Test func farOffCycleEndShowsTheDateInsteadOfTheWeekday() {
+        let created = Date(timeIntervalSince1970: 1_000_000)
+        let near = created.addingTimeInterval(3 * 24 * 3600)
+        let far = created.addingTimeInterval(12 * 24 * 3600)
+        let nearText = NotificationText.untilText(near, since: created)
+        let farText = NotificationText.untilText(far, since: created)
+        #expect(!nearText.contains { $0.isNumber }, "perto: só o dia da semana")
+        #expect(farText.contains { $0.isNumber }, "longe: a data inteira")
+    }
+
     @Test func onlyNoticesThatPointToSomethingAliveOpenIt() {
         let task = UUID(), room = UUID()
         #expect(NotificationText.target(for: notice(.taskEdited, task: task)) == .task(task))

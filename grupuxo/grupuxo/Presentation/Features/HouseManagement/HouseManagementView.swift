@@ -279,6 +279,7 @@ struct HouseManagementView: View {
             RestrictedRoomCard(
                 row: row,
                 requestPending: requestPending,
+                isBusy: viewModel.busyRoomIDs.contains(row.id),
                 onRequest: {
                     Task {
                         await viewModel.requestAccess(

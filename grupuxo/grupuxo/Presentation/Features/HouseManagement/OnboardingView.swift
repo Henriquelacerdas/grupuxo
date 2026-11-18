@@ -426,7 +426,7 @@ struct OnboardingView: View {
     }
 
     private func inviteMessage(code: String) -> String {
-        String(localized: "Entre na casa \(houses.house?.name ?? "") no Reveza com o código \(code).")
+        String(localized: "Entre na casa \"\(houses.house?.name ?? "")\" no Reveza com o código \(code).")
     }
 
     /// Fecha o onboarding e abre o app na aba Casa.

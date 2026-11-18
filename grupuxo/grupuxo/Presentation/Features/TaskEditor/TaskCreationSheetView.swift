@@ -358,7 +358,7 @@ struct TaskCreationSheetView: View {
                 footer("A contagem começa quando a tarefa é feita. A cada vez, ela passa para a próxima pessoa.")
             } else if let room = viewModel.selectedRoom {
                 footer("\(RecurrencePresentation.name(for: room.periodicity)), junto com o cômodo. Muda de pessoa a cada rodízio.")
-            } else {
+            } else if !(viewModel.isLoadingRooms && viewModel.state.draft.roomID != nil) {
                 footer("Escolha um cômodo primeiro.")
             }
 
@@ -677,6 +677,8 @@ struct TaskCreationSheetView: View {
             let roomID = viewModel.state.draft.roomID,
             let room = viewModel.rooms.first(where: { $0.id == roomID })
         else {
+            // Editando, o cômodo já é conhecido: espera os nomes chegarem em vez de piscar "Nenhum".
+            if viewModel.isLoadingRooms, viewModel.state.draft.roomID != nil { return "" }
             return String(localized: "Nenhum")
         }
 

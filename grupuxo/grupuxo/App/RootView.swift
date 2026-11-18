@@ -195,7 +195,7 @@ struct RootView: View {
                         isPresentingHouseSettings = true
                     },
                     inviteMessage: String(
-                        localized: "Entre na casa \"\(session.currentHouse.name)\" no app usando o código: \(session.currentHouse.accessCode)"
+                        localized: "Entre na casa \"\(session.currentHouse.name)\" no Reveza com o código \(session.currentHouse.accessCode)."
                     ),
                     reloadTrigger: ReloadKey(activation: houseActivations, taskChanges: taskChanges)
                 )

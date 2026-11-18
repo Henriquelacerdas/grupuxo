@@ -355,8 +355,9 @@ struct SporadicTasksView: View {
                     DesignSystem.Spacing.large
             ) {
 
+                // Concluídas continuam na lista (dá para desfazer), mas não são pendentes.
                 hero(
-                    pendingCount: items.count
+                    pendingCount: items.filter { !$0.task.occurrence.isCompleted }.count
                 )
 
                 informationText

@@ -164,6 +164,7 @@ struct RestrictedRoomCard: View {
 
     let row: RoomRow
     let requestPending: Bool
+    var isBusy = false
     let onRequest: () -> Void
     let onCancel: () -> Void
 
@@ -181,6 +182,8 @@ struct RestrictedRoomCard: View {
             header
 
             requestButton
+                .disabled(isBusy)
+                .overlay { if isBusy { ProgressView() } }
                 .buttonStyle(.bordered)
                 .buttonBorderShape(.roundedRectangle(radius: DesignSystem.cornerRadius))
                 .controlSize(.large)
@@ -237,6 +240,7 @@ struct RestrictedRoomCard: View {
 
                 Text("Cancelar solicitação")
                     .font(.body.weight(.semibold))
+                    .opacity(isBusy ? 0 : 1)
                     .frame(maxWidth: .infinity)
             }
             .tint(.gray)
@@ -249,6 +253,7 @@ struct RestrictedRoomCard: View {
 
                 Text("Pedir para entrar")
                     .font(.body.weight(.semibold))
+                    .opacity(isBusy ? 0 : 1)
                     .frame(maxWidth: .infinity)
             }
             .accessibilityIdentifier("requestAccess")
