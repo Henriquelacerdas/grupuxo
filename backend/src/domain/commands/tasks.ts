@@ -237,8 +237,13 @@ function editableDefinition(
   if (definition === undefined || room === undefined) throw new DomainError("entityNotFound");
   const participates = state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === userID) &&
     state.roomMemberships.some((m) => m.roomID === roomID && m.userID === userID && isCurrentMember(m));
+  // A avulsa é de quem a criou; sem criador (anterior ao campo) ou com o criador já fora da casa ela não teria dono
+  // nunca mais, então qualquer participante a edita e apaga (espelha `isManageableSporadic` do Swift).
+  const creator = definition.createdByUserID;
+  const creatorGone = creator === undefined ||
+    !state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === creator);
   const allowed = definition.kind === "sporadic"
-    ? definition.createdByUserID === userID
+    ? creator === userID || creatorGone
     : definition.endedAt === null;
   if (!allowed || !participates) throw new DomainError("taskUnavailable");
   return { definition, index };

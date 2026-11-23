@@ -179,6 +179,7 @@
       }
     },
     "%@ já pegou essa tarefa" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5802,6 +5803,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Outro morador"
+          }
+        }
+      }
+    },
+    "Para " : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For "
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para "
           }
         }
       }

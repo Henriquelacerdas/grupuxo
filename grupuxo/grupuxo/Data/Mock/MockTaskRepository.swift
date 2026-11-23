@@ -190,7 +190,10 @@ struct MockTaskRepository: TaskRepository {
                 state.definitions[definitionIndex]
 
             if previousDefinition.kind == .sporadic {
-                guard previousDefinition.createdByUserID == userID else {
+                let houseMemberIDs = Set(state.houseMemberships.filter { membership in
+                    state.rooms.first { $0.id == previousDefinition.roomID }?.houseID == membership.houseID
+                }.map(\.userID))
+                guard previousDefinition.isManageableSporadic(by: userID, houseMemberIDs: houseMemberIDs) else {
                     throw DomainError.taskUnavailable
                 }
             }
@@ -341,9 +344,10 @@ struct MockTaskRepository: TaskRepository {
                 throw DomainError.entityNotFound
             }
 
-            guard definition.kind == .sporadic,
-                  definition.createdByUserID == userID
-            else {
+            let houseMemberIDs = Set(state.houseMemberships.filter { membership in
+                state.rooms.first { $0.id == definition.roomID }?.houseID == membership.houseID
+            }.map(\.userID))
+            guard definition.isManageableSporadic(by: userID, houseMemberIDs: houseMemberIDs) else {
                 throw DomainError.taskUnavailable
             }
 

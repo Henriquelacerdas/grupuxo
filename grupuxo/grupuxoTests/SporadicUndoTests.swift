@@ -105,5 +105,38 @@ struct SporadicUndoTests {
         #expect(!model.canClaim(taken))
         #expect(!model.canRelease(taken))
         #expect(model.takenByAnotherName(taken) != nil)
+        let label = try #require(model.assigneeName(taken))
+        #expect(label != "Você" && !label.isEmpty, "mostra o nome de quem está com a tarefa")
+
+        let mine = container.makeSporadicTasksViewModel(session: AppSession(currentUser: other, currentHouse: MockSeed.house))
+        await mine.load()
+        let seenByOwner = try #require(item(in: mine, id: occurrence.id))
+        #expect(mine.assigneeName(seenByOwner) == "Você")
+    }
+
+    @Test func taskWithoutAnOwnerCanBeManagedByAnyParticipant() async throws {
+        let container = AppContainer()
+        let me = MockSeed.currentUser
+        let members = Set(MockSeed.users.map(\.id))
+        let free = TaskDefinition(
+            id: UUID(), roomID: MockSeed.kitchen.id, name: "Trocar lâmpada", details: "", effort: TaskEffort(points: 1),
+            kind: .sporadic, recurrence: .none, assignmentPolicy: .selfAssigned, createdByUserID: nil
+        )
+        #expect(free.isManageableSporadic(by: me.id, houseMemberIDs: members), "sem criador: qualquer participante")
+
+        var abandoned = free
+        abandoned.createdByUserID = UUID()
+        #expect(abandoned.isManageableSporadic(by: me.id, houseMemberIDs: members), "criador fora da casa")
+
+        var mine = free
+        mine.createdByUserID = me.id
+        #expect(mine.isManageableSporadic(by: me.id, houseMemberIDs: members))
+        let other = try #require(MockSeed.users.first { $0.id != me.id })
+        #expect(!mine.isManageableSporadic(by: other.id, houseMemberIDs: members), "a de quem criou continua só dele")
+
+        // No repositório: apagar uma tarefa sem criador funciona.
+        _ = try await container.taskRepository.create(free, requestedBy: me.id, at: .now)
+        try await container.taskRepository.deleteSporadicTask(id: free.id, requestedBy: me.id)
+        #expect(await container.store.read { state in state.definitions.contains { $0.id == free.id } } == false)
     }
 }

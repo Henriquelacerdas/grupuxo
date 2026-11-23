@@ -64,6 +64,14 @@ public struct TaskDefinition: Identifiable, Hashable, Codable, Sendable {
 
 extension TaskDefinition {
 
+    /// A tarefa única é de quem a criou (só ele edita e apaga). Sem criador (criada antes do campo existir) ou com o
+    /// criador já fora da casa ela ficaria sem dono para sempre: então qualquer participante a edita e apaga.
+    public func isManageableSporadic(by userID: User.ID, houseMemberIDs: Set<User.ID>) -> Bool {
+        guard kind == .sporadic else { return false }
+        guard let createdByUserID else { return true }
+        return createdByUserID == userID || !houseMemberIDs.contains(createdByUserID)
+    }
+
     /// Uma tarefa está ligada ao cômodo quando segue a escala dele: recorrente, distribuída pelo algoritmo, do
     /// mesmo cômodo e com `followsRoom` (campo explícito). Sem o campo (definição antiga), vale a periodicidade
     /// igual à do cômodo. As demais são tarefas de repetição própria.

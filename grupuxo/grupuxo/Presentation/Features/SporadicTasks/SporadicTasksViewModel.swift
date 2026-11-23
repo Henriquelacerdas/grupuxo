@@ -411,6 +411,24 @@ final class SporadicTasksViewModel: ObservableObject {
             ?? String(localized: "Outro morador")
     }
 
+    /// Para quem a tarefa está: "Você" quando é minha (inclusive marcada e ainda não confirmada), o nome de outro morador
+    /// ou `nil` quando ninguém a pegou.
+    func assigneeName(
+        _ item: TaskItem
+    ) -> String? {
+
+        if pendingReleaseIDs.contains(item.id) { return nil }
+
+        if pendingClaimIDs.contains(item.id) { return String(localized: "Você") }
+
+        guard let assignment = item.assignment else { return nil }
+
+        if assignment.userID == userID { return String(localized: "Você") }
+
+        return item.assignee.map { ResidentNameFormatting.shortName($0.name) }
+            ?? String(localized: "Outro morador")
+    }
+
     /// Marquei "Adicionar" e ainda não confirmei (✓).
     func isPendingClaim(
         _ item: TaskItem
@@ -454,6 +472,15 @@ final class SporadicTasksViewModel: ObservableObject {
     }
 
     // MARK: - Ownership
+
+    /// Editar e apagar: a tarefa é de quem a criou; sem criador conhecido (criada antes do campo, ou o criador saiu da
+    /// casa) ela não teria dono, então qualquer morador pode (mesma regra do servidor).
+    func canManage(
+        _ item: SporadicTaskCardItem
+    ) -> Bool {
+
+        wasCreatedByCurrentUser(item) || item.creator == nil
+    }
 
     func wasCreatedByCurrentUser(
         _ item: SporadicTaskCardItem

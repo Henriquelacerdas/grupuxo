@@ -557,8 +557,7 @@ struct SporadicTasksView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if viewModel
-                .wasCreatedByCurrentUser(item) {
+            if viewModel.canManage(item) {
 
                 editAction(item)
 
@@ -637,6 +636,8 @@ struct SporadicTasksView: View {
 
                 roomLabel(item.room)
 
+                assigneeLabel(item)
+
                 creatorLabel(item)
             }
             .frame(
@@ -711,6 +712,40 @@ struct SporadicTasksView: View {
         .font(.body)
     }
 
+    /// "Para Julia": quem está com a tarefa, logo abaixo do cômodo. Some quando ninguém a pegou.
+    @ViewBuilder
+    private func assigneeLabel(
+        _ item: SporadicTaskCardItem
+    ) -> some View {
+
+        if let name = viewModel.assigneeName(item.task) {
+
+            HStack(
+                alignment: .firstTextBaseline,
+                spacing:
+                    DesignSystem.Spacing.small
+            ) {
+
+                Image(
+                    systemName: "person"
+                )
+                .accessibilityHidden(true)
+
+                (
+                    Text("Para ")
+                    +
+                    Text(name)
+                        .bold()
+                )
+                .fixedSize(
+                    horizontal: false,
+                    vertical: true
+                )
+            }
+            .font(.body)
+        }
+    }
+
     @ViewBuilder
     private func creatorLabel(
         _ item: SporadicTaskCardItem
@@ -752,23 +787,13 @@ struct SporadicTasksView: View {
 
     // MARK: - Actions
 
-    /// Quem já pegou a tarefa (Figma: "🔖 Julia já pegou essa tarefa") ou por que o morador não pode pegá-la.
+    /// Por que o morador não pode pegar a tarefa (cômodo de que não participa). Quem já pegou aparece em "Para …".
     @ViewBuilder
     private func assignmentNote(
         _ item: SporadicTaskCardItem
     ) -> some View {
 
-        if let name = viewModel.takenByAnotherName(item.task) {
-
-            Label {
-                Text("\(name) já pegou essa tarefa")
-            } icon: {
-                Image(systemName: "bookmark")
-            }
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.secondary)
-
-        } else if !item.task.occurrence.isCompleted,
+        if !item.task.occurrence.isCompleted,
                   item.task.assignment == nil,
                   !viewModel.isRoomMember(item.task) {
 
