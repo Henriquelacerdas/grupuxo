@@ -121,6 +121,7 @@ final class AppContainer {
             getPending: GetPendingRatingsUseCase(repository: ratingRepository),
             rate: RateRoomsUseCase(repository: ratingRepository),
             getSummary: GetRatingSummaryUseCase(repository: ratingRepository),
+            getRooms: GetHouseRoomsUseCase(repository: roomRepository),
             userID: session.currentUser.id,
             houseID: session.currentHouse.id
         )

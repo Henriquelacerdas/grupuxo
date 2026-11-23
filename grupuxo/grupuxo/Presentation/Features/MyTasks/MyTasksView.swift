@@ -88,6 +88,9 @@ struct MyTasksView: View {
         }
         .listStyle(.plain)
         .listRowSpacing(0)
+        .background {
+            if let weekRatingViewModel { WeekRatingSheetHost(viewModel: weekRatingViewModel) }
+        }
 
         .navigationTitle("Minhas tarefas")
 

@@ -807,7 +807,9 @@ struct RemoteRepositoryTests {
         let repository = RemoteRatingRepository(api: client(server))
         let model = await WeekRatingViewModel(
             getPending: GetPendingRatingsUseCase(repository: repository), rate: RateRoomsUseCase(repository: repository),
-            getSummary: GetRatingSummaryUseCase(repository: repository), userID: user, houseID: houseID
+            getSummary: GetRatingSummaryUseCase(repository: repository),
+            getRooms: GetHouseRoomsUseCase(repository: AppContainer().roomRepository), userID: user, houseID: houseID,
+            defaults: UserDefaults(suiteName: UUID().uuidString)!
         )
         await model.load()
         #expect(await model.pending.map(\.roomName) == ["Cozinha", "Banheiro"])

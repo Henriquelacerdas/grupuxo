@@ -42,12 +42,25 @@ enum WeekRatingText {
     /// "27 out – 2 nov": a semana do resumo (o fim é a segunda seguinte, então o último dia é o dia anterior).
     static func period(from start: Date, to end: Date, calendar: Calendar = .current) -> String {
         let lastDay = calendar.date(byAdding: .day, value: -1, to: end) ?? end
-        let style = Date.FormatStyle().day().month(.abbreviated).locale(HouseOverviewText.appLocale)
-        return "\(start.formatted(style)) – \(lastDay.formatted(style))"
+        return "\(shortDay(start, calendar: calendar)) – \(shortDay(lastDay, calendar: calendar))"
+    }
+
+    /// "2 nov": dia e mês abreviado, sem "de" nem ponto (como no Figma).
+    private static func shortDay(_ date: Date, calendar: Calendar) -> String {
+        let day = calendar.component(.day, from: date)
+        let month = date.formatted(Date.FormatStyle().month(.abbreviated).locale(HouseOverviewText.appLocale))
+        return "\(day) \(month.trimmingCharacters(in: CharacterSet(charactersIn: ".")))"
     }
 
     static func ratingCount(_ count: Int) -> String {
         count == 1 ? String(localized: "1 avaliação") : String(localized: "\(count) avaliações")
+    }
+
+    /// "O resumo sai terça": o dia em que a janela fecha e o resultado é liberado.
+    static func summaryComes(_ windowEnd: Date, calendar: Calendar = .current) -> String {
+        let lastDay = calendar.date(byAdding: .day, value: -1, to: windowEnd) ?? windowEnd
+        let weekday = lastDay.formatted(.dateTime.weekday(.wide).locale(HouseOverviewText.appLocale))
+        return String(localized: "O resumo sai \(weekday)")
     }
 
     /// "Termina terça": o último dia para avaliar (a janela fecha à meia-noite do dia seguinte).

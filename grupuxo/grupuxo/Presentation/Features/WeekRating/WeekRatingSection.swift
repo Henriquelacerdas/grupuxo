@@ -1,73 +1,124 @@
 import GrupuxoDomain
 import SwiftUI
 
-/// No topo de Minhas tarefas: "Avaliar a semana / Termina terça" e "Resumo da semana", quando há o que mostrar.
+/// No topo de Minhas tarefas (Figma "Linha do Resumo em Minhas tarefas · estados"): "Avaliar a semana / Termina terça"
+/// enquanto a avaliação está aberta, "Avaliação enviada / O resumo sai terça" depois de enviar e "Resumo da semana"
+/// quando o resultado sai.
 struct WeekRatingSection: View {
 
     @ObservedObject var viewModel: WeekRatingViewModel
-
-    @State private var isRating = false
-    @State private var isShowingSummary = false
 
     var body: some View {
 
         Group {
             if viewModel.hasPending {
-                row(
+                card(
                     title: "Avaliar a semana",
                     subtitle: viewModel.closesAt.map { Text(WeekRatingText.closing($0)) },
-                    systemImage: "checklist"
-                ) { isRating = true }
+                    systemImage: "star.fill",
+                    isActive: true,
+                    showsChevron: true
+                ) { viewModel.isRatingPresented = true }
                 .accessibilityIdentifier("rateWeek")
             }
 
+            if viewModel.hasSubmitted, let until = viewModel.submittedUntil {
+                card(
+                    title: "Avaliação enviada",
+                    subtitle: Text(WeekRatingText.summaryComes(until)),
+                    systemImage: "checkmark",
+                    isActive: false,
+                    showsChevron: false
+                )
+                .accessibilityIdentifier("ratingSent")
+            }
+
             if viewModel.hasSummary {
-                row(title: "Resumo da semana", subtitle: nil, systemImage: "list.bullet.clipboard.fill") {
-                    isShowingSummary = true
-                }
+                card(
+                    title: "Resumo da semana",
+                    subtitle: Text("Veja como ficaram os cômodos"),
+                    systemImage: "list.bullet.clipboard.fill",
+                    isActive: true,
+                    showsChevron: true
+                ) { viewModel.isSummaryPresented = true }
                 .accessibilityIdentifier("weekSummary")
             }
         }
         // O carregamento fica em `MyTasksView`: um `.task` aqui não roda enquanto o `Group` está vazio (nada a mostrar),
         // e então as avaliações nunca chegariam.
-        .sheet(isPresented: $isRating) {
-            RateWeekSheet(viewModel: viewModel)
-        }
-        .sheet(isPresented: $isShowingSummary) {
-            WeekSummarySheet(summary: viewModel.summary, currentUserID: viewModel.userID)
-        }
     }
 
-    private func row(title: LocalizedStringKey, subtitle: Text?, systemImage: String, action: @escaping () -> Void) -> some View {
+    /// Cartão de 24 pt de raio com ícone de 36 pt, título, subtítulo e, quando abre algo, a seta.
+    private func card(
+        title: LocalizedStringKey, subtitle: Text?, systemImage: String, isActive: Bool, showsChevron: Bool,
+        action: (() -> Void)? = nil
+    ) -> some View {
 
-        Button(action: action) {
-            HStack(spacing: DesignSystem.Spacing.medium) {
-                Image(systemName: systemImage)
-                    .foregroundStyle(.tint)
-                    .frame(width: DesignSystem.minimumTouchTarget - 8)
-                    .accessibilityHidden(true)
+        let content = HStack(spacing: DesignSystem.Spacing.medium) {
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.body.weight(.semibold)).foregroundStyle(.primary)
-                    if let subtitle {
-                        subtitle.font(.subheadline).foregroundStyle(.secondary)
-                    }
+            Image(systemName: systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isActive ? Color.white : Color.secondary)
+                .frame(width: 36, height: 36)
+                .background(isActive ? Color.accentColor : Color(.tertiarySystemFill), in: .circle)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                if let subtitle {
+                    subtitle.font(.subheadline).foregroundStyle(.secondary)
                 }
+            }
 
-                Spacer(minLength: 0)
+            Spacer(minLength: 0)
 
+            if showsChevron {
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, DesignSystem.Spacing.large)
+        .padding(.vertical, DesignSystem.Spacing.medium)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardBackground(Color(uiColor: .secondarySystemBackground))
+        .contentShape(Rectangle())
+
+        return Group {
+            if let action {
+                Button(action: action) { content }.buttonStyle(.plain)
+            } else {
+                content.accessibilityElement(children: .combine)
+            }
+        }
+        .padding(.vertical, DesignSystem.Spacing.extraSmall)
+        .plainCardRow()
+        .listRowSeparator(.hidden)
     }
 }
 
-/// Folha "Avaliar a semana": um cartão por cômodo, com os três níveis e as tags (opcionais). Fechar sem enviar não grava.
+/// Dono das folhas "Avaliar a semana" e "Resumo da semana". Fica num lugar estável (fundo da lista), não na linha:
+/// uma linha de `List` é reciclada e a folha abria e fechava sozinha.
+struct WeekRatingSheetHost: View {
+
+    @ObservedObject var viewModel: WeekRatingViewModel
+
+    var body: some View {
+        Color.clear
+            .sheet(isPresented: $viewModel.isRatingPresented) {
+                RateWeekSheet(viewModel: viewModel)
+            }
+            .sheet(isPresented: $viewModel.isSummaryPresented) {
+                WeekSummarySheet(summary: viewModel.summary, currentUserID: viewModel.userID, looks: viewModel.roomLooks)
+            }
+    }
+}
+
+// MARK: - Avaliar a semana
+
+/// Folha "Avaliar a semana" (Figma): "Como ficaram os cômodos?" e um cartão por cômodo, com os três níveis e, depois de
+/// escolher um, as tags (opcionais). X fecha sem gravar; o ✓ envia.
 struct RateWeekSheet: View {
 
     @ObservedObject var viewModel: WeekRatingViewModel
@@ -77,15 +128,24 @@ struct RateWeekSheet: View {
     var body: some View {
 
         NavigationStack {
-            List {
-                Section {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.large + DesignSystem.Spacing.extraSmall) {
+
+                    intro
+
                     ForEach(viewModel.pending) { item in
                         card(item)
                     }
-                } footer: {
-                    Text("Sua avaliação é anônima: ninguém vê quem avaliou. O resultado aparece para quem cuidou do cômodo.")
+
+                    Text("Entram só os cômodos cujo ciclo terminou nesta semana. O resultado de cada cômodo só aparece com 2 avaliações ou mais, e ninguém vê quem avaliou.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.horizontal, DesignSystem.Spacing.large)
+                .padding(.top, DesignSystem.Spacing.medium)
+                .padding(.bottom, DesignSystem.Spacing.large * 2)
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("Avaliar a semana")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -97,7 +157,7 @@ struct RateWeekSheet: View {
                     if viewModel.isSaving {
                         ProgressView()
                     } else {
-                        Button("Enviar") {
+                        Button("Enviar", systemImage: "checkmark") {
                             Task {
                                 if await viewModel.submit() {
                                     showToast(.created(String(localized: "Avaliação enviada")))
@@ -105,6 +165,8 @@ struct RateWeekSheet: View {
                                 }
                             }
                         }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderedProminent)
                         .disabled(!viewModel.canSubmit)
                         .accessibilityIdentifier("submitRating")
                     }
@@ -122,42 +184,127 @@ struct RateWeekSheet: View {
         .interactiveDismissDisabled(viewModel.isSaving)
     }
 
+    private var intro: some View {
+
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Como ficaram os cômodos?")
+                .roundedFont(.title2.bold())
+            Text("Sua avaliação é anônima. Você não avalia o cômodo que cuidou.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func card(_ item: PendingRating) -> some View {
 
         let draft = viewModel.draft(for: item.roomID)
 
-        return VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+        return VStack(alignment: .leading, spacing: 14) {
 
-            Text(item.roomName).roundedFont(.headline)
+            RoomTitle(name: item.roomName, look: viewModel.roomLooks[item.roomID])
 
-            HStack(spacing: DesignSystem.Spacing.small) {
+            // O visual tem 40 pt e o toque 44: o espaço entre linhas desconta a diferença para o vão ficar em 8 pt.
+            FlexibleLayout(spacing: DesignSystem.Spacing.small, lineSpacing: DesignSystem.Spacing.small - 4) {
                 ForEach(RatingLevel.allCases, id: \.self) { level in
-                    Button {
+                    LevelPill(title: WeekRatingText.title(level), isSelected: draft.level == level) {
                         viewModel.select(level, for: item.roomID)
-                    } label: {
-                        Label(WeekRatingText.title(level), systemImage: WeekRatingText.systemImage(level))
-                            .font(.footnote.weight(.semibold))
-                            .labelStyle(.titleOnly)
-                            .frame(maxWidth: .infinity, minHeight: 36)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(draft.level == level ? .accentColor : .secondary)
-                    .accessibilityAddTraits(draft.level == level ? .isSelected : [])
                 }
             }
 
             if let level = draft.level {
-                Text(WeekRatingText.tagsQuestion(for: level))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                FlowChips(items: RatingTag.options(for: level), selected: draft.tags) { tag in
-                    viewModel.toggle(tag, for: item.roomID)
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.small) {
+                    Text(WeekRatingText.tagsQuestion(for: level))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    FlexibleLayout(spacing: DesignSystem.Spacing.small, lineSpacing: DesignSystem.Spacing.small - 12) {
+                        ForEach(RatingTag.options(for: level), id: \.self) { tag in
+                            TagChip(title: WeekRatingText.title(tag), isSelected: draft.tags.contains(tag)) {
+                                viewModel.toggle(tag, for: item.roomID)
+                            }
+                        }
+                    }
                 }
             }
         }
-        .padding(.vertical, DesignSystem.Spacing.small)
+        .padding(.horizontal, DesignSystem.Spacing.large)
+        .padding(.top, 14)
+        .padding(.bottom, DesignSystem.Spacing.large)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardBackground()
     }
 }
+
+/// Ícone do cômodo (32 pt) e nome, como nos cartões da avaliação e do resumo.
+private struct RoomTitle: View {
+
+    let name: String
+    let look: WeekRatingViewModel.RoomLook?
+
+    var body: some View {
+        HStack(spacing: DesignSystem.Spacing.medium) {
+            if let look {
+                RoomIconView(icon: look.icon, color: look.color, size: 32)
+            }
+            Text(name).font(.body.weight(.semibold))
+        }
+    }
+}
+
+/// Um dos três níveis. O visual tem 40 pt (Figma); a área de toque chega a 44 pt (HIG).
+private struct LevelPill: View {
+
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .padding(.horizontal, 14)
+                .frame(height: 40)
+                .background(isSelected ? Color.accentColor : Color(.tertiarySystemFill), in: .capsule)
+                .frame(minHeight: DesignSystem.minimumTouchTarget)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// Tag da avaliação. Marcada: fundo e texto na cor de destaque, com ✓ (Figma). Visual de 32 pt, toque de 44 pt.
+private struct TagChip: View {
+
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Group {
+                if isSelected {
+                    Text("\(Image(systemName: "checkmark")) \(title)")
+                } else {
+                    Text(title)
+                }
+            }
+            .font(.subheadline)
+            .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+            .padding(.horizontal, DesignSystem.Spacing.medium)
+            .frame(height: 32)
+            .background(isSelected ? Color.accentColor.opacity(0.15) : Color(.tertiarySystemFill), in: .capsule)
+            .frame(minHeight: DesignSystem.minimumTouchTarget)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+// MARK: - Resumo da semana
 
 /// Folha "Resumo da semana" (Figma): o período e as tarefas feitas na casa; "Seu cômodo" com o nível, as avaliações e as
 /// tags de quem cuidou; e "Casa" com os demais cômodos (só nível e contagem). Nunca mostra quem avaliou.
@@ -165,46 +312,46 @@ struct WeekSummarySheet: View {
 
     let summary: WeekSummary
     let currentUserID: User.ID
+    let looks: [Room.ID: WeekRatingViewModel.RoomLook]
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
 
         NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.large + DesignSystem.Spacing.extraSmall) {
+
+                    VStack(alignment: .leading, spacing: 6) {
                         Text(WeekRatingText.period(from: summary.weekStart, to: summary.weekEnd))
                             .roundedFont(.title2.bold())
                         Text("\(summary.tasksDone) de \(summary.tasksTotal) tarefas feitas na casa")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
 
-                ForEach(Array(summary.mine.enumerated()), id: \.element.id) { index, room in
-                    Section {
-                        myRoomCard(room)
-                    } header: {
-                        if index == 0 { Text(summary.mine.count == 1 ? "Seu cômodo" : "Seus cômodos") }
-                    } footer: {
-                        Text("As tags aparecem sem nome e sem contagem. Só quem cuidou do cômodo (\(caretakers(of: room))) vê esta parte.")
-                    }
-                }
-
-                if !summary.house.isEmpty || !summary.upcomingRoomNames.isEmpty {
-                    Section {
-                        ForEach(summary.house) { room in
-                            roomRow(room)
+                    ForEach(Array(summary.mine.enumerated()), id: \.element.id) { index, room in
+                        section(
+                            title: index == 0 ? (summary.mine.count == 1 ? "Seu cômodo" : "Seus cômodos") : nil,
+                            footer: String(localized: "As tags aparecem sem nome e sem contagem. Só quem cuidou do cômodo (\(caretakers(of: room))) vê esta parte.")
+                        ) {
+                            myRoomRows(room)
                         }
-                    } header: {
-                        Text("Casa")
-                    } footer: {
-                        Text(houseFooter)
+                    }
+
+                    if !summary.house.isEmpty || !summary.upcomingRoomNames.isEmpty {
+                        section(title: "Casa", footer: houseFooter) {
+                            ForEach(Array(summary.house.enumerated()), id: \.element.id) { index, room in
+                                if index > 0 { Divider().padding(.leading, DesignSystem.Spacing.large) }
+                                roomLine(room)
+                            }
+                        }
                     }
                 }
+                .padding(.horizontal, DesignSystem.Spacing.large)
+                .padding(.top, DesignSystem.Spacing.medium)
+                .padding(.bottom, DesignSystem.Spacing.large * 2)
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("Resumo da semana")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -216,48 +363,72 @@ struct WeekSummarySheet: View {
         }
     }
 
-    private func myRoomCard(_ room: RoomWeekResult) -> some View {
+    /// Título da seção (17 pt, semibold), cartão arredondado e nota abaixo.
+    private func section<Content: View>(
+        title: LocalizedStringKey?, footer: String, @ViewBuilder content: () -> Content
+    ) -> some View {
 
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.small) {
+
+            if let title {
+                Text(title).font(.body.weight(.semibold)).accessibilityAddTraits(.isHeader)
+            }
+
+            VStack(spacing: 0) { content() }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .cardBackground()
+
+            Text(footer)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func myRoomRows(_ room: RoomWeekResult) -> some View {
+
+        let good = room.tags.filter { !$0.isImprovement }
+        let improve = room.tags.filter(\.isImprovement)
+
+        return VStack(alignment: .leading, spacing: 0) {
 
             roomLine(room)
 
-            let good = room.tags.filter { !$0.isImprovement }
-            let improve = room.tags.filter(\.isImprovement)
-
-            if !good.isEmpty {
-                tagGroup(title: "O que foi bom", tags: good)
-            }
-            if !improve.isEmpty {
-                tagGroup(title: "O que pode melhorar", tags: improve)
+            if !good.isEmpty || !improve.isEmpty {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
+                    if !good.isEmpty { tagGroup(title: "O que foi bom", tags: good) }
+                    if !improve.isEmpty { tagGroup(title: "O que pode melhorar", tags: improve) }
+                }
+                .padding(.horizontal, DesignSystem.Spacing.large)
+                .padding(.top, 4)
+                .padding(.bottom, DesignSystem.Spacing.large)
             }
         }
-        .padding(.vertical, DesignSystem.Spacing.extraSmall)
     }
 
-    private func roomRow(_ room: RoomWeekResult) -> some View {
-        roomLine(room).padding(.vertical, DesignSystem.Spacing.extraSmall)
-    }
-
-    /// Nome e "N avaliações" à esquerda; o nível à direita ("—" quando faltam avaliações).
+    /// Ícone, nome e "N avaliações" à esquerda; o nível à direita ("—" quando faltam avaliações).
     private func roomLine(_ room: RoomWeekResult) -> some View {
 
-        HStack(alignment: .firstTextBaseline) {
+        HStack(spacing: DesignSystem.Spacing.medium) {
+
+            if let look = looks[room.roomID] {
+                RoomIconView(icon: look.icon, color: look.color, size: 32)
+            }
+
             VStack(alignment: .leading, spacing: 2) {
-                Text(room.roomName).roundedFont(.headline)
+                Text(room.roomName).font(.body)
                 Text(room.level == nil ? "Poucas avaliações para mostrar" : WeekRatingText.ratingCount(room.ratingCount))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            Spacer()
-            if let level = room.level {
-                Text(WeekRatingText.title(level))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("—").foregroundStyle(.secondary)
-            }
+
+            Spacer(minLength: DesignSystem.Spacing.small)
+
+            Text(room.level.map { WeekRatingText.title($0) } ?? "—")
+                .font(.body)
+                .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, DesignSystem.Spacing.large)
+        .padding(.vertical, 10)
         .accessibilityElement(children: .combine)
     }
 
@@ -265,16 +436,16 @@ struct WeekSummarySheet: View {
 
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.small) {
             Text(title)
-                .font(.caption.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .textCase(.uppercase)
                 .foregroundStyle(.secondary)
-            FlexibleLayout(spacing: DesignSystem.Spacing.small) {
+            FlexibleLayout(spacing: DesignSystem.Spacing.small, lineSpacing: DesignSystem.Spacing.small) {
                 ForEach(tags, id: \.self) { tag in
                     Text(WeekRatingText.title(tag))
                         .font(.subheadline)
                         .padding(.horizontal, DesignSystem.Spacing.medium)
-                        .padding(.vertical, DesignSystem.Spacing.small)
-                        .background(Color.secondary.opacity(DesignSystem.tintedFillOpacity), in: .capsule)
+                        .frame(height: 32)
+                        .background(Color(.tertiarySystemFill), in: .capsule)
                 }
             }
         }
@@ -300,44 +471,12 @@ struct WeekSummarySheet: View {
     }
 }
 
-/// Chips que quebram de linha (as tags da avaliação).
-private struct FlowChips: View {
-
-    let items: [RatingTag]
-    let selected: Set<RatingTag>
-    let onTap: (RatingTag) -> Void
-
-    var body: some View {
-        FlexibleLayout(spacing: DesignSystem.Spacing.small) {
-            ForEach(items, id: \.self) { tag in
-                Button {
-                    onTap(tag)
-                } label: {
-                    Text(WeekRatingText.title(tag))
-                        .font(.subheadline)
-                        .padding(.horizontal, DesignSystem.Spacing.medium)
-                        .padding(.vertical, DesignSystem.Spacing.small)
-                        .background(
-                            (selected.contains(tag) ? Color.accentColor : Color.secondary)
-                                .opacity(DesignSystem.tintedFillOpacity),
-                            in: .capsule
-                        )
-                        .foregroundStyle(selected.contains(tag) ? Color.accentColor : Color.primary)
-                        // O visual segue compacto, mas a área de toque chega a 44 pt (HIG).
-                        .frame(minHeight: DesignSystem.minimumTouchTarget)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selected.contains(tag) ? .isSelected : [])
-            }
-        }
-    }
-}
-
-/// Layout simples de linhas que quebram quando não cabe.
+/// Layout simples de linhas que quebram quando não cabe. `lineSpacing` pode ser menor que o espaço entre os itens
+/// (negativo inclusive) quando a altura de toque passa da altura visual.
 private struct FlexibleLayout: Layout {
 
     var spacing: CGFloat
+    var lineSpacing: CGFloat
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         arrange(width: proposal.width ?? .infinity, subviews: subviews).size
@@ -357,7 +496,7 @@ private struct FlexibleLayout: Layout {
             let size = subview.sizeThatFits(.unspecified)
             if x > 0, x + size.width > width {
                 x = 0
-                y += rowHeight + spacing
+                y += rowHeight + lineSpacing
                 rowHeight = 0
             }
             origins.append(CGPoint(x: x, y: y))

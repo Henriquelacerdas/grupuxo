@@ -16,34 +16,67 @@ final class WeekRatingViewModel: ObservableObject {
     @Published private(set) var summary: WeekSummary = .empty
     @Published private(set) var drafts: [Room.ID: Draft] = [:]
     @Published private(set) var isSaving = false
+    /// Quando a janela da avaliação que o morador já enviou fecha (e o resumo sai); `nil` se não enviou ou já passou.
+    @Published private(set) var submittedUntil: Date?
+    @Published private(set) var roomLooks: [Room.ID: RoomLook] = [:]
     @Published var errorMessage: String?
+    /// As folhas ficam fora da linha da lista (ver `WeekRatingSheetHost`): a linha é reciclada e perderia o estado.
+    @Published var isRatingPresented = false
+    @Published var isSummaryPresented = false
+
+    /// Ícone e cor do cômodo, como no resto do app.
+    struct RoomLook: Equatable {
+        let icon: String
+        let color: RoomColor
+    }
 
     private let getPending: GetPendingRatingsUseCase
     private let rate: RateRoomsUseCase
     private let getSummary: GetRatingSummaryUseCase
+    private let getRooms: GetHouseRoomsUseCase
+    private let defaults: UserDefaults
+    private let now: () -> Date
     let userID: User.ID
     private let houseID: House.ID
 
     init(
         getPending: GetPendingRatingsUseCase, rate: RateRoomsUseCase, getSummary: GetRatingSummaryUseCase,
-        userID: User.ID, houseID: House.ID
+        getRooms: GetHouseRoomsUseCase, userID: User.ID, houseID: House.ID,
+        defaults: UserDefaults = .standard, now: @escaping () -> Date = { .now }
     ) {
         self.getPending = getPending
         self.rate = rate
         self.getSummary = getSummary
+        self.getRooms = getRooms
         self.userID = userID
         self.houseID = houseID
+        self.defaults = defaults
+        self.now = now
     }
+
+    /// A avaliação enviada não tem rota no servidor ("já avaliei"): o app lembra até a janela fechar, só neste aparelho.
+    private var submittedKey: String { "weekRating.submittedUntil.\(houseID.uuidString).\(userID.uuidString)" }
 
     /// Falha aqui não atrapalha Minhas tarefas: a linha só não aparece.
     func load() async {
         pending = (try? await getPending(houseID: houseID, userID: userID)) ?? []
         summary = (try? await getSummary(houseID: houseID, userID: userID)) ?? .empty
         drafts = drafts.filter { entry in pending.contains { $0.roomID == entry.key } }
+        if let rooms = try? await getRooms(houseID: houseID, userID: userID) {
+            roomLooks = Dictionary(uniqueKeysWithValues: rooms.map { ($0.id, RoomLook(icon: $0.icon, color: $0.color)) })
+        }
+        refreshSubmitted()
+    }
+
+    private func refreshSubmitted() {
+        let stored = defaults.object(forKey: submittedKey) as? Date
+        submittedUntil = stored.flatMap { $0 > now() ? $0 : nil }
     }
 
     var hasPending: Bool { !pending.isEmpty }
     var hasSummary: Bool { summary.hasResultForMyRooms }
+    /// "Avaliação enviada · O resumo sai terça": depois de enviar e até o resumo sair (Figma).
+    var hasSubmitted: Bool { !hasPending && !hasSummary && submittedUntil != nil }
 
     /// "Termina terça": o fim da janela de avaliação mais próxima.
     var closesAt: Date? { pending.map(\.windowEnd).min() }
@@ -78,9 +111,11 @@ final class WeekRatingViewModel: ObservableObject {
         guard !choices.isEmpty, !isSaving else { return false }
         isSaving = true
         defer { isSaving = false }
+        let windowEnd = pending.map(\.windowEnd).max()
         do {
             try await rate(choices, userID: userID)
             drafts = [:]
+            if let windowEnd { defaults.set(windowEnd, forKey: submittedKey) }
             await load()
             return true
         } catch {

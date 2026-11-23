@@ -14,9 +14,6 @@
         }
       }
     },
-    "—" : {
-
-    },
     "%@" : {
       "localizations" : {
         "en" : {
@@ -1602,22 +1599,6 @@
         }
       }
     },
-    "Ao continuar, você concorda com os [Termos de Uso](%@) e a [Política de Privacidade](%@)." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "By continuing, you agree to the [Terms of Use](%1$@) and the [Privacy Policy](%2$@)."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ao continuar, você concorda com os [Termos de Uso](%1$@) e a [Política de Privacidade](%2$@)."
-          }
-        }
-      }
-    },
     "Ao continuar, você concorda com a Política de Privacidade." : {
       "localizations" : {
         "en" : {
@@ -1630,6 +1611,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ao continuar, você concorda com a Política de Privacidade."
+          }
+        }
+      }
+    },
+    "Ao continuar, você concorda com os [Termos de Uso](%@) e a [Política de Privacidade](%@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "By continuing, you agree to the [Terms of Use](%1$@) and the [Privacy Policy](%2$@)."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ao continuar, você concorda com os [Termos de Uso](%1$@) e a [Política de Privacidade](%2$@)."
           }
         }
       }
@@ -2507,6 +2504,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "What should the house call you?"
+          }
+        }
+      }
+    },
+    "Como ficaram os cômodos?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How did the rooms turn out?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Como ficaram os cômodos?"
           }
         }
       }
@@ -3410,6 +3423,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Incorrect email or password."
+          }
+        }
+      }
+    },
+    "Entram só os cômodos cujo ciclo terminou nesta semana. O resultado de cada cômodo só aparece com 2 avaliações ou mais, e ninguém vê quem avaliou." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only rooms whose cycle ended this week are included. Each room's result only appears with 2 or more ratings, and nobody sees who rated."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entram só os cômodos cujo ciclo terminou nesta semana. O resultado de cada cômodo só aparece com 2 avaliações ou mais, e ninguém vê quem avaliou."
           }
         }
       }
@@ -5507,6 +5536,22 @@
         }
       }
     },
+    "O resumo sai %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The summary comes out on %1$@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O resumo sai %1$@"
+          }
+        }
+      }
+    },
     "O Reveza avisa quando algo muda na casa. Você escolhe quais avisos abaixo." : {
       "localizations" : {
         "en" : {
@@ -7481,11 +7526,28 @@
       }
     },
     "Sua avaliação é anônima: ninguém vê quem avaliou. O resultado aparece para quem cuidou do cômodo." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your rating is anonymous: nobody sees who rated. The result is shown to whoever took care of the room."
+          }
+        }
+      }
+    },
+    "Sua avaliação é anônima. Você não avalia o cômodo que cuidou." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your rating is anonymous. You don't rate the room you took care of."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sua avaliação é anônima. Você não avalia o cômodo que cuidou."
           }
         }
       }
@@ -8263,6 +8325,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sweep the area"
+          }
+        }
+      }
+    },
+    "Veja como ficaram os cômodos" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See how the rooms turned out"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veja como ficaram os cômodos"
           }
         }
       }
