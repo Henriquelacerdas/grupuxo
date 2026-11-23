@@ -56,4 +56,54 @@ struct SporadicUndoTests {
         let seenByOther = try #require(item(in: otherModel, id: occurrence.id))
         #expect(!otherModel.canComplete(seenByOther))
     }
+
+    private func makeTask(
+        _ container: AppContainer, createdBy creator: User, name: String
+    ) async throws -> TaskOccurrence {
+        let definition = TaskDefinition(
+            id: UUID(), roomID: MockSeed.kitchen.id, name: name, details: "", effort: TaskEffort(points: 1),
+            kind: .sporadic, recurrence: .none, assignmentPolicy: .selfAssigned, createdByUserID: creator.id
+        )
+        _ = try await container.taskRepository.create(definition, requestedBy: creator.id, at: .now)
+        return try #require(await container.store.read { state in
+            state.occurrences.first { $0.taskDefinitionID == definition.id }
+        })
+    }
+
+    @Test func freeTaskCreatedByAnotherResidentCanBeAdded() async throws {
+        let container = AppContainer()
+        let me = MockSeed.currentUser
+        let other = try #require(MockSeed.users.first { $0.id != me.id })
+        let occurrence = try await makeTask(container, createdBy: other, name: "Trocar a resistência")
+
+        let model = container.makeSporadicTasksViewModel(session: AppSession(currentUser: me, currentHouse: MockSeed.house))
+        await model.load()
+        let free = try #require(item(in: model, id: occurrence.id))
+        #expect(model.canClaim(free), "criada por outro e ainda livre: dá para adicionar")
+        #expect(!model.canRelease(free))
+        #expect(model.takenByAnotherName(free) == nil)
+
+        await model.claim(occurrence.id)
+        #expect(model.isPendingClaim(free))
+        #expect(model.canRelease(free), "marcada: aparece \"Desfazer\" antes de confirmar")
+        #expect(model.hasPendingChanges)
+        #expect(await model.confirmPendingAssignmentChanges())
+        let mine = try #require(item(in: model, id: occurrence.id))
+        #expect(mine.assignment?.userID == me.id)
+    }
+
+    @Test func taskTakenByAnotherResidentShowsWhoAndCannotBeAdded() async throws {
+        let container = AppContainer()
+        let me = MockSeed.currentUser
+        let other = try #require(MockSeed.users.first { $0.id != me.id })
+        let occurrence = try await makeTask(container, createdBy: me, name: "Mover o sofá")
+        try await container.taskRepository.claim(occurrenceID: occurrence.id, by: other.id, at: .now)
+
+        let model = container.makeSporadicTasksViewModel(session: AppSession(currentUser: me, currentHouse: MockSeed.house))
+        await model.load()
+        let taken = try #require(item(in: model, id: occurrence.id))
+        #expect(!model.canClaim(taken))
+        #expect(!model.canRelease(taken))
+        #expect(model.takenByAnotherName(taken) != nil)
+    }
 }

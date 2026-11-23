@@ -47,13 +47,14 @@ struct SporadicTasksView: View {
     }
 
     init(
-        viewModel: SporadicTasksViewModel,
+        viewModel: @autoclosure @escaping () -> SporadicTasksViewModel,
         onEditTask: @escaping (TaskDefinition.ID) -> Void = { _ in },
         reloadTrigger: AnyHashable = 0
     ) {
 
+        // `@autoclosure`: o `StateObject` só cria o modelo uma vez, em vez de um novo a cada reavaliação da tela pai.
         _viewModel = StateObject(
-            wrappedValue: viewModel
+            wrappedValue: viewModel()
         )
 
         self.onEditTask = onEditTask
@@ -62,33 +63,17 @@ struct SporadicTasksView: View {
 
     var body: some View {
 
-        Group {
+        // O fundo vai no contêiner que preenche a tela: num `Group` o modificador é aplicado a cada filho e o
+        // indicador de carregamento ganhava um retângulo cinza só dele.
+        ZStack {
 
-            switch viewModel.state {
+            Color(
+                uiColor:
+                    .systemGroupedBackground
+            )
+            .ignoresSafeArea()
 
-            case .idle, .loading:
-
-                ProgressView(
-                    "Carregando tarefas…"
-                )
-
-            case let .content(items):
-
-                tasksContent(items)
-
-            case .empty:
-
-                emptyContent
-
-            case let .failure(message):
-
-                ContentUnavailableView(
-                    "Não foi possível carregar",
-                    systemImage:
-                        "exclamationmark.triangle",
-                    description: Text(message)
-                )
-            }
+            content
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -113,39 +98,32 @@ struct SporadicTasksView: View {
                 .accessibilityLabel("Fechar")
             }
 
-            if viewModel.hasPendingChanges {
+            // Sempre presente (Figma): cinza sem alterações, azul quando há algo a confirmar.
+            ToolbarItem(
+                placement: .confirmationAction
+            ) {
 
-                ToolbarItem(
-                    placement: .confirmationAction
-                ) {
+                Button {
 
-                    Button {
+                    confirmTapped()
 
-                        confirmTapped()
+                } label: {
 
-                    } label: {
-
-                        Image(
-                            systemName: "checkmark"
-                        )
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(
-                        viewModel.isSavingChanges
-                    )
-                    .accessibilityLabel(
-                        "Confirmar alterações"
+                    Image(
+                        systemName: "checkmark"
                     )
                 }
+                .buttonStyle(.borderedProminent)
+                .disabled(
+                    !viewModel.hasPendingChanges
+                        || viewModel.isSavingChanges
+                )
+                .accessibilityLabel(
+                    "Confirmar alterações"
+                )
+                .accessibilityIdentifier("confirmSporadicChanges")
             }
         }
-        .background(
-            Color(
-                uiColor:
-                    .systemGroupedBackground
-            )
-            .ignoresSafeArea()
-        )
         .task(id: reloadTrigger) {
 
             await viewModel.load()
@@ -244,7 +222,7 @@ struct SporadicTasksView: View {
                     message: Text(
                         "Ao descartar as alterações nenhuma Tarefa Única será atribuída a você."
                     ),
-                    dismissButton:
+                    primaryButton:
                         .destructive(
                             Text("Descartar")
                         ) {
@@ -253,21 +231,27 @@ struct SporadicTasksView: View {
                                 .discardPendingAssignmentChanges()
 
                             dismiss()
-                        }
+                        },
+                    // Sem isto não havia como voltar e continuar escolhendo.
+                    secondaryButton:
+                        .cancel(
+                            Text("Cancelar")
+                        )
                 )
 
             case .confirmRelease:
 
+                // Aqui o botão confirma (tira as tarefas marcadas de você); "Descartar" não cabe.
                 return Alert(
                     title: Text(
-                        "Descartar alterações?"
+                        "Tirar tarefa das suas?"
                     ),
                     message: Text(
-                        "Ao descartar as alterações nenhuma Tarefa Única será atribuída a você."
+                        "As tarefas marcadas com \"Desfazer\" deixam de ser suas e voltam a ficar livres para os outros moradores."
                     ),
-                    dismissButton:
+                    primaryButton:
                         .destructive(
-                            Text("Descartar")
+                            Text("Confirmar")
                         ) {
 
                             Task {
@@ -280,10 +264,44 @@ struct SporadicTasksView: View {
                                     dismiss()
                                 }
                             }
-                        }
+                        },
+                    secondaryButton:
+                        .cancel(
+                            Text("Cancelar")
+                        )
                 )
             }
         }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+
+            switch viewModel.state {
+
+            case .idle, .loading:
+
+                ProgressView(
+                    "Carregando tarefas…"
+                )
+
+            case let .content(items):
+
+                tasksContent(items)
+
+            case .empty:
+
+                emptyContent
+
+            case let .failure(message):
+
+                ContentUnavailableView(
+                    "Não foi possível carregar",
+                    systemImage:
+                        "exclamationmark.triangle",
+                    description: Text(message)
+                )
+            }
     }
 
     private func closeTapped() {
@@ -528,7 +546,16 @@ struct SporadicTasksView: View {
 
             cardHeader(item)
 
+            assignmentNote(item)
+
             primaryAction(item)
+
+            if viewModel.isPendingClaim(item.task) {
+
+                Text("Será adicionada para você")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
 
             if viewModel
                 .wasCreatedByCurrentUser(item) {
@@ -725,64 +752,96 @@ struct SporadicTasksView: View {
 
     // MARK: - Actions
 
+    /// Quem já pegou a tarefa (Figma: "🔖 Julia já pegou essa tarefa") ou por que o morador não pode pegá-la.
+    @ViewBuilder
+    private func assignmentNote(
+        _ item: SporadicTaskCardItem
+    ) -> some View {
+
+        if let name = viewModel.takenByAnotherName(item.task) {
+
+            Label {
+                Text("\(name) já pegou essa tarefa")
+            } icon: {
+                Image(systemName: "bookmark")
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
+
+        } else if !item.task.occurrence.isCompleted,
+                  item.task.assignment == nil,
+                  !viewModel.isRoomMember(item.task) {
+
+            Label {
+                Text("Você não participa de \(item.room.name)")
+            } icon: {
+                Image(systemName: "lock")
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    /// "Adicionar às minhas tarefas" (destaque) ou "Desfazer" (borda). Concluída não tem ação por aqui.
+    @ViewBuilder
     private func primaryAction(
         _ item: SporadicTaskCardItem
     ) -> some View {
 
-        Button {
+        if !item.task.occurrence.isCompleted {
 
-            Task {
+            let release = viewModel.canRelease(item.task)
 
-                if viewModel.canClaim(
-                    item.task
-                ) {
+            Button {
 
-                    await viewModel.claim(
-                        item.task.id
-                    )
+                Task {
 
-                } else if viewModel
-                    .canRelease(
+                    if viewModel.canClaim(
                         item.task
                     ) {
 
-                    await viewModel.release(
-                        item.task.id
-                    )
+                        await viewModel.claim(
+                            item.task.id
+                        )
+
+                    } else if release {
+
+                        await viewModel.release(
+                            item.task.id
+                        )
+                    }
                 }
+
+            } label: {
+
+                Text(
+                    primaryActionTitle(
+                        item.task
+                    )
+                )
+                .font(
+                    .callout.weight(
+                        .semibold
+                    )
+                )
+                .frame(
+                    maxWidth: .infinity
+                )
             }
-
-        } label: {
-
-            Text(
-                primaryActionTitle(
-                    item.task
-                )
-            )
-            .font(
-                .callout.weight(
-                    .semibold
-                )
-            )
-            .frame(
-                maxWidth: .infinity
+            .buttonStyle(.borderedProminent)
+            .tint(release ? Color(uiColor: .tertiarySystemFill) : .accentColor)
+            .foregroundStyle(release ? Color.accentColor : Color.white)
+            .controlSize(.regular)
+            .disabled(
+                viewModel.isSavingChanges
+                    || (
+                        !viewModel.canClaim(
+                            item.task
+                        )
+                        && !release
+                    )
             )
         }
-        .buttonStyle(
-            .borderedProminent
-        )
-        .controlSize(.regular)
-        .disabled(
-            viewModel.isSavingChanges
-                || (
-                    !viewModel.canClaim(
-                        item.task
-                    )
-                    && !viewModel.canRelease(
-                        item.task
-                    )
-                )
-        )
     }
 
     private func editAction(

@@ -167,7 +167,7 @@ struct TaskUpcomingAssignmentsTests {
         #expect(overview.current?.occurrence.availableAt == now.addingTimeInterval(-100))
     }
 
-    @Test func creatingASporadicTaskAssignsItToTheCreator() async throws {
+    @Test func creatingASporadicTaskLeavesItFreeForEveryone() async throws {
         let container = AppContainer()
         let creator = MockSeed.currentUser.id
         let definition = TaskDefinition(
@@ -180,7 +180,7 @@ struct TaskUpcomingAssignmentsTests {
         )(definition: definition, requestedBy: creator)
         let items = try await container.taskRepository.occurrences(of: created.id, requesting: creator)
         #expect(items.count == 1)
-        #expect(items.first?.assignment?.userID == creator)
+        #expect(items.first?.assignment == nil, "qualquer morador pode adicionar; o criador não fica com ela")
     }
 
     @Test func upcomingQueueNeverRepeatsAPersonInARow() async throws {

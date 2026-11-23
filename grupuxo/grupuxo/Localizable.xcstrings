@@ -178,6 +178,22 @@
         }
       }
     },
+    "%@ já pegou essa tarefa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ already took this task"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ já pegou essa tarefa"
+          }
+        }
+      }
+    },
     "%@ mudou o esforço" : {
       "localizations" : {
         "en" : {
@@ -1884,6 +1900,22 @@
         }
       }
     },
+    "As tarefas marcadas com \"Desfazer\" deixam de ser suas e voltam a ficar livres para os outros moradores." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tasks marked \"Undo\" stop being yours and become free for the other residents again."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As tarefas marcadas com \"Desfazer\" deixam de ser suas e voltam a ficar livres para os outros moradores."
+          }
+        }
+      }
+    },
     "As tarefas são divididas pelo esforço de cada uma. Ninguém fica sempre com a parte pesada." : {
 
     },
@@ -2767,7 +2799,6 @@
 
     },
     "Confirmar" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5759,6 +5790,22 @@
         }
       }
     },
+    "Outro morador" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Another resident"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outro morador"
+          }
+        }
+      }
+    },
     "Para %@" : {
       "localizations" : {
         "en" : {
@@ -6401,6 +6448,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Which task did you complete?"
+          }
+        }
+      }
+    },
+    "Qualquer morador pode adicionar às suas tarefas." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Any resident can add it to their tasks."
           }
         }
       }
@@ -7336,7 +7393,11 @@
         }
       }
     },
+    "Será adicionada para você" : {
+
+    },
     "Será adicionada para você." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7996,6 +8057,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dust"
+          }
+        }
+      }
+    },
+    "Tirar tarefa das suas?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove task from yours?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tirar tarefa das suas?"
           }
         }
       }
@@ -8671,6 +8748,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Do you already have a house on Reveza?"
+          }
+        }
+      }
+    },
+    "Você não participa de %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You're not part of %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Você não participa de %@"
           }
         }
       }

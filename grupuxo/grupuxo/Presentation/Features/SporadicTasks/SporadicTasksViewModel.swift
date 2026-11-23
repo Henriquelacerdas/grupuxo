@@ -30,6 +30,11 @@ final class SporadicTasksViewModel: ObservableObject {
     @Published private(set)
     var pendingReleaseIDs: Set<TaskOccurrence.ID> = []
 
+    /// Cômodos de que o morador participa (só eles deixam adicionar a tarefa: o servidor recusa os demais).
+    /// `nil` = não deu para saber; então a tela não bloqueia, e o servidor decide.
+    @Published private(set)
+    var memberRoomIDs: Set<Room.ID>?
+
     private let getTasks: GetSporadicTasksUseCase
     private let getRooms: GetHouseRoomsUseCase
     private let getMembers: GetHouseMembersUseCase
@@ -103,6 +108,12 @@ final class SporadicTasksViewModel: ObservableObject {
                 userID: userID
             )
 
+            async let memberRoomsRequest = try? getRooms(
+                houseID: houseID,
+                userID: userID,
+                participatingOnly: true
+            )
+
             async let membersRequest = getMembers(
                 houseID: houseID,
                 userID: userID
@@ -113,10 +124,12 @@ final class SporadicTasksViewModel: ObservableObject {
                 roomsRequest,
                 membersRequest
             )
+            let memberRooms = await memberRoomsRequest
 
             try Task.checkCancellation()
             guard loadID == id, completions.revision == revision else { return }
             completions.acceptReload()
+            memberRoomIDs = memberRooms.map { Set($0.map(\.id)) }
             let validOccurrenceIDs = Set(
                 tasks.map(\.id)
             )
@@ -371,7 +384,39 @@ final class SporadicTasksViewModel: ObservableObject {
             return false
         }
 
-        return item.assignment == nil
+        return item.assignment == nil && isRoomMember(item)
+    }
+
+    /// O morador participa do cômodo da tarefa (ou não deu para saber).
+    func isRoomMember(
+        _ item: TaskItem
+    ) -> Bool {
+
+        memberRoomIDs?.contains(item.definition.roomID) ?? true
+    }
+
+    /// Nome de quem já pegou a tarefa, quando é outro morador (e não é uma alteração local ainda não confirmada).
+    func takenByAnotherName(
+        _ item: TaskItem
+    ) -> String? {
+
+        guard !item.occurrence.isCompleted,
+              !pendingClaimIDs.contains(item.id),
+              !pendingReleaseIDs.contains(item.id),
+              let assignment = item.assignment,
+              assignment.userID != userID
+        else { return nil }
+
+        return item.assignee.map { ResidentNameFormatting.shortName($0.name) }
+            ?? String(localized: "Outro morador")
+    }
+
+    /// Marquei "Adicionar" e ainda não confirmei (✓).
+    func isPendingClaim(
+        _ item: TaskItem
+    ) -> Bool {
+
+        pendingClaimIDs.contains(item.id)
     }
 
     func canRelease(

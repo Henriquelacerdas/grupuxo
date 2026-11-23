@@ -198,7 +198,7 @@ struct TaskCreationSheetView: View {
                             .disabled(viewModel.isEditing)
 
                         if isUniqueTask, !viewModel.isEditing {
-                            footer("Será adicionada para você.")
+                            footer("Qualquer morador pode adicionar às suas tarefas.")
                         }
 
                         if !isUniqueTask {
