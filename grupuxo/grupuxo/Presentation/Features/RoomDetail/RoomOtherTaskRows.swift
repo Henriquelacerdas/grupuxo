@@ -96,7 +96,7 @@ struct RoomUniqueTaskRow: View {
                 HStack(spacing: DesignSystem.Spacing.medium) {
 
                     Image(systemName: "flag.fill")
-                        .font(.title3)
+                        .roundedFont(.title3)
                         .foregroundStyle(.red)
                         .frame(minWidth: DesignSystem.minimumTouchTarget)
                         .accessibilityHidden(true)

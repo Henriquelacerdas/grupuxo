@@ -210,7 +210,7 @@ struct RoomDetailView: View {
                 HStack(spacing: DesignSystem.Spacing.medium) {
 
                     Image(systemName: "repeat")
-                        .font(.title3.weight(.medium))
+                        .roundedFont(.title3.weight(.medium))
                         .foregroundStyle(info.room.color.tint)
                         .frame(minWidth: DesignSystem.minimumTouchTarget)
                         .accessibilityHidden(true)
@@ -218,7 +218,7 @@ struct RoomDetailView: View {
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
 
                         Text(viewModel.responsiblesSummary ?? allResidentsText(info.room))
-                            .font(.headline)
+                            .roundedFont(.headline)
                             .foregroundStyle(.primary)
 
                         if let deadline = viewModel.deadlineSummary {
@@ -452,7 +452,7 @@ struct RoomDetailView: View {
                         Spacer(minLength: DesignSystem.Spacing.small)
 
                         Image(systemName: "plus.circle.fill")
-                            .font(.title2)
+                            .roundedFont(.title2)
                             .foregroundStyle(.tint)
                             .accessibilityHidden(true)
                     }
@@ -543,7 +543,7 @@ private extension View {
                 .toolbar {
                     ToolbarItem(placement: .largeSubtitle) {
                         Text(subtitle)
-                            .font(.title3)
+                            .roundedFont(.title3)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)

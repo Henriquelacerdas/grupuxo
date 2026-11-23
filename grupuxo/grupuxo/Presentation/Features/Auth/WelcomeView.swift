@@ -8,7 +8,7 @@ struct WelcomeView: View {
         ScrollView {
             VStack(spacing: 48) {
                 Text("Boas-vindas ao Reveza")
-                    .font(.largeTitle.bold())
+                    .roundedFont(.largeTitle.bold())
                     .multilineTextAlignment(.center)
                     .padding(.top, 56)
 
@@ -56,14 +56,14 @@ private struct WelcomeFeature: View {
     var body: some View {
         HStack(alignment: .top, spacing: DesignSystem.Spacing.large) {
             Image(systemName: systemImage)
-                .font(.title2)
+                .roundedFont(.title2)
                 .foregroundStyle(tint)
                 .frame(width: iconColumn)
                 .padding(.top, 6)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
                 Text(title)
-                    .font(.headline)
+                    .roundedFont(.headline)
                 Text(detail)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

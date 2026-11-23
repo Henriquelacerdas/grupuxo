@@ -506,7 +506,7 @@ private struct InitialAvatar: View {
                     .clipShape(Circle())
             } else {
                 Text(name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined())
-                    .font(.largeTitle.bold())
+                    .roundedFont(.largeTitle.bold())
                     .foregroundStyle(.tint)
                     .frame(width: diameter, height: diameter)
                     .background(Color.accentColor.opacity(DesignSystem.tintedFillOpacity), in: Circle())

@@ -244,7 +244,7 @@ struct HouseManagementView: View {
 
     private var roomsHeaderRow: some View {
         Text("Cômodos")
-            .font(.title3.bold())
+            .roundedFont(.title3.bold())
             .frame(
                 maxWidth: .infinity,
                 alignment: .leading
@@ -450,7 +450,7 @@ private extension View {
                 .toolbar {
                     ToolbarItem(placement: .largeSubtitle) {
                         Text(name)
-                            .font(.title3)
+                            .roundedFont(.title3)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)

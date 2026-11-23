@@ -53,7 +53,7 @@ struct SporadicTasksCard: View {
             Label {
 
                 Text("Tarefas Únicas")
-                    .font(.title3.bold())
+                    .roundedFont(.title3.bold())
                     .foregroundStyle(.primary)
 
             } icon: {

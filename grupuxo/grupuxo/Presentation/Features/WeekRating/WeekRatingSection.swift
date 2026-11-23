@@ -127,7 +127,7 @@ struct RateWeekSheet: View {
 
         return VStack(alignment: .leading, spacing: DesignSystem.Spacing.medium) {
 
-            Text(item.roomName).font(.headline)
+            Text(item.roomName).roundedFont(.headline)
 
             HStack(spacing: DesignSystem.Spacing.small) {
                 ForEach(RatingLevel.allCases, id: \.self) { level in
@@ -173,7 +173,7 @@ struct WeekSummarySheet: View {
                 Section {
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
                         Text(WeekRatingText.period(from: summary.weekStart, to: summary.weekEnd))
-                            .font(.title2.bold())
+                            .roundedFont(.title2.bold())
                         Text("\(summary.tasksDone) de \(summary.tasksTotal) tarefas feitas na casa")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -243,7 +243,7 @@ struct WeekSummarySheet: View {
 
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(room.roomName).font(.headline)
+                Text(room.roomName).roundedFont(.headline)
                 Text(room.level == nil ? "Poucas avaliações para mostrar" : WeekRatingText.ratingCount(room.ratingCount))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

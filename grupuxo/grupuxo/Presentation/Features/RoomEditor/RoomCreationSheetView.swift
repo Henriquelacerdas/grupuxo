@@ -247,7 +247,7 @@ struct RoomCreationSheetView: View {
                             systemName:
                                 viewModel.state.draft.icon
                         )
-                        .font(.title)
+                        .roundedFont(.title)
                         .foregroundStyle(.white)
                         .frame(
                             width: avatarSide,
@@ -1239,7 +1239,7 @@ private struct RoomCreationSymbolSwatch:
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.title3)
+                .roundedFont(.title3)
                 .foregroundStyle(
                     isSelected
                         ? Color.white

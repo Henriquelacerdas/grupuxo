@@ -14,7 +14,7 @@ struct CollapsibleSectionHeader: View {
             HStack(spacing: DesignSystem.Spacing.small) {
 
                 Text(title)
-                    .font(.title2.bold())
+                    .roundedFont(.title2.bold())
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Image(systemName: "chevron.down")

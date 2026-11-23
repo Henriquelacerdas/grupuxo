@@ -670,7 +670,7 @@ private struct TaskDetailHeader: View {
             ) {
 
                 Text(name)
-                    .font(.title2.bold())
+                    .roundedFont(.title2.bold())
 
                 if let deadline {
 
@@ -722,7 +722,7 @@ private struct TaskDetailSection<Content: View>: View {
         ) {
 
             Text(title)
-                .font(.headline)
+                .roundedFont(.headline)
                 .accessibilityAddTraits(
                     .isHeader
                 )
@@ -759,7 +759,7 @@ private struct TaskDetailRow: View {
         ) {
 
             Image(systemName: systemImage)
-                .font(.title3)
+                .roundedFont(.title3)
                 .foregroundStyle(.tint)
                 .frame(width: iconWidth)
                 .accessibilityHidden(true)
@@ -992,7 +992,7 @@ private struct UpcomingAssignmentRow: View {
             } else {
 
                 Image(systemName: "person.crop.circle.badge.questionmark")
-                    .font(.title2)
+                    .roundedFont(.title2)
                     .foregroundStyle(.secondary)
                     .frame(width: placeholderSide, height: placeholderSide)
 

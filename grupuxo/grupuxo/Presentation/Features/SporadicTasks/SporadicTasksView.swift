@@ -645,7 +645,7 @@ struct SporadicTasksView: View {
             Image(
                 systemName: room.icon
             )
-            .font(.title2.weight(.semibold))
+            .roundedFont(.title2.weight(.semibold))
             .foregroundStyle(.white)
             .accessibilityHidden(true)
         }

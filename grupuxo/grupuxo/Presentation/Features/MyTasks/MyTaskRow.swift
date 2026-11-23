@@ -14,7 +14,7 @@ struct CycleRoomHeader: View {
         ) {
 
             Text(cycle.roomName)
-                .font(.title3.weight(.semibold))
+                .roundedFont(.title3.weight(.semibold))
                 .foregroundStyle(cycle.color.tint)
 
             Text(cycle.status)
@@ -53,7 +53,7 @@ struct MyTaskRow: View {
             } label: {
 
                 Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
+                    .roundedFont(.title2)
                     .foregroundStyle(row.color.tint)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(

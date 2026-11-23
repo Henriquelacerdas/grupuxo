@@ -11,6 +11,8 @@ struct DomesticApp: App {
     @UIApplicationDelegateAdaptor(PushAppDelegate.self) private var appDelegate
 
     init() {
+        DesignSystem.applyRoundedNavigationBar()
+
         do {
             // Só o Auth do Amplify (login com Cognito); casa, cômodos e tarefas vêm da `api` do servidor.
             try Amplify.add(plugin: AWSCognitoAuthPlugin())

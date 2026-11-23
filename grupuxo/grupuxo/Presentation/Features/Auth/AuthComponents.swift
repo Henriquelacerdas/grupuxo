@@ -91,7 +91,7 @@ struct AuthHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.small) {
             Text(title)
-                .font(.title.bold())
+                .roundedFont(.title.bold())
             Text(subtitle)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -109,14 +109,14 @@ struct AuthCheckEmailHeader: View {
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.medium) {
             Image(systemName: "checkmark")
-                .font(.largeTitle.weight(.medium))
+                .roundedFont(.largeTitle.weight(.medium))
                 .foregroundStyle(.white)
                 .frame(width: badgeSide, height: badgeSide)
                 .background(Color.green, in: .circle)
                 .padding(.bottom, DesignSystem.Spacing.small)
                 .accessibilityHidden(true)
             Text("Confira seu e-mail")
-                .font(.title2.bold())
+                .roundedFont(.title2.bold())
             Text("Mandamos um código para \(email). Se não chegar, olhe o spam.")
                 .font(.callout)
                 .foregroundStyle(.secondary)

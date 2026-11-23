@@ -43,7 +43,7 @@ struct LoginView: View {
             AppLogoView(size: 72)
                 .padding(.top, 48)
             Text("Reveza")
-                .font(.largeTitle.bold())
+                .roundedFont(.largeTitle.bold())
             Text("Entre para criar uma casa ou participar de uma que já existe.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)

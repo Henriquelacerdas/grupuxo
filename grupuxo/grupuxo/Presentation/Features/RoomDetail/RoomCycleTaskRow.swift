@@ -53,7 +53,7 @@ struct RoomCycleTaskRow: View {
                 ResidentAvatar(user: person, size: .row)
             } else {
                 Image(systemName: "person.crop.circle")
-                    .font(.title)
+                    .roundedFont(.title)
                     .foregroundStyle(.secondary)
             }
         }

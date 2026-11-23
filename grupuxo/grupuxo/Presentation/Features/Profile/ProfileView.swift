@@ -119,7 +119,7 @@ struct ProfileView: View {
 
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
                         Text(me.name)
-                            .font(.title3.bold())
+                            .roundedFont(.title3.bold())
                         Text("Conta, foto e nome")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)

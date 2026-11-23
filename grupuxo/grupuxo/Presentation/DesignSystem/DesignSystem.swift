@@ -1,7 +1,44 @@
 import SwiftUI
 import GrupuxoDomain
 
+extension View {
+
+    /// Títulos e cabeçalhos em SF Rounded (decisão do dono, 23/11/2026). O corpo do texto segue o desenho padrão do sistema.
+    func roundedFont(_ font: Font) -> some View {
+        self.font(font).fontDesign(.rounded)
+    }
+}
+
 enum DesignSystem {
+
+    /// Barra de navegação em SF Rounded: título grande em negrito e título pequeno em semibold, ambos com Dynamic Type.
+    /// Chamado uma vez na abertura do app.
+    @MainActor
+    static func applyRoundedNavigationBar() {
+
+        func roundedFont(_ style: UIFont.TextStyle, weight: UIFont.Weight) -> UIFont {
+            let base = UIFont.preferredFont(forTextStyle: style)
+            let descriptor = base.fontDescriptor
+                .addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]])
+                .withDesign(.rounded) ?? base.fontDescriptor
+            return UIFont(descriptor: descriptor, size: 0)
+        }
+
+        let standard = UINavigationBarAppearance()
+        let scrollEdge = UINavigationBarAppearance()
+        scrollEdge.configureWithTransparentBackground()
+
+        for appearance in [standard, scrollEdge] {
+            appearance.largeTitleTextAttributes = [.font: roundedFont(.largeTitle, weight: .bold)]
+            appearance.titleTextAttributes = [.font: roundedFont(.headline, weight: .semibold)]
+        }
+
+        let bar = UINavigationBar.appearance()
+        bar.standardAppearance = standard
+        bar.compactAppearance = standard
+        bar.scrollEdgeAppearance = scrollEdge
+    }
+
     /// Escala compartilhada de espaçamento do app, em pontos.
     /// Estes valores são decisões do nosso design, não medidas obrigatórias do HIG.
     enum Spacing {
@@ -315,7 +352,7 @@ struct TaskRow: View {
                         ? "checkmark.circle.fill"
                         : "circle"
                 )
-                .font(.title2)
+                .roundedFont(.title2)
                 .foregroundStyle(
                     item.occurrence.isCompleted
                     ? AnyShapeStyle(.tint)
@@ -374,7 +411,7 @@ struct TaskRow: View {
         ) {
 
             Text(item.definition.name)
-                .font(.headline)
+                .roundedFont(.headline)
                 .strikethrough(
                     item.occurrence.isCompleted
                 )

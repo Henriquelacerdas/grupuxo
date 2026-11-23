@@ -88,7 +88,7 @@ struct RoomCard: View {
         ) {
 
             Text(row.name)
-                .font(.title3.bold())
+                .roundedFont(.title3.bold())
                 .foregroundStyle(.primary)
 
             Spacer(minLength: DesignSystem.Spacing.small)
@@ -214,7 +214,7 @@ struct RestrictedRoomCard: View {
             ) {
 
                 Text(row.name)
-                    .font(.title3.bold())
+                    .roundedFont(.title3.bold())
                     .foregroundStyle(.primary)
 
                 Label(

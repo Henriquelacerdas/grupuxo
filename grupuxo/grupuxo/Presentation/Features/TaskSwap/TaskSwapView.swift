@@ -101,7 +101,7 @@ struct TaskSwapView: View {
             Section {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.extraSmall) {
                     Text(offered.definition.name)
-                        .font(.headline)
+                        .roundedFont(.headline)
                     Text(viewModel.offeredSummary(offered))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
