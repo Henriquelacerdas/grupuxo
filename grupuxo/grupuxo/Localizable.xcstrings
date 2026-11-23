@@ -179,7 +179,6 @@
       }
     },
     "%@ já pegou essa tarefa" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1333,6 +1332,7 @@
       }
     },
     "Adicionado por " : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
