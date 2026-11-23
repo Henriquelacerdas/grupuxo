@@ -190,10 +190,14 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
       roomID: existing.roomID, name: "  Trocar lâmpada ", details: "Da sala", effort: 1, kind: "sporadic",
       recurrence: { kind: "none" }, assignmentPolicy: "selfAssigned",
     }, taskDefinitionID(world.newID()));
+    // Só quem está com a avulsa a edita e apaga: o criador a assume.
+    const occurrence = (await env.state()).occurrences.find((o) => o.taskDefinitionID === definition.id);
+    assert.ok(occurrence !== undefined);
+    await new ClaimSporadicTaskUseCase(env.tasks, () => world.now).execute(occurrence.id, creator);
     return { existing, definition };
   }
 
-  test(`${name}: editar avulsa: só quem criou; esforço novo vale para a ocorrência aberta`, async () => {
+  test(`${name}: editar avulsa: só quem está com ela; esforço novo vale para a ocorrência aberta`, async () => {
     const { world, env, users } = await setup(make);
     const { existing, definition } = await ownSporadic(world, env, users.leo.id);
     assert.equal(definition.createdByUserID, users.leo.id);
@@ -219,10 +223,10 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     assert.equal((await update.execute(definition.roomID, definition.id, { effort: 9 }, users.leo.id)).effort.points, 3);
 
     await assert.rejects(update.execute(definition.roomID, definition.id, { name: "   " }, users.leo.id), code("invalidTaskName"));
-    // Outra pessoa da casa não edita a avulsa de quem criou.
+    // Outra pessoa da casa não edita a avulsa de quem está com ela, e ninguém edita uma que ninguém pegou
+    // (nem o criador, nem a anterior ao atributo `createdByUserID`).
     await assert.rejects(update.execute(definition.roomID, definition.id, { name: "x" }, users.bia.id), code("taskUnavailable"));
-    // Sem criador (anterior ao atributo) a tarefa não teria dono: qualquer participante do cômodo edita.
-    assert.equal((await update.execute(existing.roomID, existing.id, { name: "Sem dono" }, users.leo.id)).name, "Sem dono");
+    await assert.rejects(update.execute(existing.roomID, existing.id, { name: "x" }, users.leo.id), code("taskUnavailable"));
     // A recorrente é de quem participa do cômodo; quem não é da casa não edita.
     const recurring = (await env.state()).definitions.find((d) => d.kind === "recurring");
     assert.ok(recurring !== undefined);
@@ -237,7 +241,7 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     assert.equal((await env.tasks.definition(definition.roomID, definition.id, users.leo.id)).name, "Trocar a lâmpada");
   });
 
-  test(`${name}: excluir avulsa: só quem criou; remove ocorrências, atribuições e as trocas com as notificações`, async () => {
+  test(`${name}: excluir avulsa: só quem está com ela; remove ocorrências, atribuições e as trocas com as notificações`, async () => {
     const { world, env, users } = await setup(make);
     const { existing, definition } = await ownSporadic(world, env, users.leo.id);
     const remove = new DeleteSporadicTaskUseCase(env.tasks, () => world.now);
@@ -282,20 +286,19 @@ export function repositoryContract(name: string, make: RepositoryEnvFactory): vo
     assert.ok(after.occurrences.some((o) => o.id === other.id));
     await assert.rejects(remove.execute(definition.roomID, definition.id, users.leo.id), code("entityNotFound"));
 
-    // Sem dono: sem criador (anterior ao atributo) ou com o criador fora da casa, qualquer participante apaga.
-    await remove.execute(existing.roomID, existing.id, users.leo.id);
-    assert.ok(!(await env.state()).definitions.some((d) => d.id === existing.id));
-    const stranger = userID(uuid(777));
-    const abandoned = await new CreateTaskUseCaseForTest(env.tasks, () => world.now).create(users.leo.id, {
-      roomID: definition.roomID, name: "Abandonada", details: "", effort: 1, kind: "sporadic",
+    // Ninguém apaga uma avulsa que ninguém pegou; quem pega passa a poder, e quem criou sem pegar não.
+    await assert.rejects(remove.execute(existing.roomID, existing.id, users.leo.id), code("taskUnavailable"));
+    const free = await new CreateTaskUseCaseForTest(env.tasks, () => world.now).create(users.leo.id, {
+      roomID: definition.roomID, name: "Livre", details: "", effort: 1, kind: "sporadic",
       recurrence: { kind: "none" }, assignmentPolicy: "selfAssigned",
     }, taskDefinitionID(world.newID()));
-    await assert.rejects(remove.execute(abandoned.roomID, abandoned.id, users.bia.id), code("taskUnavailable"));
-    await env.update((s) => {
-      s.definitions = s.definitions.map((d) => (d.id === abandoned.id ? { ...d, createdByUserID: stranger } : d));
-    });
-    await remove.execute(abandoned.roomID, abandoned.id, users.bia.id);
-    assert.ok(!(await env.state()).definitions.some((d) => d.id === abandoned.id));
+    await assert.rejects(remove.execute(free.roomID, free.id, users.leo.id), code("taskUnavailable"));
+    const freeOccurrence = (await env.state()).occurrences.find((o) => o.taskDefinitionID === free.id);
+    assert.ok(freeOccurrence !== undefined);
+    await new ClaimSporadicTaskUseCase(env.tasks, () => world.now).execute(freeOccurrence.id, users.bia.id);
+    await assert.rejects(remove.execute(free.roomID, free.id, users.leo.id), code("taskUnavailable"));
+    await remove.execute(free.roomID, free.id, users.bia.id);
+    assert.ok(!(await env.state()).definitions.some((d) => d.id === free.id));
   });
 
   test(`${name}: quem está de férias não pode assumir uma esporádica`, async () => {

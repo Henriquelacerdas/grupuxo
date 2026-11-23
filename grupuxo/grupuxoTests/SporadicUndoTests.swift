@@ -114,29 +114,29 @@ struct SporadicUndoTests {
         #expect(mine.assigneeName(seenByOwner) == "Você")
     }
 
-    @Test func taskWithoutAnOwnerCanBeManagedByAnyParticipant() async throws {
+    @Test func onlyWhoHoldsASporadicTaskCanEditOrDeleteIt() async throws {
         let container = AppContainer()
         let me = MockSeed.currentUser
-        let members = Set(MockSeed.users.map(\.id))
-        let free = TaskDefinition(
-            id: UUID(), roomID: MockSeed.kitchen.id, name: "Trocar lâmpada", details: "", effort: TaskEffort(points: 1),
-            kind: .sporadic, recurrence: .none, assignmentPolicy: .selfAssigned, createdByUserID: nil
-        )
-        #expect(free.isManageableSporadic(by: me.id, houseMemberIDs: members), "sem criador: qualquer participante")
-
-        var abandoned = free
-        abandoned.createdByUserID = UUID()
-        #expect(abandoned.isManageableSporadic(by: me.id, houseMemberIDs: members), "criador fora da casa")
-
-        var mine = free
-        mine.createdByUserID = me.id
-        #expect(mine.isManageableSporadic(by: me.id, houseMemberIDs: members))
         let other = try #require(MockSeed.users.first { $0.id != me.id })
-        #expect(!mine.isManageableSporadic(by: other.id, houseMemberIDs: members), "a de quem criou continua só dele")
+        let occurrence = try await makeTask(container, createdBy: me, name: "Trocar lâmpada")
+        let id = occurrence.taskDefinitionID
 
-        // No repositório: apagar uma tarefa sem criador funciona.
-        _ = try await container.taskRepository.create(free, requestedBy: me.id, at: .now)
-        try await container.taskRepository.deleteSporadicTask(id: free.id, requestedBy: me.id)
-        #expect(await container.store.read { state in state.definitions.contains { $0.id == free.id } } == false)
+        // Antes de alguém pegar, nem quem criou edita ou apaga.
+        await #expect(throws: DomainError.taskUnavailable) {
+            _ = try await container.taskRepository.updateTaskDetails(id: id, name: "x", details: "", requestedBy: me.id)
+        }
+        await #expect(throws: DomainError.taskUnavailable) {
+            try await container.taskRepository.deleteSporadicTask(id: id, requestedBy: me.id)
+        }
+
+        // Outro morador pega: só ele passa a poder; quem criou continua sem poder.
+        try await container.taskRepository.claim(occurrenceID: occurrence.id, by: other.id, at: .now)
+        await #expect(throws: DomainError.taskUnavailable) {
+            try await container.taskRepository.deleteSporadicTask(id: id, requestedBy: me.id)
+        }
+        let edited = try await container.taskRepository.updateTaskDetails(id: id, name: "Trocar a lâmpada", details: "", requestedBy: other.id)
+        #expect(edited.name == "Trocar a lâmpada")
+        try await container.taskRepository.deleteSporadicTask(id: id, requestedBy: other.id)
+        #expect(await container.store.read { state in state.definitions.contains { $0.id == id } } == false)
     }
 }

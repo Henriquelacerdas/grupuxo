@@ -181,7 +181,7 @@ Definições legadas atingidas pelo replanejamento são inicializadas a partir d
 
 ### Encerrar tarefa (`endTask`)
 
-Uma tarefa recorrente não é apagada: é **encerrada** (`TaskDefinition.endedAt`). Quem pede precisa ser morador da casa e participante atual do cômodo (a mesma regra de criar); esporádicas não se encerram (têm a própria exclusão, só de quem criou). Repetir é idempotente e mantém a primeira data.
+Uma tarefa recorrente não é apagada: é **encerrada** (`TaskDefinition.endedAt`). Quem pede precisa ser morador da casa e participante atual do cômodo (a mesma regra de criar); esporádicas não se encerram (têm a própria exclusão, só de quem está com a tarefa). Repetir é idempotente e mantém a primeira data.
 
 - **Fica:** a ocorrência já disponível (`availableAt <= agora`) e não concluída permanece com o responsável até ser concluída, mesmo atrasada; as concluídas, o `fairnessDebt` e as atribuições históricas não mudam. A tarefa só passa à próxima pessoa depois de concluída, e o prazo da próxima contaria a partir da conclusão: como a próxima não existe mais, **nada é publicado depois**, nem a sucessora de `afterCompletion`.
 - **Sai:** as ocorrências ainda não disponíveis (`availableAt > agora`) e suas atribuições. `nextScheduledAt` e `pendingRotation` são zerados.

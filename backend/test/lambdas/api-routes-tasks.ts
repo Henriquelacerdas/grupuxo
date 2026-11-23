@@ -6,9 +6,19 @@ import {
 } from "./api-routes-helpers.ts";
 
 // Rotas de tarefa (BACKEND.md, seção 6.1): GET /v1/me/tasks, GET/POST /v1/rooms/{roomID}/tasks,
-// GET/PATCH/DELETE /v1/rooms/{roomID}/tasks/{taskID} (editar e excluir só avulsa e só de quem criou) e POST …/end.
+// GET/PATCH/DELETE /v1/rooms/{roomID}/tasks/{taskID} (editar e excluir só avulsa e só de quem está com ela) e POST …/end.
 
 const UNKNOWN = "99999999-9999-4999-8999-999999999999";
+
+/** Cria a avulsa e a assume: só quem está com ela edita e apaga. */
+async function createAndClaim(env: ReturnType<ApiEnvFactory>, who: "ana" | "bia", roomID: string, body: unknown): Promise<Record<string, unknown>> {
+  const created = expectStatus(await env.call(who, "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(body) }), 201);
+  const items = list(bodyOf(await env.call(who, "GET", "/v1/me/sporadic-tasks"))["tasks"]).map(rec);
+  const item = items.find((entry) => rec(entry["definition"])["id"] === created["id"]);
+  assert.ok(item !== undefined);
+  assert.equal((await env.call(who, "POST", `/v1/occurrences/${text(rec(item["occurrence"])["id"])}/claim`)).statusCode, 204);
+  return created;
+}
 
 export function taskRoutes(name: string, make: ApiEnvFactory): void {
   test(`${name}: criar tarefa: 201 com a definição; a lista do cômodo e a do morador a mostram`, async () => {
@@ -173,11 +183,11 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     assignmentPolicy: "selfAssigned",
   } as const;
 
-  test(`${name}: avulsa guarda quem criou; PATCH edita nome, descrição e esforço e a ocorrência aberta herda o esforço`, async () => {
+  test(`${name}: avulsa assumida: PATCH edita nome, descrição e esforço e a ocorrência aberta herda o esforço`, async () => {
     const env = make();
     const { house, ids } = await twoHousesScenario(env);
     const roomID = house.wholeHouseRoomID;
-    const created = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(SPORADIC) }), 201);
+    const created = await createAndClaim(env, "ana", roomID, SPORADIC);
     assert.equal(created["createdByUserID"], ids.ana);
     const path = `/v1/rooms/${roomID}/tasks/${text(created["id"])}`;
     const edited = expectStatus(
@@ -192,11 +202,11 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     assert.equal(rec(rec(item)["occurrence"])["effort"], 3);
   });
 
-  test(`${name}: PATCH e DELETE de avulsa só de quem criou; DELETE de recorrente nunca (403); PATCH de recorrente vale para quem participa`, async () => {
+  test(`${name}: PATCH e DELETE de avulsa só de quem está com ela; DELETE de recorrente nunca (403); PATCH de recorrente vale para quem participa`, async () => {
     const env = make();
     const { house } = await twoHousesScenario(env);
     const roomID = house.wholeHouseRoomID;
-    const sporadic = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(SPORADIC) }), 201);
+    const sporadic = await createAndClaim(env, "ana", roomID, SPORADIC);
     const recurring = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(WEEKLY_TASK) }), 201);
     const sporadicPath = `/v1/rooms/${roomID}/tasks/${text(sporadic["id"])}`;
     const recurringPath = `/v1/rooms/${roomID}/tasks/${text(recurring["id"])}`;
@@ -248,7 +258,7 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     const env = make();
     const { house } = await twoHousesScenario(env);
     const roomID = house.wholeHouseRoomID;
-    const created = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(SPORADIC) }), 201);
+    const created = await createAndClaim(env, "ana", roomID, SPORADIC);
     const patch = (body: unknown) =>
       env.call("ana", "PATCH", `/v1/rooms/${roomID}/tasks/${text(created["id"])}`, { body: typeof body === "string" ? body : JSON.stringify(body) });
     for (const body of ["", "não é json", "[]", {}, { name: 3 }, { details: null }, { effort: 0 }, { effort: 4 }, { effort: 1.5 }]) {
@@ -262,7 +272,7 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     const env = make();
     const { house } = await twoHousesScenario(env);
     const roomID = house.wholeHouseRoomID;
-    const created = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(SPORADIC) }), 201);
+    const created = await createAndClaim(env, "ana", roomID, SPORADIC);
     const path = `/v1/rooms/${roomID}/tasks/${text(created["id"])}`;
     assert.equal(list(bodyOf(await env.call("ana", "GET", "/v1/me/sporadic-tasks"))["tasks"]).length, 1);
     assert.equal((await env.call("ana", "DELETE", path)).statusCode, 204);
@@ -275,7 +285,7 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
   test(`${name}: PATCH e DELETE de quem não é da casa, de tarefa ou cômodo inexistente: 404`, async () => {
     const env = make();
     const { house, other } = await twoHousesScenario(env);
-    const created = expectStatus(await env.call("ana", "POST", `/v1/rooms/${house.wholeHouseRoomID}/tasks`, { body: JSON.stringify(SPORADIC) }), 201);
+    const created = await createAndClaim(env, "ana", house.wholeHouseRoomID, SPORADIC);
     const taskID = text(created["id"]);
     const body = JSON.stringify({ name: "x" });
     for (const [who, path] of [
@@ -294,9 +304,7 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     const env = make();
     const { house } = await twoHousesScenario(env);
     const roomPath = `/v1/rooms/${house.wholeHouseRoomID}/tasks`;
-    const sporadic = expectStatus(await env.call("ana", "POST", roomPath, {
-      body: JSON.stringify({ name: "Trocar lâmpada", details: "", effort: 1, kind: "sporadic", recurrence: { kind: "none" }, assignmentPolicy: "selfAssigned" }),
-    }), 201);
+    const sporadic = await createAndClaim(env, "ana", house.wholeHouseRoomID, SPORADIC);
     // Ignora o aviso de entrada na casa, que o cenário já gerou.
     const inbox = async (who: "ana" | "bia" | "caio") =>
       list(bodyOf(await env.call(who, "GET", "/v1/me/notifications"))["notifications"]).map(rec).filter((notice) => notice["kind"] !== "memberJoined");
@@ -424,9 +432,7 @@ export function taskRoutes(name: string, make: ApiEnvFactory): void {
     assert.ok((await openOccurrences()).length > 0);
 
     // Avulsa não passa por aqui; quem não é do cômodo é recusado.
-    const sporadic = expectStatus(await env.call("ana", "POST", roomPath, {
-      body: JSON.stringify({ name: "Avulsa", details: "", effort: 1, kind: "sporadic", recurrence: { kind: "none" }, assignmentPolicy: "selfAssigned" }),
-    }), 201);
+    const sporadic = await createAndClaim(env, "ana", text(roomPath.split("/")[3]), { ...SPORADIC, name: "Avulsa" });
     expectError(await env.call("ana", "PATCH", `${roomPath}/${text(sporadic["id"])}`, {
       body: JSON.stringify({ followsRoom: false, recurrence: monthly }),
     }), 400, "invalid_schedule");

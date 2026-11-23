@@ -637,8 +637,6 @@ struct SporadicTasksView: View {
                 roomLabel(item.room)
 
                 assigneeLabel(item)
-
-                creatorLabel(item)
             }
             .frame(
                 maxWidth: .infinity,
@@ -746,54 +744,26 @@ struct SporadicTasksView: View {
         }
     }
 
-    @ViewBuilder
-    private func creatorLabel(
-        _ item: SporadicTaskCardItem
-    ) -> some View {
-
-        if viewModel
-            .wasCreatedByCurrentUser(item) {
-
-            (
-                Text(
-                    "Adicionado por "
-                )
-                +
-                Text("Você")
-                    .bold()
-            )
-            .font(.body)
-            .foregroundStyle(
-                .secondary
-            )
-
-        } else if let creator =
-                    item.creator {
-
-            (
-                Text(
-                    "Adicionado por "
-                )
-                +
-                Text(creator.name)
-                    .bold()
-            )
-            .font(.body)
-            .foregroundStyle(
-                .secondary
-            )
-        }
-    }
-
     // MARK: - Actions
 
-    /// Por que o morador não pode pegar a tarefa (cômodo de que não participa). Quem já pegou aparece em "Para …".
+    /// Sinalização do Figma: "🔖 Julia já pegou essa tarefa" quando outro morador já está com ela; ou por que o morador não
+    /// pode pegá-la (cômodo de que não participa).
     @ViewBuilder
     private func assignmentNote(
         _ item: SporadicTaskCardItem
     ) -> some View {
 
-        if !item.task.occurrence.isCompleted,
+        if let name = viewModel.takenByAnotherName(item.task) {
+
+            Label {
+                Text("\(name) já pegou essa tarefa")
+            } icon: {
+                Image(systemName: "bookmark")
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
+
+        } else if !item.task.occurrence.isCompleted,
                   item.task.assignment == nil,
                   !viewModel.isRoomMember(item.task) {
 

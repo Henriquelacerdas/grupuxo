@@ -273,10 +273,6 @@ final class AppContainer {
                 GetHouseRoomsUseCase(
                     repository: roomRepository
                 ),
-            getMembers:
-                GetHouseMembersUseCase(
-                    repository: houseRepository
-                ),
             claimTask:
                 ClaimSporadicTaskUseCase(
                     repository: taskRepository

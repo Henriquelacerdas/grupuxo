@@ -128,7 +128,7 @@ export interface TaskDefinition {
   readonly calendarAnchor: Instant | null;
   /** Quando a tarefa foi encerrada (`endTask`): a definição e o histórico ficam, nada novo é publicado. */
   readonly endedAt: Instant | null;
-  /** Quem criou a tarefa. Só a avulsa o usa (editar e excluir são de quem criou); ausente em tarefas anteriores ao atributo. */
+  /** Quem criou a tarefa. Informativo: editar e excluir a avulsa é de quem está com ela; ausente em tarefas anteriores ao atributo. */
   readonly createdByUserID?: UserID;
   /**
    * "Repetir com o cômodo": a tarefa segue a escala e a periodicidade do cômodo. Ausente = definição antiga: vale a

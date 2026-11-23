@@ -37,7 +37,6 @@ final class SporadicTasksViewModel: ObservableObject {
 
     private let getTasks: GetSporadicTasksUseCase
     private let getRooms: GetHouseRoomsUseCase
-    private let getMembers: GetHouseMembersUseCase
 
     private let claimTask: ClaimSporadicTaskUseCase
     private let releaseTask: ReleaseSporadicTaskUseCase
@@ -53,7 +52,6 @@ final class SporadicTasksViewModel: ObservableObject {
         refreshData: @escaping @Sendable () async -> Void = {},
         getTasks: GetSporadicTasksUseCase,
         getRooms: GetHouseRoomsUseCase,
-        getMembers: GetHouseMembersUseCase,
         claimTask: ClaimSporadicTaskUseCase,
         releaseTask: ReleaseSporadicTaskUseCase,
         deleteTask: DeleteSporadicTaskUseCase,
@@ -64,7 +62,6 @@ final class SporadicTasksViewModel: ObservableObject {
         self.refreshData = refreshData
         self.getTasks = getTasks
         self.getRooms = getRooms
-        self.getMembers = getMembers
         self.claimTask = claimTask
         self.releaseTask = releaseTask
         self.deleteTask = deleteTask
@@ -114,15 +111,9 @@ final class SporadicTasksViewModel: ObservableObject {
                 participatingOnly: true
             )
 
-            async let membersRequest = getMembers(
-                houseID: houseID,
-                userID: userID
-            )
-
-            let (tasks, rooms, members) = try await (
+            let (tasks, rooms) = try await (
                 tasksRequest,
-                roomsRequest,
-                membersRequest
+                roomsRequest
             )
             let memberRooms = await memberRoomsRequest
 
@@ -152,11 +143,6 @@ final class SporadicTasksViewModel: ObservableObject {
                     rooms.map { ($0.id, $0) }
             )
 
-            let membersByID = Dictionary(
-                uniqueKeysWithValues:
-                    members.map { ($0.id, $0) }
-            )
-
             var items: [SporadicTaskCardItem] = []
 
             for task in tasks {
@@ -167,24 +153,10 @@ final class SporadicTasksViewModel: ObservableObject {
                     throw DomainError.entityNotFound
                 }
 
-                let creator: User?
-
-                if let creatorID =
-                    task.definition.createdByUserID {
-
-                    creator =
-                        membersByID[creatorID]
-
-                } else {
-
-                    creator = nil
-                }
-
                 items.append(
                     SporadicTaskCardItem(
                         task: completions.applying(to: task),
-                        room: room,
-                        creator: creator
+                        room: room
                     )
                 )
             }
@@ -473,21 +445,17 @@ final class SporadicTasksViewModel: ObservableObject {
 
     // MARK: - Ownership
 
-    /// Editar e apagar: a tarefa é de quem a criou; sem criador conhecido (criada antes do campo, ou o criador saiu da
-    /// casa) ela não teria dono, então qualquer morador pode (mesma regra do servidor).
+    /// Editar e apagar: só quem está com a tarefa (atribuída a ele e ainda aberta; o servidor aplica a mesma regra).
+    /// Antes disso só aparece "Adicionar às minhas tarefas". Marcada para "Desfazer" e ainda não confirmada, já não é dele.
     func canManage(
         _ item: SporadicTaskCardItem
     ) -> Bool {
 
-        wasCreatedByCurrentUser(item) || item.creator == nil
-    }
+        let task = item.task
 
-    func wasCreatedByCurrentUser(
-        _ item: SporadicTaskCardItem
-    ) -> Bool {
-
-        item.task.definition.createdByUserID
-            == userID
+        return !task.occurrence.isCompleted
+            && !pendingReleaseIDs.contains(task.id)
+            && task.assignment?.userID == userID
     }
 
     // MARK: - Delete
@@ -545,7 +513,7 @@ final class SporadicTasksViewModel: ObservableObject {
     private func presentCompletions() {
         guard case let .content(items) = state else { return }
         state = .content(items.map {
-            SporadicTaskCardItem(task: completions.applying(to: $0.task), room: $0.room, creator: $0.creator)
+            SporadicTaskCardItem(task: completions.applying(to: $0.task), room: $0.room)
         })
     }
 

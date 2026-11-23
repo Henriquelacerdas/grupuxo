@@ -189,11 +189,9 @@ struct MockTaskRepository: TaskRepository {
             let previousDefinition =
                 state.definitions[definitionIndex]
 
+            // A tarefa única só é editada por quem está com ela (atribuída a ele e ainda aberta).
             if previousDefinition.kind == .sporadic {
-                let houseMemberIDs = Set(state.houseMemberships.filter { membership in
-                    state.rooms.first { $0.id == previousDefinition.roomID }?.houseID == membership.houseID
-                }.map(\.userID))
-                guard previousDefinition.isManageableSporadic(by: userID, houseMemberIDs: houseMemberIDs) else {
+                guard Self.holdsOpenSporadic(id, userID: userID, state: state) else {
                     throw DomainError.taskUnavailable
                 }
             }
@@ -344,10 +342,9 @@ struct MockTaskRepository: TaskRepository {
                 throw DomainError.entityNotFound
             }
 
-            let houseMemberIDs = Set(state.houseMemberships.filter { membership in
-                state.rooms.first { $0.id == definition.roomID }?.houseID == membership.houseID
-            }.map(\.userID))
-            guard definition.isManageableSporadic(by: userID, houseMemberIDs: houseMemberIDs) else {
+            guard definition.kind == .sporadic,
+                  Self.holdsOpenSporadic(id, userID: userID, state: state)
+            else {
                 throw DomainError.taskUnavailable
             }
 
@@ -592,6 +589,16 @@ struct MockTaskRepository: TaskRepository {
                 $0.roomID == item.definition.roomID && $0.userID == userID && !$0.isCurrent
                     && $0.rotationChanges?.contains(where: { !$0.participates && item.occurrence.availableAt < $0.effectiveAt }) == true
             }
+    }
+
+    /// Quem está com a tarefa única (atribuição ativa na ocorrência ainda aberta): só ele a edita e apaga.
+    nonisolated private static func holdsOpenSporadic(
+        _ definitionID: TaskDefinition.ID, userID: User.ID, state: MockStore.State
+    ) -> Bool {
+        state.occurrences.contains { occurrence in
+            occurrence.taskDefinitionID == definitionID && !occurrence.isCompleted
+                && state.assignments.contains { $0.occurrenceID == occurrence.id && $0.userID == userID && $0.isActive }
+        }
     }
 
     nonisolated private func items(from state: MockStore.State) -> [TaskItem] {

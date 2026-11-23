@@ -225,7 +225,7 @@ export interface TaskDetailsPatch {
 }
 
 /**
- * A tarefa que o morador pode editar: a **avulsa** é de quem a criou; a **recorrente** (ativa) é de qualquer participante
+ * A tarefa que o morador pode editar: a **avulsa** é de quem está com ela (atribuída a ele e ainda aberta); a **recorrente** (ativa) é de qualquer participante
  * atual do cômodo, como encerrar. Em ambos, quem edita ainda é da casa; senão `taskUnavailable`.
  */
 function editableDefinition(
@@ -237,19 +237,18 @@ function editableDefinition(
   if (definition === undefined || room === undefined) throw new DomainError("entityNotFound");
   const participates = state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === userID) &&
     state.roomMemberships.some((m) => m.roomID === roomID && m.userID === userID && isCurrentMember(m));
-  // A avulsa é de quem a criou; sem criador (anterior ao campo) ou com o criador já fora da casa ela não teria dono
-  // nunca mais, então qualquer participante a edita e apaga (espelha `isManageableSporadic` do Swift).
-  const creator = definition.createdByUserID;
-  const creatorGone = creator === undefined ||
-    !state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === creator);
-  const allowed = definition.kind === "sporadic"
-    ? creator === userID || creatorGone
-    : definition.endedAt === null;
+  // A avulsa só é editada e apagada por quem está com ela (atribuição ativa na ocorrência ainda aberta); antes de alguém
+  // pegar, ninguém mexe: só "Adicionar às minhas tarefas". Quem criou não tem privilégio por isso.
+  const holdsSporadic = state.assignments.some((a) =>
+    isActiveAssignment(a) && a.userID === userID &&
+    state.occurrences.some((o) => o.id === a.occurrenceID && o.taskDefinitionID === taskID && !isCompleted(o))
+  );
+  const allowed = definition.kind === "sporadic" ? holdsSporadic : definition.endedAt === null;
   if (!allowed || !participates) throw new DomainError("taskUnavailable");
   return { definition, index };
 }
 
-/** Só a avulsa do próprio morador pode ser excluída. */
+/** Só a avulsa de quem está com ela pode ser excluída. */
 function ownSporadicDefinition(
   state: StoreState, roomID: RoomID, taskID: TaskDefinitionID, userID: UserID,
 ): { readonly definition: TaskDefinition; readonly index: number } {
