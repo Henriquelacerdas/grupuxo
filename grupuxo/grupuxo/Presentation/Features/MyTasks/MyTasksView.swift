@@ -7,6 +7,7 @@ struct MyTasksView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.showToast) private var showToast
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var collapsedSections: Set<MyTasksSection> = []
     @State private var isPresentingTaskCreationSheet = false
@@ -146,6 +147,13 @@ struct MyTasksView: View {
                 await viewModel.load(showLoading: false)
             }
             await viewModel.refreshPendingSwaps()
+            await weekRatingViewModel?.load()
+        }
+
+        // O app pode ficar aberto de uma semana para a outra: ao voltar, a virada do ciclo já vale.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await weekRatingViewModel?.load() }
         }
 
         .alert(
@@ -188,6 +196,7 @@ struct MyTasksView: View {
         .refreshable {
             await viewModel.load(forceRefresh: true)
             await viewModel.refreshPendingSwaps()
+            await weekRatingViewModel?.load()
         }
     }
 

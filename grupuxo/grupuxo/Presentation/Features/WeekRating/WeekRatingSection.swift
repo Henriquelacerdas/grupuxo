@@ -28,7 +28,8 @@ struct WeekRatingSection: View {
                 .accessibilityIdentifier("weekSummary")
             }
         }
-        .task { await viewModel.load() }
+        // O carregamento fica em `MyTasksView`: um `.task` aqui não roda enquanto o `Group` está vazio (nada a mostrar),
+        // e então as avaliações nunca chegariam.
         .sheet(isPresented: $isRating) {
             RateWeekSheet(viewModel: viewModel)
         }
