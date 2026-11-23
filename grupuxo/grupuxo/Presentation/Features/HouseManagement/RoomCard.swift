@@ -2,6 +2,34 @@ import Foundation
 import SwiftUI
 import GrupuxoDomain
 
+/// Linha de informação dos cards de cômodo: símbolo numa coluna fixa e o texto ao lado (responsáveis, prazo, cadeado).
+/// Um só lugar para o espaçamento ficar igual em todos os cards.
+struct RoomInfoRow<Content: View>: View {
+
+    let systemImage: String
+    @ViewBuilder let content: () -> Content
+
+    @ScaledMetric(relativeTo: .body) private var symbolColumnWidth: CGFloat = 22
+
+    var body: some View {
+
+        HStack(
+            alignment: .firstTextBaseline,
+            spacing: DesignSystem.Spacing.small
+        ) {
+
+            Image(systemName: systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: symbolColumnWidth)
+                .accessibilityHidden(true)
+
+            content()
+                .font(.body)
+        }
+    }
+}
+
 /// Card de um cômodo de que o morador participa.
 struct RoomCard: View {
 
@@ -11,7 +39,6 @@ struct RoomCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 56
-    @ScaledMetric(relativeTo: .body) private var symbolColumnWidth: CGFloat = 22
 
     var body: some View {
 
@@ -64,14 +91,14 @@ struct RoomCard: View {
 
             if let responsibles = member.responsibles {
 
-                infoRow(systemImage: "repeat") {
+                RoomInfoRow(systemImage: "repeat") {
 
                     Text(responsibles)
                         .foregroundStyle(.primary)
                 }
             }
 
-            infoRow(systemImage: "clock") {
+            RoomInfoRow(systemImage: "clock") {
 
                 Text(member.deadline)
                     .foregroundStyle(.secondary)
@@ -119,27 +146,6 @@ struct RoomCard: View {
         }
     }
 
-    private func infoRow<Content: View>(
-        systemImage: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-
-        HStack(
-            alignment: .firstTextBaseline,
-            spacing: DesignSystem.Spacing.small
-        ) {
-
-            Image(systemName: systemImage)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: symbolColumnWidth)
-                .accessibilityHidden(true)
-
-            content()
-                .font(.body)
-        }
-    }
-
     private var accessibilityValue: String {
 
         var parts: [String] = []
@@ -170,7 +176,7 @@ struct RestrictedRoomCard: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 48
+    @ScaledMetric(relativeTo: .title) private var iconSize: CGFloat = 56
 
     var body: some View {
 
@@ -217,12 +223,11 @@ struct RestrictedRoomCard: View {
                     .roundedFont(.title3.bold())
                     .foregroundStyle(.primary)
 
-                Label(
-                    HouseOverviewText.privateRoom,
-                    systemImage: "lock.fill"
-                )
-                .font(.body)
-                .foregroundStyle(.secondary)
+                RoomInfoRow(systemImage: "lock.fill") {
+
+                    Text(HouseOverviewText.privateRoom)
+                        .foregroundStyle(.secondary)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

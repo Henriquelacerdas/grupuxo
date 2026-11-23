@@ -50,16 +50,17 @@ struct SporadicTasksCard: View {
 
         HStack(spacing: DesignSystem.Spacing.small) {
 
-            Label {
+            // Mesma grade das linhas abaixo: o símbolo centrado na coluna do círculo e o título alinhado ao texto delas.
+            HStack(spacing: DesignSystem.Spacing.medium) {
+
+                Image(systemName: "flag.fill")
+                    .foregroundStyle(.red)
+                    .frame(width: iconSize)
+                    .accessibilityHidden(true)
 
                 Text("Tarefas Únicas")
                     .roundedFont(.title3.bold())
                     .foregroundStyle(.primary)
-
-            } icon: {
-
-                Image(systemName: "flag.fill")
-                    .foregroundStyle(.red)
             }
 
             Spacer(minLength: DesignSystem.Spacing.small)
