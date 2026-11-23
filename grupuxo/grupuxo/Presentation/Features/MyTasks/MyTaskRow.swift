@@ -39,13 +39,26 @@ struct MyTaskRow: View {
     /// Tocar no texto da linha abre o detalhe da tarefa.
     let onSelect: () -> Void
 
+    /// Largura do círculo de conclusão (símbolo em `title2`), que cresce com o Dynamic Type.
+    @ScaledMetric(relativeTo: .title2) private var circleWidth: CGFloat = 26
+
+    /// Espaço desejado entre o círculo e o texto da tarefa (o padrão do app Lembretes).
+    private let circleToTextGap: CGFloat = 12
+
+    /// A área de toque do círculo tem 44 pt (HIG), mas o símbolo é bem menor e alinhado à esquerda: a folga
+    /// dentro dessa área somava-se ao espaçamento e afastava o texto. Recolhe só o que passa do espaço desejado.
+    private var circleTrailingInset: CGFloat {
+        let slack = max(0, DesignSystem.minimumTouchTarget - circleWidth)
+        return min(0, circleToTextGap - slack)
+    }
+
     private var item: TaskItem { row.item }
 
     private var isCompleted: Bool { item.occurrence.isCompleted }
 
     var body: some View {
 
-        HStack(spacing: DesignSystem.Spacing.small) {
+        HStack(spacing: 0) {
 
             Button {
                 Haptics.completionToggled(wasCompleted: isCompleted)
@@ -63,6 +76,7 @@ struct MyTaskRow: View {
                     )
             }
             .buttonStyle(.plain)
+            .padding(.trailing, circleTrailingInset)
             .disabled(!canComplete)
             .accessibilityLabel(
                 isCompleted
