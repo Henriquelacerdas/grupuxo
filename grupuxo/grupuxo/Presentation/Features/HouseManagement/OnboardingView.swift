@@ -24,6 +24,22 @@ struct OnboardingView: View {
 
     @Binding var isFinishing: Bool
 
+    #if DEBUG
+    /// Só em Debug (`-DemoOnboarding`): abre direto num passo, para conferir as telas no simulador.
+    init(isFinishing: Binding<Bool>, debugStep: Int = 0) {
+        _isFinishing = isFinishing
+        let paths: [[Step]] = [
+            [], [.house], [.house, .join], [.house, .houseName], [.house, .houseName, .rooms],
+            [.house, .houseName, .rooms, .invite], [.house, .houseName, .rooms, .invite, .notifications],
+        ]
+        _path = State(initialValue: paths[min(max(debugStep, 0), paths.count - 1)])
+    }
+    #else
+    init(isFinishing: Binding<Bool>) {
+        _isFinishing = isFinishing
+    }
+    #endif
+
     @EnvironmentObject private var houses: RemoteHouseSession
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var push: PushRegistration
@@ -486,6 +502,9 @@ private struct OnboardingHeader: View {
 
     var body: some View {
         AuthHeader(title: title, subtitle: subtitle)
+            // A célula da lista é recortada pelos cantos arredondados: sem folga, a 1ª e a última linha perdem o 1º caractere.
+            .padding(.vertical, DesignSystem.Spacing.medium)
+            .padding(.horizontal, DesignSystem.Spacing.extraSmall)
     }
 }
 
@@ -521,6 +540,7 @@ private extension View {
     func onboardingHeaderRow() -> some View {
         listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
             .listSectionSpacing(.compact)
     }
 }

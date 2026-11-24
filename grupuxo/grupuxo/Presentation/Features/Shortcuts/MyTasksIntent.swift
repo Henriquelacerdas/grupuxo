@@ -12,7 +12,7 @@ struct OpenMyTasksIntent: AppIntent {
     static let title: LocalizedStringResource = "Abrir Minhas Tarefas"
 
     static let description = IntentDescription(
-        "Abre a tela de Minhas Tarefas do Grupuxo."
+        "Abre a tela de Minhas Tarefas do Reveza."
     )
 
     static let openAppWhenRun: Bool = true

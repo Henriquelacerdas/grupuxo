@@ -54,7 +54,9 @@ struct DomesticApp: App {
     @ViewBuilder
     private var root: some View {
         #if DEBUG
-        if DemoHouse.isEnabled {
+        if let step = DemoHouse.onboardingStep {
+            DemoOnboardingRootView(step: step)
+        } else if DemoHouse.isEnabled {
             DemoHouseRootView()
         } else {
             ContentView()

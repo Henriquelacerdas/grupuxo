@@ -96,7 +96,10 @@ struct AuthHeader: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
+        .multilineTextAlignment(.leading)
         .frame(maxWidth: .infinity, alignment: .leading)
+        // Sem isto, dentro de uma lista o título longo é cortado em "…" em vez de quebrar a linha.
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
