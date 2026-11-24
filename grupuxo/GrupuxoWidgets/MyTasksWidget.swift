@@ -107,15 +107,12 @@ struct MyTasksWidgetEntryView: View {
                         RoomBadgeStack(badges: distinctRoomBadges(from: entry.snapshot.tasks, limit: 3))
                     }
 
-                    Spacer(minLength: 8)
-
-                    VStack(alignment: .leading, spacing: 9) {
+                    // A lista sobe para perto do cabeçalho; o espaço que sobra fica embaixo.
+                    VStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(entry.snapshot.tasks.prefix(3))) { task in
-                            HStack(spacing: 8) {
+                            HStack(spacing: 4) {
                                 Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
-                                    Circle()
-                                        .strokeBorder(task.tintColor, lineWidth: 2)
-                                        .frame(width: 18, height: 18)
+                                    CheckTarget(color: task.tintColor, circle: 18, side: 26)
                                 }
                                 .buttonStyle(.plain)
 
@@ -129,6 +126,9 @@ struct MyTasksWidgetEntryView: View {
                             }
                         }
                     }
+                    .padding(.top, 2)
+
+                    Spacer(minLength: 0)
                 }
                 .widgetURL(WidgetSnapshot.defaultURL)
             }
@@ -177,15 +177,11 @@ struct MyTasksWidgetEntryView: View {
                             .foregroundStyle(.primary)
                     }
 
-                    Spacer(minLength: 10)
-
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(entry.snapshot.tasks.prefix(3))) { task in
-                            HStack(spacing: 10) {
+                            HStack(spacing: 6) {
                                 Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
-                                    Circle()
-                                        .strokeBorder(task.tintColor, lineWidth: 2)
-                                        .frame(width: 19, height: 19)
+                                    CheckTarget(color: task.tintColor, circle: 19, side: 28)
                                 }
                                 .buttonStyle(.plain)
 
@@ -209,6 +205,9 @@ struct MyTasksWidgetEntryView: View {
                             }
                         }
                     }
+                    .padding(.top, 4)
+
+                    Spacer(minLength: 0)
                 }
                 .widgetURL(WidgetSnapshot.defaultURL)
             }
@@ -526,13 +525,11 @@ struct RoomTasksWidgetEntryView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(room.pendingTasks.prefix(3))) { task in
-                                HStack(spacing: 8) {
+                                HStack(spacing: 4) {
                                     Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
-                                        Circle()
-                                            .strokeBorder(room.tintColor, lineWidth: 2)
-                                            .frame(width: 19, height: 19)
+                                        CheckTarget(color: room.tintColor, circle: 19, side: 32)
                                     }
                                     .buttonStyle(.plain)
 
@@ -547,7 +544,6 @@ struct RoomTasksWidgetEntryView: View {
                             }
                             Spacer(minLength: 0)
                         }
-                        .padding(.top, 6)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -561,6 +557,21 @@ struct RoomTasksWidgetEntryView: View {
 }
 
 // MARK: - Componentes Visuais Compartilhados (Design System do Widget)
+
+/// Círculo de check dentro de uma área de toque maior (o botão do widget só responde dentro do próprio rótulo).
+private struct CheckTarget: View {
+    let color: Color
+    let circle: CGFloat
+    let side: CGFloat
+
+    var body: some View {
+        Circle()
+            .strokeBorder(color, lineWidth: 2)
+            .frame(width: circle, height: circle)
+            .frame(width: side, height: side)
+            .contentShape(Rectangle())
+    }
+}
 
 private struct RoomBadgeInfo: Identifiable, Hashable {
     let id: String
