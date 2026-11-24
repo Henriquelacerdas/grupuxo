@@ -69,7 +69,7 @@ O bot **só responde, nunca manda mensagem primeiro**. Conectar abre o WhatsApp 
 - Língua do app no vídeo do pitch (até 11/11): app em português com legendas em inglês, ou app traduzido (String Catalog em inglês pronto antes da gravação).
 - "A cada 2 meses" está no guia, mas o menu de Criar Tarefa oferece 3 e 6 meses; "Rodízio mensal" é zona cinza. O picker de Criar Cômodo já usa o vocabulário da Apple (Semanalmente, A cada 2 semanas, Mensalmente).
 - Ícone do "Resumo da semana pronto" (`list.bullet.clipboard.fill` ou `calendar.badge.checkmark`).
-- Tag marcada por uma só pessoa aparece para quem cuidou? Dia em que a avaliação abre. Tarefa única pega por outra pessoa: some ou mostra "Para <nome>"?
+- Dia em que a avaliação abre. Tarefa única pega por outra pessoa: some ou mostra "Para <nome>"?
 - Quem aceita o pedido de entrada em cômodo privado; pedido pendente pode ser cancelado/refeito?
 - "Participantes ›" também entra e sai do rodízio? Ordem dos cômodos é pessoal ou da casa (assumido pessoal)? Modo férias vale só a partir do próximo ciclo? Excluir o último cômodo privado: na hora ou no fim do ciclo?
 - Comandos exatos do bot do WhatsApp.

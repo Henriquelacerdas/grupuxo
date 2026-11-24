@@ -12,14 +12,18 @@ import { schedulingFor, type CommandContext } from "./context.ts";
 // Avaliar a semana e Resumo da semana (docs/DESIGN.md, docs/PRODUTO.md). Cada morador avalia, uma vez, os cômodos cujo
 // ciclo acabou e de que não cuidou; a janela para avaliar vai do fim do ciclo até 2 dias depois ("Termina terça"). O
 // resultado só sai com 2 ou mais avaliações **ou** quando a janela fecha, é só o agregado (nível e tags marcadas por ao
-// menos duas pessoas) e só quem cuidou do cômodo o vê. Quem avaliou nunca sai do servidor.
+// menos uma pessoa) e só quem cuidou do cômodo o vê. Quem avaliou nunca sai do servidor.
 
 /** Dias, depois do fim do ciclo, em que ainda dá para avaliar (e em que o resultado sai mesmo com 1 voto). */
 export const RATING_WINDOW_DAYS = 2;
 /** Avaliações mínimas para o resultado sair antes de a janela fechar. */
 export const MIN_RATINGS_FOR_RESULT = 2;
-/** Uma tag só aparece no resultado se pelo menos duas pessoas a marcaram (sem nomes nem contagem). */
-export const MIN_VOTES_PER_TAG = 2;
+/**
+ * Uma tag aparece no resultado se pelo menos uma pessoa a marcou (sem nomes nem contagem). Com 2 votos mínimos, quase
+ * nunca duas pessoas marcavam a mesma tag e o Resumo ficava sem as tags do Figma; o resultado já só sai com
+ * `MIN_RATINGS_FOR_RESULT` avaliações ou com a janela fechada, e nunca traz quem marcou nem quantas vezes.
+ */
+export const MIN_VOTES_PER_TAG = 1;
 
 export interface RatedPeriod {
   readonly room: Room;
@@ -137,7 +141,7 @@ export function rateRoom(
   ];
 }
 
-/** Agrega as avaliações de um ciclo: nível médio arredondado e tags marcadas por ao menos duas pessoas. */
+/** Agrega as avaliações de um ciclo: nível médio arredondado e tags marcadas por ao menos `MIN_VOTES_PER_TAG` pessoa. */
 export function aggregateRatings(ratings: readonly RoomRating[]): { level: RoomRatingLevel; tags: RoomRatingTag[] } | null {
   if (ratings.length === 0) return null;
   const average = ratings.reduce((sum, r) => sum + LEVEL_SCORE[r.level], 0) / ratings.length;

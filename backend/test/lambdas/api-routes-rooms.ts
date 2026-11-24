@@ -339,21 +339,21 @@ export function roomRoutes(name: string, make: ApiEnvFactory): void {
     assert.deepEqual(await summary(responsible), []);
     assert.deepEqual(await summary(rater), []);
 
-    // Janela fechada: o resultado sai (nível e só as tags marcadas por 2 ou mais; aqui ninguém repetiu), sem quem avaliou.
+    // Janela fechada: o resultado sai (nível e as tags marcadas, na ordem do catálogo), sem quem avaliou.
     env.clock = periodEnd + 3 * 24 * 3_600_000;
     const [result] = await summary(responsible);
     assert.ok(result !== undefined);
-    assert.deepEqual([result["roomID"], result["level"], result["tags"]], [roomID, "great", []]);
+    assert.deepEqual([result["roomID"], result["level"], result["tags"]], [roomID, "great", ["spotless", "onTime"]]);
     assert.ok(!JSON.stringify(result).includes(ids[rater]), "o resultado nunca identifica quem avaliou");
     assert.deepEqual(await summary(rater), []);
 
-    // Resumo completo: quem cuidou vê o cômodo em `mine` (com as tags marcadas por 2+, aqui nenhuma); o outro morador o vê
+    // Resumo completo: quem cuidou vê o cômodo em `mine` (com as tags marcadas); o outro morador o vê
     // em `house`, só com nível e contagem; o período é a última semana de calendário que acabou.
     const overview = async (who: "ana" | "bia") => bodyOf(await env.call(who, "GET", "/v1/me/ratings/summary"));
     const mineBody = await overview(responsible);
     const [mineRoom] = list(mineBody["mine"]).map(rec);
     assert.ok(mineRoom !== undefined);
-    assert.deepEqual([mineRoom["roomID"], mineRoom["ratingCount"], mineRoom["level"], mineRoom["tags"]], [roomID, 1, "great", []]);
+    assert.deepEqual([mineRoom["roomID"], mineRoom["ratingCount"], mineRoom["level"], mineRoom["tags"]], [roomID, 1, "great", ["spotless", "onTime"]]);
     assert.deepEqual(list(mineBody["house"]), []);
     const week = rec(mineBody["week"]);
     assert.equal(Date.parse(text(week["end"])) - Date.parse(text(week["start"])), 7 * 24 * 3_600_000);
