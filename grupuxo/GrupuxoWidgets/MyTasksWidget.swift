@@ -110,9 +110,9 @@ struct MyTasksWidgetEntryView: View {
                     // A lista sobe para perto do cabeçalho; o espaço que sobra fica embaixo.
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(entry.snapshot.tasks.prefix(3))) { task in
-                            HStack(spacing: 4) {
+                            HStack(spacing: 2) {
                                 Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
-                                    CheckTarget(color: task.tintColor, circle: 18, side: 26)
+                                    CheckTarget(color: task.tintColor, circle: 22, side: 36)
                                 }
                                 .buttonStyle(.plain)
 
@@ -126,7 +126,6 @@ struct MyTasksWidgetEntryView: View {
                             }
                         }
                     }
-                    .padding(.top, 2)
 
                     Spacer(minLength: 0)
                 }
@@ -179,16 +178,16 @@ struct MyTasksWidgetEntryView: View {
 
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(entry.snapshot.tasks.prefix(3))) { task in
-                            HStack(spacing: 6) {
+                            HStack(spacing: 2) {
                                 Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
-                                    CheckTarget(color: task.tintColor, circle: 19, side: 28)
+                                    CheckTarget(color: task.tintColor, circle: 22, side: 38)
                                 }
                                 .buttonStyle(.plain)
 
                                 Link(destination: task.deepLinkURL) {
                                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                                         Text(task.name)
-                                            .font(.system(size: 15, weight: .regular))
+                                            .font(.system(size: 14, weight: .regular))
                                             .foregroundStyle(.primary)
                                             .lineLimit(1)
 
@@ -527,15 +526,15 @@ struct RoomTasksWidgetEntryView: View {
                     } else {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(room.pendingTasks.prefix(3))) { task in
-                                HStack(spacing: 4) {
+                                HStack(spacing: 2) {
                                     Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
-                                        CheckTarget(color: room.tintColor, circle: 19, side: 32)
+                                        CheckTarget(color: room.tintColor, circle: 22, side: 40)
                                     }
                                     .buttonStyle(.plain)
 
                                     Link(destination: task.deepLinkURL) {
                                         Text(task.name)
-                                            .font(.system(size: 15, weight: .regular))
+                                            .font(.system(size: 14, weight: .regular))
                                             .foregroundStyle(.primary)
                                             .lineLimit(1)
                                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -568,7 +567,8 @@ private struct CheckTarget: View {
         Circle()
             .strokeBorder(color, lineWidth: 2)
             .frame(width: circle, height: circle)
-            .frame(width: side, height: side)
+            // O círculo encosta na borda esquerda (como no Lembretes); a área de toque se estende para a direita e para cima/baixo.
+            .frame(width: circle + 12, height: side, alignment: .leading)
             .contentShape(Rectangle())
     }
 }
