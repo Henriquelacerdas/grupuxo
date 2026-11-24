@@ -412,7 +412,11 @@ final class AppContainer {
                 repository: houseRepository
             ),
             editing: room,
-            updateRoom: UpdateRoomUseCase(repository: roomRepository)
+            updateRoom: UpdateRoomUseCase(repository: roomRepository),
+            linkedTaskCount: { [taskRepository, userID = session.currentUser.id] in
+                let tasks = (try? await taskRepository.tasks(in: room.id, requesting: userID)) ?? []
+                return Set(tasks.filter { $0.definition.isLinked(to: room) }.map(\.definition.id)).count
+            }
         )
     }
 

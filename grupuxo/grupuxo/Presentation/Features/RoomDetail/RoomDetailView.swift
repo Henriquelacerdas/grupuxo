@@ -210,7 +210,7 @@ struct RoomDetailView: View {
                 HStack(spacing: DesignSystem.Spacing.medium) {
 
                     Image(systemName: "repeat")
-                        .roundedFont(.title3.weight(.medium))
+                        .font(.title3)
                         .foregroundStyle(info.room.color.tint)
                         .frame(minWidth: DesignSystem.minimumTouchTarget)
                         .accessibilityHidden(true)

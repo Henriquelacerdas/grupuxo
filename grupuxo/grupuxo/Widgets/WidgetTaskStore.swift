@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Security
 import SwiftUI
 import WidgetKit
@@ -410,7 +411,24 @@ struct WidgetTaskStore: Sendable {
     }
 
     /// Conclui a ocorrência diretamente na API usando as credenciais compartilhadas (usado quando o intent roda na extensão).
+    /// Espera a resposta do servidor; o widget usa `enqueueCompletion`, que não segura o intent.
     func completeRemotely(occurrenceID: UUID) async throws {
+        let request = try completionRequest(occurrenceID: occurrenceID)
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+    }
+
+    /// Entrega a conclusão a uma sessão em segundo plano do sistema e volta na hora: o widget redesenha com o
+    /// snapshot otimista sem esperar a rede (conexão fria, Lambda fria). Se a extensão ainda estiver viva quando o
+    /// servidor recusar, `previousSnapshot` é restaurado; se não estiver, o app corrige o snapshot na próxima carga.
+    func enqueueCompletion(occurrenceID: UUID, previousSnapshot: WidgetSnapshot?) throws {
+        let request = try completionRequest(occurrenceID: occurrenceID)
+        try WidgetCompletionSender.send(request, restoring: previousSnapshot)
+    }
+
+    private func completionRequest(occurrenceID: UUID) throws -> URLRequest {
         guard let credentials = loadCredentials() else {
             throw URLError(.userAuthenticationRequired)
         }
@@ -421,11 +439,7 @@ struct WidgetTaskStore: Sendable {
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
-
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
+        return request
     }
 
     // MARK: - Persistência interna (Keychain compartilhado + armazenamento isolado para testes)
@@ -542,5 +556,47 @@ struct WidgetTaskStore: Sendable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
         return decoder
+    }
+}
+
+/// Sessão em segundo plano (executada pelo sistema, sobrevive à suspensão da extensão) para concluir tarefas pelo widget.
+private final class WidgetCompletionSender: NSObject, URLSessionTaskDelegate, Sendable {
+    private static let instance = WidgetCompletionSender()
+    private let previousSnapshots = OSAllocatedUnfairLock<[Int: WidgetSnapshot]>(initialState: [:])
+    private let session = OSAllocatedUnfairLock<URLSession?>(initialState: nil)
+
+    static func send(_ request: URLRequest, restoring snapshot: WidgetSnapshot?) throws {
+        try instance.start(request, restoring: snapshot)
+    }
+
+    private func start(_ request: URLRequest, restoring snapshot: WidgetSnapshot?) throws {
+        let bodyURL = FileManager.default.temporaryDirectory.appendingPathComponent("widget-complete-empty-body")
+        if !FileManager.default.fileExists(atPath: bodyURL.path) {
+            try Data().write(to: bodyURL)
+        }
+        let task = backgroundSession().uploadTask(with: request, fromFile: bodyURL)
+        if let snapshot {
+            previousSnapshots.withLock { $0[task.taskIdentifier] = snapshot }
+        }
+        task.resume()
+    }
+
+    private func backgroundSession() -> URLSession {
+        session.withLock { current in
+            if let current { return current }
+            let configuration = URLSessionConfiguration.background(withIdentifier: "henrique.grupuxo.widget.complete")
+            configuration.isDiscretionary = false
+            configuration.sessionSendsLaunchEvents = false
+            let created = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+            current = created
+            return created
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        let snapshot = previousSnapshots.withLock { $0.removeValue(forKey: task.taskIdentifier) }
+        let status = (task.response as? HTTPURLResponse)?.statusCode ?? 0
+        guard error != nil || !(200..<300).contains(status), let snapshot else { return }
+        WidgetTaskStore.shared.restoreSnapshot(snapshot)
     }
 }

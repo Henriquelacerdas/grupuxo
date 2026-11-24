@@ -17,6 +17,8 @@ final class RoomEditorViewModel: ObservableObject {
     /// Cômodo sendo editado (nome, aparência e ciclo); `nil` = criando um novo.
     private let editing: Room?
     private let updateRoom: UpdateRoomUseCase?
+    /// Quantas tarefas repetem com o cômodo (mesma periodicidade dele); só usado ao editar a periodicidade.
+    private let linkedTaskCount: (@MainActor () async -> Int)?
 
     var isEditing: Bool { editing != nil }
 
@@ -37,6 +39,7 @@ final class RoomEditorViewModel: ObservableObject {
         getMembers: GetHouseMembersUseCase? = nil,
         editing: Room? = nil,
         updateRoom: UpdateRoomUseCase? = nil,
+        linkedTaskCount: (@MainActor () async -> Int)? = nil,
         onCreated: (@MainActor (Room) async throws -> Void)? = nil
     ) {
         self.createRoom = createRoom
@@ -46,6 +49,7 @@ final class RoomEditorViewModel: ObservableObject {
         self.onCreated = onCreated
         self.editing = editing
         self.updateRoom = updateRoom
+        self.linkedTaskCount = linkedTaskCount
         var draft = draft
         if let editing {
             draft = RoomDraft(
@@ -113,6 +117,13 @@ final class RoomEditorViewModel: ObservableObject {
         } catch {
             state = .failure(draft, error.localizedDescription)
         }
+    }
+
+    /// Editando a periodicidade de um cômodo com tarefas que repetem com ele: o morador confirma antes, porque elas
+    /// também mudam de periodicidade.
+    func needsPeriodicityConfirmation() async -> Bool {
+        guard let editing, state.draft.periodicity != editing.periodicity, let linkedTaskCount else { return false }
+        return await linkedTaskCount() > 0
     }
 
     func save() async {

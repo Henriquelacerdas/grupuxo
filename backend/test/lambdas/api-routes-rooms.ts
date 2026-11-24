@@ -191,6 +191,25 @@ export function roomRoutes(name: string, make: ApiEnvFactory): void {
     assert.ok(list(bodyOf(await env.call("ana", "GET", `/v1/rooms/${roomID}/tasks`))["tasks"]).length > 0);
   });
 
+  test(`${name}: mudar a periodicidade do cômodo em várias direções não dá erro e as tarefas ligadas acompanham`, async () => {
+    const env = make();
+    const { house } = await twoHousesScenario(env);
+    const room = await createRoom(env, "ana", house.id, { name: "Cozinha", visibility: "common" });
+    const roomID = text(room["id"]);
+    const linked = expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(WEEKLY_TASK) }), 201);
+    const steps = [
+      { executionsPerPeriod: 1, intervalWeeks: 2 }, { executionsPerPeriod: 1, intervalWeeks: 1 },
+      { executionsPerPeriod: 1, intervalWeeks: 4 }, { executionsPerPeriod: 3, intervalWeeks: 1 },
+      { executionsPerPeriod: 2, intervalWeeks: 2 }, { executionsPerPeriod: 1, intervalWeeks: 1 },
+    ];
+    for (const periodicity of steps) {
+      expectStatus(await env.call("ana", "PATCH", `/v1/rooms/${roomID}`, { body: JSON.stringify({ periodicity }) }), 200);
+      const definition = bodyOf(await env.call("ana", "GET", `/v1/rooms/${roomID}/tasks/${text(linked["id"])}`));
+      assert.deepEqual(definition["recurrence"], { kind: "weekly", periodicity });
+      assert.ok(list(bodyOf(await env.call("ana", "GET", `/v1/rooms/${roomID}/tasks`))["tasks"]).length > 0);
+    }
+  });
+
   test(`${name}: excluir cômodo pede confirmação, apaga tudo dele e avisa quem acompanhava`, async () => {
     const env = make();
     const { house, ids } = await twoHousesScenario(env);

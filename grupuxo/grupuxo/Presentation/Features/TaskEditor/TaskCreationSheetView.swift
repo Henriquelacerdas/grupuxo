@@ -233,12 +233,8 @@ struct TaskCreationSheetView: View {
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    if isSaving {
-                        ProgressView("Salvando tarefa")
-                    } else {
-                        saveButton
-                            .disabled(!canSave)
-                    }
+                    saveButton
+                        .disabled(!canSave || isSaving)
                 }
             }
         }
@@ -325,7 +321,7 @@ struct TaskCreationSheetView: View {
         ) {
             Toggle(isOn: followsRoomBinding) {
                 HStack(spacing: DesignSystem.Spacing.small) {
-                    Image(systemName: "arrow.2.squarepath")
+                    Image(systemName: "repeat")
                         .foregroundStyle(.tint)
 
                     Text("Repetir com o cômodo")
@@ -455,7 +451,7 @@ struct TaskCreationSheetView: View {
     }
 
     private var saveButton: some View {
-        Button("Salvar", systemImage: "checkmark") {
+        Button {
             focusedField = nil
 
             viewModel.updateDraft { draft in
@@ -467,8 +463,16 @@ struct TaskCreationSheetView: View {
                 await viewModel.save()
             }
         }
-        .labelStyle(.iconOnly)
-        .accessibilityLabel("Salvar tarefa")
+        label: {
+            // HIG: o botão fica no lugar e só o glifo vira um indicador pequeno, sem texto (um `ProgressView` com
+            // rótulo não cabe na barra e quebrava o formato do botão).
+            if isSaving {
+                ProgressView()
+            } else {
+                Image(systemName: "checkmark")
+            }
+        }
+        .accessibilityLabel(isSaving ? "Salvando tarefa" : "Salvar tarefa")
     }
 
     private var uniqueTaskBinding: Binding<Bool> {

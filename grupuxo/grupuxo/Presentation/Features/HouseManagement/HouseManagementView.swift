@@ -7,6 +7,8 @@ struct HouseManagementView: View {
 
     @State private var isPresentingTaskCreationSheet = false
     @State private var isPresentingRoomCreationSheet = false
+    /// Cômodo recém-criado: abre assim que a sheet fecha e a lista recarrega.
+    @State private var createdRoomID: Room.ID?
     @State private var isPresentingReorderSheet = false
     @State private var orderedRoomIDs: [Room.ID] = []
 
@@ -193,12 +195,17 @@ struct HouseManagementView: View {
             onDismiss: {
                 Task {
                     await viewModel.load()
+                    if let roomID = createdRoomID {
+                        createdRoomID = nil
+                        onSelectRoom(roomID)
+                    }
                 }
             }
         ) {
             RoomCreationSheetView(
                 viewModel: makeRoomEditorViewModel(),
-                existingRoomNames: existingRoomNames
+                existingRoomNames: existingRoomNames,
+                onCreated: { createdRoomID = $0.id }
             )
             .presentationDragIndicator(.hidden)
         }

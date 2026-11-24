@@ -21,10 +21,12 @@ struct CompleteTaskFromWidgetIntent: AppIntent {
         guard let id = UUID(uuidString: occurrenceID) else {
             return .result()
         }
+        // O snapshot otimista já pede a recarga das linhas do widget; não há segunda recarga ao final.
         let previousSnapshot = WidgetTaskStore.shared.removeTaskOptimistically(occurrenceID: id)
         do {
             #if WIDGET_EXTENSION
-            try await WidgetTaskStore.shared.completeRemotely(occurrenceID: id)
+            // A rede segue em sessão de segundo plano: o widget não espera o servidor para redesenhar.
+            try WidgetTaskStore.shared.enqueueCompletion(occurrenceID: id, previousSnapshot: previousSnapshot)
             #else
             let service = SiriTaskService.make()
             try await service.complete(occurrenceID: id)
@@ -36,7 +38,9 @@ struct CompleteTaskFromWidgetIntent: AppIntent {
             }
             throw error
         }
+        #if !WIDGET_EXTENSION
         WidgetCenter.shared.reloadAllTimelines()
+        #endif
         return .result()
     }
 }

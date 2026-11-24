@@ -52,10 +52,12 @@ extension TaskSchedulingService {
                 amounts[role] += 1
             }
         }
-        // Preserve phase for unchanged membership, including task creation mid-period.
+        // Preserve phase for unchanged membership, including task creation mid-period. The previous version's period
+        // index counts periods of the previous length: when the room's periodicity changed it is not comparable (the
+        // index may even be ahead of the new one), so the queue just restarts from its current order.
         let index = try periodIndex(room: room, date: boundary)
         var phasedQueue = queue
-        if let previous, previous.queue == queue, !queue.isEmpty {
+        if let previous, previous.queue == queue, !queue.isEmpty, index >= previous.periodIndex {
             let shift = ((index - previous.periodIndex) * previous.responsibleCount) % queue.count
             phasedQueue = Array(queue[shift...] + queue[..<shift])
         }

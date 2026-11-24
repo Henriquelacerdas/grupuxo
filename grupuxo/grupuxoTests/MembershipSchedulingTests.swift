@@ -185,6 +185,24 @@ struct MembershipSchedulingTests {
         #expect(stillOpen.isEmpty)
     }
 
+    @Test @MainActor func changingTheRoomPeriodicityBackAndForthNeverFails() async throws {
+        var seed = MockSeed.make()
+        seed.schedule = state()
+        let store = MockStore(state: seed)
+        let rooms = MockRoomRepository(store: store, scheduling: service)
+        let tasks = MockTaskRepository(store: store, scheduling: service)
+        _ = try await tasks.create(definition(roomID: MockSeed.kitchen.id), requestedBy: MockSeed.currentUser.id, at: date)
+        let steps = [(1, 2), (1, 1), (1, 4), (3, 1), (2, 2), (1, 1)]
+        for (executions, weeks) in steps {
+            let periodicity = WeeklyPeriodicity(executionsPerPeriod: executions, intervalWeeks: weeks)
+            let updated = try await rooms.update(
+                roomID: MockSeed.kitchen.id, patch: RoomPatch(periodicity: periodicity),
+                requestedBy: MockSeed.currentUser.id, at: date
+            )
+            #expect(updated.periodicity == periodicity)
+        }
+    }
+
     @Test @MainActor func privateRoomDepartureExposesOnlyRetainedTasks() async throws {
         var seed = MockSeed.make()
         seed.schedule = state()

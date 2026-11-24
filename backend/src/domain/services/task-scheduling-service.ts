@@ -1211,13 +1211,14 @@ export class TaskSchedulingService {
         amounts[role] = at(amounts, role) + 1;
       }
     }
-    // Preserva a fase quando a composição não muda, inclusive criação de tarefa no meio do período.
+    // Preserva a fase quando a composição não muda, inclusive criação de tarefa no meio do período. O índice de período
+    // da versão anterior conta períodos do tamanho anterior: se a periodicidade do cômodo mudou, ele não é comparável
+    // (pode até estar adiante do novo), e a fila só recomeça na ordem atual.
     const index = this.periodIndex(room, boundary);
     let phasedQueue = queue;
-    if (previous !== undefined && queue.length > 0 &&
+    if (previous !== undefined && queue.length > 0 && index >= previous.periodIndex &&
       previous.queue.length === queue.length && previous.queue.every((u, i) => u === queue[i])) {
       const shift = ((index - previous.periodIndex) * previous.responsibleCount) % queue.length;
-      if (shift < 0) throw new DomainError("invalidSchedule");
       phasedQueue = [...queue.slice(shift), ...queue.slice(0, shift)];
     }
     const version: RoomScheduleVersion = {

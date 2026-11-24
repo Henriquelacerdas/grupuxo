@@ -12,10 +12,13 @@ struct RoomCreationSheetView: View {
     @StateObject private var viewModel: RoomEditorViewModel
 
     private let existingRoomNames: [String]
+    /// Chamado quando um cômodo novo é criado (não na edição): quem apresentou a sheet abre o cômodo em seguida.
+    private let onCreated: ((Room) -> Void)?
 
     @State private var appearanceEdited = false
     @State private var showAppearance = false
     @State private var showDiscard = false
+    @State private var showPeriodicityConfirmation = false
 
     @State private var cycleKind: RoomCreationCycleKind
     @State private var customWeeks: Int
@@ -25,10 +28,12 @@ struct RoomCreationSheetView: View {
 
     init(
         viewModel: RoomEditorViewModel,
-        existingRoomNames: [String] = []
+        existingRoomNames: [String] = [],
+        onCreated: ((Room) -> Void)? = nil
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
         self.existingRoomNames = existingRoomNames
+        self.onCreated = onCreated
 
         let draft = viewModel.state.draft
 
@@ -154,6 +159,14 @@ struct RoomCreationSheetView: View {
                 toolbarContent
             }
             .interactiveDismissDisabled(isDirty)
+            .alert("Mudar a periodicidade do cômodo?", isPresented: $showPeriodicityConfirmation) {
+                Button("Cancelar", role: .cancel) {}
+                Button("Mudar") {
+                    Task { await viewModel.save() }
+                }
+            } message: {
+                Text("As tarefas que repetem com o cômodo (a mesma periodicidade dele) também passam a se repetir \(newPeriodicityName).")
+            }
             .sheet(
                 isPresented: $showAppearance
             ) {
@@ -226,6 +239,7 @@ struct RoomCreationSheetView: View {
                         ? String(localized: "Cômodo “\(room.name)” atualizado")
                         : String(localized: "Cômodo “\(room.name)” criado")
                 ))
+                if !viewModel.isEditing { onCreated?(room) }
                 dismiss()
             }
         }
@@ -460,17 +474,20 @@ struct RoomCreationSheetView: View {
         ToolbarItem(
             placement: .confirmationAction
         ) {
-            if isSaving {
-                ProgressView(viewModel.isEditing ? "Salvando cômodo" : "Criando cômodo")
-            } else {
-                saveButton
-                    .disabled(!canSave)
-            }
+            saveButton
+                .disabled(!canSave || isSaving)
         }
     }
 
+    /// "semanalmente", "a cada 2 semanas"; mais de uma vez no período, o rótulo da periodicidade.
+    private var newPeriodicityName: String {
+        let periodicity = viewModel.state.draft.periodicity
+        let kind = RoomCreationCycleKind(periodicity: periodicity)
+        return (kind == .custom || periodicity.executionsPerPeriod > 1 ? periodicity.label : kind.title).lowercased()
+    }
+
     private var saveButton: some View {
-        Button(viewModel.isEditing ? "Salvar cômodo" : "Criar cômodo", systemImage: "checkmark") {
+        Button {
             nameFocused = false
 
             viewModel.updateDraft {
@@ -478,11 +495,27 @@ struct RoomCreationSheetView: View {
             }
 
             Task {
-                await viewModel.save()
+                if await viewModel.needsPeriodicityConfirmation() {
+                    showPeriodicityConfirmation = true
+                } else {
+                    await viewModel.save()
+                }
             }
         }
-        .labelStyle(.iconOnly)
-        .accessibilityLabel(viewModel.isEditing ? "Salvar cômodo" : "Criar cômodo")
+        label: {
+            // HIG: o botão fica no lugar e só o glifo vira um indicador pequeno, sem texto (um `ProgressView` com
+            // rótulo não cabe na barra e quebrava o formato do botão).
+            if isSaving {
+                ProgressView()
+            } else {
+                Image(systemName: "checkmark")
+            }
+        }
+        .accessibilityLabel(
+            isSaving
+                ? (viewModel.isEditing ? "Salvando cômodo" : "Criando cômodo")
+                : (viewModel.isEditing ? "Salvar cômodo" : "Criar cômodo")
+        )
         .accessibilityIdentifier("saveRoom")
     }
 

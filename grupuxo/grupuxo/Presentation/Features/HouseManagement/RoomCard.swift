@@ -7,6 +7,8 @@ import GrupuxoDomain
 struct RoomInfoRow<Content: View>: View {
 
     let systemImage: String
+    /// No Figma o símbolo de responsáveis acompanha o texto (primário); relógio e cadeado ficam secundários.
+    var symbolStyle: HierarchicalShapeStyle = .secondary
     @ViewBuilder let content: () -> Content
 
     @ScaledMetric(relativeTo: .body) private var symbolColumnWidth: CGFloat = 22
@@ -19,8 +21,8 @@ struct RoomInfoRow<Content: View>: View {
         ) {
 
             Image(systemName: systemImage)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(.body.weight(.medium))
+                .foregroundStyle(symbolStyle)
                 .frame(width: symbolColumnWidth)
                 .accessibilityHidden(true)
 
@@ -91,7 +93,7 @@ struct RoomCard: View {
 
             if let responsibles = member.responsibles {
 
-                RoomInfoRow(systemImage: "repeat") {
+                RoomInfoRow(systemImage: "repeat", symbolStyle: .primary) {
 
                     Text(responsibles)
                         .foregroundStyle(.primary)

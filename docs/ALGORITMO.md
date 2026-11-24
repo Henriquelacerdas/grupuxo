@@ -154,6 +154,8 @@ O serviço publica primeiro o que faltava pelo calendário anterior (`refresh`).
 
 Há uma só troca de fila pendente por definição: se a anterior é de uma vigência já passada e o cursor ainda não chegou nela, o cursor vai até a primeira vez dessa vigência (as vezes anteriores, todas passadas e ainda sem publicar, ficam perdidas) e a fila dela passa a valer antes de registrar a nova.
 
+**Mudar a periodicidade do cômodo** (`PATCH /rooms/{id}`): as tarefas que acompanham o cômodo passam para a periodicidade nova e a escala é replanejada a partir da próxima segunda. O índice de período da versão anterior conta períodos do tamanho antigo, então só preserva a fase da fila se não estiver à frente do novo índice; senão a fila recomeça na ordem atual (antes, 1→4 semanas dava `invalidSchedule` no servidor e um índice negativo no Swift).
+
 O acesso ao cômodo muda no comando. Quem sai mantém acesso específico às suas pendências preservadas e pode concluí-las depois da vigência, sem poder consultar as demais tarefas de um cômodo privado. Alterações repetidas na mesma semana consolidam a composição: uma entrada descarta mudanças do mesmo membro a partir da segunda-feira atual, e uma saída, a partir da próxima. Reentrar não apaga o histórico nem o saldo.
 
 ### Reequilíbrio da casa
