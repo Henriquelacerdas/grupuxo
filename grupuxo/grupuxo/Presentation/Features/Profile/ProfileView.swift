@@ -56,7 +56,9 @@ struct ProfileView: View {
                     helpSection
                 }
 
-                aboutSection
+                if appInfo.privacyPolicyURL != nil || appInfo.termsOfUseURL != nil || appInfo.version != nil {
+                    aboutSection
+                }
             }
             .navigationTitle("Ajustes")
             .navigationBarTitleDisplayMode(.inline)

@@ -92,7 +92,7 @@ class AuthService: ObservableObject {
         } catch {
             // Não sabemos o estado: não derruba nem promove ninguém.
             sessionCheckFailed = !isSignedIn
-            print("Erro ao verificar sessão: \(error)")
+            AppLog.error("Erro ao verificar sessão: \(error)")
         }
     }
 
@@ -116,7 +116,7 @@ class AuthService: ObservableObject {
             let result = try await Amplify.Auth.signIn(username: email, password: password)
             if result.isSignedIn {
                 self.isSignedIn = true
-                print("Login com sucesso!")
+                AppLog.debug("Login com sucesso!")
                 return .success
             } else {
                 switch result.nextStep {
@@ -129,7 +129,7 @@ class AuthService: ObservableObject {
                 }
             }
         } catch let error as AuthError {
-            print("Erro no login: \(error)")
+            AppLog.error("Erro no login: \(error)")
             if case .notAuthorized = error {
                 return .invalidCredentials
             }
@@ -141,7 +141,7 @@ class AuthService: ObservableObject {
             default: return .error(Self.message(for: error))
             }
         } catch {
-            print("Erro no login: \(error)")
+            AppLog.error("Erro no login: \(error)")
             return .error(Self.message(for: error))
         }
     }
@@ -164,7 +164,7 @@ class AuthService: ObservableObject {
         let outcome = await client.signOut()
         if outcome == .failed {
             guard force else {
-                print("Logout cancelado ou falhou; a sessão continua aberta.")
+                AppLog.debug("Logout cancelado ou falhou; a sessão continua aberta.")
                 return false
             }
             await client.clearStaleSession()
@@ -175,6 +175,8 @@ class AuthService: ObservableObject {
         PendingTasksBadge.clear()
         DailyTasksNoticeManager.shared.disable()
         CycleNoticeManager.shared.disable()
+        HomeArrivalMonitor.shared.reset()
+        ShortcutBackend.reset()
         isSignedIn = false
         return true
     }
@@ -189,7 +191,7 @@ class AuthService: ObservableObject {
             if case .done = result.nextStep { return .completed }
             return .confirmationRequired
         } catch let error as AuthError {
-            print("Erro no cadastro: \(error)")
+            AppLog.error("Erro no cadastro: \(error)")
             switch Self.cognitoError(error) {
             case .usernameExists, .aliasExists: return .alreadyExists
             case .network: return .offline
@@ -198,7 +200,7 @@ class AuthService: ObservableObject {
             default: return .failed(Self.message(for: error))
             }
         } catch {
-            print("Erro no cadastro: \(error)")
+            AppLog.error("Erro no cadastro: \(error)")
             return .failed(Self.message(for: error))
         }
     }
@@ -211,7 +213,7 @@ class AuthService: ObservableObject {
             let result = try await Amplify.Auth.confirmSignUp(for: email, confirmationCode: code)
             return result.isSignUpComplete ? .confirmed : .failed(String(localized: "Não foi possível confirmar a conta. Tente de novo."))
         } catch let error as AuthError {
-            print("Erro na confirmação: \(error)")
+            AppLog.error("Erro na confirmação: \(error)")
             // O Cognito responde "não autorizado" ao confirmar uma conta que já está confirmada.
             if case .notAuthorized = error { return .confirmed }
             switch Self.cognitoError(error) {
@@ -222,7 +224,7 @@ class AuthService: ObservableObject {
             default: return .failed(Self.message(for: error))
             }
         } catch {
-            print("Erro na confirmação: \(error)")
+            AppLog.error("Erro na confirmação: \(error)")
             return .failed(Self.message(for: error))
         }
     }
@@ -235,7 +237,7 @@ class AuthService: ObservableObject {
             _ = try await Amplify.Auth.resendSignUpCode(for: email)
             return nil
         } catch let error as AuthError {
-            print("Erro ao reenviar código: \(error)")
+            AppLog.error("Erro ao reenviar código: \(error)")
             // Conta já confirmada: o Cognito recusa o reenvio ("User is already confirmed"); basta entrar.
             if case .service(let description, _, _) = error, Self.cognitoError(error) == .invalidParameter,
                description.localizedCaseInsensitiveContains("confirmed") {
@@ -243,7 +245,7 @@ class AuthService: ObservableObject {
             }
             return Self.message(for: error)
         } catch {
-            print("Erro ao reenviar código: \(error)")
+            AppLog.error("Erro ao reenviar código: \(error)")
             return Self.message(for: error)
         }
     }
@@ -256,14 +258,14 @@ class AuthService: ObservableObject {
             _ = try await Amplify.Auth.resetPassword(for: email)
             return .done
         } catch let error as AuthError {
-            print("Erro ao solicitar redefinição: \(error)")
+            AppLog.error("Erro ao solicitar redefinição: \(error)")
             switch Self.cognitoError(error) {
             case .network: return .offline
             case .userNotFound: return .failed(String(localized: "Não encontramos uma conta com este e-mail."))
             default: return .failed(Self.message(for: error))
             }
         } catch {
-            print("Erro ao solicitar redefinição: \(error)")
+            AppLog.error("Erro ao solicitar redefinição: \(error)")
             return .failed(Self.message(for: error))
         }
     }
@@ -278,7 +280,7 @@ class AuthService: ObservableObject {
             )
             return .done
         } catch let error as AuthError {
-            print("Erro ao confirmar redefinição: \(error)")
+            AppLog.error("Erro ao confirmar redefinição: \(error)")
             switch Self.cognitoError(error) {
             case .network: return .offline
             case .codeMismatch: return .invalidCode(String(localized: "Código incorreto. Confira o último e-mail recebido."))
@@ -287,7 +289,7 @@ class AuthService: ObservableObject {
             default: return .failed(Self.message(for: error))
             }
         } catch {
-            print("Erro ao confirmar redefinição: \(error)")
+            AppLog.error("Erro ao confirmar redefinição: \(error)")
             return .failed(Self.message(for: error))
         }
     }
@@ -303,7 +305,7 @@ class AuthService: ObservableObject {
             try await client.updatePassword(oldPassword: oldPassword, newPassword: newPassword)
             return .done
         } catch let error as AuthError {
-            print("Erro ao trocar a senha: \(error)")
+            AppLog.error("Erro ao trocar a senha: \(error)")
             if case .notAuthorized = error { return .wrongPassword }
             switch Self.cognitoError(error) {
             case .network: return .offline
@@ -312,7 +314,7 @@ class AuthService: ObservableObject {
             default: return .failed(Self.message(for: error))
             }
         } catch {
-            print("Erro ao trocar a senha: \(error)")
+            AppLog.error("Erro ao trocar a senha: \(error)")
             return .failed(Self.message(for: error))
         }
     }
@@ -354,7 +356,7 @@ class AuthService: ObservableObject {
             .compactMap({ $0 as? UIWindowScene })
             .flatMap({ $0.windows })
             .first(where: { $0.isKeyWindow }) else {
-            print("Erro: Não encontrou a janela principal do app.")
+            AppLog.error("Erro: Não encontrou a janela principal do app.")
             return .error(String(localized: "Não foi possível abrir o login com a Apple."))
         }
 
@@ -369,18 +371,18 @@ class AuthService: ObservableObject {
                 return .error(String(localized: "O login com a Apple não foi concluído."))
             }
             self.isSignedIn = true
-            print("Login com Apple realizado com sucesso!")
+            AppLog.debug("Login com Apple realizado com sucesso!")
             return .success
         } catch let error as AuthError {
             if case .service(_, _, let underlying) = error,
                let cognito = underlying as? AWSCognitoAuthError, cognito == .userCancelled {
                 return .cancelled
             }
-            print("Erro no login com Apple: \(error)")
+            AppLog.error("Erro no login com Apple: \(error)")
             if Self.cognitoError(error) == .network { return .offline }
             return .error(Self.message(for: error))
         } catch {
-            print("Erro no login com Apple: \(error)")
+            AppLog.error("Erro no login com Apple: \(error)")
             return .error(Self.message(for: error))
         }
     }

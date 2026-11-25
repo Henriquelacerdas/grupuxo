@@ -68,7 +68,7 @@ test("listas vazias têm texto próprio", () => {
   assert.equal(formatMyTasks([], "week", ctx()), "Você não tem tarefas da semana.");
   assert.equal(formatMyTasks([], "all", ctx()), "Você não tem tarefas.");
   assert.equal(formatRoomTasks("Cozinha", [], ctx()), "Não há tarefas em Cozinha.");
-  assert.equal(formatSporadicTasks([], ctx()), "Não há tarefas avulsas.");
+  assert.equal(formatSporadicTasks([], ctx()), "Não há tarefas únicas.");
 });
 
 test("tarefas de um cômodo mostram o responsável; avulsas mostram também quem ainda não tem", () => {
@@ -79,7 +79,7 @@ test("tarefas de um cômodo mostram o responsável; avulsas mostram também quem
     item("Trocar a lâmpada", { room: kitchen, status: "available" }),
     item("Consertar torneira", { room: kitchen, assignee: leo }),
   ], ctx());
-  assert.equal(sporadic, "Tarefas avulsas:\n• Trocar a lâmpada (Cozinha) — sem responsável\n• Consertar torneira (Cozinha) — com Leo");
+  assert.equal(sporadic, "Tarefas únicas:\n• Trocar a lâmpada (Cozinha) — sem responsável\n• Consertar torneira (Cozinha) — com Leo");
 });
 
 test("o esforço (carga interna) nunca é exibido", () => {

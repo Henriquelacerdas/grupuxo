@@ -13,24 +13,13 @@ import UserNotifications
 @MainActor
 enum PendingTasksBadge {
 
-    private static var isRequestingPermission = false
-
     /// Chamar com a quantidade de tarefas pendentes sempre que a lista mudar.
     static func update(pending count: Int) {
         let value = max(0, count)
         Task {
-            let center = UNUserNotificationCenter.current()
-
-            // Primeira vez: o iOS pergunta uma única vez, então já pede tudo que o app usa.
-            if await center.notificationSettings().authorizationStatus == .notDetermined,
-               !isRequestingPermission {
-                isRequestingPermission = true
-                _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
-                isRequestingPermission = false
-            }
-
+            // A permissão é pedida no onboarding ou em Ajustes › Notificações, nunca ao abrir a lista.
             // Sem permissão para selos, isto falha em silêncio.
-            try? await center.setBadgeCount(value)
+            try? await UNUserNotificationCenter.current().setBadgeCount(value)
         }
     }
 

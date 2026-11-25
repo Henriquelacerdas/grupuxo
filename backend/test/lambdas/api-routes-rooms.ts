@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { houseID } from "../../src/domain/ids.ts";
 import type { ApiEnvFactory } from "./api-support.ts";
 import { WEEKLY_TASK, bodyOf, createRoom, expectError, expectStatus, list, rec, text, twoHousesScenario } from "./api-routes-helpers.ts";
 
@@ -208,6 +209,31 @@ export function roomRoutes(name: string, make: ApiEnvFactory): void {
       assert.deepEqual(definition["recurrence"], { kind: "weekly", periodicity });
       assert.ok(list(bodyOf(await env.call("ana", "GET", `/v1/rooms/${roomID}/tasks`))["tasks"]).length > 0);
     }
+  });
+
+  test(`${name}: alongar a periodicidade no meio da semana, semanas depois do início, não quebra o cômodo nem o agendador`, async () => {
+    const env = make();
+    const { house } = await twoHousesScenario(env);
+    const room = await createRoom(env, "ana", house.id, { name: "Cozinha", visibility: "common" });
+    const roomID = text(room["id"]);
+    expectStatus(await env.call("ana", "POST", `/v1/rooms/${roomID}/tasks`, { body: JSON.stringify(WEEKLY_TASK) }), 201);
+    const day = 24 * 60 * 60 * 1000;
+    const start = env.clock;
+    // Semanas depois, uma mudança de responsáveis cria uma versão nova (índice semanal 10). Na semana 10, alongar para
+    // 4 semanas deixa o índice da versão em vigor à frente do ciclo atual em ciclos de 4 semanas (2).
+    env.clock = start + 59 * day;
+    expectStatus(await env.call("ana", "PATCH", `/v1/rooms/${roomID}`, { body: JSON.stringify({ responsibleCount: 2 }) }), 200);
+    env.clock = start + 73 * day;
+    const before = bodyOf(await env.call("ana", "GET", `/v1/rooms/${roomID}`));
+    expectStatus(await env.call("ana", "PATCH", `/v1/rooms/${roomID}`, { body: JSON.stringify({ periodicity: { executionsPerPeriod: 1, intervalWeeks: 4 } }) }), 200);
+    for (const offset of [0, 1, 3, 8, 30]) {
+      env.clock = start + (73 + offset) * day;
+      const participation = bodyOf(await env.call("ana", "GET", `/v1/rooms/${roomID}`));
+      assert.ok(list(participation["responsibleNames"]).length > 0);
+      await env.emitScheduled(houseID(house.id), env.clock);
+      assert.ok(list(bodyOf(await env.call("bia", "GET", `/v1/rooms/${roomID}/tasks`))["tasks"]).length > 0);
+    }
+    assert.equal(list(before["responsibleNames"]).length, 2);
   });
 
   test(`${name}: excluir cômodo pede confirmação, apaga tudo dele e avisa quem acompanhava`, async () => {

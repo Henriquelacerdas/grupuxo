@@ -37,9 +37,10 @@ struct ProfilePhotoSection: View {
 
     var body: some View {
 
+        let showsChange = hasPhoto
         Section {
             PhotosPicker(selection: $selection, matching: .images) {
-                Label(hasPhoto ? "Trocar foto" : "Adicionar foto", systemImage: "camera")
+                Label(showsChange ? "Trocar foto" : "Adicionar foto", systemImage: "camera")
             }
             .disabled(isSaving)
             .accessibilityIdentifier("pickPhoto")

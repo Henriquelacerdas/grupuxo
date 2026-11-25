@@ -15,12 +15,12 @@ Regra geral: nova rota na `api` entra primeiro em `docs/BACKEND.md` (seção 6.1
 
 ## Falta
 
-- [ ] **Ajuda, Feedback e Termos:** `GRUPUXO_HELP_URL`, `GRUPUXO_FEEDBACK_URL` (aceita `mailto:`) e `GRUPUXO_TERMS_URL` seguem vazios no `Grupuxo.xcconfig` (a linha não aparece no app). Em URL use `/$()/` no lugar de `//`. O App Store Connect usa a página da política como URL de Suporte; vale uma página de suporte própria. Conferir também o conteúdo de "Como o Reveza funciona".
+- [ ] **Ajuda e Feedback:** `GRUPUXO_HELP_URL` e `GRUPUXO_FEEDBACK_URL` (aceita `mailto:`) seguem vazios (Termos já tem URL) no `Grupuxo.xcconfig` (a linha não aparece no app). Em URL use `/$()/` no lugar de `//`. O App Store Connect usa a página da política como URL de Suporte; vale uma página de suporte própria. Conferir também o conteúdo de "Como o Reveza funciona".
 - [ ] **Sair da casa "até o fim do ciclo":** o Figma diz "Você continua com as tarefas do ciclo atual até ele terminar. Depois, sai de todos os rodízios."; o app tira o morador na hora ("Ao sair, você deixa todos os cômodos da casa."). Implementar mexe no algoritmo (Swift, TypeScript, fixtures).
 - [ ] **Texto de "Apagar conta":** o Figma fala em "seu histórico"; o app descreve o que o `DELETE /v1/me` faz (perfil, vínculo do WhatsApp e saída da casa). A designer decide qual vale.
 - [ ] **Ajustes › Notificações:** o Figma tem "Lembrar das minhas tarefas" com "Horário", "Quando o ciclo virar", "Atividade da casa" e "Resumo da semana". O app usa os lembretes locais do ramo Shortcuts e tem itens sem frame ("Chegada em casa", "Sincronizar com o Lembretes", atalhos do Siri). A designer precisa desenhar ou aprovar.
 - [ ] **Tela de WhatsApp:** o Figma tem o frame "WhatsApp (Ajustes)", mas só com o texto de rodapé e o alerta; conferir o restante contra o app.
 - [ ] **Estados sem frame:** carregando, erro de rede, sem casa, WhatsApp não conectado, conta Apple sem e-mail.
 - [ ] **Acessibilidade e aparelhos:** revisar no iPad, com Dynamic Type grande (`AccessibilityXL`, como em `grupuxoUITests`) e VoiceOver.
-- [ ] **Testes de UI** do fluxo de Ajustes (abrir Ajustes, Conta, sair da conta): o `grupuxoUITests` só cobre moradores, cômodos e criação.
+- [ ] **Testes de UI** de Conta e sair da conta: o `grupuxoUITests` (casa de demonstração, `-DemoHouse`) abre Minhas tarefas, Notificações, Ajustes, Casa, um cômodo e as folhas de criação, com texto ampliado e em inglês.
 - [ ] **Validar com login real:** e-mail e "Entrou com" vêm do ID token (`AccountIdentity`); conferir com uma conta de e-mail e uma da Apple no `dev` e ajustar o rótulo se a claim `identities` vier em outro formato.

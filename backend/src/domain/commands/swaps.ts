@@ -5,7 +5,7 @@ import {
 } from "../entities.ts";
 import { DomainError } from "../errors.ts";
 import {
-  taskAssignmentID, taskSwapRequestID, type HouseID, type TaskOccurrenceID, type TaskSwapRequestID, type UserID,
+  compareIDs, taskAssignmentID, taskSwapRequestID, type HouseID, type TaskOccurrenceID, type TaskSwapRequestID, type UserID,
 } from "../ids.ts";
 import { TaskSwapEligibilityPolicy } from "../services/eligibility.ts";
 import type { StoreState } from "../store-state.ts";
@@ -119,9 +119,9 @@ function houseOfSwap(state: StoreState, request: TaskSwapRequest): HouseID {
   return houseID;
 }
 
-/** Mais recentes primeiro; empates mantêm a ordem de inserção. */
-function newestFirst<T extends { readonly createdAt: Instant }>(items: T[]): T[] {
-  return items.sort((a, b) => b.createdAt - a.createdAt);
+/** Mais recentes primeiro; empate pelo ID (a ordem carregada do banco não é a de inserção). */
+function newestFirst<T extends { readonly id: string; readonly createdAt: Instant }>(items: T[]): T[] {
+  return items.sort((a, b) => (b.createdAt - a.createdAt) || compareIDs(a.id, b.id));
 }
 
 export function incomingRequests(state: StoreState, userID: UserID, houseID: HouseID): TaskSwapRequest[] {

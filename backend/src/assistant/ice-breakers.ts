@@ -8,7 +8,7 @@ export const HELP_ICE_BREAKER = "O que você sabe fazer?";
 export const ICE_BREAKERS: readonly string[] = [
   "Quais as minhas tarefas da semana?",
   "Quais são todas as minhas tarefas?",
-  "Tem alguma tarefa avulsa?",
+  "Tem alguma tarefa única?",
   HELP_ICE_BREAKER,
 ];
 

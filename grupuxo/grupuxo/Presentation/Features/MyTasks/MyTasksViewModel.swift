@@ -539,7 +539,7 @@ final class MyTasksViewModel: ObservableObject {
         if authorizationStatus != .fullAccess {
             await requestAccess()
             if authorizationStatus != .fullAccess {
-                print("Permissão negada para acessar o app Lembretes.")
+                AppLog.debug("Permissão negada para acessar o app Lembretes.")
                 return false
             }
         }
@@ -565,7 +565,7 @@ final class MyTasksViewModel: ObservableObject {
         
         guard let defaultCalendar = eventStore.defaultCalendarForNewReminders() else {
             errorMessage = "Não foi encontrada uma lista padrão de Lembretes no iOS."
-            print("Erro: defaultCalendarForNewReminders() é nil.")
+            AppLog.error("Erro: defaultCalendarForNewReminders() é nil.")
             return false
         }
         
@@ -588,7 +588,7 @@ final class MyTasksViewModel: ObservableObject {
             return true
         } catch {
             errorMessage = "Failed to save reminders \(error.localizedDescription)"
-            print("Erro ao salvar no EventKit: \(error.localizedDescription)")
+            AppLog.error("Erro ao salvar no EventKit: \(error.localizedDescription)")
             return false
         }
     }
@@ -597,7 +597,7 @@ final class MyTasksViewModel: ObservableObject {
         checkAuthorizationStatus()
             
         guard authorizationStatus == .fullAccess else {
-            print("⚠️ fetchReminders abortado: Permissão .fullAccess ainda não concedida.")
+            AppLog.error("fetchReminders abortado: Permissão .fullAccess ainda não concedida.")
             reminders = []
             return
         }

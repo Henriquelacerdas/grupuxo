@@ -54,7 +54,7 @@ export const SYSTEM_INSTRUCTION = [
   "Sua única função é escolher qual ferramenta chamar para a mensagem do morador:",
   "list_my_tasks (as tarefas dele; range \"week\" para a semana atual, \"all\" para todas; na dúvida, \"week\"),",
   "list_room_tasks (as tarefas de um cômodo, com o nome do cômodo como o morador escreveu),",
-  "list_sporadic_tasks (as tarefas avulsas da casa) e",
+  "list_sporadic_tasks (as tarefas únicas da casa, também chamadas de avulsas) e",
   "complete_task (quando o morador disser que terminou ou fez uma tarefa dele, com o nome da tarefa como ele escreveu;",
   "isso só pede a conclusão: o sistema pergunta se ele confirma, e você nunca confirma nem pergunta nada).",
   "Se a mensagem pedir mais de uma consulta, chame mais de uma ferramenta.",
@@ -85,12 +85,12 @@ export class GeminiMessageResponder implements MessageResponder {
     "Você ainda não está em nenhuma casa no Reveza. Abra o app para criar uma casa ou entrar em uma.";
   static readonly multipleHousesReply =
     "Você está em mais de uma casa, e eu ainda não consigo consultar mais de uma pelo WhatsApp. Use o app para ver suas tarefas.";
-  // Mesmos exemplos das boas-vindas, com a consulta de avulsas: docs/WHATSAPP-MENSAGENS.md.
+  // Mesmos exemplos das boas-vindas, com a consulta de tarefas únicas: docs/WHATSAPP-MENSAGENS.md.
   static readonly helpReply = [
     "Você pode me fazer perguntas como:",
     "- Quais as minhas tarefas da semana?",
     "- Quais são as tarefas da cozinha?",
-    "- Tem alguma tarefa avulsa?",
+    "- Tem alguma tarefa única?",
     "",
     "E me pedir para fazer ações como:",
     '- Marque "limpar sala" como concluído.',

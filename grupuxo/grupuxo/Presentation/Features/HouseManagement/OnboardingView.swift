@@ -105,8 +105,9 @@ struct OnboardingView: View {
                 InitialAvatar(name: myName, photo: photoJPEG.flatMap { UIImage(data: $0) })
                     .frame(maxWidth: .infinity)
                     .padding(.top, DesignSystem.Spacing.large)
+                let hasPickedPhoto = photoJPEG != nil
                 PhotosPicker(selection: $photoSelection, matching: .images) {
-                    Text(photoJPEG == nil ? "Adicionar foto" : "Trocar foto")
+                    Text(hasPickedPhoto ? "Trocar foto" : "Adicionar foto")
                         .frame(maxWidth: .infinity, minHeight: DesignSystem.minimumTouchTarget)
                 }
                 .accessibilityIdentifier("onboardingPickPhoto")

@@ -10,7 +10,7 @@ test("os quebra-gelos canônicos respeitam os limites da Meta (até 4, até 80 c
   assert.deepEqual(ICE_BREAKERS, [
     "Quais as minhas tarefas da semana?",
     "Quais são todas as minhas tarefas?",
-    "Tem alguma tarefa avulsa?",
+    "Tem alguma tarefa única?",
     "O que você sabe fazer?",
   ]);
 });

@@ -7,6 +7,34 @@ import WidgetKit
 struct MyTasksEntry: TimelineEntry {
     let date: Date
     let snapshot: WidgetSnapshot
+    /// Com o token do app ainda válido, o check conclui ali mesmo; senão abre a tarefa no app.
+    var canComplete = true
+}
+
+/// Até quando o widget pode concluir sem abrir o app (um minuto de folga antes do `exp` do token).
+enum WidgetCompletionWindow {
+    static func entryDates(now: Date) -> (completeUntil: Date?, canCompleteNow: Bool) {
+        guard let expiry = WidgetTaskStore.shared.loadCredentials()?.expiresAt else { return (nil, true) }
+        let limit = expiry.addingTimeInterval(-60)
+        return limit > now ? (limit, true) : (nil, false)
+    }
+}
+
+/// Check de uma linha do widget: conclui pelo intent ou, com o token vencido, abre a tarefa no app.
+struct CompleteCheck<Label: View>: View {
+    let canComplete: Bool
+    let occurrenceID: UUID
+    let url: URL
+    @ViewBuilder let label: () -> Label
+
+    var body: some View {
+        if canComplete {
+            Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: occurrenceID), label: label)
+                .buttonStyle(.plain)
+        } else {
+            Link(destination: url, label: label)
+        }
+    }
 }
 
 struct MyTasksTimelineProvider: TimelineProvider {
@@ -25,10 +53,14 @@ struct MyTasksTimelineProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<MyTasksEntry>) -> Void) {
         let now = Date.now
         let snapshot = WidgetTaskStore.shared.loadSnapshot()
-        let entry = MyTasksEntry(date: now, snapshot: snapshot)
+        let window = WidgetCompletionWindow.entryDates(now: now)
+        var entries = [MyTasksEntry(date: now, snapshot: snapshot, canComplete: window.canCompleteNow)]
+        if let until = window.completeUntil {
+            entries.append(MyTasksEntry(date: until, snapshot: snapshot, canComplete: false))
+        }
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: now)
             ?? now.addingTimeInterval(1800)
-        completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
+        completion(Timeline(entries: entries, policy: .after(nextUpdate)))
     }
 }
 
@@ -111,10 +143,9 @@ struct MyTasksWidgetEntryView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(entry.snapshot.tasks.prefix(3))) { task in
                             HStack(spacing: 2) {
-                                Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
+                                CompleteCheck(canComplete: entry.canComplete, occurrenceID: task.occurrenceID, url: task.deepLinkURL) {
                                     CheckTarget(color: task.tintColor, circle: 22, side: 36)
                                 }
-                                .buttonStyle(.plain)
 
                                 Link(destination: task.deepLinkURL) {
                                     Text(task.name)
@@ -179,10 +210,9 @@ struct MyTasksWidgetEntryView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(entry.snapshot.tasks.prefix(3))) { task in
                             HStack(spacing: 2) {
-                                Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
+                                CompleteCheck(canComplete: entry.canComplete, occurrenceID: task.occurrenceID, url: task.deepLinkURL) {
                                     CheckTarget(color: task.tintColor, circle: 22, side: 38)
                                 }
-                                .buttonStyle(.plain)
 
                                 Link(destination: task.deepLinkURL) {
                                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -334,6 +364,7 @@ struct RoomTasksEntry: TimelineEntry {
     let date: Date
     let snapshot: WidgetSnapshot
     let selectedRoom: WidgetRoomSummary?
+    var canComplete = true
 }
 
 struct RoomTasksTimelineProvider: AppIntentTimelineProvider {
@@ -358,14 +389,15 @@ struct RoomTasksTimelineProvider: AppIntentTimelineProvider {
     func timeline(for configuration: SelectRoomWidgetIntent, in context: Context) async -> Timeline<RoomTasksEntry> {
         let now = Date.now
         let snapshot = WidgetTaskStore.shared.loadSnapshot()
-        let entry = RoomTasksEntry(
-            date: now,
-            snapshot: snapshot,
-            selectedRoom: resolveRoom(in: snapshot, configuration: configuration)
-        )
+        let room = resolveRoom(in: snapshot, configuration: configuration)
+        let window = WidgetCompletionWindow.entryDates(now: now)
+        var entries = [RoomTasksEntry(date: now, snapshot: snapshot, selectedRoom: room, canComplete: window.canCompleteNow)]
+        if let until = window.completeUntil {
+            entries.append(RoomTasksEntry(date: until, snapshot: snapshot, selectedRoom: room, canComplete: false))
+        }
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: now)
             ?? now.addingTimeInterval(1800)
-        return Timeline(entries: [entry], policy: .after(nextUpdate))
+        return Timeline(entries: entries, policy: .after(nextUpdate))
     }
 
     private func resolveRoom(in snapshot: WidgetSnapshot, configuration: SelectRoomWidgetIntent) -> WidgetRoomSummary? {
@@ -527,10 +559,9 @@ struct RoomTasksWidgetEntryView: View {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(room.pendingTasks.prefix(3))) { task in
                                 HStack(spacing: 2) {
-                                    Button(intent: CompleteTaskFromWidgetIntent(occurrenceID: task.occurrenceID)) {
+                                    CompleteCheck(canComplete: entry.canComplete, occurrenceID: task.occurrenceID, url: task.deepLinkURL) {
                                         CheckTarget(color: room.tintColor, circle: 22, side: 40)
                                     }
-                                    .buttonStyle(.plain)
 
                                     Link(destination: task.deepLinkURL) {
                                         Text(task.name)

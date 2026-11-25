@@ -99,7 +99,7 @@ export function formatRoomTasks(roomName: string, items: readonly TaskItem[], ct
 }
 
 export function formatSporadicTasks(items: readonly TaskItem[], ctx: FormatContext): string {
-  return section("Tarefas avulsas:", items, "Não há tarefas avulsas.", ctx, { showRoom: true, showAssignee: true });
+  return section("Tarefas únicas:", items, "Não há tarefas únicas.", ctx, { showRoom: true, showAssignee: true });
 }
 
 /** Nome para ir entre `*`: sem os caracteres que o WhatsApp interpreta como formatação (o nome vem de outros moradores). */

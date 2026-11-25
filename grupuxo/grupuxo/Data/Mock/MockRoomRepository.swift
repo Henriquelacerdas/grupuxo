@@ -39,7 +39,8 @@ struct MockRoomRepository: RoomRepository {
             var ids: [User.ID] = []
             if isMember, let version = updated.scheduleVersions.last(where: { $0.effectiveAt <= date }), !version.queue.isEmpty {
                 for role in 0..<version.responsibleCount {
-                    let slot = (period - version.periodIndex) * version.responsibleCount + role
+                    // Como em `roomSlot`: na semana em que a periodicidade muda, o índice da versão em vigor pode estar à frente.
+                    let slot = max(0, period - version.periodIndex) * version.responsibleCount + role
                     let user = version.queue[slot % version.queue.count]
                     if let name = state.users.first(where: { $0.id == user })?.name {
                         names.append(name)

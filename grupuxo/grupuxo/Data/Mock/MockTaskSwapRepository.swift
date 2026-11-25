@@ -208,7 +208,9 @@ struct MockTaskSwapRepository: TaskSwapRepository {
                         )
                 }
                 .sorted {
-                    $0.createdAt > $1.createdAt
+                    $0.createdAt != $1.createdAt
+                        ? $0.createdAt > $1.createdAt
+                        : $0.id.uuidString.lowercased() < $1.id.uuidString.lowercased()
                 }
         }
     }
@@ -230,7 +232,9 @@ struct MockTaskSwapRepository: TaskSwapRepository {
                         )
                 }
                 .sorted {
-                    $0.createdAt > $1.createdAt
+                    $0.createdAt != $1.createdAt
+                        ? $0.createdAt > $1.createdAt
+                        : $0.id.uuidString.lowercased() < $1.id.uuidString.lowercased()
                 }
         }
     }

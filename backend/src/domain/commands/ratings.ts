@@ -60,12 +60,16 @@ export interface RatingInput {
 
 const LEVEL_SCORE: Readonly<Record<RoomRatingLevel, number>> = { needsWork: 1, good: 2, great: 3 };
 
-/** Quem cuida do cômodo no ciclo `period` segundo a versão da escala em vigor (ordem de ID). */
+/**
+ * Quem cuida do cômodo no ciclo `period` segundo a versão da escala em vigor (ordem de ID). Como em `roomSlot`, um
+ * ciclo anterior ao índice da versão conta como o primeiro dela: na semana em que a periodicidade do cômodo muda, a
+ * versão em vigor tem o índice contado em ciclos da duração antiga e pode estar à frente do ciclo de `date`.
+ */
 export function responsibleAt(version: RoomScheduleVersion | undefined, period: number): UserID[] {
   if (version === undefined || version.queue.length === 0) return [];
   const users = new Set<UserID>();
   for (let role = 0; role < version.responsibleCount; role++) {
-    const slot = (period - version.periodIndex) * version.responsibleCount + role;
+    const slot = Math.max(0, period - version.periodIndex) * version.responsibleCount + role;
     users.add(at(version.queue, slot % version.queue.length));
   }
   return [...users].sort();

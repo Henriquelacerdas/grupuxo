@@ -45,19 +45,23 @@ struct MyTasksText {
 
         guard let dueAt else { return nil }
 
-        let dueDays = days(from: now, to: dueAt)
+        // O prazo é exclusivo (meia-noite do dia seguinte ao último): o dia mostrado é o do último instante.
+        let lastMoment = dueAt.addingTimeInterval(-1)
+        let dueDays = days(from: now, to: lastMoment)
 
-        switch dueDays {
-        case ..<0:
+        if dueAt <= now {
             return TaskTiming(
-                text: locale.localized("Terminou \(relativeDay(dueAt, days: dueDays))"),
+                text: locale.localized("Terminou \(relativeDay(lastMoment, days: dueDays))"),
                 style: .overdue
             )
-        case 0:
+        }
+
+        switch dueDays {
+        case ...0:
             return TaskTiming(text: locale.localized("Termina hoje"), style: .due)
         default:
             return TaskTiming(
-                text: locale.localized("Termina \(relativeDay(dueAt, days: dueDays))"),
+                text: locale.localized("Termina \(relativeDay(lastMoment, days: dueDays))"),
                 style: dueDays == 1 ? .due : .open
             )
         }

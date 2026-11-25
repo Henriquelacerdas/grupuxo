@@ -25,7 +25,7 @@ export interface WhatsAppWorkerDependencies {
  */
 export class WhatsAppWorker {
   static readonly unlinkedReply =
-    "Não encontrei seu número no Grupuxo. Abra o app, vá em Perfil e toque em Conectar WhatsApp.";
+    "Não encontrei seu número no Reveza. Abra o app, vá em Ajustes › WhatsApp e toque em Conectar WhatsApp.";
   static readonly rateLimitedReply = "Você está enviando mensagens rápido demais. Espere um pouco e tente de novo.";
 
   private readonly deps: WhatsAppWorkerDependencies;

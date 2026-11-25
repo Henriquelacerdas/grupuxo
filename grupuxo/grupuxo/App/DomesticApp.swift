@@ -17,9 +17,9 @@ struct DomesticApp: App {
             // Só o Auth do Amplify (login com Cognito); casa, cômodos e tarefas vêm da `api` do servidor.
             try Amplify.add(plugin: AWSCognitoAuthPlugin())
             try Amplify.configure(with: .amplifyOutputs)
-            print("Amplify configurado")
+            AppLog.debug("Amplify configurado")
         } catch {
-            print("Erro ao configurar Amplify: \(error)")
+            AppLog.error("Erro ao configurar Amplify: \(error)")
         }
 
         // Precisa existir já no lançamento: é o que recebe a chegada em casa com o app fechado.

@@ -1350,7 +1350,7 @@
         }
       }
     },
-    "Abrir Tarefas Avulsas" : {
+    "Abrir Tarefas Únicas" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
