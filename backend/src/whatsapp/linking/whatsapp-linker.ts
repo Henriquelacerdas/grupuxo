@@ -63,7 +63,7 @@ export class WhatsAppLinker {
   ].join("\n");
   // Redação neutra de propósito: vale também para a nova tentativa depois de uma falha ao enviar a confirmação.
   static readonly alreadyLinkedReply = "Este número já está conectado ao Reveza.";
-  static readonly invalidTokenReply = "Link inválido ou expirado. Gere outro no app, em Perfil › Conectar WhatsApp.";
+  static readonly invalidTokenReply = "Link inválido ou expirado. Gere outro no app, em Ajustes › WhatsApp.";
   static readonly userHasOtherNumberReply = "Sua conta já tem outro número conectado. Desconecte no app e tente de novo.";
 
   private readonly config: LinkConfig;

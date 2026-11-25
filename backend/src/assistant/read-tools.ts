@@ -43,7 +43,7 @@ export const ASSISTANT_FUNCTIONS: readonly GeminiFunctionDeclaration[] = [
   },
   {
     name: LIST_SPORADIC_TASKS,
-    description: "Lista as tarefas avulsas (esporádicas) da casa, que qualquer morador elegível pode assumir.",
+    description: "Lista as tarefas únicas (avulsas, esporádicas) da casa, que qualquer morador elegível pode assumir.",
   },
   {
     name: COMPLETE_TASK,

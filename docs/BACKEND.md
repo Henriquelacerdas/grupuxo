@@ -549,7 +549,7 @@ Por que o `wa.me` é mais barato: quando é o **usuário** quem envia a primeira
 
 Fluxo:
 
-1. No Perfil, o usuário toca em "Conectar WhatsApp". O app chama `POST /me/whatsapp/link`.
+1. Em Ajustes › WhatsApp, o usuário toca em "Conectar WhatsApp". O app chama `POST /me/whatsapp/link`.
 2. O backend (`WhatsAppLinker.issueInvitation`) cria um token aleatório de uso único e devolve `https://wa.me/<numero-do-bot>?text=<mensagem com token>`. Recusa se o morador já tem número conectado.
 3. O app abre o link. O usuário envia a mensagem pré-preenchida (`Conectar meu WhatsApp ao Reveza. Código: <token>`).
 4. O worker recebe a mensagem, o `WhatsAppLinker.handle` reconhece o token, marca-o como usado, grava o vínculo (`userID`, `phoneE164`, `consentedAt`, `linkedAt`; itens `PHONE#` e `USER#/WHATSAPP`) e confirma no chat.
