@@ -66,7 +66,8 @@ export function roomParticipation(
     const version = lastWhere(updated.scheduleVersions, (v) => v.effectiveAt <= when);
     if (isMember && version !== undefined && version.queue.length > 0) {
       for (let role = 0; role < version.responsibleCount; role++) {
-        const slot = (periodIndex - version.periodIndex) * version.responsibleCount + role;
+        // Como em `roomSlot`: na semana em que a periodicidade muda, o índice da versão em vigor pode estar à frente.
+        const slot = Math.max(0, periodIndex - version.periodIndex) * version.responsibleCount + role;
         const user = at(version.queue, slot % version.queue.length);
         const name = state.users.find((u) => u.id === user)?.name;
         if (name !== undefined) names.push(name);
