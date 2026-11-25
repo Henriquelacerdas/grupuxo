@@ -278,8 +278,12 @@ public struct TaskSchedulingService: Sendable {
         }
     }
 
+    /// Desfaz a conclusão. Na repetição própria, a vez seguinte que essa conclusão publicou sai junto, se ainda está
+    /// intocada (aberta, com a atribuição original), e a fila volta para quem a recebeu: senão ficariam duas vezes
+    /// abertas, e a reaberta, se ninguém a concluísse de novo, nunca fecharia. Devolve as ocorrências removidas.
+    @discardableResult
     public func reopen(occurrenceID: TaskOccurrence.ID, by userID: User.ID,
-                state: inout TaskSchedulingState) throws {
+                state: inout TaskSchedulingState) throws -> [TaskOccurrence.ID] {
         guard let index = state.occurrences.firstIndex(where: { $0.id == occurrenceID }),
               let definition = state.definitions.first(where: { $0.id == state.occurrences[index].taskDefinitionID }) else {
             throw DomainError.entityNotFound
@@ -305,7 +309,35 @@ public struct TaskSchedulingService: Sendable {
            let membership = state.roomMemberships.firstIndex(where: { $0.roomID == definition.roomID && $0.userID == userID }) {
             state.roomMemberships[membership].skipsNextOwnTurn = false
         }
-        // Keep already published turns; completing again must not publish another successor.
+        guard definition.kind == .recurring, definition.assignmentPolicy == .afterCompletion,
+              occurrence.didPublishSuccessor == true, let completedAt = occurrence.completedAt,
+              let successor = try untouchedSuccessor(of: occurrence, completedAt: completedAt,
+                                                     definition: definition, state: state),
+              let definitionIndex = state.definitions.firstIndex(where: { $0.id == definition.id }) else {
+            // Other turns already published stay; completing again must not publish another successor.
+            return []
+        }
+        state.definitions[definitionIndex].currentRotationIndex = successor.queueIndex
+        state.occurrences[index].didPublishSuccessor = nil
+        state.occurrences.removeAll { $0.id == successor.occurrenceID }
+        state.assignments.removeAll { $0.occurrenceID == successor.occurrenceID }
+        return [successor.occurrenceID]
+    }
+
+    /// A vez publicada pela conclusão em `completedAt` (abre em `ownNextOpening` dela), se é a única outra aberta da
+    /// tarefa, nunca foi trocada nem concluída e o responsável está na fila (a posição dele é para onde a fila volta).
+    private func untouchedSuccessor(
+        of occurrence: TaskOccurrence, completedAt: Date, definition: TaskDefinition, state: TaskSchedulingState
+    ) throws -> (occurrenceID: TaskOccurrence.ID, queueIndex: Int)? {
+        let others = state.occurrences.filter {
+            $0.taskDefinitionID == definition.id && $0.id != occurrence.id && !$0.isCompleted
+        }
+        guard others.count == 1, let successor = others.first,
+              successor.availableAt == (try ownNextOpening(after: completedAt, definition: definition)) else { return nil }
+        let assignments = state.assignments.filter { $0.occurrenceID == successor.id }
+        guard assignments.count == 1, let assignment = assignments.first, assignment.isActive,
+              let queueIndex = definition.rotationQueue.firstIndex(of: assignment.userID) else { return nil }
+        return (successor.id, queueIndex)
     }
 
     /// Publishes the next turn of whoever has no pending one, without completing, rotating, or editing older occurrences.

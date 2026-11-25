@@ -150,6 +150,10 @@ struct MyTasksOverviewTests {
         utcCalendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: 12))!
     }
 
+    private func midnight(_ day: Int) -> Date {
+        utcCalendar.date(from: DateComponents(year: 2026, month: 10, day: day))!
+    }
+
     @Test @MainActor func backgroundReloadFailureKeepsTheListOnScreen() async throws {
 
         let container = makeContainer()
@@ -187,12 +191,13 @@ struct MyTasksOverviewTests {
         let text = MyTasksText(calendar: utcCalendar, locale: Locale(identifier: "pt_BR"))
         let now = date(14) // quarta-feira
 
-        #expect(text.timing(availableAt: date(10), dueAt: date(14), now: now) == TaskTiming(text: "Termina hoje", style: .due))
-        #expect(text.timing(availableAt: date(10), dueAt: date(15), now: now) == TaskTiming(text: "Termina amanhã", style: .due))
-        #expect(text.timing(availableAt: date(10), dueAt: date(16), now: now) == TaskTiming(text: "Termina sexta", style: .open))
-        #expect(text.timing(availableAt: date(10), dueAt: date(13), now: now) == TaskTiming(text: "Terminou ontem", style: .overdue))
-        #expect(text.timing(availableAt: date(16), dueAt: date(20), now: now) == TaskTiming(text: "Começa sexta", style: .upcoming))
-        #expect(text.timing(availableAt: date(10), dueAt: date(28), now: now)?.text.contains("28") == true)
+        // O prazo é exclusivo: meia-noite de quinta é "Termina hoje" na quarta.
+        #expect(text.timing(availableAt: date(10), dueAt: midnight(15), now: now) == TaskTiming(text: "Termina hoje", style: .due))
+        #expect(text.timing(availableAt: date(10), dueAt: midnight(16), now: now) == TaskTiming(text: "Termina amanhã", style: .due))
+        #expect(text.timing(availableAt: date(10), dueAt: midnight(17), now: now) == TaskTiming(text: "Termina sexta", style: .open))
+        #expect(text.timing(availableAt: date(10), dueAt: midnight(14), now: now) == TaskTiming(text: "Terminou ontem", style: .overdue))
+        #expect(text.timing(availableAt: date(16), dueAt: midnight(20), now: now) == TaskTiming(text: "Começa sexta", style: .upcoming))
+        #expect(text.timing(availableAt: date(10), dueAt: midnight(29), now: now)?.text.contains("28") == true)
         #expect(text.timing(availableAt: date(10), dueAt: nil, now: now) == nil)
     }
 

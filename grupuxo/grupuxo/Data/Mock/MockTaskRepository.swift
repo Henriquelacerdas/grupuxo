@@ -461,8 +461,12 @@ struct MockTaskRepository: TaskRepository {
     func reopen(occurrenceID: TaskOccurrence.ID, by userID: User.ID) async throws {
         try await store.update { state in
             var schedule = state.schedule
-            try scheduling.reopen(occurrenceID: occurrenceID, by: userID, state: &schedule)
+            let removed = try scheduling.reopen(occurrenceID: occurrenceID, by: userID, state: &schedule)
             state.schedule = schedule
+            rejectPendingSwaps(
+                citing: Set(removed), in: &state, at: .now,
+                message: "A troca foi cancelada porque a tarefa foi desmarcada."
+            )
         }
     }
 

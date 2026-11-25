@@ -310,7 +310,12 @@ export class TaskSchedulingService {
     }
   }
 
-  reopen(occurrenceID: TaskOccurrenceID, userID: UserID, state: SchedulingState): void {
+  /**
+   * Desfaz a conclusão. Na repetição própria, a vez seguinte que essa conclusão publicou sai junto, se ainda está
+   * intocada (aberta, com a atribuição original), e a fila volta para quem a recebeu: senão ficariam duas vezes
+   * abertas, e a reaberta, se ninguém a concluísse de novo, nunca fecharia. Devolve as ocorrências removidas.
+   */
+  reopen(occurrenceID: TaskOccurrenceID, userID: UserID, state: SchedulingState): TaskOccurrenceID[] {
     const index = state.occurrences.findIndex((o) => o.id === occurrenceID);
     const occurrence = state.occurrences[index];
     const definition = occurrence === undefined
@@ -343,7 +348,39 @@ export class TaskSchedulingService {
       const membership = state.roomMemberships.findIndex((m) => m.roomID === definition.roomID && m.userID === userID);
       if (membership >= 0) state.roomMemberships[membership] = { ...at(state.roomMemberships, membership), skipsNextOwnTurn: false };
     }
-    // Os turnos já publicados permanecem; concluir de novo não publica outra sucessora.
+    const completedAt = occurrence.completedAt;
+    const successor = definition.kind === "recurring" && definition.assignmentPolicy === "afterCompletion" &&
+      occurrence.didPublishSuccessor === true && completedAt !== null
+      ? this.untouchedSuccessor(occurrence, completedAt, definition, state)
+      : null;
+    const definitionIndex = state.definitions.findIndex((d) => d.id === definition.id);
+    // Sem sucessora intocada, as vezes já publicadas permanecem; concluir de novo não publica outra sucessora.
+    if (successor === null || definitionIndex < 0) return [];
+    state.definitions[definitionIndex] = { ...at(state.definitions, definitionIndex), currentRotationIndex: successor.queueIndex };
+    state.occurrences[index] = { ...at(state.occurrences, index), didPublishSuccessor: null };
+    state.occurrences = state.occurrences.filter((o) => o.id !== successor.occurrenceID);
+    state.assignments = state.assignments.filter((a) => a.occurrenceID !== successor.occurrenceID);
+    return [successor.occurrenceID];
+  }
+
+  /**
+   * A vez publicada pela conclusão em `completedAt` (abre em `ownNextOpening` dela), se é a única outra aberta da
+   * tarefa, nunca foi trocada nem concluída e o responsável está na fila (a posição dele é para onde a fila volta).
+   */
+  private untouchedSuccessor(
+    occurrence: TaskOccurrence, completedAt: Instant, definition: TaskDefinition, state: SchedulingState,
+  ): { occurrenceID: TaskOccurrenceID; queueIndex: number } | null {
+    const others = state.occurrences.filter((o) =>
+      o.taskDefinitionID === definition.id && o.id !== occurrence.id && !isCompleted(o)
+    );
+    const successor = others[0];
+    if (others.length !== 1 || successor === undefined ||
+      successor.availableAt !== this.ownNextOpening(completedAt, definition)) return null;
+    const assignments = state.assignments.filter((a) => a.occurrenceID === successor.id);
+    const assignment = assignments[0];
+    if (assignments.length !== 1 || assignment === undefined || !isActiveAssignment(assignment)) return null;
+    const queueIndex = definition.rotationQueue.indexOf(assignment.userID);
+    return queueIndex < 0 ? null : { occurrenceID: successor.id, queueIndex };
   }
 
   /**

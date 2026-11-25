@@ -99,7 +99,9 @@ final class TaskDetailViewModel: ObservableObject {
             return nil
         }
 
-        return String(localized: "Prazo: \(dueAt.formatted(date: .abbreviated, time: .omitted))")
+        // Prazo exclusivo (meia-noite do dia seguinte): mostra o último dia que vale.
+        let lastDay = dueAt.addingTimeInterval(-1)
+        return String(localized: "Prazo: \(lastDay.formatted(date: .abbreviated, time: .omitted))")
 
     }
 

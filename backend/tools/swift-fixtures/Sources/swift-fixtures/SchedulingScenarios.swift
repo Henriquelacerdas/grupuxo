@@ -242,6 +242,19 @@ func completeScenarios() -> [Scenario] {
         .complete(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1)), at: days(10)),
         .reopen(Ref(def: W.def(13), n: 0), by: .user(uid(3))),
     ]))
+    // Desmarcar na repetição própria tira a vez seguinte ainda intocada; concluir de novo publica outra.
+    // Se a seguinte já foi concluída, ela fica e a reabertura não publica nada.
+    let daily1 = RecurrencePolicy.recurring(frequency: .daily, interval: 1)
+    let own = Ref(def: W.def(1), n: 0)
+    list.append(Scenario(name: "desmarcar na repetição própria retira a vez seguinte intocada", zone: "UTC", state: world(), steps: [
+        .create(task(1, room: W.kitchen, effort: 1, recurrence: daily1, policy: .afterCompletion), at: wed),
+        .complete(own, by: .assigneeOf(own), at: wed),
+        .reopen(own, by: .assigneeOf(own)),
+        .complete(own, by: .assigneeOf(own), at: days(1)),
+        .complete(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1)), at: days(2)),
+        .reopen(Ref(def: W.def(1), n: 1), by: .assigneeOf(Ref(def: W.def(1), n: 1))),
+        .reopen(own, by: .assigneeOf(own)),
+    ]))
     // "Repetir com o cômodo" explícito: o campo manda, não a periodicidade guardada.
     list.append(Scenario(name: "repetir com o cômodo explícito: acompanha o cômodo ou segue a própria escala", zone: "UTC",
         state: world(kitchen: WeeklyPeriodicity(executionsPerPeriod: 2, intervalWeeks: 1), responsible: 2), steps: [

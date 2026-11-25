@@ -367,7 +367,10 @@ export function completeTask(ctx: CommandContext, state: StoreState, occurrenceI
 }
 
 export function reopenTask(ctx: CommandContext, state: StoreState, occurrenceID: TaskOccurrenceID, userID: UserID): void {
-  schedulingFor(ctx, state, houseOfOccurrence(state, occurrenceID)).reopen(occurrenceID, userID, state);
+  const houseID = houseOfOccurrence(state, occurrenceID);
+  // Desfazer a conclusão da repetição própria tira a vez seguinte ainda intocada; trocas que a citavam caem.
+  const removed = schedulingFor(ctx, state, houseID).reopen(occurrenceID, userID, state);
+  rejectSwapsOfRemoved(ctx, state, new Set(removed), houseID, userID, ctx.now());
 }
 
 export function refreshSchedule(ctx: CommandContext, state: StoreState, houseID: HouseID, date: Instant): void {

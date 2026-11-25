@@ -17,7 +17,7 @@ enum WidgetSync {
         func makeWidgetTask(_ item: TaskItem) -> WidgetTaskItem {
             let roomDTO = roomsByID[item.definition.roomID]
             let participation = participationsByRoomID[item.definition.roomID]
-            let effectiveDue: Date? = item.occurrence.dueAt ?? participation.map {
+            let effectiveDue: Date? = item.occurrence.dueAt.map { $0.addingTimeInterval(-1) } ?? participation.map {
                 Calendar.current.date(byAdding: .day, value: -1, to: $0.periodEnd) ?? $0.periodEnd
             }
             return WidgetTaskItem(
@@ -139,7 +139,7 @@ enum WidgetSync {
         let sorted = allItems.sortedByDeadline().map { item in
             let room = roomByTaskID[item.id]
             let periodEnd = room.flatMap { periodEndByRoomID[$0.id] }
-            let effectiveDue = item.occurrence.dueAt ?? periodEnd.map {
+            let effectiveDue = item.occurrence.dueAt.map { $0.addingTimeInterval(-1) } ?? periodEnd.map {
                 Calendar.current.date(byAdding: .day, value: -1, to: $0) ?? $0
             }
             return WidgetTaskItem(
