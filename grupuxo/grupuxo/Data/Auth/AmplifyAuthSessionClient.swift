@@ -32,7 +32,7 @@ struct AmplifyAuthSessionClient: AuthSessionClient {
         case .complete: return .complete
         case .partial: return .partial
         case .failed(let error):
-            print("Erro no logout: \(error)")
+            AppLog.error("Erro no logout: \(error)")
             return .failed
         }
     }

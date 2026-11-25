@@ -86,6 +86,10 @@ struct RootView: View {
                     selectedTab = .house
                     housePath = []
                     isPresentingSporadicTasks = true
+
+                case .notifications:
+                    selectedTab = .myTasks
+                    tasksPath = [.notifications]
                 }
                 
                 shortcutManager.pendingDestination = nil

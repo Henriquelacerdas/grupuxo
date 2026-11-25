@@ -293,8 +293,9 @@ struct ResidentAvatar: View {
         }
     }
 
+    /// Na barra o avatar não tem o vidro do sistema (`withoutSharedBackground`): o círculo é dele, como nos outros tamanhos.
     private var fillOpacity: Double {
-        size == .toolbar ? 0 : DesignSystem.tintedFillOpacity
+        DesignSystem.tintedFillOpacity
     }
 
     private var initials: some View {

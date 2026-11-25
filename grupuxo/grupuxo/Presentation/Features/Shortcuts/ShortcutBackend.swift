@@ -18,6 +18,11 @@ enum ShortcutBackend {
 
     private static var cached: Context?
 
+    /// No logout: o contexto em memória é da conta que saiu.
+    static func reset() {
+        cached = nil
+    }
+
     /// `refresh: true` ignora o contexto em memória e confirma quem está logado agora.
     static func context(refresh: Bool = false) async throws -> Context {
         if !refresh, let cached { return cached }

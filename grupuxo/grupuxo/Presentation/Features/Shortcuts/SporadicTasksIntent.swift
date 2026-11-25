@@ -10,7 +10,7 @@ import AppIntents
 
 struct OpenSporadicTasksIntent: AppIntent {
 
-    static let title: LocalizedStringResource = "Abrir Tarefas Avulsas"
+    static let title: LocalizedStringResource = "Abrir Tarefas Únicas"
 
     static let openAppWhenRun: Bool = true
 

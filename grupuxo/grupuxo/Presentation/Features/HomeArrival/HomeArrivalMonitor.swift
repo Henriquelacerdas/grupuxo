@@ -100,6 +100,18 @@ final class HomeArrivalMonitor: NSObject, ObservableObject {
         applyMonitoring()
     }
 
+    /// No logout: a casa (e a localização dela) é da conta que saiu, não do aparelho.
+    func reset() {
+        for key in [Key.enabled, Key.latitude, Key.longitude, Key.lastNotified] {
+            defaults.removeObject(forKey: key)
+        }
+        isEnabled = false
+        hasHomeLocation = false
+        message = nil
+        applyMonitoring()
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.notificationID])
+    }
+
     func setHomeToCurrentLocation() {
         message = nil
 
@@ -319,11 +331,17 @@ final class ArrivalNotificationDelegate: NSObject, UNUserNotificationCenterDeleg
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let id = response.notification.request.identifier
+        let isRemote = response.notification.request.trigger is UNPushNotificationTrigger
+            || response.notification.request.content.userInfo["kind"] != nil
+        // Se o app abriu a frio, o RootView lê este destino assim que aparecer.
         if id == "grupuxo.arrival" || id.hasPrefix("grupuxo.cycle.") || id.hasPrefix("grupuxo.daily.") {
-//        if response.notification.request.identifier == "grupuxo.arrival" {
-            // Se o app abriu a frio, o RootView lê este destino assim que aparecer.
             Task { @MainActor in
                 ShortcutNavigationManager.shared.navigate(to: .myTasks)
+            }
+        } else if isRemote {
+            // Push do servidor: o aviso está na lista de Notificações (trocas e pedidos se respondem lá).
+            Task { @MainActor in
+                ShortcutNavigationManager.shared.navigate(to: .notifications)
             }
         }
         completionHandler()

@@ -12,6 +12,8 @@ enum ShortcutDestination {
     case myTasks
     case house
     case sporadicTasks
+    /// Toque num push do servidor (troca, pedido de entrada, atividade da casa, resumo).
+    case notifications
 }
 
 @MainActor

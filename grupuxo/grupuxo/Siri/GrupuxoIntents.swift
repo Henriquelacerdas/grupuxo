@@ -36,7 +36,7 @@ struct CompleteTaskIntent: AppIntent {
     @Dependency var service: SiriTaskService
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        try await requestConfirmation(result: .result(dialog: "Concluir \(task.name)?"))
+        try await requestConfirmation(actionName: .go, dialog: "Concluir \(task.name)?")
         try await service.complete(occurrenceID: task.id)
         return .result(dialog: "Pronto, \(task.name) está concluída.")
     }
