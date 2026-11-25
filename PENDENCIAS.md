@@ -29,7 +29,7 @@ Bot sem "atrasada"; mensagem de código inválido; periodicidade do cômodo ocul
 Comparei os textos de todas as telas com o catálogo do app e vi por imagem Avaliar a semana, Resumo da semana, Notificações e Notificações (Ajustes). O que segue diverge do Figma e ainda não foi feito.
 
 **Falta construir**
-- **Widgets** (página "Widgets"): pequeno (lista, "o que falta", vazio) e médio (lista com prazo, cômodo + tarefas). O app não tem extensão de widget.
+- **Widgets** (página "Widgets"): feitos (`GrupuxoWidgets`: Minhas tarefas e Cômodo, pequeno e médio, com check). O check conclui sem abrir o app enquanto o token salvo pelo app vale (cerca de 1 h depois da última abertura); depois disso, ele abre a tarefa no app.
 - **Saída da casa "até o fim do ciclo":** o texto do Figma já existe, o comportamento não (a saída da casa vale na hora).
 
 **Notificações em duas linhas (12/11/2026):** título e detalhe como no Figma para troca aceita ("Você faz X até domingo"), tarefa editada ou apagada ("tarefa · cômodo"), esforço ("Leve → Médio"), virada de ciclo ("Você e Fulano até domingo") e resumo pronto; os demais ficam numa linha. O servidor manda os dados novos (`roomName`, `taskName`, `dueAt`, `effortFrom`, `effortTo`, `names`) e o app monta o texto. Diferença de texto: a virada de ciclo diz "Novo ciclo: Cozinha" e não "Novo ciclo na Cozinha", para não pôr artigo antes do nome do cômodo (regra do guia; "no Banheiro" e "na Cozinha" exigiriam o gênero).
