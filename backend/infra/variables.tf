@@ -46,6 +46,11 @@ variable "rate_limit_window_seconds" {
   type        = number
 }
 
+variable "webpush_subject" {
+  description = "WEBPUSH_SUBJECT: contato do servidor no JWT do VAPID (mailto: ou https:), sem valor padrão escondido."
+  type        = string
+}
+
 variable "cognito_user_pool_id" {
   description = "User pool do app (o JWKS é público, então a api valida tokens de um pool de outra conta)."
   type        = string

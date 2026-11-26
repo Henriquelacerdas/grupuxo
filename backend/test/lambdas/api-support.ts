@@ -84,6 +84,8 @@ export interface ApiEnv {
   readonly push: InMemoryPushDirectory;
   /** Roda o que a tarefa agendada roda numa casa, no instante `at`. */
   emitScheduled(houseID: HouseID, at: Instant): Promise<number>;
+  /** Pendências de cada morador (o que o lembrete diário conta). */
+  pendingTasks: ApiDependencies["tasks"]["pendingTaskCounts"];
   /** Relógio do servidor (mutável). */
   clock: Instant;
   call(who: Who | null, method: string, path: string, options?: CallOptions): Promise<HttpApiResult>;
@@ -121,6 +123,7 @@ function assemble(
     photos,
     push,
     emitScheduled: (houseID, at) => base.houses.emitScheduledNotifications(houseID, at),
+    pendingTasks: (houseID, at) => base.tasks.pendingTaskCounts(houseID, at),
     get clock() { return clock.value; },
     set clock(value: Instant) { clock.value = value; },
     snapshot,

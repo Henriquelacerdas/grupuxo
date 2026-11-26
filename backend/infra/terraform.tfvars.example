@@ -9,3 +9,4 @@ rate_limit_max_messages   = 10
 rate_limit_window_seconds = 60
 cognito_user_pool_id      = "us-east-1_M9GpISkE3"
 cognito_client_id         = "21gqeeehhmeufpipk84e3cc7tu"
+webpush_subject           = "mailto:reveza.app@gmail.com"

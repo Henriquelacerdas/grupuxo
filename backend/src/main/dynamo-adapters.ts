@@ -2,6 +2,7 @@ import { noLatency, type LatencyObserver } from "../latency.ts";
 import type { DynamoClient } from "../adapters/dynamodb/client.ts";
 import { HouseStateStore } from "../adapters/dynamodb/house-state-store.ts";
 import { DynamoPendingActionStore } from "../adapters/dynamodb/pending-action-store.ts";
+import { DynamoPushDirectory, DynamoReminderClaims } from "../adapters/dynamodb/push-directory.ts";
 import { DynamoRateCounter } from "../adapters/dynamodb/rate-counter.ts";
 import {
   DynamoHouseRepository, DynamoNotificationRepository, DynamoRoomRepository, DynamoTaskRepository, DynamoTaskSwapRepository,
@@ -9,6 +10,7 @@ import {
 import { DynamoUserDirectory } from "../adapters/dynamodb/user-directory.ts";
 import { DynamoInboxStore, DynamoLinkTokenStore, DynamoWhatsAppLinkStore } from "../adapters/dynamodb/whatsapp-stores.ts";
 import type { CommandContext } from "../domain/commands/context.ts";
+import { endpointDigest } from "../push/endpoint-digest.ts";
 import { WhatsAppLinker, type LinkConfig } from "../whatsapp/linking/whatsapp-linker.ts";
 import { dynamoRuntime, newAccessCode, newID, now } from "./runtime.ts";
 
@@ -18,6 +20,8 @@ export const INBOX_RETENTION_SECONDS = 7 * DAY_SECONDS;
 export const RATE_COUNTER_EXTRA_SECONDS = 5 * 60;
 export const LINK_TOKEN_GRACE_SECONDS = 60 * 60;
 export const PENDING_ACTION_GRACE_SECONDS = 60 * 60;
+/** `USER#…/REMINDER#<dia>` (lembrete diário já enviado): 3 dias cobrem o dia local em qualquer fuso e a repetição da hora. */
+export const REMINDER_RETENTION_SECONDS = 3 * DAY_SECONDS;
 
 /** Adaptadores DynamoDB do domínio sobre o mesmo store, com a escrita acima de 100 ações dividida (atalho da trilha). */
 export function houseAdapters(client: DynamoClient, latency: LatencyObserver = noLatency) {
@@ -45,6 +49,14 @@ export function whatsAppStores(client: DynamoClient, rateWindowSeconds: number) 
     inbox: new DynamoInboxStore({ client, retentionSeconds: INBOX_RETENTION_SECONDS }),
     rateCounter: new DynamoRateCounter({ client, retentionSeconds: rateWindowSeconds + RATE_COUNTER_EXTRA_SECONDS }),
     pending: new DynamoPendingActionStore({ client, graceSeconds: PENDING_ACTION_GRACE_SECONDS }),
+  };
+}
+
+/** Aparelhos, preferências e lembretes de push (o digest do endpoint web vem de `node:crypto`, em `src/push`). */
+export function pushAdapters(client: DynamoClient) {
+  return {
+    directory: new DynamoPushDirectory({ client, endpointDigest }),
+    claims: new DynamoReminderClaims({ client, retentionSeconds: REMINDER_RETENTION_SECONDS }),
   };
 }
 

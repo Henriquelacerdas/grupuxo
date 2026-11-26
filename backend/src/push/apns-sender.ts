@@ -1,6 +1,6 @@
 import { createSign } from "node:crypto";
 import type { Instant } from "../domain/dates.ts";
-import type { PushDevice, PushMessage, PushResult, PushSender } from "./push.ts";
+import type { ApnsDevice, NotificationPushMessage, PushMessage, PushResult, PushSender } from "./push.ts";
 
 // Envio ao APNs com autenticação por token (JWT ES256, chave .p8). O HTTP/2 vem por `ApnsTransport` (o ponto de
 // entrada usa `node:http2`); aqui só há o JWT e o corpo do aviso. Mensagem de erro sem token, chave ou conteúdo.
@@ -32,7 +32,7 @@ export function apnsJwt(credentials: ApnsCredentials, at: Instant): string {
  * Argumentos do texto de cada tipo, na ordem das chaves `push.<kind>` do app: quem fez e o assunto (tarefa ou cômodo),
  * só o assunto (nome do morador ou do cômodo) ou nenhum. Sem quem fez, o tipo vai para a variante `.anon`.
  */
-export function pushArguments(message: PushMessage): { readonly suffix: string; readonly args: readonly string[] } {
+export function pushArguments(message: NotificationPushMessage): { readonly suffix: string; readonly args: readonly string[] } {
   const subject = message.subjectName ?? "";
   switch (message.kind) {
     case "memberJoined": case "memberLeft": case "cycleTurned": case "roomAccessApproved": case "roomAccessDenied":
@@ -45,7 +45,7 @@ export function pushArguments(message: PushMessage): { readonly suffix: string; 
 }
 
 /** Corpo do aviso: o texto vem das chaves `push.<kind>` do app (nenhuma frase pronta sai do servidor). */
-export function apnsPayload(message: PushMessage): string {
+export function apnsPayload(message: NotificationPushMessage): string {
   const { suffix, args } = pushArguments(message);
   return JSON.stringify({
     aps: { alert: { "loc-key": `push.${message.kind}${suffix}`, "loc-args": [...args] }, sound: "default" },
@@ -53,7 +53,7 @@ export function apnsPayload(message: PushMessage): string {
   });
 }
 
-export class ApnsPushSender implements PushSender {
+export class ApnsPushSender implements PushSender<ApnsDevice> {
   private readonly credentials: ApnsCredentials;
   private readonly transport: ApnsTransport;
   private readonly now: () => Instant;
@@ -71,7 +71,9 @@ export class ApnsPushSender implements PushSender {
     return this.cached.jwt;
   }
 
-  async send(device: PushDevice, message: PushMessage): Promise<PushResult> {
+  async send(device: ApnsDevice, message: PushMessage): Promise<PushResult> {
+    // O lembrete diário é só do site: no iPhone ele é uma notificação local. Nunca sai pelo APNs.
+    if (message.kind === "dailyTasks") return "failed";
     const host = device.environment === "production" ? "api.push.apple.com" : "api.sandbox.push.apple.com";
     try {
       const { status } = await this.transport.post(host, `/3/device/${device.token}`, {

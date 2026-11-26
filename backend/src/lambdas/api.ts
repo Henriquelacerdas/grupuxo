@@ -4,7 +4,10 @@ import { AuthenticationError, TokenVerifierUnavailableError, type TokenVerifier,
 import { parseProfileName, UserDirectoryError, type UserDirectory } from "../auth/user-directory.ts";
 import type { Instant } from "../domain/dates.ts";
 import { photoKeyFor, type PhotoStore } from "../photos/photo-store.ts";
-import { validDeviceToken, validPreferences, type NotificationPreferences, type PushDirectory } from "../push/push.ts";
+import {
+  validDeviceToken, validP256dh, validPreferences, validWebPushAuth, validWebPushEndpoint, type NotificationPreferences, type PushDevice,
+  type PushDeviceRef, type PushDirectory,
+} from "../push/push.ts";
 import { isDomainError } from "../domain/errors.ts";
 import type { IDGenerator, UserID } from "../domain/ids.ts";
 import type {
@@ -16,7 +19,7 @@ import { failure, json, jsonObject, storageOrDomainFailure } from "./api-http.ts
 import { parseRename } from "./api-input.ts";
 import { createRouteHandlers } from "./api-routes.ts";
 import { matchRoute, type AccountRouteName, type RouteName } from "./api-router.ts";
-import { field, parseHttpApiEvent, type HttpApiRequest, type HttpApiResult } from "./events.ts";
+import { field, isRecord, parseHttpApiEvent, type HttpApiRequest, type HttpApiResult } from "./events.ts";
 
 export interface ApiDependencies {
   readonly verifier: TokenVerifier;
@@ -155,8 +158,42 @@ function parsePreferences(body: ReturnType<typeof jsonObject>): NotificationPref
 }
 
 /**
- * Push: `PUT /me/devices { token, environment }` registra o aparelho (idempotente), `DELETE /me/devices?token=` tira, e
- * `GET`/`PUT /me/notification-preferences` leem e gravam as preferências. Sem push configurado: `503 push_unavailable`.
+ * Corpo de `PUT /me/devices`. Sem `kind` (o corpo do app iOS, sem mudança) ou `kind: "apns"`: `{ token, environment }`.
+ * `kind: "web"`: `{ endpoint, keys: { p256dh, auth } }`, a `PushSubscription` do navegador (`toJSON()`); campos a mais
+ * (como `expirationTime`) são ignorados. Outra coisa → `null`.
+ */
+export function parseDevice(body: ReturnType<typeof jsonObject>): PushDevice | null {
+  if (body === null) return null;
+  const kind = field(body, "kind");
+  if (kind === undefined || kind === "apns") {
+    const token = field(body, "token");
+    const environment = field(body, "environment");
+    if (typeof token !== "string" || !validDeviceToken(token) || (environment !== "sandbox" && environment !== "production")) return null;
+    return { kind: "apns", token, environment };
+  }
+  if (kind !== "web") return null;
+  const endpoint = field(body, "endpoint");
+  const keys = field(body, "keys");
+  if (typeof endpoint !== "string" || !validWebPushEndpoint(endpoint) || !isRecord(keys)) return null;
+  const p256dh = field(keys, "p256dh");
+  const auth = field(keys, "auth");
+  if (typeof p256dh !== "string" || !validP256dh(p256dh) || typeof auth !== "string" || !validWebPushAuth(auth)) return null;
+  return { kind: "web", endpoint, p256dh, auth };
+}
+
+/** Query de `DELETE /me/devices`: `?token=` (APNs) **ou** `?endpoint=` (web, codificado na URL); os dois ou nenhum → `null`. */
+export function parseDeviceRef(query: Readonly<Record<string, string>>): PushDeviceRef | null {
+  const token = query["token"];
+  const endpoint = query["endpoint"];
+  if (token !== undefined && endpoint === undefined) return validDeviceToken(token) ? { kind: "apns", token } : null;
+  if (endpoint !== undefined && token === undefined) return validWebPushEndpoint(endpoint) ? { kind: "web", endpoint } : null;
+  return null;
+}
+
+/**
+ * Push: `PUT /me/devices` registra o aparelho iOS (`{ token, environment }`) ou a inscrição web (`{ kind: "web", endpoint,
+ * keys }`), idempotente; `DELETE /me/devices?token=` ou `?endpoint=` tira; `GET`/`PUT /me/notification-preferences` leem e
+ * gravam as preferências. Sem push configurado: `503 push_unavailable`.
  */
 async function pushRoute(
   deps: ApiDependencies, name: "registerDevice" | "removeDevice" | "getPreferences" | "setPreferences", user: UserID,
@@ -166,19 +203,15 @@ async function pushRoute(
   if (push === undefined) return failure(503, "push_unavailable");
   switch (name) {
     case "registerDevice": {
-      const body = jsonObject(request.body);
-      const token = body === null ? undefined : field(body, "token");
-      const environment = body === null ? undefined : field(body, "environment");
-      if (typeof token !== "string" || !validDeviceToken(token) || (environment !== "sandbox" && environment !== "production")) {
-        return failure(400, "bad_request");
-      }
-      await push.registerDevice(user, { token, environment }, deps.now());
+      const device = parseDevice(jsonObject(request.body));
+      if (device === null) return failure(400, "bad_request");
+      await push.registerDevice(user, device, deps.now());
       return { statusCode: 204, body: "" };
     }
     case "removeDevice": {
-      const token = request.queryParameters["token"];
-      if (token === undefined || !validDeviceToken(token)) return failure(400, "bad_request");
-      await push.removeDevice(user, token);
+      const device = parseDeviceRef(request.queryParameters);
+      if (device === null) return failure(400, "bad_request");
+      await push.removeDevice(user, device);
       return { statusCode: 204, body: "" };
     }
     case "getPreferences":

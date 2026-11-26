@@ -28,11 +28,15 @@ locals {
       BOT_PHONE_NUMBER          = var.bot_phone_number
     }
     scheduled = {
-      TABLE_NAME = aws_dynamodb_table.main.name
+      TABLE_NAME        = aws_dynamodb_table.main.name
+      WEBPUSH_SECRET_ID = aws_secretsmanager_secret.webpush.arn
+      WEBPUSH_SUBJECT   = var.webpush_subject
     }
     push = {
-      SECRET_ID  = aws_secretsmanager_secret.apns.arn
-      TABLE_NAME = aws_dynamodb_table.main.name
+      SECRET_ID         = aws_secretsmanager_secret.apns.arn
+      TABLE_NAME        = aws_dynamodb_table.main.name
+      WEBPUSH_SECRET_ID = aws_secretsmanager_secret.webpush.arn
+      WEBPUSH_SUBJECT   = var.webpush_subject
     }
     api = {
       TABLE_NAME           = aws_dynamodb_table.main.name

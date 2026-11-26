@@ -325,13 +325,27 @@ export function houseRoutes(name: string, make: ApiEnvFactory): void {
 
     assert.equal((await put({ token, environment: "sandbox" })).statusCode, 204);
     assert.equal((await put({ token, environment: "production" })).statusCode, 204, "registrar de novo troca o ambiente");
-    assert.deepEqual(await env.push.devices(ids.bia as never), [{ token, environment: "production" }]);
+    assert.deepEqual(await env.push.devices(ids.bia as never), [{ kind: "apns", token, environment: "production" }]);
     for (const body of [{}, { token: "xyz", environment: "sandbox" }, { token, environment: "dev" }, { token: 7, environment: "sandbox" }]) {
       expectError(await put(body), 400, "bad_request");
     }
     expectError(await env.call("bia", "DELETE", "/v1/me/devices"), 400, "bad_request");
     assert.equal((await env.call("bia", "DELETE", "/v1/me/devices", { query: `token=${token}` })).statusCode, 204);
     assert.deepEqual(await env.push.devices(ids.bia as never), []);
+
+    // Web Push: a `PushSubscription` do navegador, ao lado do iPhone; tirada pelo endpoint codificado na query.
+    const endpoint = "https://fcm.googleapis.com/fcm/send/abc:DEF_123";
+    const keys = { p256dh: `B${"A".repeat(86)}`, auth: "A".repeat(22) };
+    assert.equal((await put({ token, environment: "sandbox" })).statusCode, 204);
+    assert.equal((await put({ kind: "web", endpoint, keys })).statusCode, 204);
+    assert.equal((await put({ kind: "web", endpoint, keys, expirationTime: null })).statusCode, 204, "idempotente");
+    assert.deepEqual((await env.push.devices(ids.bia as never)).map((d) => d.kind), ["apns", "web"]);
+    for (const body of [{ kind: "web", endpoint: "http://insecure.example/a", keys }, { kind: "web", endpoint, keys: { ...keys, auth: "x" } }, { kind: "web", endpoint }, { kind: "fcm", token }]) {
+      expectError(await put(body), 400, "bad_request");
+    }
+    expectError(await env.call("bia", "DELETE", "/v1/me/devices", { query: `token=${token}&endpoint=${encodeURIComponent(endpoint)}` }), 400, "bad_request");
+    assert.equal((await env.call("bia", "DELETE", "/v1/me/devices", { query: `endpoint=${encodeURIComponent(endpoint)}` })).statusCode, 204);
+    assert.deepEqual((await env.push.devices(ids.bia as never)).map((d) => d.kind), ["apns"]);
 
     const defaults = expectStatus(await env.call("bia", "GET", "/v1/me/notification-preferences"), 200);
     assert.deepEqual(defaults, { remindTasks: true, reminderHour: 9, cycleTurned: true, houseActivity: true, weeklySummary: true });

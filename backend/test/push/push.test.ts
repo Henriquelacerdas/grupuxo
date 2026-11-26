@@ -6,6 +6,7 @@ import { InMemoryPushDirectory } from "../../src/adapters/in-memory/push-directo
 import { roomID, userID } from "../../src/domain/ids.ts";
 import { createPushHandler, newNotificationItem } from "../../src/lambdas/push.ts";
 import { apnsJwt, apnsPayload, ApnsPushSender } from "../../src/push/apns-sender.ts";
+import { endpointDigest } from "../../src/push/endpoint-digest.ts";
 import { PushNotifier } from "../../src/push/notifier.ts";
 import { allowsPush, DEFAULT_PREFERENCES, type PushDevice, type PushDirectory, type PushMessage, type PushResult, type PushSender } from "../../src/push/push.ts";
 import { FakeDynamoClient } from "../support/fake-dynamo-client.ts";
@@ -18,14 +19,14 @@ const token = "cd".repeat(32);
 function directoryContract(name: string, make: () => PushDirectory): void {
   test(`${name}: aparelhos e preferências por morador`, async () => {
     const directory = make();
-    await directory.registerDevice(ana, { token, environment: "sandbox" }, 1);
-    await directory.registerDevice(ana, { token, environment: "production" }, 2);
-    await directory.registerDevice(ana, { token: "ef".repeat(32), environment: "sandbox" }, 3);
+    await directory.registerDevice(ana, { kind: "apns", token, environment: "sandbox" }, 1);
+    await directory.registerDevice(ana, { kind: "apns", token, environment: "production" }, 2);
+    await directory.registerDevice(ana, { kind: "apns", token: "ef".repeat(32), environment: "sandbox" }, 3);
     assert.equal((await directory.devices(ana)).length, 2);
     assert.deepEqual(await directory.devices(bia), []);
-    await directory.removeDevice(ana, token);
-    await directory.removeDevice(ana, token);
-    assert.deepEqual(await directory.devices(ana), [{ token: "ef".repeat(32), environment: "sandbox" }]);
+    await directory.removeDevice(ana, { kind: "apns", token });
+    await directory.removeDevice(ana, { kind: "apns", token });
+    assert.deepEqual(await directory.devices(ana), [{ kind: "apns", token: "ef".repeat(32), environment: "sandbox" }]);
     assert.deepEqual(await directory.preferences(ana), DEFAULT_PREFERENCES);
     const changed = { ...DEFAULT_PREFERENCES, houseActivity: false, reminderHour: 20 };
     await directory.setPreferences(ana, changed);
@@ -34,7 +35,7 @@ function directoryContract(name: string, make: () => PushDirectory): void {
   });
 }
 directoryContract("em memória", () => new InMemoryPushDirectory());
-directoryContract("DynamoDB", () => new DynamoPushDirectory({ client: new FakeDynamoClient() }));
+directoryContract("DynamoDB", () => new DynamoPushDirectory({ client: new FakeDynamoClient(), endpointDigest }));
 
 class FakeSender implements PushSender {
   readonly sent: { device: PushDevice; message: PushMessage }[] = [];
@@ -52,7 +53,7 @@ test("o notificador respeita as preferências, nomeia quem fez e tira token recu
   const edited = { recipientUserID: ana, kind: "taskEdited", actorUserID: bia, subjectName: "Louça" } as const;
 
   assert.equal(await notifier.deliver(edited), 0, "sem aparelho, nada a enviar");
-  await directory.registerDevice(ana, { token, environment: "sandbox" }, 1);
+  await directory.registerDevice(ana, { kind: "apns", token, environment: "sandbox" }, 1);
   assert.equal(await notifier.deliver(edited), 1);
   assert.deepEqual(sender.sent[0]?.message, { kind: "taskEdited", actorName: "Bia", subjectName: "Louça" });
 
@@ -95,14 +96,14 @@ test("o ApnsPushSender escolhe o host pelo ambiente e traduz o status", async ()
     transport: { post: async (host, path) => { calls.push({ host, path }); return { status }; } }, now: () => 0,
   });
   const message = { kind: "memberLeft", actorName: null, subjectName: "Bia" } as const;
-  assert.equal(await sender.send({ token, environment: "sandbox" }, message), "sent");
-  assert.equal(await sender.send({ token, environment: "production" }, message), "sent");
+  assert.equal(await sender.send({ kind: "apns", token, environment: "sandbox" }, message), "sent");
+  assert.equal(await sender.send({ kind: "apns", token, environment: "production" }, message), "sent");
   assert.deepEqual(calls.map((c) => c.host), ["api.sandbox.push.apple.com", "api.push.apple.com"]);
   assert.equal(calls[0]?.path, `/3/device/${token}`);
   status = 410;
-  assert.equal(await sender.send({ token, environment: "sandbox" }, message), "invalidToken");
+  assert.equal(await sender.send({ kind: "apns", token, environment: "sandbox" }, message), "invalidToken");
   status = 500;
-  assert.equal(await sender.send({ token, environment: "sandbox" }, message), "failed");
+  assert.equal(await sender.send({ kind: "apns", token, environment: "sandbox" }, message), "failed");
 });
 
 function streamRecord(sk: string, eventName = "INSERT") {
@@ -121,7 +122,7 @@ function streamRecord(sk: string, eventName = "INSERT") {
 
 test("o handler do stream entrega só INSERT de NOTIF# e devolve o registro que falhou", async () => {
   const directory = new InMemoryPushDirectory();
-  await directory.registerDevice(ana, { token, environment: "sandbox" }, 1);
+  await directory.registerDevice(ana, { kind: "apns", token, environment: "sandbox" }, 1);
   const sender = new FakeSender();
   const failures: string[] = [];
   const handler = createPushHandler(new PushNotifier({ directory, sender, names: async () => "Bia" }), (d) => failures.push(d));

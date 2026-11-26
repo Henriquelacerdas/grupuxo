@@ -20,3 +20,8 @@ output "secret_name" {
 output "dlq_url" {
   value = aws_sqs_queue.whatsapp_dlq.url
 }
+
+output "webpush_secret_name" {
+  description = "Segredo das chaves VAPID, gravado por tools/webpush-keys."
+  value       = aws_secretsmanager_secret.webpush.name
+}

@@ -1,4 +1,5 @@
 import type { CognitoVerifierConfig } from "../auth/cognito-jwt-verifier.ts";
+import { validVapidSubject } from "../push/web-push-sender.ts";
 import { createLinkConfig, type LinkConfig } from "../whatsapp/linking/whatsapp-linker.ts";
 
 // Leitura e validação da configuração das Lambdas. Funções puras: o ambiente e o segredo chegam por parâmetro
@@ -79,14 +80,47 @@ export function parseApiSettings(env: Environment): ApiSettings {
   return { cognito: { userPoolID, clientID }, link, tableName: required(env, "TABLE_NAME") };
 }
 
-/** Ambiente da Lambda `push`. */
+/** Web Push: `WEBPUSH_SECRET_ID` (segredo com as chaves VAPID) e `WEBPUSH_SUBJECT` (`mailto:` ou `https:`), sem padrão. */
+export interface WebPushSettings {
+  readonly secretID: string;
+  readonly subject: string;
+}
+
+function webPushSettings(env: Environment): WebPushSettings {
+  const subject = required(env, "WEBPUSH_SUBJECT");
+  if (!validVapidSubject(subject)) throw new LambdaConfigError("WEBPUSH_SUBJECT", "invalid");
+  return { secretID: required(env, "WEBPUSH_SECRET_ID"), subject };
+}
+
+/** Ambiente da Lambda `push`: `TABLE_NAME`, `SECRET_ID` (APNs) e o Web Push. */
 export interface PushSettings {
   readonly tableName: string;
+  readonly webPush: WebPushSettings;
 }
 
 export function parsePushSettings(env: Environment): PushSettings {
   required(env, "SECRET_ID");
-  return { tableName: required(env, "TABLE_NAME") };
+  return { tableName: required(env, "TABLE_NAME"), webPush: webPushSettings(env) };
+}
+
+/** Ambiente da Lambda `scheduled`: `TABLE_NAME` e o Web Push (lembrete diário). */
+export interface ScheduledSettings {
+  readonly tableName: string;
+  readonly webPush: WebPushSettings;
+}
+
+export function parseScheduledSettings(env: Environment): ScheduledSettings {
+  return { tableName: required(env, "TABLE_NAME"), webPush: webPushSettings(env) };
+}
+
+/**
+ * Segredo do Web Push (`grupuxo/<ambiente>/webpush`, gravado por `tools/webpush-keys`): `WEBPUSH_VAPID_PUBLIC_KEY` (ponto
+ * P-256 não comprimido, 65 bytes) e `WEBPUSH_VAPID_PRIVATE_KEY` (escalar, 32 bytes), em base64url. O par é conferido
+ * pelo `WebPushSender` no primeiro envio.
+ */
+export function parseWebPushSecret(secretString: string): { readonly publicKey: string; readonly privateKey: string } {
+  const fields = secretFields(secretString);
+  return { publicKey: secretValue(fields, "WEBPUSH_VAPID_PUBLIC_KEY"), privateKey: secretValue(fields, "WEBPUSH_VAPID_PRIVATE_KEY") };
 }
 
 /** Segredo do APNs (`grupuxo/<ambiente>/apns`): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID` e `APNS_PRIVATE_KEY` (o .p8). */
