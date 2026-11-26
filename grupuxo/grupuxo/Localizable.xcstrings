@@ -4,6 +4,16 @@
     "" : {
       "shouldTranslate" : false
     },
+    "Sugestão para o Reveza" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suggestion for Reveza"
+          }
+        }
+      }
+    },
     "– %@" : {
       "localizations" : {
         "en" : {
