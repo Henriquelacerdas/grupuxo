@@ -16,3 +16,13 @@ export interface HttpResponse {
 }
 
 export type HttpFetch = (url: string, init: HttpRequestInit) => Promise<HttpResponse>;
+
+/** Requisição com corpo binário (o corpo cifrado do Web Push). O `fetch` global também satisfaz `HttpBinaryFetch`. */
+export interface HttpBinaryRequestInit {
+  readonly method: "POST" | "PUT";
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly body: Uint8Array;
+  readonly signal?: AbortSignal;
+}
+
+export type HttpBinaryFetch = (url: string, init: HttpBinaryRequestInit) => Promise<HttpResponse>;

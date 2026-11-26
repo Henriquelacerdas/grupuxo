@@ -2,7 +2,8 @@ import type { Instant } from "../domain/dates.ts";
 import type { HouseID } from "../domain/ids.ts";
 
 // Lambda `scheduled` (EventBridge, de hora em hora): para cada casa, cria os avisos que dependem do tempo ("o ciclo
-// virou", "o resumo da semana está pronto"). Idempotente; uma casa com erro não impede as outras. Sem conteúdo em log.
+// virou", "o resumo da semana está pronto") e, depois, manda o lembrete diário das tarefas por Web Push a quem pediu
+// para esta hora (`remind`). Idempotente; uma casa com erro não impede as outras. Sem conteúdo em log.
 //
 // As casas são processadas em paralelo (até `concurrency` ao mesmo tempo; cada uma é uma partição e uma escrita
 // independente) e com um orçamento de tempo: ao estourar, para de começar casas novas e devolve quantas ficaram para
@@ -12,6 +13,8 @@ import type { HouseID } from "../domain/ids.ts";
 export interface ScheduledDependencies {
   readonly houseIDs: () => Promise<readonly HouseID[]>;
   readonly emit: (houseID: HouseID, at: Instant) => Promise<number>;
+  /** Lembrete diário (Web Push) da casa, depois dos avisos; devolve quantos pushes saíram. Ausente = sem lembrete. */
+  readonly remind?: (houseID: HouseID, at: Instant) => Promise<number>;
   readonly now: () => Instant;
   readonly onFailure: (description: string) => void;
   /** Casas processadas ao mesmo tempo (>= 1). */
@@ -23,6 +26,8 @@ export interface ScheduledDependencies {
 export interface ScheduledResult {
   readonly houses: number;
   readonly created: number;
+  /** Pushes do lembrete diário enviados. */
+  readonly reminded: number;
   readonly failures: number;
   /** Casas que não foram começadas porque o orçamento de tempo acabou (a próxima rodada cobre outras). */
   readonly skipped: number;
@@ -41,6 +46,7 @@ export function createScheduledHandler(deps: ScheduledDependencies): (event: unk
 
     let next = 0;
     let created = 0;
+    let reminded = 0;
     let failures = 0;
     const worker = async (): Promise<void> => {
       for (;;) {
@@ -52,6 +58,10 @@ export function createScheduledHandler(deps: ScheduledDependencies): (event: unk
         try {
           const count = await deps.emit(houseID, now); // soma depois do await: `created += await` perderia somas concorrentes
           created += count;
+          if (deps.remind !== undefined) {
+            const pushes = await deps.remind(houseID, now);
+            reminded += pushes;
+          }
         } catch (error) {
           failures += 1;
           deps.onFailure(error instanceof Error ? error.name : "erro");
@@ -59,6 +69,6 @@ export function createScheduledHandler(deps: ScheduledDependencies): (event: unk
       }
     };
     await Promise.all(Array.from({ length: Math.min(deps.concurrency, houses.length) }, worker));
-    return { houses: houses.length, created, failures, skipped: houses.length - next };
+    return { houses: houses.length, created, reminded, failures, skipped: houses.length - next };
   };
 }

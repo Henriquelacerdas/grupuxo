@@ -16,7 +16,7 @@ import {
 } from "../../domain/commands/rooms.ts";
 import {
   addRoomMember, claimTask, completeTask, createTask, deleteSporadicTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
-  occurrenceHouseFor, roomTasks, sporadicTasks, taskDefinitionFor, updateTaskDetails, userTasks, type TaskDetailsPatch,
+  occurrenceHouseFor, roomTasks, sporadicTasks, taskDefinitionFor, updateTaskDetails, userTasks, pendingTaskCounts, type HousePendingTasks, type TaskDetailsPatch,
 } from "../../domain/commands/tasks.ts";
 import { DomainError } from "../../domain/errors.ts";
 import type { Instant } from "../../domain/dates.ts";
@@ -208,6 +208,11 @@ export class InMemoryTaskRepository implements TaskRepository, HouseSnapshotRepo
     const at = this.ctx.now();
     await this.refreshSchedule(houseID, at);
     return this.store.read((s) => userTasks(s, userID, houseID, at));
+  }
+
+  async pendingTaskCounts(houseID: HouseID, at: Instant): Promise<HousePendingTasks> {
+    await this.refreshSchedule(houseID, at);
+    return this.store.read((s) => pendingTaskCounts(s, houseID, at));
   }
 
   async roomTasks(roomID: RoomID, requesting: UserID): Promise<TaskItem[]> {

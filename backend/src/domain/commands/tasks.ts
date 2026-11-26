@@ -126,6 +126,32 @@ export function userTasks(state: StoreState, userID: UserID, houseID: HouseID, d
   });
 }
 
+/** Quantas tarefas pendentes cada morador tem: o que o lembrete diário conta. */
+export interface HousePendingTasks {
+  readonly timezone: string;
+  /** Moradores da casa em ordem de ID, com as pendências de Minhas tarefas (`userTasks` sem as concluídas). */
+  readonly members: readonly { readonly userID: UserID; readonly pending: number }[];
+}
+
+/**
+ * Pendências de cada morador em `date`: as mesmas tarefas que Minhas tarefas mostra (`userTasks`, inclusive as que ficam
+ * disponíveis ainda nesta semana), sem as concluídas, como o lembrete local do iPhone conta. Casa inexistente:
+ * `entityNotFound`. Chamar `refreshSchedule` antes.
+ */
+export function pendingTaskCounts(state: StoreState, houseID: HouseID, date: Instant): HousePendingTasks {
+  const house = state.houses.find((candidate) => candidate.id === houseID);
+  if (house === undefined) throw new DomainError("entityNotFound");
+  const items = taskItems(state);
+  const memberIDs = [...new Set(state.houseMemberships.filter((m) => m.houseID === houseID).map((m) => m.userID))]
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return {
+    timezone: house.timezone,
+    members: memberIDs.map((userID) => ({
+      userID, pending: userTasks(state, userID, houseID, date, items).filter((item) => !isCompleted(item.occurrence)).length,
+    })),
+  };
+}
+
 export function roomTasks(state: StoreState, roomID: RoomID, userID: UserID, items = taskItems(state)): TaskItem[] {
   const room = state.rooms.find((r) => r.id === roomID);
   if (room === undefined || !state.houseMemberships.some((m) => m.houseID === room.houseID && m.userID === userID)) return [];

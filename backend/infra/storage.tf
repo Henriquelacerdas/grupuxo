@@ -80,6 +80,13 @@ resource "aws_secretsmanager_secret" "apns" {
   description = "Chave do APNs para os pushes (BACKEND.md seção 10)"
 }
 
+# Segredo do Web Push, também **sem valor**: WEBPUSH_VAPID_PUBLIC_KEY e WEBPUSH_VAPID_PRIVATE_KEY (base64url), gravados
+# por `tools/webpush-keys` direto no Secrets Manager (a chave privada nunca aparece no terminal nem no estado).
+resource "aws_secretsmanager_secret" "webpush" {
+  name        = "grupuxo/${var.environment}/webpush"
+  description = "Chaves VAPID do Web Push do site (BACKEND.md seção 10)"
+}
+
 # Segredo **sem valor**: o dono grava o JSON pelo console, e o valor nunca entra no estado do Terraform.
 resource "aws_secretsmanager_secret" "whatsapp" {
   name        = "grupuxo/${var.environment}/whatsapp"

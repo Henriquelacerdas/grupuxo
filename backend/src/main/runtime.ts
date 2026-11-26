@@ -77,7 +77,12 @@ export function photoStore(env: Environment): S3PhotoStore | undefined {
 
 /** Leitor do segredo `SECRET_ID` (cache por instância). */
 export function secretReader(env: Environment): SecretStringReader {
-  return new SecretStringReader({ client: new SdkSecretsManagerClient(new SecretsManagerClient({})), secretID: env["SECRET_ID"] });
+  return secretReaderFor(env["SECRET_ID"]);
+}
+
+/** Leitor de um segredo pelo nome ou ARN (cache do sucesso por instância). */
+export function secretReaderFor(secretID: string | undefined): SecretStringReader {
+  return new SecretStringReader({ client: new SdkSecretsManagerClient(new SecretsManagerClient({})), secretID });
 }
 
 /**

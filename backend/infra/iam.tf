@@ -93,6 +93,11 @@ data "aws_iam_policy_document" "scheduled" {
     actions   = ["dynamodb:Scan"]
     resources = [aws_dynamodb_table.main.arn]
   }
+  # Lembrete diário por Web Push (chaves VAPID).
+  statement {
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [aws_secretsmanager_secret.webpush.arn]
+  }
 }
 
 data "aws_iam_policy_document" "push" {
@@ -106,7 +111,7 @@ data "aws_iam_policy_document" "push" {
   }
   statement {
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_secretsmanager_secret.apns.arn]
+    resources = [aws_secretsmanager_secret.apns.arn, aws_secretsmanager_secret.webpush.arn]
   }
 }
 

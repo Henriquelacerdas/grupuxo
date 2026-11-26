@@ -6,7 +6,7 @@ import type {
   HouseID, NotificationID, RoomID, TaskDefinitionID, TaskOccurrenceID, TaskSwapRequestID, UserID,
 } from "./ids.ts";
 import type { LeaveHouseOutcome, VacationStatus } from "./commands/houses.ts";
-import type { TaskDetailsPatch } from "./commands/tasks.ts";
+import type { HousePendingTasks, TaskDetailsPatch } from "./commands/tasks.ts";
 import type { RoomPatch } from "./commands/rooms.ts";
 import type { PendingRating, RatingInput, RatingResult, WeekSummary } from "./commands/ratings.ts";
 
@@ -81,6 +81,8 @@ export interface RoomAccessRequestSummary {
 
 export interface TaskRepository {
   tasks(userID: UserID, houseID: HouseID): Promise<TaskItem[]>;
+  /** Pendências de cada morador da casa em `at` (para o lembrete diário da tarefa agendada); renova a escala antes. */
+  pendingTaskCounts(houseID: HouseID, at: Instant): Promise<HousePendingTasks>;
   roomTasks(roomID: RoomID, requesting: UserID): Promise<TaskItem[]>;
   sporadicTasks(houseID: HouseID, requesting: UserID): Promise<TaskItem[]>;
   /** Definição da tarefa do cômodo (inclusive encerrada); `entityNotFound` se não existir ou o morador não puder vê-la. */

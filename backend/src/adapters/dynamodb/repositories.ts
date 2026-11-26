@@ -16,7 +16,7 @@ import {
 } from "../../domain/commands/rooms.ts";
 import {
   addRoomMember, claimTask, completeTask, createTask, deleteSporadicTask, endTask, refreshSchedule, releaseTask, removeRoomMember, reopenTask,
-  occurrenceHouseFor, roomTasks, scheduleIsCurrent, sporadicTasks, taskDefinitionFor, updateTaskDetails, userTasks, type TaskDetailsPatch,
+  occurrenceHouseFor, roomTasks, scheduleIsCurrent, sporadicTasks, taskDefinitionFor, updateTaskDetails, userTasks, pendingTaskCounts, type HousePendingTasks, type TaskDetailsPatch,
 } from "../../domain/commands/tasks.ts";
 import { DomainError } from "../../domain/errors.ts";
 import { emptyStoreState, type StoreState } from "../../domain/store-state.ts";
@@ -244,6 +244,10 @@ export class DynamoTaskRepository implements TaskRepository, HouseSnapshotReposi
   async tasks(userID: UserID, houseID: HouseID): Promise<TaskItem[]> {
     const at = this.ctx.now();
     return this.withSchedule(houseID, at, (s) => userTasks(s, userID, houseID, at));
+  }
+
+  async pendingTaskCounts(houseID: HouseID, at: Instant): Promise<HousePendingTasks> {
+    return this.withSchedule(houseID, at, (s) => pendingTaskCounts(s, houseID, at));
   }
 
   async roomTasks(roomID: RoomID, requesting: UserID): Promise<TaskItem[]> {

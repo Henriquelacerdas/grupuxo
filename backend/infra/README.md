@@ -61,6 +61,16 @@ Console → Secrets Manager → `grupuxo/dev/whatsapp` → *Retrieve secret valu
 
 As Lambdas leem o segredo uma vez por instância. Trocou o valor? Uma instância já aquecida segue com o antigo até ser reciclada; para forçar, rode de novo `terraform apply -replace='aws_lambda_function.lambda["worker"]'` (ou `webhook`).
 
+### Web Push (site)
+
+O `apply` cria `grupuxo/dev/webpush` sem valor e passa `WEBPUSH_SECRET_ID` e `WEBPUSH_SUBJECT` (`webpush_subject` em `terraform.tfvars`, `mailto:` ou `https:`) às Lambdas `push` e `scheduled`. Depois do `apply`, com autorização do dono, gere o par VAPID direto no segredo (a chave privada não aparece no terminal; só a pública é impressa, e ela vai para o site como `applicationServerKey`):
+
+```sh
+AWS_PROFILE=grupuxo-dev AWS_REGION=us-east-1 WEBPUSH_SECRET_ID=grupuxo/dev/webpush node tools/webpush-keys/generate.ts
+```
+
+Até o segredo ter valor, só o envio web falha; o APNs segue igual (as chaves VAPID são lidas no primeiro envio web). Um segredo que já tem par não é sobrescrito sem `--rotate`, e trocar o par obriga o site a se inscrever de novo.
+
 ## 4. Meta
 
 1. *WhatsApp* → *API Setup*: cadastre o seu celular como destinatário (o número de teste só responde a até 5).

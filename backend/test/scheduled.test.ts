@@ -15,7 +15,7 @@ test("o handler agendado percorre as casas, soma os avisos e isola a que falha",
     houseIDs: async () => [a, b, c], now: () => 7, onFailure: (d) => failures.push(d), concurrency: 1,
     emit: async (id, at) => { assert.equal(at, 7); if (id === b) throw new RangeError("x"); return id === a ? 2 : 3; },
   });
-  assert.deepEqual(await handler({}), { houses: 3, created: 5, failures: 1, skipped: 0 });
+  assert.deepEqual(await handler({}), { houses: 3, created: 5, reminded: 0, failures: 1, skipped: 0 });
   assert.deepEqual(failures, ["RangeError"], "só o nome do erro");
 });
 
@@ -32,14 +32,26 @@ test("o handler agendado processa as casas em paralelo, sem passar do limite de 
       return 1;
     },
   });
-  assert.deepEqual(await handler({}), { houses: 20, created: 20, failures: 0, skipped: 0 });
+  assert.deepEqual(await handler({}), { houses: 20, created: 20, reminded: 0, failures: 0, skipped: 0 });
   assert.equal(seen.size, 20, "cada casa uma vez");
   assert.equal(peak, 4, "usa toda a concorrência e não passa dela");
 });
 
+test("o lembrete diário roda depois dos avisos de cada casa e soma os pushes", async () => {
+  const a = houseID(uuid(1)), b = houseID(uuid(2));
+  const order: string[] = [];
+  const handler = createScheduledHandler({
+    houseIDs: async () => [a, b], now: () => 0, onFailure: () => {}, concurrency: 1,
+    emit: async (id) => { order.push(`emit ${id}`); return 1; },
+    remind: async (id) => { order.push(`remind ${id}`); return id === a ? 2 : 0; },
+  });
+  assert.deepEqual(await handler({}), { houses: 2, created: 2, reminded: 2, failures: 0, skipped: 0 });
+  assert.deepEqual(order, [`emit ${a}`, `remind ${a}`, `emit ${b}`, `remind ${b}`]);
+});
+
 test("sem casas, o handler agendado não faz nada", async () => {
   const handler = createScheduledHandler({ houseIDs: async () => [], now: () => 0, onFailure: () => {}, concurrency: 8, emit: async () => 1 });
-  assert.deepEqual(await handler({}), { houses: 0, created: 0, failures: 0, skipped: 0 });
+  assert.deepEqual(await handler({}), { houses: 0, created: 0, reminded: 0, failures: 0, skipped: 0 });
 });
 
 test("a concorrência do handler agendado precisa ser um inteiro positivo", () => {
@@ -57,7 +69,7 @@ test("estourado o orçamento de tempo, o handler agendado para de começar casas
     emit: async (id) => { done.push(id); clock += 10; return 0; },
   });
   // Começa em 0, 10 e 20 (< 25); no 30 o orçamento acabou.
-  assert.deepEqual(await handler({}), { houses: 10, created: 0, failures: 0, skipped: 7 });
+  assert.deepEqual(await handler({}), { houses: 10, created: 0, reminded: 0, failures: 0, skipped: 7 });
   assert.equal(done.length, 3);
 });
 
@@ -117,5 +129,18 @@ for (const [name, make] of [["em memória", inMemoryApiEnv], ["DynamoDB", dynamo
     assert.equal(await emit(periodEnd + 3 * 24 * 3_600_000 + 1000), 0);
     const kindsAfter = [...(await kinds("ana")), ...(await kinds("bia"))];
     assert.equal(kindsAfter.filter((k) => k === "weeklySummaryReady").length, 1);
+  });
+}
+
+for (const [name, make] of [["em memória", inMemoryApiEnv], ["DynamoDB", dynamoApiEnv]] as const) {
+  test(`${name}: pendências por morador = Minhas tarefas sem as concluídas`, async () => {
+    const env: ApiEnv = make();
+    const { house, ids } = await twoHousesScenario(env);
+    const counts = await env.pendingTasks(houseID(house.id), env.clock);
+    const mine = async (who: "ana" | "bia") => list(bodyOf(await env.call(who, "GET", "/v1/me/tasks"))["tasks"]).map(rec)
+      .filter((t) => rec(t["occurrence"])["completedAt"] === null).length;
+    assert.equal(counts.timezone.length > 0, true);
+    assert.deepEqual(counts.members.map((m) => m.userID), [ids.ana, ids.bia].sort());
+    for (const member of counts.members) assert.equal(member.pending, await mine(member.userID === ids.ana ? "ana" : "bia"));
   });
 }
