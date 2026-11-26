@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+/*
+  Tokens do Reveza Web: as cores de sistema do iOS (o app só usa cores semânticas, docs/DESIGN.md), em claro e
+  escuro. Onde o tom padrão do iOS não passa no contraste AA da web, usa-se a variante de "Aumentar contraste"
+  do próprio iOS (azul, vermelho, texto secundário).
+*/
+:root {
+  color-scheme: light;
+  --bg-grouped: #f2f2f7;
+  --bg-card: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-tertiary: #f2f2f7;
+  --label: #000000;
+  --label-secondary: #6c6c70;
+  --label-tertiary: #8e8e93;
+  --separator: rgba(60, 60, 67, 0.22);
+  --fill: rgba(120, 120, 128, 0.16);
+  --fill-strong: rgba(120, 120, 128, 0.24);
+  --accent: #0066cc;
+  --accent-fill: #0066d6;
+  --accent-soft: rgba(0, 122, 255, 0.12);
+  --on-accent: #ffffff;
+  --danger: #d70015;
+  --danger-soft: rgba(255, 59, 48, 0.12);
+  --success: #248a3d;
+  --overlay: rgba(0, 0, 0, 0.32);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+
+  --room-red: #ff3b30; --room-orange: #ff9500; --room-yellow: #ffcc00; --room-green: #34c759;
+  --room-blue: #007aff; --room-purple: #af52de; --room-brown: #a2845e; --room-gray: #8e8e93;
+  --room-pink: #ff2d55; --room-teal: #30b0c7; --room-indigo: #5856d6; --room-cyan: #32ade6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg-grouped: #000000;
+    --bg-card: #1c1c1e;
+    --bg-elevated: #2c2c2e;
+    --bg-tertiary: #2c2c2e;
+    --label: #ffffff;
+    --label-secondary: #aeaeb2;
+    --label-tertiary: #8e8e93;
+    --separator: rgba(84, 84, 88, 0.6);
+    --fill: rgba(120, 120, 128, 0.32);
+    --fill-strong: rgba(120, 120, 128, 0.44);
+    --accent: #409cff;
+    --accent-fill: #0071e3;
+    --accent-soft: rgba(10, 132, 255, 0.2);
+    --danger: #ff6961;
+    --danger-soft: rgba(255, 69, 58, 0.18);
+    --success: #30d158;
+    --overlay: rgba(0, 0, 0, 0.56);
+    --shadow: none;
+    --room-red: #ff453a; --room-orange: #ff9f0a; --room-yellow: #ffd60a; --room-green: #30d158;
+    --room-blue: #0a84ff; --room-purple: #bf5af2; --room-brown: #ac8e68; --room-gray: #98989d;
+    --room-pink: #ff375f; --room-teal: #40c8e0; --room-indigo: #5e5ce6; --room-cyan: #64d2ff;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-grouped: #000000;
+  --bg-card: #1c1c1e;
+  --bg-elevated: #2c2c2e;
+  --bg-tertiary: #2c2c2e;
+  --label: #ffffff;
+  --label-secondary: #aeaeb2;
+  --label-tertiary: #8e8e93;
+  --separator: rgba(84, 84, 88, 0.6);
+  --fill: rgba(120, 120, 128, 0.32);
+  --fill-strong: rgba(120, 120, 128, 0.44);
+  --accent: #409cff;
+  --accent-fill: #0071e3;
+  --accent-soft: rgba(10, 132, 255, 0.2);
+  --danger: #ff6961;
+  --danger-soft: rgba(255, 69, 58, 0.18);
+  --success: #30d158;
+  --overlay: rgba(0, 0, 0, 0.56);
+  --shadow: none;
+  --room-red: #ff453a; --room-orange: #ff9f0a; --room-yellow: #ffd60a; --room-green: #30d158;
+  --room-blue: #0a84ff; --room-purple: #bf5af2; --room-brown: #ac8e68; --room-gray: #98989d;
+  --room-pink: #ff375f; --room-teal: #40c8e0; --room-indigo: #5e5ce6; --room-cyan: #64d2ff;
+}
+
+@theme inline {
+  --color-grouped: var(--bg-grouped);
+  --color-card: var(--bg-card);
+  --color-elevated: var(--bg-elevated);
+  --color-tertiary: var(--bg-tertiary);
+  --color-label: var(--label);
+  --color-secondary: var(--label-secondary);
+  --color-muted: var(--label-tertiary);
+  --color-separator: var(--separator);
+  --color-fill: var(--fill);
+  --color-fill-strong: var(--fill-strong);
+  --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-rounded: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
+  --radius-card: 24px;
+  --radius-control: 12px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg-grouped);
+  color: var(--label);
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.font-rounded { font-family: var(--font-rounded); }
+
+.safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.animate-sheet { animation: sheet-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.animate-fade { animation: fade-in 160ms ease-out; }

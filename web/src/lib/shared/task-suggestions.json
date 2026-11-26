@@ -1,0 +1,600 @@
+{
+ "kitchen": [
+  {
+   "id": "kitchen.cleanFloor",
+   "name": "Limpar o chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "kitchen.cleanSink",
+   "name": "Limpar a pia",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "kitchen.cleanStove",
+   "name": "Limpar o fogão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "kitchen.organizeFridge",
+   "name": "Organizar a geladeira",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "kitchen.washDishes",
+   "name": "Lavar a louça",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "kitchen.takeOutTrash",
+   "name": "Tirar o lixo",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "kitchen.wipeCounters",
+   "name": "Limpar a bancada",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "kitchen.cleanMicrowave",
+   "name": "Limpar o micro-ondas",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "kitchen.cleanOven",
+   "name": "Limpar o forno",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "kitchen.organizePantry",
+   "name": "Organizar a despensa",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "kitchen.sweepFloor",
+   "name": "Varrer a cozinha",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "kitchen.cleanHood",
+   "name": "Limpar a coifa",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "kitchen.replaceSponge",
+   "name": "Trocar a esponja",
+   "details": "",
+   "effort": 1
+  }
+ ],
+ "bathroom": [
+  {
+   "id": "bathroom.cleanToilet",
+   "name": "Limpar o vaso sanitário",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "bathroom.cleanSink",
+   "name": "Limpar a pia",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "bathroom.cleanMirror",
+   "name": "Limpar o espelho",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "bathroom.cleanShower",
+   "name": "Lavar o box",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "bathroom.mopFloor",
+   "name": "Passar pano no chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "bathroom.takeOutTrash",
+   "name": "Tirar o lixo",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "bathroom.replaceToiletPaper",
+   "name": "Repor papel higiênico",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "bathroom.washTowels",
+   "name": "Lavar as toalhas",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "bathroom.cleanDrain",
+   "name": "Limpar o ralo",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "bathroom.organizeCabinet",
+   "name": "Organizar o armário",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "bathroom.washBathMat",
+   "name": "Lavar o tapete do banheiro",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "bathroom.descaleTaps",
+   "name": "Tirar o calcário das torneiras",
+   "details": "",
+   "effort": 2
+  }
+ ],
+ "bedroom": [
+  {
+   "id": "bedroom.changeSheets",
+   "name": "Trocar roupa de cama",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "bedroom.cleanFloor",
+   "name": "Limpar o chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "bedroom.dust",
+   "name": "Tirar o pó",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "bedroom.organizeWardrobe",
+   "name": "Organizar o guarda-roupa",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "bedroom.makeBed",
+   "name": "Arrumar a cama",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "bedroom.vacuum",
+   "name": "Aspirar o chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "bedroom.airRoom",
+   "name": "Arejar o quarto",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "bedroom.cleanWindows",
+   "name": "Limpar as janelas",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "bedroom.washBlankets",
+   "name": "Lavar os cobertores",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "bedroom.organizeDesk",
+   "name": "Organizar a escrivaninha",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "bedroom.flipMattress",
+   "name": "Virar o colchão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "bedroom.takeOutTrash",
+   "name": "Tirar o lixo",
+   "details": "",
+   "effort": 1
+  }
+ ],
+ "livingRoom": [
+  {
+   "id": "livingRoom.vacuum",
+   "name": "Aspirar o chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "livingRoom.dust",
+   "name": "Tirar o pó",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "livingRoom.cleanFurniture",
+   "name": "Limpar os móveis",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "livingRoom.organizeSofa",
+   "name": "Arrumar as almofadas e mantas",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "livingRoom.cleanWindows",
+   "name": "Limpar as janelas",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "livingRoom.mopFloor",
+   "name": "Passar pano no chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "livingRoom.cleanTV",
+   "name": "Limpar a TV e o painel",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "livingRoom.waterPlants",
+   "name": "Regar as plantas",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "livingRoom.washRug",
+   "name": "Lavar o tapete",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "livingRoom.organizeShelves",
+   "name": "Organizar as estantes",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "livingRoom.takeOutTrash",
+   "name": "Tirar o lixo",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "livingRoom.cleanSofa",
+   "name": "Aspirar o sofá",
+   "details": "",
+   "effort": 2
+  }
+ ],
+ "laundry": [
+  {
+   "id": "laundry.washClothes",
+   "name": "Lavar roupas",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "laundry.cleanFloor",
+   "name": "Limpar o chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "laundry.organizeProducts",
+   "name": "Organizar produtos de limpeza",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "laundry.hangClothes",
+   "name": "Estender as roupas",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "laundry.foldClothes",
+   "name": "Dobrar as roupas",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "laundry.ironClothes",
+   "name": "Passar roupa",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "laundry.cleanWasher",
+   "name": "Limpar a máquina de lavar",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "laundry.cleanLintFilter",
+   "name": "Limpar o filtro da secadora",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "laundry.cleanDrain",
+   "name": "Limpar o ralo",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "laundry.restockDetergent",
+   "name": "Repor sabão e amaciante",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "laundry.cleanTank",
+   "name": "Lavar o tanque",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "laundry.sortClothes",
+   "name": "Separar as roupas por cor",
+   "details": "",
+   "effort": 1
+  }
+ ],
+ "office": [
+  {
+   "id": "office.dust",
+   "name": "Tirar o pó",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "office.organizeDesk",
+   "name": "Organizar a mesa",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "office.cleanFloor",
+   "name": "Limpar o chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "office.cleanScreen",
+   "name": "Limpar a tela e o teclado",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "office.organizeCables",
+   "name": "Organizar os cabos",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "office.organizeDocuments",
+   "name": "Organizar documentos",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "office.emptyBin",
+   "name": "Esvaziar a lixeira",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "office.vacuum",
+   "name": "Aspirar o chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "office.cleanWindows",
+   "name": "Limpar as janelas",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "office.organizeShelves",
+   "name": "Organizar as estantes",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "office.waterPlants",
+   "name": "Regar as plantas",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "office.wipeChair",
+   "name": "Limpar a cadeira",
+   "details": "",
+   "effort": 1
+  }
+ ],
+ "outdoor": [
+  {
+   "id": "outdoor.sweep",
+   "name": "Varrer a área",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "outdoor.organize",
+   "name": "Organizar a área",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "outdoor.waterPlants",
+   "name": "Regar as plantas",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "outdoor.washFloor",
+   "name": "Lavar o chão com mangueira",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "outdoor.takeOutTrash",
+   "name": "Levar o lixo para fora",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "outdoor.pruneGarden",
+   "name": "Podar as plantas",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "outdoor.cleanGrill",
+   "name": "Limpar a churrasqueira",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "outdoor.cleanFurniture",
+   "name": "Limpar os móveis externos",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "outdoor.cleanGutters",
+   "name": "Limpar as calhas",
+   "details": "",
+   "effort": 3
+  },
+  {
+   "id": "outdoor.feedPets",
+   "name": "Limpar o espaço dos pets",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "outdoor.cleanGate",
+   "name": "Limpar o portão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "outdoor.collectLeaves",
+   "name": "Recolher as folhas",
+   "details": "",
+   "effort": 2
+  }
+ ],
+ "other": [
+  {
+   "id": "other.takeOutTrash",
+   "name": "Tirar o lixo",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "other.sweep",
+   "name": "Varrer o chão",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "other.mop",
+   "name": "Passar pano no chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "other.dust",
+   "name": "Tirar o pó",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "other.organize",
+   "name": "Organizar o espaço",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "other.vacuum",
+   "name": "Aspirar o chão",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "other.cleanWindows",
+   "name": "Limpar as janelas",
+   "details": "",
+   "effort": 2
+  },
+  {
+   "id": "other.waterPlants",
+   "name": "Regar as plantas",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "other.changeBulb",
+   "name": "Trocar lâmpada queimada",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "other.airRoom",
+   "name": "Arejar o ambiente",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "other.cleanSurfaces",
+   "name": "Limpar as superfícies",
+   "details": "",
+   "effort": 1
+  },
+  {
+   "id": "other.organizeShelves",
+   "name": "Organizar as prateleiras",
+   "details": "",
+   "effort": 2
+  }
+ ]
+}
