@@ -30,6 +30,43 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  web:
+    name: Web (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            backend/package-lock.json
+      # O e2e sobe backend/tools/local-api (a `api` em memória), que importa o código do backend.
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          REVEZA_API_BASE_URL: http://127.0.0.1:4010
+          COGNITO_USER_POOL_ID: us-east-1_M9GpISkE3
+          COGNITO_CLIENT_ID: 21gqeeehhmeufpipk84e3cc7tu
+          SESSION_SECRET: ci-build-secret-with-at-least-32-bytes
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          retention-days: 7
+
   domain-swift:
     name: GrupuxoDomain (swift test)
     runs-on: macos-15
