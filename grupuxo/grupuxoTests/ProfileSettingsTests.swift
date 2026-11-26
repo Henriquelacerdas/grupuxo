@@ -45,22 +45,22 @@ struct ProfileSettingsTests {
     @Test func emptyOrInvalidLinksAreHidden() {
         let info = AppInfo(info: [
             "CFBundleShortVersionString": "1.2",
-            "GrupuxoHelpURL": "",
-            "GrupuxoFeedbackURL": "mailto:ola@example.com",
             "GrupuxoPrivacyPolicyURL": "https://example.com/privacidade",
             "GrupuxoTermsURL": "ftp://example.com/termos"
         ])
         #expect(info.version == "1.2")
-        #expect(info.helpURL == nil)
-        #expect(info.feedbackURL?.scheme == "mailto")
         #expect(info.privacyPolicyURL?.host == "example.com")
         #expect(info.termsOfUseURL == nil)
-        #expect(info.hasHelpLinks)
     }
 
     @Test func missingKeysLeaveEverythingHidden() {
         let info = AppInfo(info: [:])
         #expect(info == AppInfo())
-        #expect(!info.hasHelpLinks)
+    }
+
+    @Test func feedbackMailIsAddressedToTheSupportInbox() throws {
+        let url = try #require(AppInfo.feedbackMailURL)
+        #expect(url.scheme == "mailto")
+        #expect(url.absoluteString.hasPrefix("mailto:reveza.app@gmail.com?subject="))
     }
 }

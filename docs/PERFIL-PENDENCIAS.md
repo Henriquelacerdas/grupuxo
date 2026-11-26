@@ -15,7 +15,7 @@ Regra geral: nova rota na `api` entra primeiro em `docs/BACKEND.md` (seção 6.1
 
 ## Falta
 
-- [ ] **Ajuda e Feedback:** `GRUPUXO_HELP_URL` e `GRUPUXO_FEEDBACK_URL` (aceita `mailto:`) seguem vazios (Termos já tem URL) no `Grupuxo.xcconfig` (a linha não aparece no app). Em URL use `/$()/` no lugar de `//`. O App Store Connect usa a página da política como URL de Suporte; vale uma página de suporte própria. Conferir também o conteúdo de "Como o Reveza funciona".
+- [x] **Ajuda e Feedback:** resolvido: "Como o Reveza funciona" reabre a apresentação e "Enviar sugestão" abre e-mail para reveza.app@gmail.com. Falta só uma página de suporte própria para o App Store Connect (hoje usa a política) e conferir o texto da apresentação.
 - [ ] **Sair da casa "até o fim do ciclo":** o Figma diz "Você continua com as tarefas do ciclo atual até ele terminar. Depois, sai de todos os rodízios."; o app tira o morador na hora ("Ao sair, você deixa todos os cômodos da casa."). Implementar mexe no algoritmo (Swift, TypeScript, fixtures).
 - [ ] **Texto de "Apagar conta":** o Figma fala em "seu histórico"; o app descreve o que o `DELETE /v1/me` faz (perfil, vínculo do WhatsApp e saída da casa). A designer decide qual vale.
 - [ ] **Ajustes › Notificações:** o Figma tem "Lembrar das minhas tarefas" com "Horário", "Quando o ciclo virar", "Atividade da casa" e "Resumo da semana". O app usa os lembretes locais do ramo Shortcuts e tem itens sem frame ("Chegada em casa", "Sincronizar com o Lembretes", atalhos do Siri). A designer precisa desenhar ou aprovar.

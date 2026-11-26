@@ -15,6 +15,7 @@ struct ProfileView: View {
     @EnvironmentObject private var houses: RemoteHouseSession
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @State private var isShowingIntro = false
 
     @StateObject private var whatsApp: WhatsAppConnectionViewModel
     @StateObject private var account: AccountViewModel
@@ -52,9 +53,7 @@ struct ProfileView: View {
 
                 vacationSection
 
-                if appInfo.hasHelpLinks {
-                    helpSection
-                }
+                helpSection
 
                 if appInfo.privacyPolicyURL != nil || appInfo.termsOfUseURL != nil || appInfo.version != nil {
                     aboutSection
@@ -76,6 +75,9 @@ struct ProfileView: View {
                 case .notifications: NotificationSettingsView(api: houses.api)
                 case .whatsApp: WhatsAppSettingsView(viewModel: whatsApp)
                 }
+            }
+            .fullScreenCover(isPresented: $isShowingIntro) {
+                WelcomeView { isShowingIntro = false }
             }
             .refreshable { await houses.refresh() }
             .task { await whatsApp.load() }
@@ -198,11 +200,21 @@ struct ProfileView: View {
 
         Section {
 
-            if let url = appInfo.helpURL {
-                linkRow(Text("Como o Reveza funciona"), systemImage: "info.circle.fill", tint: .gray, url: url)
+            Button {
+                isShowingIntro = true
+            } label: {
+                SettingsRowLabel(
+                    title: Text("Como o Reveza funciona"),
+                    systemImage: "info.circle.fill",
+                    tint: .gray,
+                    showsDisclosure: true
+                )
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("showIntro")
 
-            if let url = appInfo.feedbackURL {
+            if let url = AppInfo.feedbackMailURL {
                 linkRow(Text("Enviar sugestão"), systemImage: "star.fill", tint: .purple, url: url)
             }
         } header: {
