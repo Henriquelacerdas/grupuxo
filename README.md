@@ -198,7 +198,3 @@ docs/                           arquitetura, algoritmo, backend, design, produto
 | [docs/PLANO.md](docs/PLANO.md) | Plano da trilha até o TestFlight externo, estado da AWS e riscos |
 | [PENDENCIAS.md](PENDENCIAS.md) | O que o design pede e ainda não está feito |
 | [CLAUDE.md](CLAUDE.md) | Guia rápido para IAs e novos desenvolvedores |
-
-## Autoria
-
-Desenvolvimento do app e do backend: **Henrique Lacerda** ([@Henriquelacerdas](https://github.com/Henriquelacerdas)). Design de produto e de interface: Letícia, no Apple Developer Academy. O projeto foi desenvolvido com apoio de assistentes de IA (Claude Code), com as regras de trabalho registradas em [CLAUDE.md](CLAUDE.md).
