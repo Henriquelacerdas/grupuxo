@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.ts\"",
     "test:fixtures": "node --test \"test/**/*.fixtures.test.ts\"",
-    "benchmark:reads": "node tools/performance/read-latency.ts"
+    "benchmark:reads": "node tools/performance/read-latency.ts",
+    "local-api": "node tools/local-api/server.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-cognito-identity-provider": "3.1142.0",
